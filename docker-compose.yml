@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: stocktracker-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stocktracker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stocktracker_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-stocktracker}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stocktracker} -d ${POSTGRES_DB:-stocktracker}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - stocktracker-network
+
+  # ===========================================
+  # Data Fetcher: Alpha Vantage (Stock Data)
+  # ===========================================
+  alpha-vantage-fetcher:
+    build:
+      context: ./services/data-fetchers/AlphaVantage
+      dockerfile: Dockerfile
+    container_name: stocktracker-alpha-vantage
+    restart: unless-stopped
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-stocktracker};Username=${POSTGRES_USER:-stocktracker};Password=${POSTGRES_PASSWORD:-stocktracker_pass}
+      - AlphaVantage__ApiKey=${ALPHA_VANTAGE_API_KEY}
+      - AlphaVantage__BaseUrl=https://www.alphavantage.co
+      - AlphaVantage__FetchIntervalMinutes=${ALPHA_VANTAGE_FETCH_INTERVAL:-60}
+      - AlphaVantage__Symbols=${ALPHA_VANTAGE_SYMBOLS:-AAPL,GOOGL,MSFT,AMZN,TSLA}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - stocktracker-network
+
+  # ===========================================
+  # Frontend: Next.js Application
+  # ===========================================
+  frontend:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+    container_name: stocktracker-frontend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-stocktracker}:${POSTGRES_PASSWORD:-stocktracker_pass}@postgres:5432/${POSTGRES_DB:-stocktracker}
+      - NODE_ENV=production
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - stocktracker-network
+
+  # ===========================================
+  # Additional Data Fetchers (Examples - Uncomment to enable)
+  # ===========================================
+  
+  # CoinGecko Crypto Fetcher (Example)
+  # coingecko-fetcher:
+  #   build:
+  #     context: ./services/data-fetchers/CoinGecko
+  #     dockerfile: Dockerfile
+  #   container_name: stocktracker-coingecko
+  #   restart: unless-stopped
+  #   environment:
+  #     - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-stocktracker};Username=${POSTGRES_USER:-stocktracker};Password=${POSTGRES_PASSWORD:-stocktracker_pass}
+  #     - CoinGecko__ApiKey=${COINGECKO_API_KEY}
+  #     - CoinGecko__FetchIntervalMinutes=${COINGECKO_FETCH_INTERVAL:-15}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - stocktracker-network
+
+  # Finnhub Stock Fetcher (Example)
+  # finnhub-fetcher:
+  #   build:
+  #     context: ./services/data-fetchers/Finnhub
+  #     dockerfile: Dockerfile
+  #   container_name: stocktracker-finnhub
+  #   restart: unless-stopped
+  #   environment:
+  #     - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-stocktracker};Username=${POSTGRES_USER:-stocktracker};Password=${POSTGRES_PASSWORD:-stocktracker_pass}
+  #     - Finnhub__ApiKey=${FINNHUB_API_KEY}
+  #     - Finnhub__FetchIntervalMinutes=${FINNHUB_FETCH_INTERVAL:-30}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - stocktracker-network
+
+networks:
+  stocktracker-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+
