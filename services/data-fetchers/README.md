@@ -4,11 +4,43 @@ This directory contains all data fetching microservices for the Stock and Crypto
 
 ## Architecture
 
-Each data fetcher is an independent .NET 8 Worker Service that:
-- Runs on a configurable schedule
+Each data fetcher is an independent .NET 8 ASP.NET Core service that:
+- Runs on a configurable schedule using `BackgroundService`
 - Fetches data from a specific third-party API
 - Stores data in the shared PostgreSQL database
+- Pushes metrics to the central Metrics Service
+- Exposes REST API for control (trigger, pause, resume)
 - Operates independently (can be added/removed without affecting other services)
+- Uses shared components from `StockTracker.Common`
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Data Fetcher Pattern                             │
+│                                                                          │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐     │
+│  │  API Controller │    │ BackgroundWorker│    │  FetchService   │     │
+│  │  (REST control) │    │   (Scheduler)   │───▶│  (Business)     │     │
+│  └────────┬────────┘    └────────┬────────┘    └────────┬────────┘     │
+│           │                      │                      │               │
+│           └──────────────────────┼──────────────────────┘               │
+│                                  │                                       │
+│                    ┌─────────────▼─────────────┐                        │
+│                    │   StockTracker.Common     │                        │
+│                    │  - IMetricsClient         │                        │
+│                    │  - WorkerStateService     │                        │
+│                    │  - WorkerHealthCheck      │                        │
+│                    └─────────────┬─────────────┘                        │
+│                                  │                                       │
+│           ┌──────────────────────┼──────────────────────┐               │
+│           │                      │                      │               │
+│           ▼                      ▼                      ▼               │
+│    ┌──────────────┐     ┌──────────────┐      ┌──────────────┐         │
+│    │  PostgreSQL  │     │   Metrics    │      │   External   │         │
+│    │   Database   │     │   Service    │      │     API      │         │
+│    └──────────────┘     └──────────────┘      └──────────────┘         │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Current Services
 
@@ -21,7 +53,7 @@ Each data fetcher is an independent .NET 8 Worker Service that:
 ### 1. Create the Service Directory
 
 ```bash
-mkdir -p services/data-fetchers/NewService/src/NewService.Worker/{Configuration,Models,Repositories,Services,Workers}
+mkdir -p services/data-fetchers/NewService/src/NewService.Worker/{Configuration,Controllers,Models,Repositories,Services,Workers}
 ```
 
 ### 2. Use the Template
@@ -38,69 +70,144 @@ cp -r services/data-fetchers/AlphaVantage/* services/data-fetchers/NewService/
 # - Update solution file
 ```
 
-### 3. Required Components
+### 3. Add Reference to Common Library
 
-Each service should have:
+In your `.csproj`:
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\..\..\..\common\StockTracker.Common\StockTracker.Common.csproj" />
+</ItemGroup>
+```
 
-#### Configuration (`Configuration/`)
+### 4. Configure Services in Program.cs
+
 ```csharp
-public class NewServiceSettings
+using StockTracker.Common.Metrics;
+using StockTracker.Common.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add metrics client (pushes to central Metrics Service)
+builder.Services.AddMetricsClient(builder.Configuration);
+
+// Add worker state management (pause/resume/trigger)
+builder.Services.AddWorkerState();
+
+// Add health checks
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString, name: "postgresql", tags: ["db", "ready"])
+    .AddWorkerHealthCheck("worker", ["worker", "ready"]);
+
+// Register your services
+builder.Services.AddHostedService<DataFetchWorker>();
+builder.Services.AddControllers();
+```
+
+### 5. Configuration (appsettings.json)
+
+```json
 {
-    public string ApiKey { get; set; } = string.Empty;
-    public string BaseUrl { get; set; } = "https://api.example.com";
-    public int FetchIntervalMinutes { get; set; } = 60;
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;..."
+  },
+  "NewService": {
+    "ApiKey": "",
+    "BaseUrl": "https://api.example.com",
+    "FetchIntervalMinutes": 60
+  },
+  "MetricsService": {
+    "BaseUrl": "http://metrics-service:8080",
+    "WorkerName": "newservice",
+    "Enabled": true,
+    "TimeoutSeconds": 5
+  }
 }
 ```
 
-#### API Client (`Services/`)
+### 6. Use Metrics in Your Service
+
 ```csharp
-public interface INewServiceApiClient
+public class DataFetchService
 {
-    Task<SomeData?> GetDataAsync(CancellationToken cancellationToken = default);
-}
-
-public class NewServiceApiClient : INewServiceApiClient
-{
-    // Implementation
-}
-```
-
-#### Repository (`Repositories/`)
-- Reuse `IDbConnectionFactory` from the template
-- Implement data-specific repository interface
-
-#### Worker (`Workers/`)
-```csharp
-public class DataFetchWorker : BackgroundService
-{
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    private readonly IMetricsClient _metrics;
+    private readonly WorkerStateService _workerState;
+    
+    public async Task FetchDataAsync()
     {
-        while (!stoppingToken.IsCancellationRequested)
+        var stopwatch = Stopwatch.StartNew();
+        
+        // Record start
+        await _metrics.RecordOperationStartedAsync("fetch", 
+            new Dictionary<string, string> { ["type"] = "daily" });
+        
+        try
         {
-            // Fetch and store data
-            await Task.Delay(TimeSpan.FromMinutes(_settings.FetchIntervalMinutes), stoppingToken);
+            _workerState.SetCurrentOperation("Fetching data...");
+            
+            // Your fetch logic here
+            
+            stopwatch.Stop();
+            await _metrics.RecordOperationCompletedAsync("fetch", 
+                stopwatch.Elapsed.TotalSeconds);
+            _workerState.SetOperationCompleted();
+        }
+        catch (Exception ex)
+        {
+            await _metrics.RecordOperationFailedAsync("fetch", ex.GetType().Name);
+            _workerState.SetOperationError();
+            throw;
         }
     }
 }
 ```
 
-### 4. Register Data Source
+### 7. Implement Worker with Pause/Resume Support
 
-Add the data source to the database. Either:
+```csharp
+public class DataFetchWorker : BackgroundService
+{
+    private readonly WorkerStateService _workerState;
+    private readonly IMetricsClient _metrics;
+    
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _workerState.SetRunning(true);
+        await _metrics.SetWorkerStatusAsync(isRunning: true, isPaused: false);
+        
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            // Check for manual trigger
+            var wasTriggered = _workerState.ConsumeTrigger();
+            
+            // Skip if paused (unless manually triggered)
+            if (_workerState.IsPaused && !wasTriggered)
+            {
+                await _metrics.SetWorkerStatusAsync(isRunning: true, isPaused: true);
+                await Task.Delay(5000, stoppingToken);
+                continue;
+            }
+            
+            // Do fetch work...
+            
+            // Set next fetch time
+            _workerState.SetNextOperationTime(DateTime.UtcNow.AddMinutes(60));
+            await Task.Delay(TimeSpan.FromMinutes(60), stoppingToken);
+        }
+        
+        _workerState.SetRunning(false);
+    }
+}
+```
 
-1. Add to `database/init/01-init.sql`:
+### 8. Register Data Source in Database
+
+Add to `database/init/01-init.sql`:
 ```sql
 INSERT INTO data_sources (name, description, api_type) VALUES
     ('NewService', 'New Service API description', 'stock|crypto|both');
 ```
 
-2. Or insert manually:
-```sql
-INSERT INTO data_sources (name, description, api_type)
-VALUES ('NewService', 'Description', 'crypto');
-```
-
-### 5. Create Dockerfile
+### 9. Create Dockerfile
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
@@ -113,11 +220,16 @@ RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://+:8080
 COPY --from=build /app/publish .
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/health/live || exit 1
 ENTRYPOINT ["dotnet", "NewService.Worker.dll"]
 ```
 
-### 6. Add to docker-compose.yml
+### 10. Add to docker-compose.yml
 
 ```yaml
 new-service-fetcher:
@@ -130,19 +242,27 @@ new-service-fetcher:
     - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-stocktracker};Username=${POSTGRES_USER:-stocktracker};Password=${POSTGRES_PASSWORD:-stocktracker_pass}
     - NewService__ApiKey=${NEW_SERVICE_API_KEY}
     - NewService__FetchIntervalMinutes=${NEW_SERVICE_FETCH_INTERVAL:-60}
+    - MetricsService__BaseUrl=http://metrics-service:8080
+    - MetricsService__WorkerName=newservice
+    - MetricsService__Enabled=true
+  ports:
+    - "${NEW_SERVICE_API_PORT:-8083}:8080"
   depends_on:
     postgres:
+      condition: service_healthy
+    metrics-service:
       condition: service_healthy
   networks:
     - stocktracker-network
 ```
 
-### 7. Add Environment Variables
+### 11. Add Environment Variables
 
 Update `.env.example`:
 ```
 NEW_SERVICE_API_KEY=your_api_key_here
 NEW_SERVICE_FETCH_INTERVAL=60
+NEW_SERVICE_API_PORT=8083
 ```
 
 ## Removing a Data Fetcher
@@ -172,6 +292,11 @@ UPDATE data_sources SET is_active = false WHERE name = 'NewService';
 
 ## Best Practices
 
+### Shared Components
+- **Always use** `StockTracker.Common` for metrics and worker state
+- **Never** add prometheus-net directly to workers
+- **Never** duplicate metrics/worker state code
+
 ### API Rate Limiting
 - Respect API rate limits with appropriate delays
 - Use `Polly` for retry policies
@@ -181,6 +306,7 @@ UPDATE data_sources SET is_active = false WHERE name = 'NewService';
 - Log all errors with context
 - Use fetch_logs table for operation tracking
 - Continue processing other items on partial failures
+- Report errors to metrics service
 
 ### Database Operations
 - Use upsert (ON CONFLICT) for idempotent operations
@@ -194,8 +320,19 @@ UPDATE data_sources SET is_active = false WHERE name = 'NewService';
 
 ## Monitoring
 
-Check fetch status via the frontend or database:
+### Via Metrics Service
+All worker metrics are aggregated at the central Metrics Service:
+- http://localhost:8082/metrics (Prometheus format)
+- http://localhost:8082/api/metrics/workers (worker status)
 
+### Via Worker API
+Each worker exposes control endpoints:
+- `GET /api/fetch/status` - Worker status
+- `POST /api/fetch/trigger` - Manual trigger
+- `POST /api/fetch/pause` - Pause worker
+- `POST /api/fetch/resume` - Resume worker
+
+### Via Database
 ```sql
 -- Recent fetch operations
 SELECT 
@@ -215,16 +352,23 @@ LIMIT 20;
 
 ### Service won't start
 1. Check database connectivity
-2. Verify environment variables
-3. Check Docker logs: `docker-compose logs new-service-fetcher`
+2. Check metrics service connectivity
+3. Verify environment variables
+4. Check Docker logs: `docker-compose logs new-service-fetcher`
 
 ### No data appearing
 1. Check fetch_logs for errors
 2. Verify API key is valid
 3. Confirm data source exists in database
+4. Check `/api/fetch/status` endpoint
+
+### Metrics not appearing
+1. Ensure Metrics Service is running
+2. Check `MetricsService__Enabled` is `true`
+3. Verify `MetricsService__BaseUrl` is correct
+4. Check Metrics Service logs
 
 ### Rate limit errors
 1. Increase fetch interval
 2. Reduce number of items to fetch
 3. Consider API plan upgrade
-

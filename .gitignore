@@ -3,11 +3,18 @@
 # ===========================================
 
 # ===========================================
-# Environment Files
+# Environment Files (secrets - never commit!)
 # ===========================================
 .env
 .env.local
 .env.*.local
+.env.staging
+.env.prod
+.env.production
+.env.development
+
+# Keep the example template
+!.env.example
 
 # ===========================================
 # Database

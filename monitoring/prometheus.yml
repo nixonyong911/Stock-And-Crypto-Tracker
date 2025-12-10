@@ -1,0 +1,24 @@
+# Prometheus Configuration for Stock Tracker
+# This file is used when Prometheus is enabled in docker-compose.yml
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Central Metrics Service
+  # All worker metrics are aggregated here
+  - job_name: 'metrics-service'
+    static_configs:
+      - targets: ['metrics-service:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Note: Individual workers no longer expose /metrics directly.
+  # They push metrics to the central metrics-service which exposes
+  # all aggregated metrics at a single endpoint.

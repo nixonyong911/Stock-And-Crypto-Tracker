@@ -6,60 +6,84 @@ A microservices-based application for tracking stocks and cryptocurrency prices 
 
 Track stocks and cryptocurrency prices by aggregating data from multiple third-party APIs. The system is designed with loose coupling, allowing data sources to be easily added or removed without affecting other components.
 
+## Architecture Principles
+
+> **Key Principle**: Features not directly related to a worker's core responsibility should be standalone microservices. This ensures loose coupling and maintainability.
+>
+> Examples:
+> - Metrics collection → `StockTracker.Metrics` service
+> - (Future) Notifications → `StockTracker.Notifications` service
+> - (Future) Scheduling → `StockTracker.Scheduler` service
+
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              Docker Compose                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                    Data Fetching Layer (.NET 8)                      │   │
-│  │                                                                      │   │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │   │
-│  │  │ AlphaVantage │  │  [Service B] │  │  [Service C] │   ...        │   │
-│  │  │   Fetcher    │  │   Fetcher    │  │   Fetcher    │              │   │
-│  │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘              │   │
-│  │         │                 │                 │                       │   │
-│  └─────────┼─────────────────┼─────────────────┼───────────────────────┘   │
-│            │                 │                 │                            │
-│            │    WRITE        │    WRITE        │    WRITE                   │
-│            ▼                 ▼                 ▼                            │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                        PostgreSQL Database                           │   │
-│  │                                                                      │   │
-│  │    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐               │   │
-│  │    │stock_prices │  │crypto_prices│  │data_sources │               │   │
-│  │    └─────────────┘  └─────────────┘  └─────────────┘               │   │
-│  │                                                                      │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                    ▲                                        │
-│                                    │ READ                                   │
-│                                    │                                        │
-│  ┌─────────────────────────────────┴───────────────────────────────────┐   │
-│  │                     Frontend (Next.js 16)                            │   │
-│  │                                                                      │   │
-│  │         Server Components with Direct Database Access                │   │
-│  │                                                                      │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Docker Compose                                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌────────────────────────────────────────────────────────────────────────────┐ │
+│  │                    Data Fetching Layer (.NET 8)                             │ │
+│  │                                                                             │ │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                     │ │
+│  │  │ AlphaVantage │  │  [Service B] │  │  [Service C] │   ...               │ │
+│  │  │   Fetcher    │  │   Fetcher    │  │   Fetcher    │                     │ │
+│  │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘                     │ │
+│  │         │                 │                 │                              │ │
+│  └─────────┼─────────────────┼─────────────────┼──────────────────────────────┘ │
+│            │                 │                 │                                 │
+│            │ WRITE           │ WRITE           │ WRITE                          │
+│            ▼                 ▼                 ▼                                 │
+│  ┌────────────────────────────────────────────────────────────────────────────┐ │
+│  │                        PostgreSQL Database                                  │ │
+│  │    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                      │ │
+│  │    │stock_prices │  │crypto_prices│  │data_sources │                      │ │
+│  │    └─────────────┘  └─────────────┘  └─────────────┘                      │ │
+│  └────────────────────────────────────────────────────────────────────────────┘ │
+│                                    ▲                                             │
+│            ┌───────────────────────┴──────────────────────────┐                 │
+│            │                       │ READ                      │                 │
+│            │                       │                           │                 │
+│  ┌─────────┴─────────┐   ┌─────────┴──────────────────────────┴───────────────┐ │
+│  │  Metrics Service  │   │                  Frontend (Next.js)                 │ │
+│  │                   │   │         Server Components with Direct DB Access     │ │
+│  │  POST /metrics ◄──┼───┤                                                     │ │
+│  │  GET /metrics ────┼───┼──► Prometheus                                       │ │
+│  └───────────────────┘   └─────────────────────────────────────────────────────┘ │
+│            ▲                                                                     │
+│            │ Push Metrics                                                        │
+│  ┌─────────┴──────────────────────────────────────────────────────────────────┐ │
+│  │                         All Workers Push Here                               │ │
+│  └─────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                  │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Microservices
 
 ### 1. Data Fetching Layer (.NET 8)
 - **Purpose**: Fetch data from third-party APIs and store it in the database
-- **Technology**: .NET 8 Worker Services with BackgroundService
+- **Technology**: .NET 8 ASP.NET Core with BackgroundService
 - **Design**: Each API provider has its own independent service
-- **Communication**: Services only write to the shared database (no inter-service communication)
+- **Communication**: Services write to the shared database and push metrics to the Metrics Service
 
-### 2. Frontend Service (Next.js 16)
+### 2. Metrics Service (.NET 8)
+- **Purpose**: Central aggregation of metrics from all workers
+- **Technology**: .NET 8 ASP.NET Core with prometheus-net
+- **Design**: Workers push metrics via HTTP, Prometheus scrapes from this single endpoint
+- **Location**: `services/metrics/`
+
+### 3. Common Library (.NET 8)
+- **Purpose**: Shared code for all workers (metrics client, worker state, health checks)
+- **Technology**: .NET 8 Class Library
+- **Location**: `services/common/`
+
+### 4. Frontend Service (Next.js)
 - **Purpose**: Display stock and cryptocurrency data to users
-- **Technology**: Next.js 16 with App Router and Server Components
+- **Technology**: Next.js with App Router and Server Components
 - **Data Access**: Direct database queries via server components (read-only)
 
-### 3. PostgreSQL Database
+### 5. PostgreSQL Database
 - **Purpose**: Central data store for all services
 - **Access Pattern**: Data fetchers write, frontend reads
 
@@ -70,10 +94,20 @@ StockAndCryptoTracker/
 ├── README.md                          # This file
 ├── docker-compose.yml                 # Container orchestration
 ├── .env.example                       # Environment variables template
+├── monitoring/
+│   └── prometheus.yml                 # Prometheus configuration
 ├── services/
+│   ├── common/                        # Shared library
+│   │   └── StockTracker.Common/
+│   │       ├── Metrics/               # IMetricsClient
+│   │       └── Services/              # WorkerStateService, HealthChecks
+│   ├── metrics/                       # Central metrics service
+│   │   └── StockTracker.Metrics/
+│   │       ├── Controllers/
+│   │       ├── Services/
+│   │       └── Dockerfile
 │   ├── data-fetchers/
 │   │   ├── AlphaVantage/             # Stock data fetcher
-│   │   │   ├── AlphaVantage.sln
 │   │   │   ├── src/
 │   │   │   │   └── AlphaVantage.Worker/
 │   │   │   ├── Dockerfile
@@ -119,6 +153,8 @@ StockAndCryptoTracker/
 
 4. **Access the application**
    - Frontend: http://localhost:3000
+   - Alpha Vantage API: http://localhost:8081/swagger
+   - Metrics Service: http://localhost:8082/swagger
    - Database: localhost:5432
 
 ### Stop Services
@@ -133,6 +169,7 @@ docker-compose logs -f
 
 # Specific service
 docker-compose logs -f alpha-vantage-fetcher
+docker-compose logs -f metrics-service
 docker-compose logs -f frontend
 ```
 
@@ -149,10 +186,27 @@ mkdir -p services/data-fetchers/NewService/src/NewService.Worker
 Use the AlphaVantage service as a template:
 - Copy the project structure from `services/data-fetchers/AlphaVantage/`
 - Rename namespaces and project files
+- Add reference to `StockTracker.Common`
 - Implement your API client in the `Services/` folder
 - Configure the scheduler in `Workers/`
 
-### 3. Create the Dockerfile
+### 3. Add Metrics Integration
+```csharp
+// In Program.cs
+builder.Services.AddMetricsClient(builder.Configuration);
+builder.Services.AddWorkerState();
+
+// In appsettings.json
+{
+  "MetricsService": {
+    "BaseUrl": "http://metrics-service:8080",
+    "WorkerName": "newservice",
+    "Enabled": true
+  }
+}
+```
+
+### 4. Create the Dockerfile
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
@@ -168,23 +222,26 @@ COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "NewService.Worker.dll"]
 ```
 
-### 4. Add to docker-compose.yml
+### 5. Add to docker-compose.yml
 ```yaml
 new-service-fetcher:
   build:
     context: ./services/data-fetchers/NewService
     dockerfile: Dockerfile
   environment:
-    - ConnectionStrings__DefaultConnection=${DATABASE_URL}
+    - ConnectionStrings__DefaultConnection=Host=postgres;...
     - NewService__ApiKey=${NEW_SERVICE_API_KEY}
-    - NewService__FetchIntervalMinutes=15
+    - MetricsService__BaseUrl=http://metrics-service:8080
+    - MetricsService__WorkerName=newservice
   depends_on:
     postgres:
+      condition: service_healthy
+    metrics-service:
       condition: service_healthy
   restart: unless-stopped
 ```
 
-### 5. Add Environment Variables
+### 6. Add Environment Variables
 Update `.env.example` and your local `.env`:
 ```
 NEW_SERVICE_API_KEY=your-api-key-here
@@ -206,6 +263,21 @@ Comment out the service in `docker-compose.yml`:
 
 **Note**: Existing data in the database will be preserved. To remove data, run appropriate SQL cleanup.
 
+## Monitoring with Prometheus & Grafana
+
+1. Uncomment Prometheus and Grafana in `docker-compose.yml`
+
+2. Start the monitoring stack:
+   ```bash
+   docker-compose up prometheus grafana -d
+   ```
+
+3. Access:
+   - Prometheus: http://localhost:9090
+   - Grafana: http://localhost:3001 (admin/admin)
+
+4. All worker metrics are aggregated at the Metrics Service (`/metrics` endpoint)
+
 ## Development
 
 ### Local Development Setup
@@ -215,6 +287,13 @@ Comment out the service in `docker-compose.yml`:
 cd services/data-fetchers/AlphaVantage
 dotnet restore
 dotnet run --project src/AlphaVantage.Worker
+```
+
+#### Metrics Service (.NET)
+```bash
+cd services/metrics/StockTracker.Metrics
+dotnet restore
+dotnet run
 ```
 
 #### Frontend (Next.js)
@@ -249,17 +328,20 @@ See `.env.example` for all required environment variables:
 | `POSTGRES_USER` | Database username | Yes |
 | `POSTGRES_PASSWORD` | Database password | Yes |
 | `POSTGRES_DB` | Database name | Yes |
-| `DATABASE_URL` | Full connection string | Yes |
 | `ALPHA_VANTAGE_API_KEY` | Alpha Vantage API key | Yes |
+| `METRICS_SERVICE_PORT` | Metrics service port | No (default: 8082) |
+| `ALPHA_VANTAGE_API_PORT` | Alpha Vantage API port | No (default: 8081) |
 
 ## Technology Stack
 
-- **Data Fetchers**: .NET 8, Worker Services, Npgsql
-- **Frontend**: Next.js 16, React 19, Server Components
+- **Data Fetchers**: .NET 8, ASP.NET Core, Worker Services, Npgsql
+- **Metrics Service**: .NET 8, ASP.NET Core, prometheus-net
+- **Common Library**: .NET 8 Class Library
+- **Frontend**: Next.js, React, Server Components
 - **Database**: PostgreSQL 16
+- **Monitoring**: Prometheus, Grafana
 - **Containerization**: Docker, Docker Compose
 
 ## License
 
 MIT License
-

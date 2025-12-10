@@ -1,23 +1,18 @@
-# Alpha Vantage Data Fetcher Service (ASP.NET Core)
+# StockTracker Metrics Service
 # Multi-stage build for optimized image size
 
 # Build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy common library first
-COPY ["common/StockTracker.Common/StockTracker.Common.csproj", "common/StockTracker.Common/"]
-
 # Copy project file and restore dependencies
-COPY ["data-fetchers/AlphaVantage/src/AlphaVantage.Worker/AlphaVantage.Worker.csproj", "data-fetchers/AlphaVantage/src/AlphaVantage.Worker/"]
-RUN dotnet restore "data-fetchers/AlphaVantage/src/AlphaVantage.Worker/AlphaVantage.Worker.csproj"
+COPY ["StockTracker.Metrics.csproj", "./"]
+RUN dotnet restore "StockTracker.Metrics.csproj"
 
-# Copy all source code
-COPY common/ common/
-COPY data-fetchers/AlphaVantage/src/ data-fetchers/AlphaVantage/src/
+# Copy source code
+COPY . .
 
 # Build and publish
-WORKDIR "/src/data-fetchers/AlphaVantage/src/AlphaVantage.Worker"
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage
@@ -40,8 +35,11 @@ COPY --from=build /app/publish .
 # Set ASP.NET Core URLs
 ENV ASPNETCORE_URLS=http://+:8080
 
-# Health check using the /health endpoint
+# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8080/health/live || exit 1
 
-ENTRYPOINT ["dotnet", "AlphaVantage.Worker.dll"]
+ENTRYPOINT ["dotnet", "StockTracker.Metrics.dll"]
+
+
+

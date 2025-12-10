@@ -1,27 +1,34 @@
 version: '3.8'
 
+# ===========================================
+# Stock and Crypto Tracker - Docker Compose
+# ===========================================
+# Usage:
+#   Staging:    docker-compose --env-file .env.staging up -d
+#   Production: docker-compose --env-file .env.prod up -d
+# ===========================================
+
 services:
   # ===========================================
-  # PostgreSQL Database
+  # Metrics Service (Central Metrics Aggregation)
+  # All workers push metrics here, Prometheus scrapes from here
   # ===========================================
-  postgres:
-    image: postgres:16-alpine
-    container_name: stocktracker-db
+  metrics-service:
+    build:
+      context: ./services/metrics/StockTracker.Metrics
+      dockerfile: Dockerfile
+    container_name: stocktracker-metrics
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-stocktracker}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stocktracker_pass}
-      POSTGRES_DB: ${POSTGRES_DB:-stocktracker}
+      - ASPNETCORE_ENVIRONMENT=Production
     ports:
-      - "${DB_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d:ro
+      # API & Prometheus metrics endpoint
+      - "${METRICS_SERVICE_PORT:-8082}:8080"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stocktracker} -d ${POSTGRES_DB:-stocktracker}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
       start_period: 10s
     networks:
       - stocktracker-network
@@ -31,19 +38,39 @@ services:
   # ===========================================
   alpha-vantage-fetcher:
     build:
-      context: ./services/data-fetchers/AlphaVantage
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: data-fetchers/AlphaVantage/Dockerfile
     container_name: stocktracker-alpha-vantage
     restart: unless-stopped
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-stocktracker};Username=${POSTGRES_USER:-stocktracker};Password=${POSTGRES_PASSWORD:-stocktracker_pass}
+      # Supabase Configuration
+      - Supabase__Url=${NEXT_PUBLIC_SUPABASE_URL}
+      - Supabase__AnonKey=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
+      - Supabase__ServiceRoleKey=${SUPABASE_SECRET_DEFAULT_KEY}
+      # Database (Supabase PostgreSQL pooler)
+      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      # Alpha Vantage API
       - AlphaVantage__ApiKey=${ALPHA_VANTAGE_API_KEY}
       - AlphaVantage__BaseUrl=https://www.alphavantage.co
       - AlphaVantage__FetchIntervalMinutes=${ALPHA_VANTAGE_FETCH_INTERVAL:-60}
       - AlphaVantage__Symbols=${ALPHA_VANTAGE_SYMBOLS:-AAPL,GOOGL,MSFT,AMZN,TSLA}
+      # Metrics Service
+      - MetricsService__BaseUrl=http://metrics-service:8080
+      - MetricsService__WorkerName=alphavantage
+      - MetricsService__Enabled=true
+      # Environment
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+    ports:
+      - "${ALPHA_VANTAGE_API_PORT:-8081}:8080"
     depends_on:
-      postgres:
+      metrics-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
     networks:
       - stocktracker-network
 
@@ -54,24 +81,70 @@ services:
     build:
       context: ./services/frontend
       dockerfile: Dockerfile
+      args:
+        # Build args for NEXT_PUBLIC_ vars (baked at build time)
+        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+        - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
     container_name: stocktracker-frontend
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-stocktracker}:${POSTGRES_PASSWORD:-stocktracker_pass}@postgres:5432/${POSTGRES_DB:-stocktracker}
-      - NODE_ENV=production
+      # Database (Supabase PostgreSQL pooler - for server-side queries)
+      - DATABASE_URL=${DATABASE_URL}
+      # Environment
+      - NODE_ENV=${NODE_ENV:-production}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - stocktracker-network
+
+  # ===========================================
+  # Prometheus (Optional - for metrics collection)
+  # Uncomment to enable metrics collection
+  # ===========================================
+  # prometheus:
+  #   image: prom/prometheus:v2.48.0
+  #   container_name: stocktracker-prometheus
+  #   restart: unless-stopped
+  #   ports:
+  #     - "${PROMETHEUS_PORT:-9090}:9090"
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus_data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.enable-lifecycle'
+  #   depends_on:
+  #     - metrics-service
+  #   networks:
+  #     - stocktracker-network
+
+  # ===========================================
+  # Grafana (Optional - for metrics visualization)
+  # Uncomment to enable dashboards
+  # ===========================================
+  # grafana:
+  #   image: grafana/grafana:10.2.0
+  #   container_name: stocktracker-grafana
+  #   restart: unless-stopped
+  #   ports:
+  #     - "${GRAFANA_PORT:-3001}:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+  #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #     - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - stocktracker-network
 
   # ===========================================
   # Additional Data Fetchers (Examples - Uncomment to enable)
   # ===========================================
   
-  # CoinGecko Crypto Fetcher (Example)
+  # CoinGecko Crypto Fetcher (Example - uncomment when ready)
   # coingecko-fetcher:
   #   build:
   #     context: ./services/data-fetchers/CoinGecko
@@ -79,28 +152,23 @@ services:
   #   container_name: stocktracker-coingecko
   #   restart: unless-stopped
   #   environment:
-  #     - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-stocktracker};Username=${POSTGRES_USER:-stocktracker};Password=${POSTGRES_PASSWORD:-stocktracker_pass}
+  #     # Supabase Configuration
+  #     - Supabase__Url=${NEXT_PUBLIC_SUPABASE_URL}
+  #     - Supabase__AnonKey=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
+  #     - Supabase__ServiceRoleKey=${SUPABASE_SECRET_DEFAULT_KEY}
+  #     # Database (Supabase PostgreSQL pooler)
+  #     - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+  #     # CoinGecko API
   #     - CoinGecko__ApiKey=${COINGECKO_API_KEY}
   #     - CoinGecko__FetchIntervalMinutes=${COINGECKO_FETCH_INTERVAL:-15}
+  #     # Metrics Service
+  #     - MetricsService__BaseUrl=http://metrics-service:8080
+  #     - MetricsService__WorkerName=coingecko
+  #     - MetricsService__Enabled=true
+  #     # Environment
+  #     - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
   #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   networks:
-  #     - stocktracker-network
-
-  # Finnhub Stock Fetcher (Example)
-  # finnhub-fetcher:
-  #   build:
-  #     context: ./services/data-fetchers/Finnhub
-  #     dockerfile: Dockerfile
-  #   container_name: stocktracker-finnhub
-  #   restart: unless-stopped
-  #   environment:
-  #     - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-stocktracker};Username=${POSTGRES_USER:-stocktracker};Password=${POSTGRES_PASSWORD:-stocktracker_pass}
-  #     - Finnhub__ApiKey=${FINNHUB_API_KEY}
-  #     - Finnhub__FetchIntervalMinutes=${FINNHUB_FETCH_INTERVAL:-30}
-  #   depends_on:
-  #     postgres:
+  #     metrics-service:
   #       condition: service_healthy
   #   networks:
   #     - stocktracker-network
@@ -109,7 +177,9 @@ networks:
   stocktracker-network:
     driver: bridge
 
-volumes:
-  postgres_data:
-    driver: local
-
+# volumes:
+#   # Uncomment if using Prometheus/Grafana
+#   prometheus_data:
+#     driver: local
+#   grafana_data:
+#     driver: local
