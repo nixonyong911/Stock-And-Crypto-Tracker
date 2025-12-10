@@ -1,0 +1,118 @@
+# Deploy Backend Services to Azure Container Apps
+# Triggers on push to main branch when backend services change
+# NOTE: Frontend is handled by Vercel (excluded from this workflow)
+
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/data-fetchers/**'
+      - 'services/metrics/**'
+      - 'services/common/**'
+      - '.github/workflows/deploy-azure.yml'
+      # Explicitly exclude frontend (handled by Vercel)
+      - '!services/frontend/**'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  RESOURCE_GROUP: rg-stocktracker
+  CONTAINER_ENV: cae-stocktracker
+  LOCATION: southeastasia
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Login to Azure
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Login to Azure Container Registry
+      - name: Login to ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      # Build and push Metrics Service
+      - name: Build and push Metrics Service
+        run: |
+          docker build \
+            -f services/metrics/StockTracker.Metrics/Dockerfile \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/metrics-service:${{ github.sha }} \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/metrics-service:latest \
+            services/metrics/StockTracker.Metrics/
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/metrics-service:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/metrics-service:latest
+
+      # Build and push AlphaVantage Worker
+      - name: Build and push AlphaVantage Worker
+        run: |
+          docker build \
+            -f services/data-fetchers/AlphaVantage/Dockerfile \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/alphavantage-worker:${{ github.sha }} \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/alphavantage-worker:latest \
+            services/
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/alphavantage-worker:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/alphavantage-worker:latest
+
+      # Deploy Metrics Service (deploy first as AlphaVantage depends on it)
+      - name: Deploy Metrics Service to Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ca-metrics
+          containerAppEnvironment: ${{ env.CONTAINER_ENV }}
+          imageToDeploy: ${{ secrets.ACR_LOGIN_SERVER }}/metrics-service:${{ github.sha }}
+          targetPort: 8080
+          ingress: internal
+          registryUrl: ${{ secrets.ACR_LOGIN_SERVER }}
+          registryUsername: ${{ secrets.ACR_USERNAME }}
+          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          environmentVariables: |
+            ASPNETCORE_ENVIRONMENT=Production
+
+      # Deploy AlphaVantage Worker
+      - name: Deploy AlphaVantage Worker to Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ca-alphavantage
+          containerAppEnvironment: ${{ env.CONTAINER_ENV }}
+          imageToDeploy: ${{ secrets.ACR_LOGIN_SERVER }}/alphavantage-worker:${{ github.sha }}
+          targetPort: 8080
+          ingress: external
+          registryUrl: ${{ secrets.ACR_LOGIN_SERVER }}
+          registryUsername: ${{ secrets.ACR_USERNAME }}
+          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          environmentVariables: |
+            ASPNETCORE_ENVIRONMENT=Production
+            Supabase__Url=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            Supabase__AnonKey=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
+            Supabase__ServiceRoleKey=${{ secrets.SUPABASE_SECRET_DEFAULT_KEY }}
+            ConnectionStrings__DefaultConnection=${{ secrets.DATABASE_CONNECTION_STRING }}
+            AlphaVantage__ApiKey=${{ secrets.ALPHA_VANTAGE_API_KEY }}
+            AlphaVantage__BaseUrl=https://www.alphavantage.co
+            AlphaVantage__FetchIntervalMinutes=60
+            AlphaVantage__Symbols=AAPL,GOOGL,MSFT,AMZN,TSLA
+            MetricsService__BaseUrl=https://ca-metrics.internal
+            MetricsService__WorkerName=alphavantage
+            MetricsService__Enabled=true
+
+      # Output deployment info
+      - name: Get deployment URLs
+        run: |
+          echo "=== Deployment Complete ==="
+          echo "Checking deployed apps..."
+          az containerapp show -n ca-metrics -g ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null || echo "Metrics: internal service"
+          az containerapp show -n ca-alphavantage -g ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null || echo "Fetching AlphaVantage URL..."
