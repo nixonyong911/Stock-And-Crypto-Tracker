@@ -75,27 +75,9 @@ services:
       - stocktracker-network
 
   # ===========================================
-  # Frontend: Next.js Application
+  # Frontend: Now hosted on Vercel
+  # See: https://vercel.com (configured separately)
   # ===========================================
-  frontend:
-    build:
-      context: ./services/frontend
-      dockerfile: Dockerfile
-      args:
-        # Build args for NEXT_PUBLIC_ vars (baked at build time)
-        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-        - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
-    container_name: stocktracker-frontend
-    restart: unless-stopped
-    environment:
-      # Database (Supabase PostgreSQL pooler - for server-side queries)
-      - DATABASE_URL=${DATABASE_URL}
-      # Environment
-      - NODE_ENV=${NODE_ENV:-production}
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
-    networks:
-      - stocktracker-network
 
   # ===========================================
   # Prometheus (Optional - for metrics collection)

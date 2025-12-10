@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   experimental: {
     // Enable server actions
     serverActions: {
@@ -10,4 +9,3 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
-

@@ -1,14 +1,21 @@
-import { query } from '@/lib/db';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { CryptoPrice } from '@/types';
 import styles from './PriceList.module.css';
 
 async function getLatestCryptoPrices(): Promise<CryptoPrice[]> {
   try {
-    const cryptos = await query<CryptoPrice>(`
-      SELECT * FROM latest_crypto_prices
-      ORDER BY symbol
-    `);
-    return cryptos;
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from('latest_crypto_prices')
+      .select('*')
+      .order('symbol');
+    
+    if (error) {
+      console.error('Error fetching crypto prices:', error);
+      return [];
+    }
+    
+    return data as CryptoPrice[];
   } catch (error) {
     console.error('Error fetching crypto prices:', error);
     return [];
@@ -92,4 +99,3 @@ export async function CryptoList() {
     </div>
   );
 }
-

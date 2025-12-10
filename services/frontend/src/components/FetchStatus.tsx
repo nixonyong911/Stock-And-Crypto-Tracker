@@ -1,25 +1,45 @@
-import { query } from '@/lib/db';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { FetchLog } from '@/types';
 import styles from './FetchStatus.module.css';
 
 async function getRecentFetchLogs(): Promise<FetchLog[]> {
   try {
-    const logs = await query<FetchLog>(`
-      SELECT 
-        fl.id,
-        ds.name AS source,
-        fl.fetch_type,
-        fl.status,
-        fl.records_fetched,
-        fl.error_message,
-        fl.started_at,
-        fl.completed_at
-      FROM fetch_logs fl
-      JOIN data_sources ds ON fl.data_source_id = ds.id
-      ORDER BY fl.started_at DESC
-      LIMIT 10
-    `);
-    return logs;
+    const supabase = createServerSupabaseClient();
+    
+    // Query fetch_logs with a join to data_sources for the source name
+    const { data, error } = await supabase
+      .from('fetch_logs')
+      .select(`
+        id,
+        fetch_type,
+        status,
+        records_fetched,
+        error_message,
+        started_at,
+        completed_at,
+        data_sources!inner (
+          name
+        )
+      `)
+      .order('started_at', { ascending: false })
+      .limit(10);
+    
+    if (error) {
+      console.error('Error fetching fetch logs:', error);
+      return [];
+    }
+    
+    // Transform the data to match FetchLog interface
+    return (data || []).map((log: any) => ({
+      id: log.id,
+      source: log.data_sources?.name || 'Unknown',
+      fetch_type: log.fetch_type,
+      status: log.status,
+      records_fetched: log.records_fetched,
+      error_message: log.error_message,
+      started_at: log.started_at,
+      completed_at: log.completed_at,
+    }));
   } catch (error) {
     console.error('Error fetching fetch logs:', error);
     return [];
@@ -114,4 +134,3 @@ export async function FetchStatus() {
     </div>
   );
 }
-

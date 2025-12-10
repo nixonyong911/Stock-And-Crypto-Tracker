@@ -1,14 +1,21 @@
-import { query } from '@/lib/db';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { StockPrice } from '@/types';
 import styles from './PriceList.module.css';
 
 async function getLatestStockPrices(): Promise<StockPrice[]> {
   try {
-    const stocks = await query<StockPrice>(`
-      SELECT * FROM latest_stock_prices
-      ORDER BY symbol
-    `);
-    return stocks;
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from('latest_stock_prices')
+      .select('*')
+      .order('symbol');
+    
+    if (error) {
+      console.error('Error fetching stock prices:', error);
+      return [];
+    }
+    
+    return data as StockPrice[];
   } catch (error) {
     console.error('Error fetching stock prices:', error);
     return [];
@@ -88,4 +95,3 @@ export async function StockList() {
     </div>
   );
 }
-
