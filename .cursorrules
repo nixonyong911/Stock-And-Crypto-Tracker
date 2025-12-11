@@ -1,0 +1,170 @@
+# Stock and Crypto Tracker - Cursor Rules
+
+## Project Overview
+
+A microservices-based stock and cryptocurrency tracking application with:
+- **Frontend**: Next.js on Vercel
+- **Backend**: .NET 8 workers on Azure Container Apps
+- **Database**: Supabase (PostgreSQL) with EF Core migrations
+- **Purpose**: Fetch market data, store 10-min candles, enable AI trading analysis
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 14, TypeScript, Supabase Client |
+| Backend Workers | .NET 8, Dapper, ASP.NET Core |
+| Database | PostgreSQL (Supabase), EF Core for migrations |
+| Shared Library | StockTracker.Data (entities), StockTracker.Common (utilities) |
+| CI/CD | GitHub Actions → Azure Container Apps |
+
+---
+
+## Environment Variables Flow (CRITICAL)
+
+### Source of Truth: `.env.staging` (root)
+
+All secrets are stored in `.env.staging` at project root (gitignored).
+
+```
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=xxx
+SUPABASE_SECRET_DEFAULT_KEY=xxx
+DATABASE_CONNECTION_STRING=Host=xxx;Port=5432;Database=postgres;Username=postgres;Password=xxx
+
+# API Keys
+ALPHA_VANTAGE_API_KEY=xxx
+```
+
+### How Variables Flow to Services
+
+```
+.env.staging (root)
+       │
+       ├──► docker-compose.yml (--env-file .env.staging)
+       │         │
+       │         └──► .NET Workers (environment: section)
+       │                   Supabase__Url=${NEXT_PUBLIC_SUPABASE_URL}
+       │                   ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+       │
+       ├──► EF Migrations CLI (reads .env.staging directly via DotNetEnv)
+       │         Uses: DATABASE_CONNECTION_STRING
+       │
+       ├──► Vercel Dashboard (manual configuration)
+       │         NEXT_PUBLIC_SUPABASE_URL
+       │         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+       │
+       └──► GitHub Secrets (for CI/CD)
+                 AZURE_CREDENTIALS, ACR_*, DATABASE_CONNECTION_STRING, etc.
+```
+
+### .NET Configuration Pattern
+
+Environment variables override `appsettings.json` using double-underscore notation:
+
+| Environment Variable | Maps to appsettings.json |
+|---------------------|--------------------------|
+| `Supabase__Url` | `{ "Supabase": { "Url": "" } }` |
+| `ConnectionStrings__DefaultConnection` | `{ "ConnectionStrings": { "DefaultConnection": "" } }` |
+| `AlphaVantage__ApiKey` | `{ "AlphaVantage": { "ApiKey": "" } }` |
+
+---
+
+## Project Structure
+
+```
+/
+├── .env.staging              # All secrets (gitignored)
+├── docker-compose.yml        # Local development
+├── instruction/              # All documentation
+│   ├── database/             # Schema, configuration
+│   ├── architecture/         # Deployments, infrastructure
+│   ├── cli/                  # CLI commands
+│   └── ai-agent/             # AI trading guides
+├── services/
+│   ├── common/
+│   │   ├── StockTracker.Data/           # EF Core entities & DbContext
+│   │   ├── StockTracker.Data.Migrations/ # Migration CLI tool
+│   │   └── StockTracker.Common/         # Shared utilities
+│   ├── data-fetchers/
+│   │   └── AlphaVantage/                # Stock data worker
+│   ├── frontend/                        # Next.js app (Vercel)
+│   └── metrics/                         # Metrics aggregation
+└── .github/workflows/                   # CI/CD pipelines
+```
+
+---
+
+## Database Schema
+
+6 tables with RLS enabled:
+
+| Table | Purpose | RLS |
+|-------|---------|-----|
+| `universe` | Asset types (stock, etf, crypto) | Public read |
+| `data_sources` | API config (encrypted keys) | Service role only |
+| `stock_tickers` | Stock master list | Public read |
+| `crypto_tickers` | Crypto master list | Public read |
+| `stock_prices` | 10-min stock candles | Public read |
+| `crypto_prices` | 10-min crypto candles | Public read |
+
+### Key Relationships
+- `universe` → `stock_tickers` / `crypto_tickers` (asset type)
+- `stock_tickers` → `stock_prices` (price data)
+- `crypto_tickers` → `crypto_prices` (price data)
+- `data_sources` → price tables (data source reference)
+
+---
+
+## Key Commands
+
+### EF Migrations
+```powershell
+cd services/common/StockTracker.Data.Migrations
+dotnet run -- migrate     # Apply migrations
+dotnet run -- status      # Check status
+dotnet ef migrations add <Name>  # New migration
+```
+
+### Docker (Local)
+```powershell
+docker-compose --env-file .env.staging up -d
+docker-compose logs -f
+```
+
+### Azure
+```powershell
+az containerapp list --resource-group rg-stocktracker -o table
+az containerapp logs show --name ca-alphavantage --resource-group rg-stocktracker --follow
+```
+
+---
+
+## Coding Conventions
+
+### C# (.NET)
+- Use PascalCase for properties
+- Entity classes in `StockTracker.Data.Entities`
+- EF configurations map to snake_case columns
+- Use Dapper for queries, EF Core only for migrations
+
+### Database
+- Column names: snake_case
+- All tables have: `id`, `is_active`, `created_at`, `updated_at`
+- Price tables use `price_time` (timestamp with time zone)
+
+### TypeScript
+- Use camelCase for variables
+- Supabase client from `@/lib/supabase/client`
+
+---
+
+## Important Notes
+
+1. **Never commit `.env.staging`** - Contains secrets
+2. **RLS is enabled** - `data_sources` requires service role key
+3. **Migrations CLI reads `.env.staging`** - Uses `DATABASE_CONNECTION_STRING`
+4. **10-min candle data** - 90 day retention for intraday analysis
+5. **Supabase MCP available** - Use for database queries in AI conversations
+

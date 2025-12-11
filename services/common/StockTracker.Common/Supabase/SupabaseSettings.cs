@@ -23,3 +23,4 @@ public class SupabaseSettings
     public string ServiceRoleKey { get; set; } = string.Empty;
 }
 
+

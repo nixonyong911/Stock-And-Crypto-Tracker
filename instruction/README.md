@@ -1,14 +1,45 @@
 # Instruction Documentation
 
-This folder contains deployment and infrastructure documentation for the Stock and Crypto Tracker project.
+This folder contains all documentation for the Stock and Crypto Tracker project.
 
-## Documents
+## Folder Structure
 
-| Document | Description |
-|----------|-------------|
-| [infrastructure-reference.md](infrastructure-reference.md) | Quick reference for all resources, credentials, and URLs |
-| [azure-container-apps-deployment.md](azure-container-apps-deployment.md) | Complete guide for Azure Container Apps deployment |
-| [vercel-frontend-deployment.md](vercel-frontend-deployment.md) | Guide for Vercel frontend deployment |
+```
+instruction/
+├── README.md                 # This file - main index
+├── architecture/             # System design, deployments, infrastructure
+├── database/                 # Database schema, configuration
+├── cli/                      # CLI commands reference
+└── ai-agent/                 # AI agent guides
+```
+
+## Categories
+
+| Folder | Description |
+|--------|-------------|
+| [architecture/](architecture/) | System architecture, deployments, CI/CD |
+| [database/](database/) | Database schema, configuration, security |
+| [cli/](cli/) | CLI commands and tools reference |
+| [ai-agent/](ai-agent/) | AI agent trading analysis guides |
+
+## Quick Links
+
+### Architecture
+- [Architecture Overview](architecture/README.md)
+- [Azure Deployment](architecture/azure-container-apps-deployment.md)
+- [Vercel Deployment](architecture/vercel-frontend-deployment.md)
+- [Infrastructure Reference](architecture/infrastructure-reference.md)
+
+### Database
+- [Database Overview](database/README.md)
+- [Schema Reference](database/schema.md)
+
+### CLI
+- [CLI Overview](cli/README.md)
+- [EF Migrations](cli/ef-migrations.md)
+
+### AI Agent
+- [Candlestick Analysis](ai-agent/candlestick-analysis.md)
 
 ## Quick Start
 
@@ -21,28 +52,3 @@ This folder contains deployment and infrastructure documentation for the Stock a
 1. Make changes to `services/frontend/`
 2. Commit and push to `main` branch
 3. Vercel automatically deploys
-
-### Verify Deployment
-```powershell
-# Check Azure Container Apps
-az containerapp list --resource-group rg-stocktracker -o table
-
-# Test health endpoint
-Invoke-WebRequest -Uri "https://ca-alphavantage.calmwater-f6ffc3da.southeastasia.azurecontainerapps.io/health/live" -UseBasicParsing
-```
-
-## Architecture Summary
-
-```
-┌────────────────┐     ┌────────────────┐     ┌────────────────┐
-│    Vercel      │     │  Azure (ACA)   │     │   Supabase     │
-│   (Frontend)   │     │   (Backend)    │     │  (Database)    │
-├────────────────┤     ├────────────────┤     ├────────────────┤
-│  Next.js App   │────▶│ AlphaVantage   │────▶│  PostgreSQL    │
-│                │     │ Metrics        │     │                │
-└────────────────┘     └────────────────┘     └────────────────┘
-       │                                              ▲
-       └──────────────────────────────────────────────┘
-                    (Supabase Client)
-```
-

@@ -127,9 +127,15 @@ gh workflow run "Deploy to Azure Container Apps"
     └── deploy-azure.yml          # GitHub Actions for Azure deployment
 
 instruction/
-├── azure-container-apps-deployment.md   # Azure deployment guide
-├── vercel-frontend-deployment.md        # Vercel deployment guide
-└── infrastructure-reference.md          # This file
+├── README.md                     # Main documentation index
+├── database/
+│   └── README.md                 # Database documentation
+└── architecture/
+    ├── README.md                 # Architecture documentation index
+    ├── overview.md               # Overall system architecture
+    ├── azure-container-apps-deployment.md
+    ├── vercel-frontend-deployment.md
+    └── infrastructure-reference.md  # This file
 
 services/
 ├── frontend/                     # Next.js (Vercel)
@@ -139,4 +145,5 @@ services/
 │   └── StockTracker.Metrics/    # .NET Service (Azure)
 └── common/                       # Shared .NET library
 ```
+
 
