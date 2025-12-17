@@ -75,6 +75,32 @@ services:
       - stocktracker-network
 
   # ===========================================
+  # Data Fetcher: TwelveData (Stock Data - 15min candles)
+  # ===========================================
+  twelvedata-fetcher:
+    build:
+      context: ./services
+      dockerfile: data-fetchers/TwelveData/Dockerfile
+    container_name: stocktracker-twelvedata
+    restart: unless-stopped
+    environment:
+      # Database (Supabase PostgreSQL pooler)
+      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      # TwelveData API
+      - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
+      - TwelveData__BaseUrl=https://api.twelvedata.com
+      - TwelveData__FetchIntervalMinutes=${TWELVE_DATA_FETCH_INTERVAL:-15}
+      - TwelveData__OutputSize=${TWELVE_DATA_OUTPUT_SIZE:-96}
+      - TwelveData__Interval=15min
+      - TwelveData__Exchange=NASDAQ
+      - TwelveData__Timezone=America/New_York
+    depends_on:
+      metrics-service:
+        condition: service_healthy
+    networks:
+      - stocktracker-network
+
+  # ===========================================
   # Frontend: Now hosted on Vercel
   # See: https://vercel.com (configured separately)
   # ===========================================

@@ -47,3 +47,10 @@ This folder contains documentation related to system architecture, deployments, 
 - **[infrastructure-reference.md](infrastructure-reference.md)** - Resource IDs, URLs, secrets reference
 
 
+
+
+
+
+
+
+

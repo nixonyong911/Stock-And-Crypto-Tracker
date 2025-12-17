@@ -168,3 +168,10 @@ az containerapp logs show --name ca-alphavantage --resource-group rg-stocktracke
 4. **10-min candle data** - 90 day retention for intraday analysis
 5. **Supabase MCP available** - Use for database queries in AI conversations
 
+
+
+
+
+
+
+

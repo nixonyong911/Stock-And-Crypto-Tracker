@@ -257,3 +257,10 @@ az containerapp update --name ca-alphavantage --resource-group rg-stocktracker -
 | `docker-compose.yml` | Local development (backend removed for Vercel) |
 
 
+
+
+
+
+
+
+

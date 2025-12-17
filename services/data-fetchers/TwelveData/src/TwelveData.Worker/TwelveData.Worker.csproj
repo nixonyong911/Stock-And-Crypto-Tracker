@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-TwelveData.Worker-12345678-1234-1234-1234-123456789012</UserSecretsId>
+    <RootNamespace>TwelveData.Worker</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Hosting -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.0" />
+    
+    <!-- Database -->
+    <PackageReference Include="Npgsql" Version="8.0.3" />
+    <PackageReference Include="Dapper" Version="2.1.28" />
+    
+    <!-- Resilience -->
+    <PackageReference Include="Polly" Version="8.2.1" />
+    
+    <!-- Logging -->
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
+  </ItemGroup>
+
+  <!-- Reference to shared common library -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\common\StockTracker.Common\StockTracker.Common.csproj" />
+  </ItemGroup>
+
+</Project>
+
