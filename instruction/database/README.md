@@ -24,6 +24,7 @@ See [EF Migrations CLI](../cli/ef-migrations.md) for commands.
 |-------|-------------|-----|
 | `universe` | Asset types (stock, etf, crypto) | Read-only |
 | `data_sources` | 3rd party API configuration | Service role only |
+| `fetch_schedules` | Worker scheduling & runtime config | Service role only |
 | `stock_tickers` | Stock/ETF master list | Read-only |
 | `crypto_tickers` | Cryptocurrency master list | Read-only |
 | `stock_prices` | 10-minute stock candles | Read-only |

@@ -26,6 +26,7 @@ public class StockTrackerDbContext : DbContext
     
     // Configuration
     public DbSet<DataSource> DataSources => Set<DataSource>();
+    public DbSet<FetchSchedule> FetchSchedules => Set<FetchSchedule>();
     
     // Price tables (10-minute candles)
     public DbSet<StockPrice> StockPrices => Set<StockPrice>();

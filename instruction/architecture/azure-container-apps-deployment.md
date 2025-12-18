@@ -264,3 +264,5 @@ az containerapp update --name ca-alphavantage --resource-group rg-stocktracker -
 
 
 
+
+

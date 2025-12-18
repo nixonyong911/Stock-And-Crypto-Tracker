@@ -40,11 +40,11 @@ public class TwelveDataApiClient : ITwelveDataApiClient
         _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
     }
 
-    public async Task<TimeSeriesResponse?> GetTimeSeriesAsync(string symbol, CancellationToken cancellationToken = default)
+    public async Task<TimeSeriesResponse?> GetTimeSeriesAsync(string symbol, FetchConfig config, CancellationToken cancellationToken = default)
     {
         try
         {
-            var url = BuildTimeSeriesUrl(symbol);
+            var url = BuildTimeSeriesUrl(symbol, config);
             
             _logger.LogDebug("Fetching time series for {Symbol} from {Url}", symbol, url);
             
@@ -81,13 +81,14 @@ public class TwelveDataApiClient : ITwelveDataApiClient
         }
     }
 
-    private string BuildTimeSeriesUrl(string symbol)
+    private string BuildTimeSeriesUrl(string symbol, FetchConfig config)
     {
         return $"/time_series?symbol={symbol}" +
-               $"&interval={_settings.Interval}" +
-               $"&exchange={_settings.Exchange}" +
-               $"&timezone={_settings.Timezone}" +
-               $"&outputsize={_settings.OutputSize}" +
+               $"&interval={config.Interval}" +
+               $"&exchange={config.Exchange}" +
+               $"&date={config.FetchDate}" +
+               $"&timezone={config.Timezone}" +
+               $"&outputsize={config.OutputSize}" +
                $"&apikey={_settings.ApiKey}";
     }
 
@@ -127,4 +128,3 @@ public class TwelveDataApiClient : ITwelveDataApiClient
             : 0;
     }
 }
-

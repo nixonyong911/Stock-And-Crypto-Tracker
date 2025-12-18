@@ -1,61 +1,135 @@
 # TwelveData Worker
 
-A .NET 8 background worker service that fetches 15-minute OHLC candle data from the [Twelve Data API](https://twelvedata.com/docs#time-series) for NASDAQ stocks.
+A .NET 8 background worker service that fetches daily OHLC candle data from the [Twelve Data API](https://twelvedata.com/docs#time-series) for NASDAQ stocks.
 
 ## Features
 
-- Fetches stock symbols from `stock_tickers` table (filtered by exchange=NASDAQ, currency=USD)
+- **Database-driven configuration** - Schedule and fetch parameters stored in `fetch_schedules` table
+- Daily fetch at configurable time (default: 10 PM UTC / 5 PM ET)
+- Uses `date=yesterday` parameter to fetch complete trading day data
+- Fetches stock symbols from `stock_tickers` table (filtered by exchange and currency)
 - Retrieves 15-minute interval OHLC data via Twelve Data `/time_series` endpoint
 - Converts America/New_York timestamps to UTC before storage
 - Stores data in `stock_prices` table with proper foreign key references
 - Automatic retry policy for transient HTTP failures
-- Configurable fetch interval (default: 15 minutes)
+- Tracks last run status in database for monitoring
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Supabase PostgreSQL                       │
+├───────────────────┬───────────────────┬─────────────────────────┤
+│   fetch_schedules │   stock_tickers   │     stock_prices        │
+│   (schedule/config)│   (symbols)       │     (OHLCV data)        │
+└─────────┬─────────┴─────────┬─────────┴───────────┬─────────────┘
+          │                   │                     │
+          ▼                   ▼                     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      TwelveData Worker                           │
+│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────────────┐ │
+│  │ StockFetch  │  │ TwelveData   │  │ FetchSchedule           │ │
+│  │ Worker      │──│ ApiClient    │  │ Repository              │ │
+│  │ (scheduler) │  │ (HTTP)       │  │ (load config/update run)│ │
+│  └─────────────┘  └──────────────┘  └─────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Configuration
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `TWELVE_DATA_API_KEY` | Your Twelve Data API key | (required) |
-| `TWELVE_DATA_FETCH_INTERVAL` | Fetch interval in minutes | `15` |
-| `TWELVE_DATA_OUTPUT_SIZE` | Number of candles to fetch | `96` (24 hours) |
-| `DATABASE_CONNECTION_STRING` | PostgreSQL connection string | (required) |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `TWELVE_DATA_API_KEY` | Your Twelve Data API key | Yes |
+| `DATABASE_CONNECTION_STRING` | PostgreSQL connection string | Yes |
 
-### appsettings.json
+### Database Configuration (`fetch_schedules` table)
+
+Fetch parameters are stored in the database, allowing runtime configuration without redeployment:
+
+```sql
+SELECT * FROM fetch_schedules WHERE data_source_id = 1;
+```
+
+| Column | Description | Default |
+|--------|-------------|---------|
+| `schedule_time_utc` | Time to run daily (UTC) | `22:00` (5 PM ET) |
+| `fetch_config` | JSON with fetch parameters | See below |
+
+#### `fetch_config` JSON Structure
 
 ```json
 {
-  "TwelveData": {
-    "ApiKey": "",
-    "BaseUrl": "https://api.twelvedata.com",
-    "FetchIntervalMinutes": 15,
-    "OutputSize": 96,
-    "Interval": "15min",
-    "Exchange": "NASDAQ",
-    "Timezone": "America/New_York"
-  },
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=...;Port=5432;Database=postgres;..."
-  }
+  "fetch_date": "yesterday",
+  "interval": "15min",
+  "output_size": 30,
+  "exchange": "NASDAQ",
+  "timezone": "America/New_York",
+  "rate_limit_delay_seconds": 8
 }
+```
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `fetch_date` | API date parameter (`yesterday`, `today`, or specific date) | `yesterday` |
+| `interval` | Candle interval (`1min`, `5min`, `15min`, `30min`, `1h`, etc.) | `15min` |
+| `output_size` | Number of candles to fetch (1-5000) | `30` |
+| `exchange` | Exchange filter | `NASDAQ` |
+| `timezone` | Timezone for API response | `America/New_York` |
+| `rate_limit_delay_seconds` | Delay between API calls | `8` |
+
+### Modifying Configuration
+
+Update the schedule via SQL:
+
+```sql
+-- Change schedule time to 6 PM ET (11 PM UTC)
+UPDATE fetch_schedules 
+SET schedule_time_utc = '23:00'
+WHERE data_source_id = 1;
+
+-- Update fetch config
+UPDATE fetch_schedules 
+SET fetch_config = '{
+  "fetch_date": "yesterday",
+  "interval": "15min",
+  "output_size": 50,
+  "exchange": "NASDAQ",
+  "timezone": "America/New_York",
+  "rate_limit_delay_seconds": 8
+}'::jsonb
+WHERE data_source_id = 1;
+
+-- Disable schedule
+UPDATE fetch_schedules SET is_enabled = false WHERE data_source_id = 1;
 ```
 
 ## Prerequisites
 
-1. **Database Setup**: Ensure the `data_sources` table has a "TwelveData" entry:
+1. **Database Setup**: Ensure the following tables exist:
+   - `data_sources` with a "TwelveData" entry
+   - `fetch_schedules` with a schedule linked to TwelveData
+   - `stock_tickers` with active stocks
+
+2. **Stock Tickers**: Add stocks to track:
 
 ```sql
-INSERT INTO data_sources (name, description, base_url, supports_stocks, is_active)
-VALUES ('TwelveData', 'Twelve Data Financial API', 'https://api.twelvedata.com', true, true);
+INSERT INTO stock_tickers (universe_id, symbol, name, exchange, currency)
+VALUES 
+  (1, 'AAPL', 'Apple Inc.', 'NASDAQ', 'USD'),
+  (1, 'MSFT', 'Microsoft Corporation', 'NASDAQ', 'USD');
 ```
-
-2. **Stock Tickers**: Add stocks to the `stock_tickers` table with `exchange='NASDAQ'` and `currency='USD'`
 
 ## Running Locally
 
 ```bash
 cd services/data-fetchers/TwelveData/src/TwelveData.Worker
+
+# Set environment variables
+export TWELVE_DATA_API_KEY=your_api_key
+export DATABASE_CONNECTION_STRING="Host=...;Port=5432;..."
+
 dotnet run
 ```
 
@@ -66,52 +140,54 @@ dotnet run
 docker-compose --env-file .env.staging up twelvedata-fetcher
 ```
 
-## API Response Format
+## API Request Format
 
 The worker fetches data from:
+
 ```
 GET https://api.twelvedata.com/time_series
   ?symbol=AAPL
   &interval=15min
   &exchange=NASDAQ
+  &date=yesterday
   &timezone=America/New_York
-  &outputsize=96
+  &outputsize=30
   &apikey=YOUR_API_KEY
 ```
 
-Response:
-```json
-{
-  "meta": {
-    "symbol": "AAPL",
-    "interval": "15min",
-    "currency": "USD",
-    "exchange": "NASDAQ"
-  },
-  "values": [
-    {
-      "datetime": "2024-12-12 15:45:00",
-      "open": "245.50",
-      "high": "246.00",
-      "low": "245.25",
-      "close": "245.75",
-      "volume": "1234567"
-    }
-  ],
-  "status": "ok"
-}
+## Run Tracking
+
+The worker updates `fetch_schedules` after each run:
+
+| Column | Description |
+|--------|-------------|
+| `last_run_at` | Timestamp of last execution |
+| `last_run_status` | `success`, `partial`, or `failed` |
+| `last_run_message` | Summary with record counts and any errors |
+
+Query run history:
+
+```sql
+SELECT name, last_run_at, last_run_status, last_run_message 
+FROM fetch_schedules 
+WHERE data_source_id = 1;
 ```
-
-## Architecture
-
-This is a **pure worker service** (no HTTP endpoints):
-- Uses `Microsoft.NET.Sdk.Worker`
-- `BackgroundService` runs fetch loop on configured interval
-- Serilog for structured logging to console
-- Dapper for database queries
-- Polly for HTTP retry policies
 
 ## Rate Limiting
 
-The worker includes an 8-second delay between API calls to avoid hitting Twelve Data rate limits. Adjust this based on your API plan tier.
+The worker includes a configurable delay between API calls (default: 8 seconds) to avoid hitting Twelve Data rate limits. Adjust `rate_limit_delay_seconds` in `fetch_config` based on your API plan tier.
 
+## Troubleshooting
+
+### No data fetched
+
+1. Check `fetch_schedules.is_enabled` is `true`
+2. Verify `stock_tickers` has active entries with matching exchange
+3. Check `data_sources` has "TwelveData" entry with `is_active = true`
+4. Review logs for API errors
+
+### Schedule not running
+
+1. Verify current UTC time vs `schedule_time_utc`
+2. Check worker logs for schedule loading
+3. Ensure database connection is working

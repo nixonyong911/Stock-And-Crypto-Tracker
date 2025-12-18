@@ -20,7 +20,7 @@ try
             .WriteTo.Console())
         .ConfigureServices((context, services) =>
         {
-            // Bind configuration
+            // Bind configuration (only API key and base URL needed now)
             services.Configure<TwelveDataSettings>(
                 context.Configuration.GetSection("TwelveData"));
             services.Configure<DatabaseSettings>(
@@ -36,6 +36,7 @@ try
             // Register repositories
             services.AddScoped<IStockTickerRepository, StockTickerRepository>();
             services.AddScoped<IStockPriceRepository, StockPriceRepository>();
+            services.AddScoped<IFetchScheduleRepository, FetchScheduleRepository>();
 
             // Register services
             services.AddScoped<IStockFetchService, StockFetchService>();
@@ -68,4 +69,3 @@ static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
                     retryAttempt, timespan.TotalSeconds, outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString());
             });
 }
-

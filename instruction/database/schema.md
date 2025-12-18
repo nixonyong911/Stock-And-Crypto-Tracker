@@ -77,6 +77,41 @@ CREATE TABLE data_sources (
 );
 ```
 
+### fetch_schedules
+
+```sql
+CREATE TABLE fetch_schedules (
+    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    data_source_id INT NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    schedule_time_utc TIME NOT NULL DEFAULT '22:00:00',
+    is_enabled BOOLEAN NOT NULL DEFAULT true,
+    fetch_config JSONB NOT NULL DEFAULT '{}',
+    last_run_at TIMESTAMP WITH TIME ZONE,
+    last_run_status VARCHAR(50),
+    last_run_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX ix_fetch_schedules_data_source_id ON fetch_schedules(data_source_id);
+```
+
+#### `fetch_config` JSON Structure
+
+```json
+{
+  "fetch_date": "yesterday",
+  "interval": "15min",
+  "output_size": 30,
+  "exchange": "NASDAQ",
+  "timezone": "America/New_York",
+  "rate_limit_delay_seconds": 8
+}
+```
+
 ### stock_prices (10-Minute Candles)
 
 ```sql

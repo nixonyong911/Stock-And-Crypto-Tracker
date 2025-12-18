@@ -51,3 +51,5 @@ ENTRYPOINT ["dotnet", "StockTracker.Metrics.dll"]
 
 
 
+
+
