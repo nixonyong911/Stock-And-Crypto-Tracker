@@ -1,4 +1,4 @@
-# TwelveData Data Fetcher Service (.NET Worker)
+# TwelveData Data Fetcher Service (.NET Web API + Worker)
 # Multi-stage build for optimized image size
 
 # Build stage
@@ -20,9 +20,12 @@ COPY data-fetchers/TwelveData/src/ data-fetchers/TwelveData/src/
 WORKDIR "/src/data-fetchers/TwelveData/src/TwelveData.Worker"
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/runtime:8.0 AS runtime
+# Runtime stage - using ASP.NET runtime for web API
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
+
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
@@ -31,5 +34,7 @@ USER appuser
 # Copy published application
 COPY --from=build /app/publish .
 
-ENTRYPOINT ["dotnet", "TwelveData.Worker.dll"]
+# Expose port
+EXPOSE 8080
 
+ENTRYPOINT ["dotnet", "TwelveData.Worker.dll"]

@@ -56,5 +56,43 @@ public class StockTickerRepository : IStockTickerRepository
         
         return await connection.QueryFirstOrDefaultAsync<StockTicker>(sql, new { Symbol = symbol.ToUpperInvariant() });
     }
+
+    public async Task<StockTicker> GetOrCreateTickerAsync(string symbol, string exchange = "NASDAQ", string currency = "USD")
+    {
+        symbol = symbol.ToUpperInvariant();
+        
+        // Try to get existing ticker first
+        var existingTicker = await GetBySymbolAsync(symbol);
+        if (existingTicker != null)
+        {
+            return existingTicker;
+        }
+
+        // Create new ticker
+        using var connection = _connectionFactory.CreateConnection();
+        
+        const string insertSql = @"
+            INSERT INTO stock_tickers (universe_id, symbol, name, exchange, currency, is_active, created_at, updated_at)
+            VALUES (1, @Symbol, @Symbol, @Exchange, @Currency, true, NOW(), NOW())
+            RETURNING 
+                id as Id, 
+                universe_id as UniverseId, 
+                symbol as Symbol, 
+                name as Name, 
+                exchange as Exchange, 
+                currency as Currency, 
+                is_active as IsActive, 
+                created_at as CreatedAt, 
+                updated_at as UpdatedAt";
+        
+        var newTicker = await connection.QuerySingleAsync<StockTicker>(insertSql, new 
+        { 
+            Symbol = symbol, 
+            Exchange = exchange, 
+            Currency = currency 
+        });
+        
+        return newTicker;
+    }
 }
 

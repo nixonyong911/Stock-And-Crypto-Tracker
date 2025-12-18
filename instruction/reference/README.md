@@ -24,3 +24,4 @@ This folder contains project-wide documentation that:
 - [Database](../database/) - Service-specific schema docs
 - [CLI](../cli/) - Service-specific commands
 
+

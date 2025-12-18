@@ -29,6 +29,40 @@ public class StockFetchService : IStockFetchService
         _logger = logger;
     }
 
+    public async Task<int> FetchSymbolAsync(string symbol, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Manual fetch triggered for symbol {Symbol}", symbol);
+        
+        // Get the data source
+        var dataSource = await _priceRepository.GetDataSourceByNameAsync(DataSourceName);
+        if (dataSource == null)
+        {
+            throw new InvalidOperationException($"Data source '{DataSourceName}' not found in database. Please seed the data_sources table.");
+        }
+
+        // Get or create the ticker (auto-creates if not found)
+        var ticker = await _tickerRepository.GetOrCreateTickerAsync(symbol, "NASDAQ", "USD");
+        _logger.LogInformation("Using ticker {Symbol} (ID: {Id})", ticker.Symbol, ticker.Id);
+
+        // Use hardcoded default configuration
+        var config = new FetchConfig
+        {
+            FetchDate = "yesterday",
+            Interval = "15min",
+            OutputSize = 30,
+            Exchange = "NASDAQ",
+            Timezone = "America/New_York",
+            RateLimitDelaySeconds = 8
+        };
+
+        // Fetch and store the data
+        var recordsInserted = await FetchAndStoreSymbolDataAsync(ticker, dataSource.Id, config, cancellationToken);
+        
+        _logger.LogInformation("Fetched {Records} records for {Symbol}", recordsInserted, ticker.Symbol);
+        
+        return recordsInserted;
+    }
+
     public async Task FetchAndStoreStockDataAsync(FetchSchedule schedule, FetchConfig config, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();

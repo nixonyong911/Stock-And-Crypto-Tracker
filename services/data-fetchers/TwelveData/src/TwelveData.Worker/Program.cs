@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Polly;
 using Polly.Extensions.Http;
 using Serilog;
@@ -14,39 +15,105 @@ try
 {
     Log.Information("Starting TwelveData Worker Service");
 
-    var host = Host.CreateDefaultBuilder(args)
-        .UseSerilog((context, config) => config
-            .ReadFrom.Configuration(context.Configuration)
-            .WriteTo.Console())
-        .ConfigureServices((context, services) =>
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Configure Serilog
+    builder.Host.UseSerilog((context, config) => config
+        .ReadFrom.Configuration(context.Configuration)
+        .WriteTo.Console());
+
+    // Bind configuration
+    builder.Services.Configure<TwelveDataSettings>(
+        builder.Configuration.GetSection("TwelveData"));
+    builder.Services.Configure<DatabaseSettings>(
+        builder.Configuration.GetSection("ConnectionStrings"));
+
+    // Register HTTP client with retry policy
+    builder.Services.AddHttpClient<ITwelveDataApiClient, TwelveDataApiClient>()
+        .AddPolicyHandler(GetRetryPolicy());
+
+    // Register database connection factory
+    builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
+
+    // Register repositories
+    builder.Services.AddScoped<IStockTickerRepository, StockTickerRepository>();
+    builder.Services.AddScoped<IStockPriceRepository, StockPriceRepository>();
+    builder.Services.AddScoped<IFetchScheduleRepository, FetchScheduleRepository>();
+
+    // Register services
+    builder.Services.AddScoped<IStockFetchService, StockFetchService>();
+
+    // Register the background worker
+    builder.Services.AddHostedService<StockFetchWorker>();
+
+    // Add controllers
+    builder.Services.AddControllers();
+
+    // Add Swagger/OpenAPI
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new()
         {
-            // Bind configuration (only API key and base URL needed now)
-            services.Configure<TwelveDataSettings>(
-                context.Configuration.GetSection("TwelveData"));
-            services.Configure<DatabaseSettings>(
-                context.Configuration.GetSection("ConnectionStrings"));
+            Title = "TwelveData Fetcher API",
+            Version = "v1",
+            Description = "API for controlling the TwelveData stock data fetcher. Use this to manually trigger data fetches for testing."
+        });
+    });
 
-            // Register HTTP client with retry policy
-            services.AddHttpClient<ITwelveDataApiClient, TwelveDataApiClient>()
-                .AddPolicyHandler(GetRetryPolicy());
+    // Add health checks
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Host=localhost;Port=5432;Database=stocktracker;Username=postgres;Password=postgres";
 
-            // Register database connection factory
-            services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(connectionString, name: "postgresql", tags: ["db", "ready"]);
 
-            // Register repositories
-            services.AddScoped<IStockTickerRepository, StockTickerRepository>();
-            services.AddScoped<IStockPriceRepository, StockPriceRepository>();
-            services.AddScoped<IFetchScheduleRepository, FetchScheduleRepository>();
+    var app = builder.Build();
 
-            // Register services
-            services.AddScoped<IStockFetchService, StockFetchService>();
+    // Configure pipeline
+    app.UseSerilogRequestLogging();
 
-            // Register the background worker
-            services.AddHostedService<StockFetchWorker>();
-        })
-        .Build();
+    // Swagger UI (available in all environments for this service)
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "TwelveData Fetcher API v1");
+        c.RoutePrefix = "swagger";
+    });
 
-    await host.RunAsync();
+    // Health check endpoints
+    app.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        Predicate = _ => true
+    });
+
+    app.MapHealthChecks("/health/ready", new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready")
+    });
+
+    app.MapHealthChecks("/health/live", new HealthCheckOptions
+    {
+        Predicate = _ => false // Just checks if app is running
+    });
+
+    // Map controllers
+    app.MapControllers();
+
+    // Root endpoint
+    app.MapGet("/", () => Results.Ok(new
+    {
+        service = "TwelveData Fetcher",
+        version = "1.0.0",
+        endpoints = new
+        {
+            health = "/health",
+            swagger = "/swagger",
+            api = "/api/fetch"
+        }
+    }));
+
+    await app.RunAsync();
 }
 catch (Exception ex)
 {
@@ -61,7 +128,7 @@ static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
 {
     return HttpPolicyExtensions
         .HandleTransientHttpError()
-        .WaitAndRetryAsync(3, retryAttempt => 
+        .WaitAndRetryAsync(3, retryAttempt =>
             TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
             onRetry: (outcome, timespan, retryAttempt, context) =>
             {

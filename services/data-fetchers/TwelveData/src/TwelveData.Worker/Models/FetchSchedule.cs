@@ -19,3 +19,4 @@ public class FetchSchedule
     public DateTime UpdatedAt { get; set; }
 }
 
+

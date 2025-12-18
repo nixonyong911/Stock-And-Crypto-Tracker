@@ -11,11 +11,23 @@ public class DbConnectionFactory : IDbConnectionFactory
 
     public DbConnectionFactory(IOptions<DatabaseSettings> settings)
     {
-        _connectionString = settings.Value.DefaultConnection;
+        var baseConnectionString = settings.Value.DefaultConnection;
+        
+        // Add timeout and SSL settings for Supabase connections
+        var builder = new NpgsqlConnectionStringBuilder(baseConnectionString)
+        {
+            CommandTimeout = 30,
+            Timeout = 15,
+            SslMode = SslMode.Require,
+            Pooling = false  // Disable local pooling since Supabase has its own pooler
+        };
+        
+        _connectionString = builder.ConnectionString;
     }
 
     public IDbConnection CreateConnection()
     {
+        // Don't open here - let Dapper handle connection lifecycle
         return new NpgsqlConnection(_connectionString);
     }
 }

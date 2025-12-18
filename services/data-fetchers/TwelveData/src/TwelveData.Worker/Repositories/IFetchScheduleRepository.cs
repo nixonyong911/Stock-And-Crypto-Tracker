@@ -8,3 +8,4 @@ public interface IFetchScheduleRepository
     Task UpdateLastRunAsync(int scheduleId, string status, string? message);
 }
 
+
