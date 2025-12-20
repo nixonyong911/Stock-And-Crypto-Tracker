@@ -66,6 +66,17 @@ jobs:
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/alphavantage-worker:${{ github.sha }}
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/alphavantage-worker:latest
 
+      # Build and push TwelveData Worker
+      - name: Build and push TwelveData Worker
+        run: |
+          docker build \
+            -f services/data-fetchers/TwelveData/Dockerfile \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/twelvedata-worker:${{ github.sha }} \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/twelvedata-worker:latest \
+            services/
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/twelvedata-worker:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/twelvedata-worker:latest
+
       # Deploy Metrics Service (deploy first as AlphaVantage depends on it)
       - name: Deploy Metrics Service to Container Apps
         uses: azure/container-apps-deploy-action@v1
@@ -109,6 +120,28 @@ jobs:
             MetricsService__WorkerName=alphavantage
             MetricsService__Enabled=true
 
+      # Deploy TwelveData Worker
+      - name: Deploy TwelveData Worker to Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ca-twelvedata
+          containerAppEnvironment: ${{ env.CONTAINER_ENV }}
+          imageToDeploy: ${{ secrets.ACR_LOGIN_SERVER }}/twelvedata-worker:${{ github.sha }}
+          targetPort: 8080
+          ingress: internal
+          registryUrl: ${{ secrets.ACR_LOGIN_SERVER }}
+          registryUsername: ${{ secrets.ACR_USERNAME }}
+          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          environmentVariables: |
+            ASPNETCORE_ENVIRONMENT=Production
+            ConnectionStrings__DefaultConnection=${{ secrets.DATABASE_CONNECTION_STRING }}
+            TwelveData__ApiKey=${{ secrets.TWELVE_DATA_API_KEY }}
+            TwelveData__BaseUrl=https://api.twelvedata.com
+            MetricsService__BaseUrl=https://ca-metrics.internal
+            MetricsService__WorkerName=twelvedata
+            MetricsService__Enabled=true
+
       # Output deployment info
       - name: Get deployment URLs
         run: |
@@ -116,3 +149,4 @@ jobs:
           echo "Checking deployed apps..."
           az containerapp show -n ca-metrics -g ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null || echo "Metrics: internal service"
           az containerapp show -n ca-alphavantage -g ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null || echo "Fetching AlphaVantage URL..."
+          az containerapp show -n ca-twelvedata -g ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null || echo "TwelveData: internal service"

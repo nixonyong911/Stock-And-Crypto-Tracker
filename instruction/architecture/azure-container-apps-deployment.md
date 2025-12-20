@@ -40,6 +40,7 @@ This document describes the CI/CD pipeline for deploying backend services to Azu
 | Container Registry | `acrstocktracker911` | ACR | Stores Docker images |
 | Container Apps Environment | `cae-stocktracker` | Environment | Shared environment for apps |
 | Container App | `ca-alphavantage` | Container App | AlphaVantage data fetcher worker |
+| Container App | `ca-twelvedata` | Container App | TwelveData data fetcher worker |
 | Container App | `ca-metrics` | Container App | Metrics aggregation service |
 
 ### Resource Details
@@ -63,6 +64,7 @@ Username            : acrstocktracker911
 
 ```
 AlphaVantage Worker : https://ca-alphavantage.calmwater-f6ffc3da.southeastasia.azurecontainerapps.io
+TwelveData Worker   : Internal (ca-twelvedata.internal)
 Metrics Service     : Internal (ca-metrics.internal)
 ```
 
@@ -88,8 +90,10 @@ Metrics Service     : Internal (ca-metrics.internal)
 3. Login to Azure Container Registry
 4. Build and push Metrics Service Docker image
 5. Build and push AlphaVantage Worker Docker image
-6. Deploy Metrics Service to Container Apps
-7. Deploy AlphaVantage Worker to Container Apps
+6. Build and push TwelveData Worker Docker image
+7. Deploy Metrics Service to Container Apps
+8. Deploy AlphaVantage Worker to Container Apps
+9. Deploy TwelveData Worker to Container Apps
 
 ## GitHub Secrets Required
 
@@ -111,6 +115,7 @@ Metrics Service     : Internal (ca-metrics.internal)
 | `SUPABASE_SECRET_DEFAULT_KEY` | Supabase service role key |
 | `DATABASE_CONNECTION_STRING` | ADO.NET connection string for .NET services |
 | `ALPHA_VANTAGE_API_KEY` | Alpha Vantage API key |
+| `TWELVE_DATA_API_KEY` | Twelve Data API key |
 
 ### AZURE_CREDENTIALS Format
 
@@ -140,6 +145,18 @@ Metrics Service     : Internal (ca-metrics.internal)
 | `AlphaVantage__Symbols` | `AAPL,GOOGL,MSFT,AMZN,TSLA` |
 | `MetricsService__BaseUrl` | `https://ca-metrics.internal` |
 | `MetricsService__WorkerName` | `alphavantage` |
+| `MetricsService__Enabled` | `true` |
+
+### TwelveData Worker
+
+| Variable | Value/Source |
+|----------|--------------|
+| `ASPNETCORE_ENVIRONMENT` | `Production` |
+| `ConnectionStrings__DefaultConnection` | From `DATABASE_CONNECTION_STRING` secret |
+| `TwelveData__ApiKey` | From `TWELVE_DATA_API_KEY` secret |
+| `TwelveData__BaseUrl` | `https://api.twelvedata.com` |
+| `MetricsService__BaseUrl` | `https://ca-metrics.internal` |
+| `MetricsService__WorkerName` | `twelvedata` |
 | `MetricsService__Enabled` | `true` |
 
 ### Metrics Service
@@ -253,8 +270,11 @@ az containerapp update --name ca-alphavantage --resource-group rg-stocktracker -
 |------|---------|
 | `.github/workflows/deploy-azure.yml` | GitHub Actions workflow |
 | `services/data-fetchers/AlphaVantage/Dockerfile` | AlphaVantage Docker build |
+| `services/data-fetchers/TwelveData/Dockerfile` | TwelveData Docker build |
 | `services/metrics/StockTracker.Metrics/Dockerfile` | Metrics Service Docker build |
 | `docker-compose.yml` | Local development (backend removed for Vercel) |
+
+
 
 
 
