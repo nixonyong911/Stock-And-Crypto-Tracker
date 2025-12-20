@@ -178,3 +178,5 @@ az containerapp logs show --name ca-alphavantage --resource-group rg-stocktracke
 
 
 
+
+
