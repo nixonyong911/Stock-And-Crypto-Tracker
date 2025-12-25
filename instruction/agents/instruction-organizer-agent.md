@@ -129,6 +129,7 @@ CLI documentation is organized by **tech stack**, not by service. Route CLI cont
 | Azure | `cli/azure/` | `az `, `az.`, `Azure CLI`, `containerapp`, `acr` |
 | Docker | `cli/docker/` | `docker`, `docker-compose`, `Dockerfile` |
 | GitHub | `cli/github/` | `gh `, `gh.`, `GitHub CLI`, `workflow`, `actions` |
+| Infisical | `cli/infisical/` | `infisical`, `infisical run`, `infisical secrets`, `.infisical.json` |
 | Oracle | `cli/oracle/` | `oci`, `Oracle Cloud`, `oracle` |
 | PowerShell | `cli/powershell/` | `function`, `PowerShell_profile`, `.ps1`, `$HOME\Documents\WindowsPowerShell` |
 | Vercel | `cli/vercel/` | `vercel`, `Vercel CLI` |
@@ -174,6 +175,7 @@ Reuse the same tech stack folders as CLI:
 | Azure | `history/azure/` |
 | Docker | `history/docker/` |
 | GitHub | `history/github/` |
+| Infisical | `history/infisical/` |
 | Oracle | `history/oracle/` |
 | PowerShell | `history/powershell/` |
 | Vercel | `history/vercel/` |

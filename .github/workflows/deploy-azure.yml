@@ -11,6 +11,7 @@ on:
       - 'services/data-fetchers/**'
       - 'services/metrics/**'
       - 'services/common/**'
+      - 'services/ai/**'
       - '.github/workflows/deploy-azure.yml'
       # Explicitly exclude frontend (handled by Vercel)
       - '!services/frontend/**'

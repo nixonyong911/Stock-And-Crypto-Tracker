@@ -22,42 +22,43 @@ A microservices-based stock and cryptocurrency tracking application with:
 
 ## Environment Variables Flow (CRITICAL)
 
-### Source of Truth: `.env.staging` (root)
+### Source of Truth: Infisical Cloud
 
-All secrets are stored in `.env.staging` at project root (gitignored).
+All secrets are managed in **Infisical Cloud** and auto-sync to GitHub and Vercel.
 
-```
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=xxx
-SUPABASE_SECRET_DEFAULT_KEY=xxx
-DATABASE_CONNECTION_STRING=Host=xxx;Port=5432;Database=postgres;Username=postgres;Password=xxx
-
-# API Keys
-ALPHA_VANTAGE_API_KEY=xxx
-```
+Dashboard: https://app.infisical.com → Project: `Stock and Crypto`
 
 ### How Variables Flow to Services
 
 ```
-.env.staging (root)
+Infisical Cloud (source of truth)
        │
-       ├──► docker-compose.yml (--env-file .env.staging)
+       ├──► GitHub Secrets (auto-sync via integration)
        │         │
-       │         └──► .NET Workers (environment: section)
-       │                   Supabase__Url=${NEXT_PUBLIC_SUPABASE_URL}
-       │                   ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+       │         └──► GitHub Actions → Azure Container Apps
+       │                   Injects secrets as environment variables
        │
-       ├──► EF Migrations CLI (reads .env.staging directly via DotNetEnv)
-       │         Uses: DATABASE_CONNECTION_STRING
-       │
-       ├──► Vercel Dashboard (manual configuration)
+       ├──► Vercel (auto-sync via integration)
        │         NEXT_PUBLIC_SUPABASE_URL
        │         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
        │
-       └──► GitHub Secrets (for CI/CD)
-                 AZURE_CREDENTIALS, ACR_*, DATABASE_CONNECTION_STRING, etc.
+       └──► Local Development (via Infisical CLI)
+                 infisical run --env=prod -- docker-compose up -d
 ```
+
+### Secrets Inventory
+
+| Secret | Synced To |
+|--------|-----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | GitHub, Vercel |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | GitHub, Vercel |
+| `SUPABASE_SECRET_DEFAULT_KEY` | GitHub |
+| `DATABASE_CONNECTION_STRING` | GitHub |
+| `TWELVE_DATA_API_KEY` | GitHub |
+| `AZURE_CREDENTIALS` | GitHub |
+| `ACR_LOGIN_SERVER` | GitHub |
+| `ACR_USERNAME` | GitHub |
+| `ACR_PASSWORD` | GitHub |
 
 ### .NET Configuration Pattern
 
@@ -75,20 +76,22 @@ Environment variables override `appsettings.json` using double-underscore notati
 
 ```
 /
-├── .env.staging              # All secrets (gitignored)
+├── .infisical.json           # Infisical CLI config (safe to commit)
+├── .env.staging              # Local backup only (gitignored)
 ├── docker-compose.yml        # Local development
 ├── instruction/              # All documentation
 │   ├── database/             # Schema, configuration
-│   ├── architecture/         # Deployments, infrastructure
+│   ├── architecture/         # Deployments, infrastructure, Infisical
 │   ├── cli/                  # CLI commands
 │   └── ai-agent/             # AI trading guides
 ├── services/
+│   ├── ai/                   # AI services (ai-hub)
 │   ├── common/
 │   │   ├── StockTracker.Data/           # EF Core entities & DbContext
 │   │   ├── StockTracker.Data.Migrations/ # Migration CLI tool
 │   │   └── StockTracker.Common/         # Shared utilities
 │   ├── data-fetchers/
-│   │   └── AlphaVantage/                # Stock data worker
+│   │   └── TwelveData/                  # Stock data worker
 │   ├── frontend/                        # Next.js app (Vercel)
 │   └── metrics/                         # Metrics aggregation
 └── .github/workflows/                   # CI/CD pipelines
@@ -127,9 +130,10 @@ dotnet run -- status      # Check status
 dotnet ef migrations add <Name>  # New migration
 ```
 
-### Docker (Local)
+### Docker (Local with Infisical)
 ```powershell
-docker-compose --env-file .env.staging up -d
+# Inject secrets from Infisical and run docker-compose
+infisical run --env=prod -- docker-compose up -d
 docker-compose logs -f
 ```
 
@@ -162,11 +166,13 @@ az containerapp logs show --name ca-alphavantage --resource-group rg-stocktracke
 
 ## Important Notes
 
-1. **Never commit `.env.staging`** - Contains secrets
-2. **RLS is enabled** - `data_sources` requires service role key
-3. **Migrations CLI reads `.env.staging`** - Uses `DATABASE_CONNECTION_STRING`
-4. **10-min candle data** - 90 day retention for intraday analysis
-5. **Supabase MCP available** - Use for database queries in AI conversations
+1. **Infisical is source of truth** - All secrets managed in Infisical Cloud, auto-sync to GitHub/Vercel
+2. **Never commit secrets** - `.env.staging` is gitignored (kept as backup only)
+3. **RLS is enabled** - `data_sources` requires service role key
+4. **Local development** - Use `infisical run --env=prod -- <command>` to inject secrets
+5. **10-min candle data** - 90 day retention for intraday analysis
+6. **Supabase MCP available** - Use for database queries in AI conversations
+7. **`.infisical.json` is safe to commit** - Only contains workspace ID, no secrets
 
 
 
