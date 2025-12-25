@@ -1,0 +1,29 @@
+# FastAPI and ASGI server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Google Gemini SDK
+google-genai==1.0.0
+
+# Database
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+
+# Pydantic for settings
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# HTTP client for retries
+httpx==0.28.1
+tenacity==9.0.0
+
+# Timezone handling
+pytz==2024.2
+tzdata==2024.2
+
+# Logging
+structlog==24.4.0
+
+# Health checks
+prometheus-client==0.21.1
+

@@ -54,7 +54,8 @@ After processing all files, report:
 |--------|--------------|----------|
 | `architecture/` | Service-specific deployment, infrastructure, scheduling | TwelveData worker scheduling, AlphaVantage API flow |
 | `database/` | Service-specific schema, migrations, queries | TwelveData fetch_schedules table |
-| `cli/` | Service-specific commands, scripts | EF migration commands for specific service |
+| `cli/` | CLI commands organized by **tech stack subfolder** | `cli/.net/`, `cli/azure/`, `cli/docker/` |
+| `history/` | **Glanceable session logs by tech stack** — what was done, issues, solutions | Azure deployment fixes, .NET migration issues |
 | `ai-agent/` | Trading analysis, ML patterns | Candlestick analysis, trading signals |
 | `reference/` | **Generic cross-cutting patterns that apply to ALL services** | .env flow, project structure, shared conventions |
 | `agents/` | Cursor agent definitions (meta) | Agent instruction files like this one |
@@ -116,6 +117,168 @@ Is this content specific to ONE service?
 
 ---
 
+## CLI Content Routing
+
+CLI documentation is organized by **tech stack**, not by service. Route CLI content to `cli/<tech-stack>/<descriptive-name>.md`.
+
+### Tech Stack Detection
+
+| Tech Stack | Folder | Detection Keywords |
+|------------|--------|-------------------|
+| .NET | `cli/.net/` | `dotnet`, `ef`, `nuget`, `.csproj`, `migrations` |
+| Azure | `cli/azure/` | `az `, `az.`, `Azure CLI`, `containerapp`, `acr` |
+| Docker | `cli/docker/` | `docker`, `docker-compose`, `Dockerfile` |
+| GitHub | `cli/github/` | `gh `, `gh.`, `GitHub CLI`, `workflow`, `actions` |
+| Oracle | `cli/oracle/` | `oci`, `Oracle Cloud`, `oracle` |
+| PowerShell | `cli/powershell/` | `function`, `PowerShell_profile`, `.ps1`, `$HOME\Documents\WindowsPowerShell` |
+| Vercel | `cli/vercel/` | `vercel`, `Vercel CLI` |
+
+### CLI Routing Decision Tree
+
+```
+Is content CLI-related?
+├── YES → Identify tech stack from keywords
+│   ├── Tech stack identified → Route to cli/<tech-stack>/<descriptive-name>.md
+│   └── Unknown tech stack → Ask user OR create new folder
+└── NO → Use standard category routing
+```
+
+### Creating New Tech Stack Folders
+
+If CLI content belongs to a tech stack not listed above:
+1. Propose folder name to user (lowercase, no spaces)
+2. Create folder in `cli/` upon approval
+3. Add new tech stack to this detection table
+
+---
+
+## History Content Routing
+
+History documentation tracks **completed tasks/sessions** — what was done, issues encountered, solutions applied. Organized by **tech stack** (same as CLI).
+
+### When to Route to History
+
+```
+Is content about a COMPLETED task/session with issues/solutions?
+├── YES → Identify tech stack → Route to history/<tech-stack>/
+└── NO → Use standard category routing (cli/, architecture/, etc.)
+```
+
+### Tech Stack Detection
+
+Reuse the same tech stack folders as CLI:
+
+| Tech Stack | Folder |
+|------------|--------|
+| .NET | `history/.net/` |
+| Azure | `history/azure/` |
+| Docker | `history/docker/` |
+| GitHub | `history/github/` |
+| Oracle | `history/oracle/` |
+| PowerShell | `history/powershell/` |
+| Vercel | `history/vercel/` |
+
+### Naming Convention
+
+**Format:** `YYYY-MM-DD-<descriptive-slug>.md`
+
+**Examples:**
+- `history/azure/2025-12-20-container-apps-deployment-fix.md`
+- `history/.net/2025-12-18-ef-migration-connection-issue.md`
+- `history/docker/2025-12-15-compose-env-variable-fix.md`
+
+---
+
+## CLI Documentation Tone
+
+CLI docs must be **straightforward** — commands only, minimal explanation.
+
+### Format
+
+```markdown
+## <What It Does>
+
+```powershell
+# comment for context if needed
+<command>
+```
+```
+
+### Style Rules
+
+- **Commands only** — no lengthy explanations
+- **Inline comments** for context (e.g., `# Navigate to project`)
+- **Group related commands** under clear headings
+- **No prose paragraphs** between code blocks unless absolutely necessary
+- **Configuration snippets** where relevant (connection strings, env vars)
+
+### Example
+
+```markdown
+## Apply Migrations
+
+```powershell
+# Navigate to the migrations project
+cd services/common/StockTracker.Data.Migrations
+
+# Check migration status
+dotnet run -- status
+
+# Apply pending migrations
+dotnet run -- migrate
+```
+```
+
+---
+
+## History Documentation Tone
+
+**Goal**: Glanceable at a glance. Saves AI context memory.
+
+### Length Constraints
+
+| Section | Max Length |
+|---------|------------|
+| Total file | 50 lines (excluding code blocks) |
+| Context | 1-2 lines |
+| Issue/Solution | 3-5 bullets each |
+| Outcome | 1-2 lines |
+
+### Template
+
+```markdown
+# <Short Title>
+
+**Context**: One-liner describing the task.
+
+## Issue
+- Problem 1
+- Problem 2
+
+## Solution
+- Fix 1
+- Fix 2
+
+## Key Commands
+```bash
+<only critical commands>
+```
+
+**Outcome**: Verification or final state.
+```
+
+### Style Rules
+
+| Rule | Why |
+|------|-----|
+| No prose paragraphs | AI scans bullets faster |
+| Max 5 bullets per section | Prevents bloat |
+| Only critical commands | Skip trivial `cd`, `ls` |
+| One-liner outcome | Quick confirmation |
+| Skip obvious context | AI infers from folder/filename |
+
+---
+
 ## Synthesis Rules (Critical)
 
 When merging overlapping content, **synthesize intelligently** — do NOT simply concatenate.
@@ -172,15 +335,22 @@ Use Dapper for queries, not EF Core.
 
 Before deleting any file from `unfiltered/`:
 
-- [ ] Content classified (service-specific vs generic)
+- [ ] Content classified (service-specific vs generic vs CLI vs history)
 - [ ] If service-specific: service identified
+- [ ] If CLI: tech stack identified, routed to `cli/<tech-stack>/`
+- [ ] If history: tech stack identified, routed to `history/<tech-stack>/`
+- [ ] If history: date prefix applied (YYYY-MM-DD)
+- [ ] If history: follows Issue → Solution → Outcome structure
+- [ ] If history: max 50 lines (glanceable, saves context memory)
 - [ ] Topics detected and categorized
 - [ ] If multi-topic: split into separate files
 - [ ] Correct naming applied:
   - Service-specific: `<service>-<category>.md`
+  - CLI: `cli/<tech-stack>/<descriptive-name>.md`
+  - History: `history/<tech-stack>/YYYY-MM-DD-<slug>.md`
   - Generic: `reference/<descriptive-name>.md`
 - [ ] Existing files checked (synthesize if exists)
-- [ ] Output is Opus 4.5 optimized
+- [ ] Output is Opus 4.5 optimized (or CLI tone for CLI docs, or History tone for history)
 
 ---
 

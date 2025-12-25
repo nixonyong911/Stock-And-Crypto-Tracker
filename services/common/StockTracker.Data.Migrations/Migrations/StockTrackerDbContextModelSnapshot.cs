@@ -22,6 +22,163 @@ namespace StockTracker.Data.Migrations.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("StockTracker.Data.Entities.AiHubLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("CallerService")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("caller_service");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_ms");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("error_message");
+
+                    b.Property<string>("GoogleProjectId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("google_project_id");
+
+                    b.Property<int?>("HttpStatusCode")
+                        .HasColumnType("integer")
+                        .HasColumnName("http_status_code");
+
+                    b.Property<string>("MessagePreview")
+                        .HasColumnType("text")
+                        .HasColumnName("message_preview");
+
+                    b.Property<string>("ModelId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("model_id");
+
+                    b.Property<string>("RateLimitType")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("rate_limit_type");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<string>("ResponsePreview")
+                        .HasColumnType("text")
+                        .HasColumnName("response_preview");
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("retry_count");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<int?>("TokensInput")
+                        .HasColumnType("integer")
+                        .HasColumnName("tokens_input");
+
+                    b.Property<int?>("TokensOutput")
+                        .HasColumnType("integer")
+                        .HasColumnName("tokens_output");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .IsDescending();
+
+                    b.HasIndex("GoogleProjectId");
+
+                    b.HasIndex("ModelId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("ai_hub_logs", null, t =>
+                        {
+                            t.HasCheckConstraint("ai_hub_logs_status_check", "status IN ('success', 'rate_limited', 'server_error', 'unavailable', 'client_error', 'timeout')");
+                        });
+                });
+
+            modelBuilder.Entity("StockTracker.Data.Entities.AiHubRateTracking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int>("DailyRequests")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("daily_requests");
+
+                    b.Property<string>("GoogleProjectId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("google_project_id");
+
+                    b.Property<DateTime>("MinuteWindow")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("minute_window");
+
+                    b.Property<string>("ModelFamily")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("model_family");
+
+                    b.Property<DateOnly>("PacificDate")
+                        .HasColumnType("date")
+                        .HasColumnName("pacific_date");
+
+                    b.Property<int>("RequestsCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("requests_count");
+
+                    b.Property<int>("TokensCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("tokens_count");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoogleProjectId", "ModelFamily", "MinuteWindow")
+                        .IsUnique()
+                        .IsDescending(false, false, true);
+
+                    b.ToTable("ai_hub_rate_tracking", (string)null);
+                });
+
             modelBuilder.Entity("StockTracker.Data.Entities.CryptoPrice", b =>
                 {
                     b.Property<long>("Id")
@@ -520,26 +677,26 @@ namespace StockTracker.Data.Migrations.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2025, 12, 18, 11, 25, 48, 938, DateTimeKind.Utc).AddTicks(9090),
+                            CreatedAt = new DateTime(2025, 12, 25, 16, 10, 41, 573, DateTimeKind.Utc).AddTicks(9980),
                             IsActive = true,
                             Name = "stock",
-                            UpdatedAt = new DateTime(2025, 12, 18, 11, 25, 48, 938, DateTimeKind.Utc).AddTicks(9092)
+                            UpdatedAt = new DateTime(2025, 12, 25, 16, 10, 41, 573, DateTimeKind.Utc).AddTicks(9982)
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2025, 12, 18, 11, 25, 48, 938, DateTimeKind.Utc).AddTicks(9094),
+                            CreatedAt = new DateTime(2025, 12, 25, 16, 10, 41, 573, DateTimeKind.Utc).AddTicks(9983),
                             IsActive = true,
                             Name = "etf",
-                            UpdatedAt = new DateTime(2025, 12, 18, 11, 25, 48, 938, DateTimeKind.Utc).AddTicks(9094)
+                            UpdatedAt = new DateTime(2025, 12, 25, 16, 10, 41, 573, DateTimeKind.Utc).AddTicks(9983)
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2025, 12, 18, 11, 25, 48, 938, DateTimeKind.Utc).AddTicks(9095),
+                            CreatedAt = new DateTime(2025, 12, 25, 16, 10, 41, 573, DateTimeKind.Utc).AddTicks(9984),
                             IsActive = true,
                             Name = "crypto",
-                            UpdatedAt = new DateTime(2025, 12, 18, 11, 25, 48, 938, DateTimeKind.Utc).AddTicks(9095)
+                            UpdatedAt = new DateTime(2025, 12, 25, 16, 10, 41, 573, DateTimeKind.Utc).AddTicks(9985)
                         });
                 });
 

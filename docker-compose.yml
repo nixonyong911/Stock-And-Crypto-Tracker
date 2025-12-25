@@ -111,6 +111,43 @@ services:
       - stocktracker-network
 
   # ===========================================
+  # AI Hub Service (Multi-Model AI Gateway)
+  # Provides centralized AI access for all workers
+  # ===========================================
+  ai-hub:
+    build:
+      context: ./services/ai/ai-hub
+      dockerfile: Dockerfile
+    container_name: stocktracker-ai-hub
+    restart: unless-stopped
+    environment:
+      # Database (Supabase PostgreSQL)
+      - DATABASE_URL=${DATABASE_CONNECTION_STRING}
+      # Google Cloud Project (for rate limit tracking)
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID:-default-project}
+      # Model Registry
+      - AI_HUB_MODELS=${AI_HUB_MODELS:-api-stockandcryptotracker-google-gemini-3-flash}
+      # Gemini API Key
+      - AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH=${AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH}
+      # Rate Limits (Free tier defaults)
+      - AI_HUB_GEMINI_RPM_LIMIT=${AI_HUB_GEMINI_RPM_LIMIT:-15}
+      - AI_HUB_GEMINI_TPM_LIMIT=${AI_HUB_GEMINI_TPM_LIMIT:-1000000}
+      - AI_HUB_GEMINI_RPD_LIMIT=${AI_HUB_GEMINI_RPD_LIMIT:-1500}
+      # Retry Config
+      - AI_HUB_MAX_RETRIES=${AI_HUB_MAX_RETRIES:-3}
+      - AI_HUB_TIMEOUT_SECONDS=${AI_HUB_TIMEOUT_SECONDS:-30}
+    ports:
+      - "${AI_HUB_PORT:-8084}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - stocktracker-network
+
+  # ===========================================
   # Frontend: Now hosted on Vercel
   # See: https://vercel.com (configured separately)
   # ===========================================

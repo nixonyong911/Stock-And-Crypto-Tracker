@@ -1,91 +1,38 @@
 # CLI Commands Reference
 
-This folder contains documentation for various CLI commands and tools used in the project.
+CLI documentation organized by **tech stack**.
+
+## Folder Structure
+
+```
+cli/
+├── .net/           # .NET CLI (dotnet, ef, nuget)
+├── azure/          # Azure CLI (az commands)
+├── docker/         # Docker CLI (docker, docker-compose)
+├── github/         # GitHub CLI (gh commands)
+├── oracle/         # Oracle Cloud CLI (oci)
+├── powershell/     # PowerShell profile functions
+├── vercel/         # Vercel CLI
+└── README.md
+```
 
 ## Documentation Style
 
-Keep CLI docs **straightforward** - commands only, no explanations needed.
+Keep CLI docs **straightforward** — commands only, no explanations needed.
 
 - Use code blocks with comments for context
 - Group related commands under clear headings
 - Include configuration snippets where relevant
-- See [ef-migrations.md](ef-migrations.md) as reference
 
-## Documents
+---
 
-| Document | Description |
-|----------|-------------|
-| [ef-migrations.md](ef-migrations.md) | EF Core database migrations CLI commands |
+## Tech Stack Documents
 
-## Quick Reference
-
-### Database Migrations
-
-```powershell
-cd services/common/StockTracker.Data.Migrations
-
-# Check status
-dotnet run -- status
-
-# Apply migrations
-dotnet run -- migrate
-
-# Generate new migration
-dotnet ef migrations add <MigrationName>
-```
-
-### Azure Container Apps
-
-```powershell
-# List container apps
-az containerapp list --resource-group rg-stocktracker -o table
-
-# View logs
-az containerapp logs show --name ca-alphavantage --resource-group rg-stocktracker --follow
-
-# Health check
-Invoke-WebRequest -Uri "https://ca-alphavantage.calmwater-f6ffc3da.southeastasia.azurecontainerapps.io/health/live" -UseBasicParsing
-```
-
-### Docker (Local Development)
-
-```powershell
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Rebuild and restart
-docker-compose up -d --build
-```
-
-### Git & GitHub
-
-```powershell
-# Trigger GitHub Actions manually
-gh workflow run "Deploy to Azure Container Apps"
-
-# Check workflow status
-gh run list --workflow=deploy-azure.yml
-```
-
-### Vercel (Frontend)
-
-```bash
-# Install CLI
-npm i -g vercel
-
-# Deploy manually
-cd services/frontend
-vercel --prod
-```
-
-## Categories
-
-| Category | Documents |
-|----------|-----------|
-| Database | [ef-migrations.md](ef-migrations.md) |
-| *Coming soon* | Docker commands |
-| *Coming soon* | Azure CLI commands |
-
+| Tech Stack | Document | Description |
+|------------|----------|-------------|
+| .NET | [ef-migrations.md](.net/ef-migrations.md) | EF Core database migrations |
+| Azure | [container-apps.md](azure/container-apps.md) | Azure Container Apps management |
+| Docker | [docker-compose.md](docker/docker-compose.md) | Local development with Docker |
+| GitHub | [actions.md](github/actions.md) | GitHub Actions workflow commands |
+| PowerShell | [profile-functions.md](powershell/profile-functions.md) | Custom shell functions |
+| Vercel | [deploy.md](vercel/deploy.md) | Frontend deployment |

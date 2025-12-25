@@ -31,6 +31,10 @@ public class StockTrackerDbContext : DbContext
     // Price tables (10-minute candles)
     public DbSet<StockPrice> StockPrices => Set<StockPrice>();
     public DbSet<CryptoPrice> CryptoPrices => Set<CryptoPrice>();
+    
+    // AI Hub tables
+    public DbSet<AiHubLog> AiHubLogs => Set<AiHubLog>();
+    public DbSet<AiHubRateTracking> AiHubRateTrackings => Set<AiHubRateTracking>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
