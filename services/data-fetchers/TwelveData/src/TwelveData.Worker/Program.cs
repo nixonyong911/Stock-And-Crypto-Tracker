@@ -166,6 +166,9 @@ static async Task RunAsServiceAsync(string[] args)
                 Description = "API for controlling the TwelveData stock data fetcher. Use this to manually trigger data fetches for testing."
             });
         });
+        
+        // Get path base from environment (for reverse proxy)
+        var pathBase = Environment.GetEnvironmentVariable("PATH_BASE") ?? "";
 
         // Add health checks
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -177,13 +180,19 @@ static async Task RunAsServiceAsync(string[] args)
         var app = builder.Build();
 
         // Configure pipeline
+        if (!string.IsNullOrEmpty(pathBase))
+        {
+            app.UsePathBase(pathBase);
+        }
+        
         app.UseSerilogRequestLogging();
 
         // Swagger UI (available in all environments for this service)
         app.UseSwagger();
         app.UseSwaggerUI(c =>
         {
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "TwelveData Fetcher API v1");
+            // Use relative path for swagger.json to work behind reverse proxy
+            c.SwaggerEndpoint("v1/swagger.json", "TwelveData Fetcher API v1");
             c.RoutePrefix = "swagger";
         });
 

@@ -63,6 +63,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
+      # Path base for reverse proxy (Caddy strips /api/twelvedata)
+      - PATH_BASE=
       # Secrets from Infisical (mapped to .NET config format)
       - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
       - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
