@@ -164,6 +164,22 @@ az containerapp logs show --name ca-alphavantage --resource-group rg-stocktracke
 
 ---
 
+## AI Agent Interaction Rules
+
+When asking the user questions with multiple choice options:
+- **Always include a custom input option** (e.g., "Or type your own answer")
+- Never assume pre-filled choices cover all possibilities
+- Format questions like:
+  ```
+  Which option would you like?
+  1. Option A
+  2. Option B
+  3. Option C
+  4. **Or type your own answer**
+  ```
+
+---
+
 ## Important Notes
 
 1. **Infisical is source of truth** - All secrets managed in Infisical Cloud, auto-sync to GitHub/Vercel

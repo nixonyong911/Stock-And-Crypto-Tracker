@@ -112,3 +112,4 @@ def get_registry() -> ModelRegistry:
         _registry = ModelRegistry()
     return _registry
 
+

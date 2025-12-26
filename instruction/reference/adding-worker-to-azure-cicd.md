@@ -154,3 +154,4 @@ az containerapp revision list --name ca-<workername> --resource-group rg-stocktr
 
 
 
+

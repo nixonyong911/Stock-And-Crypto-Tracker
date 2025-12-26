@@ -159,3 +159,4 @@ async def ensure_tables_exist() -> None:
     except Exception as e:
         logger.warning("Could not ensure tables (may already exist via EF Core)", error=str(e))
 
+

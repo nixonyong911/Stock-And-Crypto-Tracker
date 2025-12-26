@@ -1,9 +1,5 @@
 # Infisical Secrets Management
 
-> **Placement**: This document should be placed in `instruction/architecture/infisical-secrets-management.md`
-
----
-
 ## Overview
 
 Infisical Cloud is the **single source of truth** for all secrets in this project. Secrets auto-sync to GitHub Actions and Vercel.

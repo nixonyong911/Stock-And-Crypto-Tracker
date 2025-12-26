@@ -1,8 +1,8 @@
 # ===========================================
 # Deploy Backend Services to Azure VM
 # ===========================================
-# Triggers on push to main branch when backend services change
-# Syncs config files and rebuilds Docker images on the VM
+# Phase 1: n8n, Caddy, TwelveData
+# Phase 2: Metrics, AI-Hub (TODO)
 # ===========================================
 
 name: Deploy to Azure VM
@@ -12,141 +12,93 @@ on:
     branches: [main]
     paths:
       - 'services/data-fetchers/TwelveData/**'
-      - 'services/metrics/**'
       - 'services/common/**'
-      - 'services/ai/**'
       - 'deployment/vm/**'
       - '.github/workflows/deploy-vm.yml'
-      # Exclude frontend (handled by Vercel) and retired AlphaVantage
       - '!services/frontend/**'
       - '!services/data-fetchers/AlphaVantage/**'
-  workflow_dispatch:  # Allow manual trigger
-
-env:
-  VM_HOST: 20.17.176.1
-  VM_USER: azureuser
-  DEPLOY_PATH: /opt/stocktracker
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     
     steps:
-      # ===========================================
-      # Checkout Repository
-      # ===========================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ===========================================
-      # Setup SSH Connection
-      # ===========================================
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ env.VM_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H 20.17.176.1 >> ~/.ssh/known_hosts
 
-      # ===========================================
-      # Sync Repository and Config Files to VM
-      # ===========================================
       - name: Sync repository to VM
         run: |
-          ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} << ENDSSH
-            set -e
-            echo "=== Syncing repository ==="
-            
-            # Clone or update repo using PAT for authentication
-            REPO_URL="https://${{ secrets.PAT_GITHUB }}@github.com/${{ github.repository }}.git"
-            
-            if [ -d "${{ env.DEPLOY_PATH }}/repo/.git" ]; then
-              echo "Updating existing repo..."
-              cd ${{ env.DEPLOY_PATH }}/repo
-              git remote set-url origin "\$REPO_URL"
-              git fetch origin main
-              git reset --hard origin/main
-            else
-              echo "Cloning repo..."
-              rm -rf ${{ env.DEPLOY_PATH }}/repo
-              git clone "\$REPO_URL" ${{ env.DEPLOY_PATH }}/repo
-            fi
-            
-            # Copy deployment configs to working directory
-            echo "=== Copying config files ==="
-            cp ${{ env.DEPLOY_PATH }}/repo/deployment/vm/docker-compose.yml ${{ env.DEPLOY_PATH }}/
-            cp ${{ env.DEPLOY_PATH }}/repo/deployment/vm/Caddyfile ${{ env.DEPLOY_PATH }}/
-            
-            # Copy scripts
-            mkdir -p ${{ env.DEPLOY_PATH }}/scripts
-            cp ${{ env.DEPLOY_PATH }}/repo/deployment/vm/scripts/*.sh ${{ env.DEPLOY_PATH }}/scripts/
-            chmod +x ${{ env.DEPLOY_PATH }}/scripts/*.sh
-            
-            echo "=== Config sync complete ==="
-            ls -la ${{ env.DEPLOY_PATH }}/
-          ENDSSH
+          ssh azureuser@20.17.176.1 'bash -s' << 'EOF'
+          set -e
+          DEPLOY_PATH="/opt/stocktracker"
+          
+          echo "=== Syncing repository ==="
+          cd $DEPLOY_PATH/repo
+          git fetch origin main
+          git reset --hard origin/main
+          
+          echo "=== Copying config files ==="
+          cp $DEPLOY_PATH/repo/deployment/vm/docker-compose.yml $DEPLOY_PATH/
+          cp $DEPLOY_PATH/repo/deployment/vm/Caddyfile $DEPLOY_PATH/
+          cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.sh $DEPLOY_PATH/scripts/
+          chmod +x $DEPLOY_PATH/scripts/*.sh
+          
+          echo "=== Config sync complete ==="
+          ls -la $DEPLOY_PATH/
+          EOF
 
-      # ===========================================
-      # Build and Deploy Services
-      # ===========================================
       - name: Build and deploy services
+        env:
+          DATABASE_CONNECTION_STRING: ${{ secrets.DATABASE_CONNECTION_STRING }}
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
         run: |
-          ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} << 'ENDSSH'
-            set -e
-            cd ${{ env.DEPLOY_PATH }}
-            
-            echo "=== Authenticating with Infisical ==="
-            # Authenticate using Machine Identity (Universal Auth)
-            export INFISICAL_TOKEN=$(infisical login --method=universal-auth \
-              --client-id="${{ secrets.VM_INFISICAL_CLIENT_ID }}" \
-              --client-secret="${{ secrets.VM_INFISICAL_CLIENT_SECRET }}" \
-              --silent)
-            
-            # Change to repo directory to pick up .infisical.json config
-            cd ${{ env.DEPLOY_PATH }}/repo
-            
-            echo "=== Building services ==="
-            infisical run --env=production -- \
-              docker compose -f ${{ env.DEPLOY_PATH }}/docker-compose.yml \
-              build --no-cache twelvedata metrics ai-hub
-            
-            echo "=== Starting services ==="
-            infisical run --env=production -- \
-              docker compose -f ${{ env.DEPLOY_PATH }}/docker-compose.yml \
-              up -d
-            
-            echo "=== Cleanup old images ==="
-            docker image prune -f
-            
-            echo "=== Deployment complete: $(date) ==="
-          ENDSSH
+          ssh azureuser@20.17.176.1 'bash -s' << EOF
+          set -e
+          DEPLOY_PATH="/opt/stocktracker"
+          cd \$DEPLOY_PATH
+          
+          echo "=== Setting environment variables ==="
+          export DATABASE_CONNECTION_STRING="${DATABASE_CONNECTION_STRING}"
+          export TWELVE_DATA_API_KEY="${TWELVE_DATA_API_KEY}"
+          
+          echo "=== Building TwelveData service ==="
+          docker compose build --no-cache twelvedata
+          
+          echo "=== Starting all services ==="
+          docker compose up -d
+          
+          echo "=== Cleanup old images ==="
+          docker image prune -f
+          
+          echo "=== Running containers ==="
+          docker ps
+          
+          echo "=== Deployment complete: \$(date) ==="
+          EOF
 
-      # ===========================================
-      # Verify Deployment
-      # ===========================================
       - name: Verify deployment
         run: |
           echo "Waiting for services to start..."
           sleep 45
           
-          echo "=== Checking TwelveData ==="
-          curl -f https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live || exit 1
-          
-          echo "=== Checking Metrics ==="
-          curl -f https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live || exit 1
-          
           echo "=== Checking n8n ==="
-          curl -f https://nxserver.malaysiawest.cloudapp.azure.com/ || echo "n8n check - may need login"
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/ > /dev/null && echo "n8n: OK" || echo "n8n: May need login"
+          
+          echo "=== Checking TwelveData ==="
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live && echo "TwelveData: OK" || echo "TwelveData: Starting..."
           
           echo ""
           echo "=========================================="
-          echo "All services deployed successfully!"
+          echo "Deployment complete!"
           echo "=========================================="
-          echo ""
-          echo "Access URLs:"
-          echo "  - n8n:         https://nxserver.malaysiawest.cloudapp.azure.com/"
-          echo "  - CaddyManager: https://nxserver.malaysiawest.cloudapp.azure.com/caddy/"
-          echo "  - TwelveData:  https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger"
-          echo "  - Metrics:     https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger"
-          echo "  - AI Hub:      https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs"
-
+          echo "URLs:"
+          echo "  - n8n:        https://nxserver.malaysiawest.cloudapp.azure.com/"
+          echo "  - TwelveData: https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger"

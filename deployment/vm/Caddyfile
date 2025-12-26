@@ -25,20 +25,18 @@ nxserver.malaysiawest.cloudapp.azure.com {
     }
     
     # ===========================================
-    # Metrics Service API
-    # Swagger UI: /api/metrics/swagger
+    # Metrics Service API - DISABLED (Phase 2)
     # ===========================================
-    handle_path /api/metrics/* {
-        reverse_proxy metrics:8080
-    }
+    # handle_path /api/metrics/* {
+    #     reverse_proxy metrics:8080
+    # }
     
     # ===========================================
-    # AI Hub API
-    # FastAPI Docs: /api/ai-hub/docs
+    # AI Hub API - DISABLED (Phase 2)
     # ===========================================
-    handle_path /api/ai-hub/* {
-        reverse_proxy ai-hub:8080
-    }
+    # handle_path /api/ai-hub/* {
+    #     reverse_proxy ai-hub:8080
+    # }
     
     # ===========================================
     # n8n - Default/Fallback (root path)

@@ -108,3 +108,4 @@ class CLIModelClient(BaseModelClient):
     def model_name(self) -> str:
         return "cli-model"
 
+

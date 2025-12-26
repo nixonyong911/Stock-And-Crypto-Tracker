@@ -269,3 +269,4 @@ class AIHubLogger:
             logger.error("Failed to get stats", error=str(e))
             return {"period_hours": hours, "stats": [], "error": str(e)}
 
+

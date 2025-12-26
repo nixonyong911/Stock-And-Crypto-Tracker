@@ -77,50 +77,37 @@ services:
       start_period: 30s
 
   # ===========================================
-  # Metrics Service
+  # Metrics Service - DISABLED (Phase 2)
   # Swagger at: /api/metrics/swagger
   # ===========================================
-  metrics:
-    build:
-      context: ./repo/services/metrics/StockTracker.Metrics
-      dockerfile: Dockerfile
-    container_name: metrics
-    restart: unless-stopped
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:8080
-    networks:
-      - stocktracker
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 30s
+  # metrics:
+  #   build:
+  #     context: ./repo/services/metrics/StockTracker.Metrics
+  #     dockerfile: Dockerfile
+  #   container_name: metrics
+  #   restart: unless-stopped
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Production
+  #     - ASPNETCORE_URLS=http://+:8080
+  #   networks:
+  #     - stocktracker
 
   # ===========================================
-  # AI Hub - Multi-Model AI Gateway
+  # AI Hub - DISABLED (Phase 2 - needs API keys)
   # Docs at: /api/ai-hub/docs
   # ===========================================
-  ai-hub:
-    build:
-      context: ./repo/services/ai/ai-hub
-      dockerfile: Dockerfile
-    container_name: ai-hub
-    restart: unless-stopped
-    environment:
-      # Secrets from Infisical
-      - DATABASE_URL=${DATABASE_CONNECTION_STRING}
-      - AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH=${AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH:-}
-      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID:-default-project}
-    networks:
-      - stocktracker
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 30s
+  # ai-hub:
+  #   build:
+  #     context: ./repo/services/ai/ai-hub
+  #     dockerfile: Dockerfile
+  #   container_name: ai-hub
+  #   restart: unless-stopped
+  #   environment:
+  #     - DATABASE_URL=${DATABASE_CONNECTION_STRING}
+  #     - AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH=${AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH:-}
+  #     - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID:-default-project}
+  #   networks:
+  #     - stocktracker
 
 networks:
   stocktracker:

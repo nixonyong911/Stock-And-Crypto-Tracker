@@ -292,3 +292,4 @@ def classify_http_error(status_code: int, message: str = "") -> Exception:
     
     return RetryableError(message or f"HTTP error: {status_code}", http_status=status_code)
 
+

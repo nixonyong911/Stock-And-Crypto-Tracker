@@ -208,3 +208,4 @@ az containerapp delete --name ca-twelvedata --resource-group rg-stocktracker --y
 - Consider migrating AlphaVantage worker to VM as well in the future
 - The schedule time (22:00 UTC) is after US market close - ideal for fetching daily data
 
+

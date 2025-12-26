@@ -165,3 +165,4 @@ def get_config() -> AIHubConfig:
         _config = AIHubConfig.load()
     return _config
 
+
