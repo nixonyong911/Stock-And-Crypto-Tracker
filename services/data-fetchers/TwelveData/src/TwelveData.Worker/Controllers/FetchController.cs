@@ -21,14 +21,16 @@ public class FetchController : ControllerBase
 
     /// <summary>
     /// Trigger fetch for a specific symbol. Creates the ticker if it doesn't exist.
-    /// Uses default configuration: yesterday, 15min interval, NASDAQ, 30 candles.
     /// </summary>
     /// <param name="symbol">Stock symbol (e.g., AAPL, MSFT, GOOGL)</param>
+    /// <param name="date">Optional date to fetch. Format: "YYYY-MM-DD" (e.g., "2025-12-24") or "yesterday". Defaults to "yesterday" if not provided.</param>
     [HttpPost("trigger/{symbol}")]
     [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<FetchResponse>> TriggerFetchSymbol(string symbol)
+    public async Task<ActionResult<FetchResponse>> TriggerFetchSymbol(
+        string symbol, 
+        [FromQuery] string? date = null)
     {
         if (string.IsNullOrWhiteSpace(symbol))
         {
@@ -40,21 +42,24 @@ public class FetchController : ControllerBase
         }
 
         symbol = symbol.ToUpperInvariant();
-        _logger.LogInformation("Manual fetch triggered for symbol {Symbol} via API", symbol);
+        var fetchDate = string.IsNullOrWhiteSpace(date) ? "yesterday" : date;
+        
+        _logger.LogInformation("Manual fetch triggered for symbol {Symbol} with date {Date} via API", symbol, fetchDate);
 
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var fetchService = scope.ServiceProvider.GetRequiredService<IStockFetchService>();
 
-            var recordsInserted = await fetchService.FetchSymbolAsync(symbol);
+            var recordsInserted = await fetchService.FetchSymbolAsync(symbol, date);
 
             return Ok(new FetchResponse
             {
                 Success = true,
-                Message = $"Fetched {recordsInserted} records for symbol {symbol}.",
+                Message = $"Fetched {recordsInserted} records for symbol {symbol} (date: {fetchDate}).",
                 RecordsInserted = recordsInserted,
-                Symbol = symbol
+                Symbol = symbol,
+                Date = fetchDate
             });
         }
         catch (InvalidOperationException ex)
@@ -64,7 +69,8 @@ public class FetchController : ControllerBase
             {
                 Success = false,
                 Message = ex.Message,
-                Symbol = symbol
+                Symbol = symbol,
+                Date = fetchDate
             });
         }
         catch (HttpRequestException ex)
@@ -74,7 +80,8 @@ public class FetchController : ControllerBase
             {
                 Success = false,
                 Message = $"TwelveData API error: {ex.Message}",
-                Symbol = symbol
+                Symbol = symbol,
+                Date = fetchDate
             });
         }
         catch (Exception ex)
@@ -84,7 +91,8 @@ public class FetchController : ControllerBase
             {
                 Success = false,
                 Message = $"Internal error: {ex.Message}",
-                Symbol = symbol
+                Symbol = symbol,
+                Date = fetchDate
             });
         }
     }
@@ -118,6 +126,7 @@ public class FetchResponse
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
     public string? Symbol { get; set; }
+    public string? Date { get; set; }
     public int? RecordsInserted { get; set; }
 }
 

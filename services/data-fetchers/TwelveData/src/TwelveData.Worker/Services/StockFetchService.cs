@@ -29,9 +29,12 @@ public class StockFetchService : IStockFetchService
         _logger = logger;
     }
 
-    public async Task<int> FetchSymbolAsync(string symbol, CancellationToken cancellationToken = default)
+    public async Task<int> FetchSymbolAsync(string symbol, string? date = null, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Manual fetch triggered for symbol {Symbol}", symbol);
+        // Use provided date or default to "yesterday"
+        var fetchDate = string.IsNullOrWhiteSpace(date) ? "yesterday" : date;
+        
+        _logger.LogInformation("Manual fetch triggered for symbol {Symbol} with date {Date}", symbol, fetchDate);
         
         // Get the data source
         var dataSource = await _priceRepository.GetDataSourceByNameAsync(DataSourceName);
@@ -44,10 +47,10 @@ public class StockFetchService : IStockFetchService
         var ticker = await _tickerRepository.GetOrCreateTickerAsync(symbol, "NASDAQ", "USD");
         _logger.LogInformation("Using ticker {Symbol} (ID: {Id})", ticker.Symbol, ticker.Id);
 
-        // Use hardcoded default configuration
+        // Use configuration with provided or default date
         var config = new FetchConfig
         {
-            FetchDate = "yesterday",
+            FetchDate = fetchDate,
             Interval = "15min",
             OutputSize = 30,
             Exchange = "NASDAQ",
@@ -58,7 +61,7 @@ public class StockFetchService : IStockFetchService
         // Fetch and store the data
         var recordsInserted = await FetchAndStoreSymbolDataAsync(ticker, dataSource.Id, config, cancellationToken);
         
-        _logger.LogInformation("Fetched {Records} records for {Symbol}", recordsInserted, ticker.Symbol);
+        _logger.LogInformation("Fetched {Records} records for {Symbol} (date: {Date})", recordsInserted, ticker.Symbol, fetchDate);
         
         return recordsInserted;
     }
