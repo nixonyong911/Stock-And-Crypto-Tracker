@@ -53,19 +53,23 @@ jobs:
       # ===========================================
       - name: Sync repository to VM
         run: |
-          ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} << 'ENDSSH'
+          ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} << ENDSSH
             set -e
             echo "=== Syncing repository ==="
             
-            # Clone or update repo
-            if [ -d "${{ env.DEPLOY_PATH }}/repo" ]; then
+            # Clone or update repo using PAT for authentication
+            REPO_URL="https://${{ secrets.GITHUB_PAT }}@github.com/${{ github.repository }}.git"
+            
+            if [ -d "${{ env.DEPLOY_PATH }}/repo/.git" ]; then
               echo "Updating existing repo..."
               cd ${{ env.DEPLOY_PATH }}/repo
+              git remote set-url origin "\$REPO_URL"
               git fetch origin main
               git reset --hard origin/main
             else
               echo "Cloning repo..."
-              git clone https://github.com/${{ github.repository }}.git ${{ env.DEPLOY_PATH }}/repo
+              rm -rf ${{ env.DEPLOY_PATH }}/repo
+              git clone "\$REPO_URL" ${{ env.DEPLOY_PATH }}/repo
             fi
             
             # Copy deployment configs to working directory
