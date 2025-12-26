@@ -1,0 +1,149 @@
+# ===========================================
+# Stock and Crypto Tracker - VM Deployment
+# ===========================================
+# This file is synced from the repo via CI/CD
+# Do NOT edit directly on the VM
+# ===========================================
+
+version: '3.8'
+
+services:
+  # ===========================================
+  # CaddyManager - Web UI for Caddy Management
+  # Access at: /caddy/
+  # ===========================================
+  caddymanager:
+    image: ghcr.io/rhad00/caddymanager:latest
+    container_name: caddymanager
+    restart: unless-stopped
+    environment:
+      - CADDY_ADMIN_URL=http://caddy:2019
+      - DATABASE_TYPE=sqlite
+      - DATABASE_PATH=/data/caddymanager.db
+    volumes:
+      - caddymanager-data:/data
+    networks:
+      - stocktracker
+    depends_on:
+      - caddy
+
+  # ===========================================
+  # Caddy - Reverse Proxy with Auto HTTPS
+  # ===========================================
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CADDY_ADMIN=0.0.0.0:2019
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - stocktracker
+
+  # ===========================================
+  # n8n - Workflow Automation
+  # Access at: / (root)
+  # ===========================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com
+      - N8N_PROTOCOL=https
+      - N8N_EDITOR_BASE_URL=https://nxserver.malaysiawest.cloudapp.azure.com
+      - TZ=Asia/Singapore
+    volumes:
+      - ./n8n-data:/home/node/.n8n
+    networks:
+      - stocktracker
+
+  # ===========================================
+  # TwelveData Worker
+  # Swagger at: /api/twelvedata/swagger
+  # ===========================================
+  twelvedata:
+    build:
+      context: ./repo/services
+      dockerfile: data-fetchers/TwelveData/Dockerfile
+    container_name: twelvedata
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # Secrets injected via Infisical at runtime
+      - ConnectionStrings__DefaultConnection=${ConnectionStrings__DefaultConnection}
+      - TwelveData__ApiKey=${TwelveData__ApiKey}
+      - TwelveData__BaseUrl=https://api.twelvedata.com
+    networks:
+      - stocktracker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  # ===========================================
+  # Metrics Service
+  # Swagger at: /api/metrics/swagger
+  # ===========================================
+  metrics:
+    build:
+      context: ./repo/services/metrics/StockTracker.Metrics
+      dockerfile: Dockerfile
+    container_name: metrics
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+    networks:
+      - stocktracker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  # ===========================================
+  # AI Hub - Multi-Model AI Gateway
+  # Docs at: /api/ai-hub/docs
+  # ===========================================
+  ai-hub:
+    build:
+      context: ./repo/services/ai/ai-hub
+      dockerfile: Dockerfile
+    container_name: ai-hub
+    restart: unless-stopped
+    environment:
+      # Secrets injected via Infisical at runtime
+      - DATABASE_URL=${DATABASE_URL}
+      - AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH=${AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH}
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+    networks:
+      - stocktracker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+networks:
+  stocktracker:
+    driver: bridge
+
+volumes:
+  caddy-data:
+  caddy-config:
+  caddymanager-data:
+

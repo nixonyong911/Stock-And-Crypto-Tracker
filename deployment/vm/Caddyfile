@@ -1,0 +1,72 @@
+# ===========================================
+# Caddy Reverse Proxy Configuration
+# ===========================================
+# This file is synced from the repo via CI/CD
+# Do NOT edit directly on the VM
+# ===========================================
+
+{
+    # Enable Admin API for CaddyManager
+    admin 0.0.0.0:2019
+}
+
+nxserver.malaysiawest.cloudapp.azure.com {
+    # ===========================================
+    # CaddyManager GUI
+    # ===========================================
+    handle_path /caddy/* {
+        reverse_proxy caddymanager:8080
+    }
+    
+    # ===========================================
+    # TwelveData Worker API
+    # Swagger UI: /api/twelvedata/swagger
+    # ===========================================
+    handle_path /api/twelvedata/* {
+        reverse_proxy twelvedata:8080
+    }
+    
+    # ===========================================
+    # Metrics Service API
+    # Swagger UI: /api/metrics/swagger
+    # ===========================================
+    handle_path /api/metrics/* {
+        reverse_proxy metrics:8080
+    }
+    
+    # ===========================================
+    # AI Hub API
+    # FastAPI Docs: /api/ai-hub/docs
+    # ===========================================
+    handle_path /api/ai-hub/* {
+        reverse_proxy ai-hub:8080
+    }
+    
+    # ===========================================
+    # n8n - Default/Fallback (root path)
+    # ===========================================
+    handle {
+        reverse_proxy n8n:5678
+    }
+    
+    # ===========================================
+    # Security Headers
+    # ===========================================
+    header {
+        Strict-Transport-Security "max-age=31536000;"
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+    }
+    
+    # Enable compression
+    encode gzip
+}
+
+# ===========================================
+# Redirect IP to Domain
+# ===========================================
+20.17.176.1 {
+    redir https://nxserver.malaysiawest.cloudapp.azure.com{uri}
+}
+

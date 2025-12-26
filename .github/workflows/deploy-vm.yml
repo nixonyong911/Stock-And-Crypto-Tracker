@@ -1,0 +1,148 @@
+# ===========================================
+# Deploy Backend Services to Azure VM
+# ===========================================
+# Triggers on push to main branch when backend services change
+# Syncs config files and rebuilds Docker images on the VM
+# ===========================================
+
+name: Deploy to Azure VM
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/data-fetchers/TwelveData/**'
+      - 'services/metrics/**'
+      - 'services/common/**'
+      - 'services/ai/**'
+      - 'deployment/vm/**'
+      - '.github/workflows/deploy-vm.yml'
+      # Exclude frontend (handled by Vercel) and retired AlphaVantage
+      - '!services/frontend/**'
+      - '!services/data-fetchers/AlphaVantage/**'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  VM_HOST: 20.17.176.1
+  VM_USER: azureuser
+  DEPLOY_PATH: /opt/stocktracker
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # ===========================================
+      # Checkout Repository
+      # ===========================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ===========================================
+      # Setup SSH Connection
+      # ===========================================
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.VM_HOST }} >> ~/.ssh/known_hosts
+
+      # ===========================================
+      # Sync Repository and Config Files to VM
+      # ===========================================
+      - name: Sync repository to VM
+        run: |
+          ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} << 'ENDSSH'
+            set -e
+            echo "=== Syncing repository ==="
+            
+            # Clone or update repo
+            if [ -d "${{ env.DEPLOY_PATH }}/repo" ]; then
+              echo "Updating existing repo..."
+              cd ${{ env.DEPLOY_PATH }}/repo
+              git fetch origin main
+              git reset --hard origin/main
+            else
+              echo "Cloning repo..."
+              git clone https://github.com/${{ github.repository }}.git ${{ env.DEPLOY_PATH }}/repo
+            fi
+            
+            # Copy deployment configs to working directory
+            echo "=== Copying config files ==="
+            cp ${{ env.DEPLOY_PATH }}/repo/deployment/vm/docker-compose.yml ${{ env.DEPLOY_PATH }}/
+            cp ${{ env.DEPLOY_PATH }}/repo/deployment/vm/Caddyfile ${{ env.DEPLOY_PATH }}/
+            
+            # Copy scripts
+            mkdir -p ${{ env.DEPLOY_PATH }}/scripts
+            cp ${{ env.DEPLOY_PATH }}/repo/deployment/vm/scripts/*.sh ${{ env.DEPLOY_PATH }}/scripts/
+            chmod +x ${{ env.DEPLOY_PATH }}/scripts/*.sh
+            
+            echo "=== Config sync complete ==="
+            ls -la ${{ env.DEPLOY_PATH }}/
+          ENDSSH
+
+      # ===========================================
+      # Build and Deploy Services
+      # ===========================================
+      - name: Build and deploy services
+        run: |
+          ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} << 'ENDSSH'
+            set -e
+            cd ${{ env.DEPLOY_PATH }}
+            
+            echo "=== Authenticating with Infisical ==="
+            # Authenticate using Machine Identity (Universal Auth)
+            export INFISICAL_TOKEN=$(infisical login --method=universal-auth \
+              --client-id="${{ secrets.VM_INFISICAL_CLIENT_ID }}" \
+              --client-secret="${{ secrets.VM_INFISICAL_CLIENT_SECRET }}" \
+              --silent)
+            
+            # Change to repo directory to pick up .infisical.json config
+            cd ${{ env.DEPLOY_PATH }}/repo
+            
+            echo "=== Building services ==="
+            infisical run --env=production -- \
+              docker compose -f ${{ env.DEPLOY_PATH }}/docker-compose.yml \
+              build --no-cache twelvedata metrics ai-hub
+            
+            echo "=== Starting services ==="
+            infisical run --env=production -- \
+              docker compose -f ${{ env.DEPLOY_PATH }}/docker-compose.yml \
+              up -d
+            
+            echo "=== Cleanup old images ==="
+            docker image prune -f
+            
+            echo "=== Deployment complete: $(date) ==="
+          ENDSSH
+
+      # ===========================================
+      # Verify Deployment
+      # ===========================================
+      - name: Verify deployment
+        run: |
+          echo "Waiting for services to start..."
+          sleep 45
+          
+          echo "=== Checking TwelveData ==="
+          curl -f https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live || exit 1
+          
+          echo "=== Checking Metrics ==="
+          curl -f https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live || exit 1
+          
+          echo "=== Checking n8n ==="
+          curl -f https://nxserver.malaysiawest.cloudapp.azure.com/ || echo "n8n check - may need login"
+          
+          echo ""
+          echo "=========================================="
+          echo "All services deployed successfully!"
+          echo "=========================================="
+          echo ""
+          echo "Access URLs:"
+          echo "  - n8n:         https://nxserver.malaysiawest.cloudapp.azure.com/"
+          echo "  - CaddyManager: https://nxserver.malaysiawest.cloudapp.azure.com/caddy/"
+          echo "  - TwelveData:  https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger"
+          echo "  - Metrics:     https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger"
+          echo "  - AI Hub:      https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs"
+
