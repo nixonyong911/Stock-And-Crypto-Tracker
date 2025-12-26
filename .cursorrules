@@ -4,7 +4,7 @@
 
 A microservices-based stock and cryptocurrency tracking application with:
 - **Frontend**: Next.js on Vercel
-- **Backend**: .NET 8 workers on Azure Container Apps
+- **Backend**: .NET 8 workers on Azure VM (Docker + Caddy)
 - **Database**: Supabase (PostgreSQL) with EF Core migrations
 - **Purpose**: Fetch market data, store 10-min candles, enable AI trading analysis
 
@@ -16,7 +16,9 @@ A microservices-based stock and cryptocurrency tracking application with:
 | Backend Workers | .NET 8, Dapper, ASP.NET Core |
 | Database | PostgreSQL (Supabase), EF Core for migrations |
 | Shared Library | StockTracker.Data (entities), StockTracker.Common (utilities) |
-| CI/CD | GitHub Actions → Azure Container Apps |
+| CI/CD | GitHub Actions → SSH → Azure VM |
+| Reverse Proxy | Caddy (auto HTTPS via Let's Encrypt) |
+| Workflow Automation | n8n |
 
 ---
 
@@ -35,7 +37,7 @@ Infisical Cloud (source of truth)
        │
        ├──► GitHub Secrets (auto-sync via integration)
        │         │
-       │         └──► GitHub Actions → Azure Container Apps
+       │         └──► GitHub Actions ──► SSH ──► Azure VM
        │                   Injects secrets as environment variables
        │
        ├──► Vercel (auto-sync via integration)
@@ -48,17 +50,15 @@ Infisical Cloud (source of truth)
 
 ### Secrets Inventory
 
-| Secret | Synced To |
-|--------|-----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | GitHub, Vercel |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | GitHub, Vercel |
-| `SUPABASE_SECRET_DEFAULT_KEY` | GitHub |
-| `DATABASE_CONNECTION_STRING` | GitHub |
-| `TWELVE_DATA_API_KEY` | GitHub |
-| `AZURE_CREDENTIALS` | GitHub |
-| `ACR_LOGIN_SERVER` | GitHub |
-| `ACR_USERNAME` | GitHub |
-| `ACR_PASSWORD` | GitHub |
+| Secret | Synced To | Used By |
+|--------|-----------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | GitHub, Vercel | Frontend |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | GitHub, Vercel | Frontend |
+| `SUPABASE_SECRET_DEFAULT_KEY` | GitHub | Backend services |
+| `DATABASE_CONNECTION_STRING` | GitHub | TwelveData, Metrics, AI-Hub |
+| `TWELVE_DATA_API_KEY` | GitHub | TwelveData Worker |
+| `VM_SSH_PRIVATE_KEY` | GitHub | CI/CD pipeline |
+| `PAT_GITHUB` | GitHub | Clone private repo |
 
 ### .NET Configuration Pattern
 
@@ -68,7 +68,7 @@ Environment variables override `appsettings.json` using double-underscore notati
 |---------------------|--------------------------|
 | `Supabase__Url` | `{ "Supabase": { "Url": "" } }` |
 | `ConnectionStrings__DefaultConnection` | `{ "ConnectionStrings": { "DefaultConnection": "" } }` |
-| `AlphaVantage__ApiKey` | `{ "AlphaVantage": { "ApiKey": "" } }` |
+| `TwelveData__ApiKey` | `{ "TwelveData": { "ApiKey": "" } }` |
 
 ---
 
@@ -79,10 +79,17 @@ Environment variables override `appsettings.json` using double-underscore notati
 ├── .infisical.json           # Infisical CLI config (safe to commit)
 ├── .env.staging              # Local backup only (gitignored)
 ├── docker-compose.yml        # Local development
+├── deployment/
+│   └── vm/                   # VM deployment configs
+│       ├── docker-compose.yml   # Production services
+│       ├── Caddyfile            # Reverse proxy routes
+│       └── scripts/             # Setup & cron scripts
 ├── instruction/              # All documentation
 │   ├── database/             # Schema, configuration
 │   ├── architecture/         # Deployments, infrastructure, Infisical
 │   ├── cli/                  # CLI commands
+│   ├── history/              # Migration history
+│   ├── todo/                 # Phase tracking
 │   └── ai-agent/             # AI trading guides
 ├── services/
 │   ├── ai/                   # AI services (ai-hub)
@@ -94,7 +101,8 @@ Environment variables override `appsettings.json` using double-underscore notati
 │   │   └── TwelveData/                  # Stock data worker
 │   ├── frontend/                        # Next.js app (Vercel)
 │   └── metrics/                         # Metrics aggregation
-└── .github/workflows/                   # CI/CD pipelines
+└── .github/workflows/
+    └── deploy-vm.yml                    # VM deployment pipeline
 ```
 
 ---
@@ -137,10 +145,30 @@ infisical run --env=prod -- docker-compose up -d
 docker-compose logs -f
 ```
 
-### Azure
+### Azure VM
 ```powershell
-az containerapp list --resource-group rg-stocktracker -o table
-az containerapp logs show --name ca-alphavantage --resource-group rg-stocktracker --follow
+# SSH to VM (PowerShell alias)
+ssh-azure
+
+# Or direct SSH
+ssh -i "$HOME\.ssh\nx-linux-server-azure_key.pem" azureuser@20.17.176.1
+
+# Check services on VM
+docker ps
+docker logs <service-name>
+docker compose up -d --build <service-name>
+```
+
+### Service URLs
+```
+# n8n Dashboard
+https://nxserver.malaysiawest.cloudapp.azure.com/
+
+# TwelveData Swagger
+https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger
+
+# Health Checks
+https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live
 ```
 
 ---
@@ -189,16 +217,37 @@ When asking the user questions with multiple choice options:
 5. **10-min candle data** - 90 day retention for intraday analysis
 6. **Supabase MCP available** - Use for database queries in AI conversations
 7. **`.infisical.json` is safe to commit** - Only contains workspace ID, no secrets
+8. **Caddy worker endpoints** - When adding new Caddy reverse proxy routes, update `instruction/cli/caddy/worker-endpoints.md` with the worker name and URL
+9. **VM deployment** - Backend services run on Azure VM (`nx-linux-server-azure`), not Container Apps
+10. **Add new secrets to Infisical first** - They will auto-sync to GitHub Secrets
 
+---
 
+## CI/CD Pipeline Flow
 
+```
+Developer pushes to main
+         │
+         ▼
+GitHub Actions (deploy-vm.yml)
+         │
+         ├── Checkout code
+         ├── Setup SSH to VM
+         ├── git pull on VM
+         ├── Copy deployment configs
+         ├── docker compose build
+         ├── docker compose up -d
+         └── Health checks
+         │
+         ▼
+Azure VM runs services via Docker
+```
 
+### Trigger Paths
+- `services/data-fetchers/TwelveData/**`
+- `services/common/**`
+- `deployment/vm/**`
+- `.github/workflows/deploy-vm.yml`
 
-
-
-
-
-
-
-
-
+### Manual Trigger
+- Go to GitHub Actions → Deploy to Azure VM → Run workflow

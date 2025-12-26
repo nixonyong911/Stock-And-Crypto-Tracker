@@ -1,5 +1,7 @@
 # System Architecture Overview
 
+**Last Updated**: December 27, 2025
+
 ## High-Level Architecture
 
 ```
@@ -9,21 +11,36 @@
 │                                                                              │
 │   ┌──────────────┐    ┌───────────────────────────────┐    ┌─────────────┐ │
 │   │   FRONTEND   │    │           BACKEND             │    │  DATABASE   │ │
-│   │   (Vercel)   │    │    (Azure Container Apps)     │    │ (Supabase)  │ │
+│   │   (Vercel)   │    │       (Azure VM + Docker)     │    │ (Supabase)  │ │
 │   ├──────────────┤    ├───────────────────────────────┤    ├─────────────┤ │
 │   │              │    │                               │    │             │ │
 │   │  Next.js     │    │  ┌─────────────────────────┐  │    │ PostgreSQL  │ │
-│   │  - SSR       │    │  │  AlphaVantage Worker    │  │    │             │ │
-│   │  - React     │───▶│  │  - Fetches stock data   │──┼───▶│  Tables:    │ │
-│   │              │    │  │  - Scheduled execution  │  │    │  - stocks   │ │
-│   │              │    │  └─────────────────────────┘  │    │  - crypto   │ │
-│   │              │    │                               │    │  - status   │ │
-│   │              │    │  ┌─────────────────────────┐  │    │             │ │
-│   │              │    │  │  Metrics Service        │  │    │             │ │
-│   │              │◀───│  │  - Aggregates metrics   │  │    │             │ │
-│   │              │    │  │  - Health monitoring    │  │    │             │ │
+│   │  - SSR       │    │  │  Caddy (Reverse Proxy)  │  │    │             │ │
+│   │  - React     │───▶│  │  Auto HTTPS + Routing   │  │    │  Tables:    │ │
+│   │              │    │  └──────────┬──────────────┘  │    │  - stocks   │ │
+│   │              │    │             │                 │    │  - crypto   │ │
+│   │              │    │  ┌──────────┼──────────────┐  │    │  - status   │ │
+│   │              │    │  │          │              │  │    │             │ │
+│   │              │    │  │ ┌────────┴───────┐      │  │    │             │ │
+│   │              │    │  │ │     n8n        │      │──┼───▶│             │ │
+│   │              │    │  │ │  (Workflows)   │      │  │    │             │ │
+│   │              │    │  │ └────────────────┘      │  │    │             │ │
+│   │              │    │  │                         │  │    │             │ │
+│   │              │    │  │ ┌────────────────┐      │  │    │             │ │
+│   │              │    │  │ │  TwelveData    │      │──┼───▶│             │ │
+│   │              │◀───│  │ │   Worker       │      │  │    │             │ │
+│   │              │    │  │ └────────────────┘      │  │    │             │ │
+│   │              │    │  │                         │  │    │             │ │
+│   │              │    │  │ ┌────────────────┐      │  │    │             │ │
+│   │              │    │  │ │  Metrics       │      │  │    │             │ │
+│   │              │    │  │ │  (Phase 2)     │      │  │    │             │ │
+│   │              │    │  │ └────────────────┘      │  │    │             │ │
+│   │              │    │  │                         │  │    │             │ │
+│   │              │    │  │ ┌────────────────┐      │  │    │             │ │
+│   │              │    │  │ │  AI-Hub        │      │  │    │             │ │
+│   │              │    │  │ │  (Phase 2)     │      │  │    │             │ │
+│   │              │    │  │ └────────────────┘      │  │    │             │ │
 │   │              │    │  └─────────────────────────┘  │    │             │ │
-│   │              │    │                               │    │             │ │
 │   └──────────────┘    └───────────────────────────────┘    └─────────────┘ │
 │          │                                                        ▲        │
 │          └────────────────────────────────────────────────────────┘        │
@@ -48,17 +65,21 @@
 - Real-time data updates via Supabase subscriptions
 - Responsive design for mobile and desktop
 
-### Backend Workers (Azure Container Apps)
+### Backend Workers (Azure VM)
 
-| Service | Technology | Purpose |
-|---------|------------|---------|
-| AlphaVantage Worker | .NET 8 Worker Service | Fetches stock/crypto data from Alpha Vantage API |
-| Metrics Service | .NET 8 Web API | Aggregates and exposes metrics for monitoring |
+| Service | Technology | Purpose | Status |
+|---------|------------|---------|--------|
+| Caddy | Caddy 2 (Alpine) | Reverse proxy with auto HTTPS | ✅ Active |
+| n8n | n8nio/n8n | Workflow automation | ✅ Active |
+| TwelveData Worker | .NET 8 Web API | Fetches stock/crypto data | ✅ Active |
+| Metrics Service | .NET 8 Web API | Aggregates metrics | ⏸️ Phase 2 |
+| AI-Hub | Python FastAPI | AI model gateway | ⏸️ Phase 2 |
 
 **Key Features**:
-- Scheduled data fetching (configurable intervals)
-- Health check endpoints for container orchestration
-- Internal service-to-service communication
+- Docker Compose orchestration
+- Automatic HTTPS via Let's Encrypt (Caddy)
+- Scheduled data fetching via cron
+- Swagger UI for all workers
 
 ### Database (Supabase)
 
@@ -68,27 +89,40 @@
 | Hosting | Supabase (managed) |
 | Features | Row Level Security, Real-time subscriptions |
 
+## Service Endpoints
+
+| Service | URL |
+|---------|-----|
+| n8n | https://nxserver.malaysiawest.cloudapp.azure.com/ |
+| TwelveData Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger |
+| TwelveData Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live |
+| Metrics Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger (Phase 2) |
+| AI-Hub Docs | https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs (Phase 2) |
+
 ## Data Flow
 
 ### Stock Data Fetch Flow
 
 ```
-1. [AlphaVantage Worker] Timer triggers fetch
+1. [Cron] Triggers at 06:00 UTC (Mon-Fri)
          │
          ▼
-2. [Alpha Vantage API] GET /query?function=GLOBAL_QUOTE
+2. [TwelveData Worker] Runs fetch job
          │
          ▼
-3. [AlphaVantage Worker] Parse and transform response
+3. [TwelveData API] GET time_series endpoint
          │
          ▼
-4. [Supabase] INSERT/UPDATE stock_prices table
+4. [TwelveData Worker] Parse and transform response
          │
          ▼
-5. [Frontend] Real-time update via Supabase subscription
+5. [Supabase] INSERT/UPDATE stock_prices table
          │
          ▼
-6. [User] Sees updated price in UI
+6. [Frontend] Real-time update via Supabase subscription
+         │
+         ▼
+7. [User] Sees updated price in UI
 ```
 
 ### Frontend Data Access Flow
@@ -109,27 +143,17 @@
 5. [User] Receives fully rendered page
 ```
 
-## Service Communication
+## CI/CD Pipeline
 
 ```
-┌─────────────────┐         ┌─────────────────┐
-│   AlphaVantage  │◀───────▶│    Metrics      │
-│     Worker      │  HTTP   │    Service      │
-└────────┬────────┘         └─────────────────┘
-         │                           │
-         │ Supabase Client           │ Internal only
-         ▼                           │
-┌─────────────────┐                  │
-│    Supabase     │                  │
-│   PostgreSQL    │                  │
-└─────────────────┘                  │
-         ▲                           │
-         │ Supabase Client           │
-         │                           │
-┌────────┴────────┐                  │
-│    Frontend     │                  │
-│    (Vercel)     │                  │
-└─────────────────┘                  │
+┌──────────────┐      ┌──────────────┐      ┌──────────────────────────────┐
+│   Developer  │      │    GitHub    │      │          Azure VM            │
+│              │      │   Actions    │      │                              │
+│  git push    │─────▶│              │──SSH─▶│  1. git pull                 │
+│              │      │  Triggers:   │      │  2. docker compose build     │
+│              │      │  - main push │      │  3. docker compose up -d     │
+│              │      │  - manual    │      │  4. Health checks            │
+└──────────────┘      └──────────────┘      └──────────────────────────────┘
 ```
 
 ## Security Model
@@ -140,49 +164,33 @@
 |-------|--------|
 | Frontend → Supabase | Anon Key (Row Level Security) |
 | Backend → Supabase | Service Role Key (bypasses RLS) |
-| Backend → Backend | Internal networking (Azure VNet) |
+| Internet → VM | Caddy (HTTPS only, ports 80/443) |
+| SSH → VM | Private key authentication |
 
 ### Secrets Management
 
 | Environment | Method |
 |-------------|--------|
-| Local Development | `.env` files, `appsettings.json` |
-| Production (Azure) | GitHub Secrets → Container App Environment Variables |
-| Production (Vercel) | Vercel Environment Variables |
+| Source of Truth | Infisical Cloud |
+| Production (VM) | GitHub Secrets → SSH → Environment Variables |
+| Production (Vercel) | Infisical auto-sync to Vercel |
+| Local Development | `infisical run --env=prod -- <command>` |
 
-## Scalability Considerations
+## VM Infrastructure
 
-### Current Architecture
-- Single instance of each worker service
-- Supabase handles database scaling automatically
-- Vercel auto-scales frontend globally
-
-### Future Scaling Options
-- Multiple worker instances with distributed locking
-- Azure Container Apps auto-scaling rules
-- Redis cache layer for frequently accessed data
+| Property | Value |
+|----------|-------|
+| Name | nx-linux-server-azure |
+| Resource Group | NIXON-CITY |
+| Size | Standard_B2s (2 vCPU, 4GB RAM) |
+| Location | Malaysia West |
+| Public IP | 20.17.176.1 |
+| DNS | nxserver.malaysiawest.cloudapp.azure.com |
 
 ## Related Documents
 
+- [VM Deployment Architecture](vm-deployment-architecture.md) - Detailed VM setup
 - [Infrastructure Reference](infrastructure-reference.md) - Resource IDs and URLs
-- [Azure Deployment](azure-container-apps-deployment.md) - Backend CI/CD
 - [Vercel Deployment](vercel-frontend-deployment.md) - Frontend CI/CD
 - [Database Documentation](../database/README.md) - Schema and migrations
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- [Worker Endpoints](../cli/caddy/worker-endpoints.md) - Service URLs

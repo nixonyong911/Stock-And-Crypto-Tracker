@@ -127,6 +127,7 @@ CLI documentation is organized by **tech stack**, not by service. Route CLI cont
 |------------|--------|-------------------|
 | .NET | `cli/.net/` | `dotnet`, `ef`, `nuget`, `.csproj`, `migrations` |
 | Azure | `cli/azure/` | `az `, `az.`, `Azure CLI`, `containerapp`, `acr` |
+| Caddy | `cli/caddy/` | `caddy`, `Caddyfile`, `reverse_proxy`, `tls` |
 | Docker | `cli/docker/` | `docker`, `docker-compose`, `Dockerfile` |
 | GitHub | `cli/github/` | `gh `, `gh.`, `GitHub CLI`, `workflow`, `actions` |
 | Infisical | `cli/infisical/` | `infisical`, `infisical run`, `infisical secrets`, `.infisical.json` |
@@ -151,6 +152,44 @@ If CLI content belongs to a tech stack not listed above:
 2. Create folder in `cli/` upon approval
 3. Add new tech stack to this detection table
 
+### Caddy Worker Endpoints Registry (Special File)
+
+`cli/caddy/` contains a **unique registry file**: `worker-endpoints.md`
+
+This file maps worker/service names to their public URLs for quick reference to GUIs and APIs.
+
+**File:** `cli/caddy/worker-endpoints.md`
+
+**Format:**
+
+```markdown
+# Worker Endpoints
+
+| Worker | URL |
+|--------|-----|
+| n8n | https://nxserver.malaysiawest.cloudapp.azure.com/ |
+| grafana | https://nxserver.malaysiawest.cloudapp.azure.com/grafana |
+| prometheus | https://nxserver.malaysiawest.cloudapp.azure.com/prometheus |
+```
+
+**Rules:**
+
+- **One row per worker** — worker name and its public URL
+- **Alphabetical order** — sort workers A-Z for easy scanning
+- **Always update** — when adding new Caddy reverse proxy routes, add entry here
+- **No duplicates** — each worker appears once
+- **Use exact URLs** — include trailing slash if required by the service
+
+**When to Update:**
+
+| Trigger | Action |
+|---------|--------|
+| New Caddyfile route added | Add worker to `worker-endpoints.md` |
+| Worker URL changed | Update URL in `worker-endpoints.md` |
+| Worker removed | Remove entry from `worker-endpoints.md` |
+
+**Detection:** If content mentions "worker URL", "endpoint", "GUI link", or "service URL" with Caddy context → Update `cli/caddy/worker-endpoints.md`
+
 ---
 
 ## History Content Routing
@@ -173,6 +212,7 @@ Reuse the same tech stack folders as CLI:
 |------------|--------|
 | .NET | `history/.net/` |
 | Azure | `history/azure/` |
+| Caddy | `history/caddy/` |
 | Docker | `history/docker/` |
 | GitHub | `history/github/` |
 | Infisical | `history/infisical/` |
@@ -340,6 +380,7 @@ Before deleting any file from `unfiltered/`:
 - [ ] Content classified (service-specific vs generic vs CLI vs history)
 - [ ] If service-specific: service identified
 - [ ] If CLI: tech stack identified, routed to `cli/<tech-stack>/`
+- [ ] If Caddy with worker URLs: update `cli/caddy/worker-endpoints.md`
 - [ ] If history: tech stack identified, routed to `history/<tech-stack>/`
 - [ ] If history: date prefix applied (YYYY-MM-DD)
 - [ ] If history: follows Issue → Solution → Outcome structure
