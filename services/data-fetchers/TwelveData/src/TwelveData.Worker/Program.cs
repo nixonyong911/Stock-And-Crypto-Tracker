@@ -155,6 +155,9 @@ static async Task RunAsServiceAsync(string[] args)
         // Add controllers
         builder.Services.AddControllers();
 
+        // Get path base from environment (for reverse proxy)
+        var pathBase = Environment.GetEnvironmentVariable("PATH_BASE") ?? "/api/twelvedata";
+        
         // Add Swagger/OpenAPI
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
@@ -165,10 +168,14 @@ static async Task RunAsServiceAsync(string[] args)
                 Version = "v1",
                 Description = "API for controlling the TwelveData stock data fetcher. Use this to manually trigger data fetches for testing."
             });
+            
+            // Add server URL for reverse proxy (Caddy routes /api/twelvedata/* to this service)
+            c.AddServer(new Microsoft.OpenApi.Models.OpenApiServer
+            {
+                Url = pathBase,
+                Description = "TwelveData API (via Caddy reverse proxy)"
+            });
         });
-        
-        // Get path base from environment (for reverse proxy)
-        var pathBase = Environment.GetEnvironmentVariable("PATH_BASE") ?? "";
 
         // Add health checks
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
