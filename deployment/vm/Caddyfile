@@ -12,11 +12,9 @@
 
 nxserver.malaysiawest.cloudapp.azure.com {
     # ===========================================
-    # CaddyManager GUI
+    # NOTE: CaddyManager removed - use Caddy Admin API via SSH
+    # SSH: curl localhost:2019/config/
     # ===========================================
-    handle_path /caddy/* {
-        reverse_proxy caddymanager:8080
-    }
     
     # ===========================================
     # TwelveData Worker API

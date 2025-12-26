@@ -5,27 +5,11 @@
 # Do NOT edit directly on the VM
 # ===========================================
 
-version: '3.8'
-
 services:
   # ===========================================
-  # CaddyManager - Web UI for Caddy Management
-  # Access at: /caddy/
+  # NOTE: CaddyManager removed - image not publicly accessible
+  # Caddy Admin API available at localhost:2019 via SSH
   # ===========================================
-  caddymanager:
-    image: ghcr.io/rhad00/caddymanager:latest
-    container_name: caddymanager
-    restart: unless-stopped
-    environment:
-      - CADDY_ADMIN_URL=http://caddy:2019
-      - DATABASE_TYPE=sqlite
-      - DATABASE_PATH=/data/caddymanager.db
-    volumes:
-      - caddymanager-data:/data
-    networks:
-      - stocktracker
-    depends_on:
-      - caddy
 
   # ===========================================
   # Caddy - Reverse Proxy with Auto HTTPS
@@ -145,5 +129,4 @@ networks:
 volumes:
   caddy-data:
   caddy-config:
-  caddymanager-data:
 
