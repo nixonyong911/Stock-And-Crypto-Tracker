@@ -88,7 +88,8 @@ Environment variables override `appsettings.json` using double-underscore notati
 │   ├── database/             # Schema, configuration
 │   ├── architecture/         # Deployments, infrastructure, Infisical
 │   ├── cli/                  # CLI commands
-│   ├── history/              # Migration history
+│   ├── history/              # 🟡 PENDING tasks (checkpoints to resume)
+│   ├── completed/            # ✅ DONE tasks (archived)
 │   ├── todo/                 # Phase tracking
 │   └── ai-agent/             # AI trading guides
 ├── services/
@@ -251,3 +252,65 @@ Azure VM runs services via Docker
 
 ### Manual Trigger
 - Go to GitHub Actions → Deploy to Azure VM → Run workflow
+
+---
+
+## Task Management: History → Completed Workflow
+
+### Folder Purpose
+
+| Folder | Purpose | Status |
+|--------|---------|--------|
+| `instruction/history/` | 🟡 PENDING tasks, checkpoints to resume work | Active TODO |
+| `instruction/completed/` | ✅ DONE tasks, archived for reference | Completed |
+| `instruction/todo/` | Phase-level planning and tracking | Planning |
+
+### Workflow Rules
+
+1. **New complex tasks** → Create in `instruction/history/<category>/`
+2. **When task is FULLY completed** → Move entire file to `instruction/completed/<category>/`
+3. **When task is PARTIALLY completed**:
+   - Split the file: completed parts → `instruction/completed/`
+   - Keep pending parts → `instruction/history/`
+4. **Archive superseded docs** → Move to `instruction/completed/<category>/archive/`
+
+### AI Agent Task Detection
+
+When completing work from `instruction/history/`:
+
+1. **Detect** if any documented TODO items were completed
+2. **Prompt user** for confirmation before moving files:
+   ```
+   I notice the following tasks from instruction/history/ appear complete:
+   - [Task A] ✅ Done
+   - [Task B] ✅ Done
+   - [Task C] 🟡 Still pending
+   
+   Should I:
+   1. Move completed tasks (A, B) to instruction/completed/
+   2. Keep Task C in instruction/history/
+   3. No changes needed
+   4. **Or type your own answer**
+   ```
+3. **If user says no** → Provide supporting evidence and ask again
+4. **After confirmation** → Move files and update cross-references
+
+### File Naming Convention
+
+```
+instruction/history/<category>/<date>-<task-name>.md
+instruction/completed/<category>/<date>-<task-name>-complete.md
+```
+
+### Example
+
+```
+# Before (mixed completed/pending)
+instruction/history/azure/2025-12-27-vm-migration.md
+  - [x] Phase 1: Core infrastructure
+  - [ ] Phase 2: Metrics service
+
+# After (split)
+instruction/completed/azure/2025-12-27-vm-migration-phase1-complete.md
+instruction/history/azure/2025-12-27-vm-migration-phase2-pending.md
+```
