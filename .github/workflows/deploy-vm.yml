@@ -58,7 +58,7 @@ jobs:
             echo "=== Syncing repository ==="
             
             # Clone or update repo using PAT for authentication
-            REPO_URL="https://${{ secrets.GITHUB_PAT }}@github.com/${{ github.repository }}.git"
+            REPO_URL="https://${{ secrets.PAT_GITHUB }}@github.com/${{ github.repository }}.git"
             
             if [ -d "${{ env.DEPLOY_PATH }}/repo/.git" ]; then
               echo "Updating existing repo..."
