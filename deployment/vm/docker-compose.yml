@@ -63,9 +63,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      # Secrets injected via Infisical at runtime
-      - ConnectionStrings__DefaultConnection=${ConnectionStrings__DefaultConnection}
-      - TwelveData__ApiKey=${TwelveData__ApiKey}
+      # Secrets from Infisical (mapped to .NET config format)
+      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
       - TwelveData__BaseUrl=https://api.twelvedata.com
     networks:
       - stocktracker
@@ -109,10 +109,10 @@ services:
     container_name: ai-hub
     restart: unless-stopped
     environment:
-      # Secrets injected via Infisical at runtime
-      - DATABASE_URL=${DATABASE_URL}
-      - AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH=${AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH}
-      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+      # Secrets from Infisical
+      - DATABASE_URL=${DATABASE_CONNECTION_STRING}
+      - AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH=${AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH:-}
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID:-default-project}
     networks:
       - stocktracker
     healthcheck:
