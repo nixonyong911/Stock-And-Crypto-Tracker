@@ -287,11 +287,31 @@ Azure VM runs services via Docker
 
 ### Adding New Secrets for VM Services
 
-1. **Add to Infisical Cloud** (`prod` environment)
-2. **Reference in docker-compose.yml**: `YOUR_VAR=${YOUR_VAR}`
-3. **Deploy**: Push to main or run `./scripts/start-services.sh up -d` on VM
+When a worker or service needs a new secret:
 
-No deploy-vm.yml changes needed - Machine Identity handles authentication.
+**Step 1: Add secret to Infisical Cloud**
+- Go to https://app.infisical.com → Project: `Stock and Crypto`
+- Add the secret in the `prod` environment (NOT "production")
+
+**Step 2: Reference in docker-compose.yml**
+```yaml
+# File: deployment/vm/docker-compose.yml
+services:
+  your-service:
+    environment:
+      - YOUR_SECRET_NAME=${YOUR_SECRET_NAME}
+```
+
+**Step 3: Deploy**
+- Push to main (triggers CI/CD), OR
+- SSH to VM: `./scripts/start-services.sh up -d`
+
+**Important**: No changes to `deploy-vm.yml` needed! Machine Identity handles auth automatically.
+
+**Example** - Adding a new API key called `ALPHA_VANTAGE_API_KEY`:
+1. Add `ALPHA_VANTAGE_API_KEY` to Infisical (`prod` env)
+2. In docker-compose.yml: `- ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}`
+3. Push to main → Done!
 
 ### Trigger Paths
 - `services/data-fetchers/TwelveData/**`
