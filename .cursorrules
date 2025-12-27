@@ -35,10 +35,12 @@ Dashboard: https://app.infisical.com → Project: `Stock and Crypto`
 ```
 Infisical Cloud (source of truth)
        │
+       ├──► Azure VM (via Infisical CLI + Machine Identity)
+       │         Secrets injected at runtime, no .env files
+       │         ./scripts/start-services.sh up -d
+       │
        ├──► GitHub Secrets (auto-sync via integration)
-       │         │
-       │         └──► GitHub Actions ──► SSH ──► Azure VM
-       │                   Injects secrets as environment variables
+       │         Used only for VM_SSH_PRIVATE_KEY (CI/CD access)
        │
        ├──► Vercel (auto-sync via integration)
        │         NEXT_PUBLIC_SUPABASE_URL
@@ -257,7 +259,7 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 7. **`.infisical.json` is safe to commit** - Only contains workspace ID, no secrets
 8. **Caddy worker endpoints** - When adding new Caddy reverse proxy routes, update `instruction/cli/caddy/worker-endpoints.md` with the worker name and URL
 9. **VM deployment** - Backend services run on Azure VM (`nx-linux-server-azure`), not Container Apps
-10. **Add new secrets to Infisical first** - They will auto-sync to GitHub Secrets
+10. **Add new secrets to Infisical first** - VM uses Machine Identity (no GitHub sync needed for VM secrets)
 11. **CLI documentation** - Detailed commands in `instruction/cli/` (PowerShell, Docker, Azure CLI)
 
 ---
@@ -275,12 +277,21 @@ GitHub Actions (deploy-vm.yml)
          ├── git pull on VM
          ├── Copy deployment configs
          ├── docker compose build
-         ├── docker compose up -d
+         ├── start-services.sh up -d  ◄── Infisical injects secrets here
          └── Health checks
          │
          ▼
 Azure VM runs services via Docker
+(Secrets injected at runtime from Infisical Cloud)
 ```
+
+### Adding New Secrets for VM Services
+
+1. **Add to Infisical Cloud** (`prod` environment)
+2. **Reference in docker-compose.yml**: `YOUR_VAR=${YOUR_VAR}`
+3. **Deploy**: Push to main or run `./scripts/start-services.sh up -d` on VM
+
+No deploy-vm.yml changes needed - Machine Identity handles authentication.
 
 ### Trigger Paths
 - `services/data-fetchers/TwelveData/**`
