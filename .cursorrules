@@ -146,18 +146,18 @@ infisical run --env=prod -- docker-compose up -d
 docker-compose logs -f
 ```
 
-### Azure VM
+### Azure VM Access
 ```powershell
 # SSH to VM (PowerShell alias)
 ssh-azure
 
-# Or direct SSH
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key.pem" azureuser@20.17.176.1
+# Or direct SSH with command (preferred for scripts/AI)
+ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker ps"
 
-# Check services on VM
-docker ps
-docker logs <service-name>
-docker compose up -d --build <service-name>
+# Commands to run INSIDE the VM (after SSH):
+docker ps                                    # List running services
+docker logs <service-name>                   # View service logs
+docker compose up -d --build <service-name>  # Rebuild service
 ```
 
 ### Service URLs
@@ -209,6 +209,43 @@ When asking the user questions with multiple choice options:
 
 ---
 
+## AI Agent: VM Operations
+
+When user asks to "check VM", "connect to VM", "check services", or similar:
+
+1. **Connect**: Use `ssh-azure` PowerShell alias
+2. **Inside VM**: Run docker commands:
+   - `docker ps` - list running containers
+   - `docker logs <service>` - check service logs  
+   - `docker compose logs -f` - follow all logs
+   - `docker compose up -d --build <service>` - rebuild and restart
+
+| VM Detail | Value |
+|-----------|-------|
+| Alias | `ssh-azure` |
+| Host | `20.17.176.1` |
+| User | `azureuser` |
+| FQDN | `nxserver.malaysiawest.cloudapp.azure.com` |
+| Services | TwelveData, n8n, Caddy |
+
+### Direct SSH Commands (Preferred for AI)
+
+For non-interactive commands, use direct SSH with command argument (faster, no session needed):
+
+```powershell
+# Direct SSH command format (preferred)
+ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "<command>"
+
+# Examples:
+ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker ps"
+ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker logs twelvedata --tail 50"
+ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd /app && docker compose up -d --build"
+```
+
+**Fallback**: If direct SSH fails, use `ssh-azure` for interactive session.
+
+---
+
 ## Important Notes
 
 1. **Infisical is source of truth** - All secrets managed in Infisical Cloud, auto-sync to GitHub/Vercel
@@ -221,6 +258,7 @@ When asking the user questions with multiple choice options:
 8. **Caddy worker endpoints** - When adding new Caddy reverse proxy routes, update `instruction/cli/caddy/worker-endpoints.md` with the worker name and URL
 9. **VM deployment** - Backend services run on Azure VM (`nx-linux-server-azure`), not Container Apps
 10. **Add new secrets to Infisical first** - They will auto-sync to GitHub Secrets
+11. **CLI documentation** - Detailed commands in `instruction/cli/` (PowerShell, Docker, Azure CLI)
 
 ---
 

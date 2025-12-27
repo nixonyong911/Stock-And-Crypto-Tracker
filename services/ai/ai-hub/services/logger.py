@@ -270,3 +270,4 @@ class AIHubLogger:
             return {"period_hours": hours, "stats": [], "error": str(e)}
 
 
+
