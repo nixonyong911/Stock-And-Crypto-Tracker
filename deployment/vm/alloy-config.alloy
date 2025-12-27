@@ -1,0 +1,49 @@
+// ===========================================
+// Grafana Alloy Configuration
+// ===========================================
+// Scrapes metrics from local services and forwards to Grafana Cloud
+// This file is synced from the repo via CI/CD
+// ===========================================
+
+// Scrape Metrics Service (aggregated worker metrics)
+prometheus.scrape "metrics_service" {
+  targets = [{
+    __address__ = "metrics:8080",
+  }]
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+  
+  scrape_interval = "30s"
+  metrics_path    = "/metrics"
+  job_name        = "stocktracker-metrics"
+}
+
+// Scrape TwelveData worker for health metrics
+prometheus.scrape "twelvedata_worker" {
+  targets = [{
+    __address__ = "twelvedata:8080",
+  }]
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+  
+  scrape_interval = "30s"
+  metrics_path    = "/metrics"
+  job_name        = "twelvedata-worker"
+}
+
+// Forward all metrics to Grafana Cloud
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = "https://prometheus-prod-37-prod-ap-southeast-1.grafana.net/api/prom/push"
+    
+    basic_auth {
+      username = "2855049"
+      password = env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+  
+  external_labels = {
+    environment = "production",
+    project     = "stocktracker",
+    host        = "azure-vm",
+  }
+}
+

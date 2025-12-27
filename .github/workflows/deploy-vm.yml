@@ -1,8 +1,8 @@
 # ===========================================
 # Deploy Backend Services to Azure VM
 # ===========================================
-# Phase 1: n8n, Caddy, TwelveData
-# Phase 2: Metrics, AI-Hub (TODO)
+# Services: n8n, Caddy, TwelveData, Metrics, Alloy
+# Monitoring: Grafana Cloud (via Alloy)
 # ===========================================
 
 name: Deploy to Azure VM
@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'services/data-fetchers/TwelveData/**'
+      - 'services/metrics/**'
       - 'services/common/**'
       - 'deployment/vm/**'
       - '.github/workflows/deploy-vm.yml'
@@ -48,6 +49,7 @@ jobs:
           echo "=== Copying config files ==="
           cp $DEPLOY_PATH/repo/deployment/vm/docker-compose.yml $DEPLOY_PATH/
           cp $DEPLOY_PATH/repo/deployment/vm/Caddyfile $DEPLOY_PATH/
+          cp $DEPLOY_PATH/repo/deployment/vm/alloy-config.alloy $DEPLOY_PATH/
           cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.sh $DEPLOY_PATH/scripts/
           chmod +x $DEPLOY_PATH/scripts/*.sh
           
@@ -59,6 +61,7 @@ jobs:
         env:
           DATABASE_CONNECTION_STRING: ${{ secrets.DATABASE_CONNECTION_STRING }}
           TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          GRAFANA_CLOUD_API_KEY: ${{ secrets.GRAFANA_CLOUD_API_KEY }}
         run: |
           ssh azureuser@20.17.176.1 'bash -s' << EOF
           set -e
@@ -68,9 +71,10 @@ jobs:
           echo "=== Setting environment variables ==="
           export DATABASE_CONNECTION_STRING="${DATABASE_CONNECTION_STRING}"
           export TWELVE_DATA_API_KEY="${TWELVE_DATA_API_KEY}"
+          export GRAFANA_CLOUD_API_KEY="${GRAFANA_CLOUD_API_KEY}"
           
-          echo "=== Building TwelveData service ==="
-          docker compose build --no-cache twelvedata
+          echo "=== Building services ==="
+          docker compose build --no-cache twelvedata metrics
           
           echo "=== Starting all services ==="
           docker compose up -d
@@ -95,6 +99,12 @@ jobs:
           echo "=== Checking TwelveData ==="
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live && echo "TwelveData: OK" || echo "TwelveData: Starting..."
           
+          echo "=== Checking Metrics ==="
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live && echo "Metrics: OK" || echo "Metrics: Starting..."
+          
+          echo "=== Checking Alloy (via SSH) ==="
+          ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "Alloy: Check logs"
+          
           echo ""
           echo "=========================================="
           echo "Deployment complete!"
@@ -102,3 +112,5 @@ jobs:
           echo "URLs:"
           echo "  - n8n:        https://nxserver.malaysiawest.cloudapp.azure.com/"
           echo "  - TwelveData: https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger"
+          echo "  - Metrics:    https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger"
+          echo "  - Grafana:    https://grafana.com (check your dashboard)"

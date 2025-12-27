@@ -25,11 +25,12 @@ nxserver.malaysiawest.cloudapp.azure.com {
     }
     
     # ===========================================
-    # Metrics Service API - DISABLED (Phase 2)
+    # Metrics Service API
+    # Swagger at: /api/metrics/swagger
     # ===========================================
-    # handle_path /api/metrics/* {
-    #     reverse_proxy metrics:8080
-    # }
+    handle_path /api/metrics/* {
+        reverse_proxy metrics:8080
+    }
     
     # ===========================================
     # AI Hub API - DISABLED (Phase 2)

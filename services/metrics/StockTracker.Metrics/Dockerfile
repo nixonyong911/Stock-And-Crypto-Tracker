@@ -5,14 +5,19 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy project file and restore dependencies
-COPY ["StockTracker.Metrics.csproj", "./"]
-RUN dotnet restore "StockTracker.Metrics.csproj"
+# Copy common library first (if used in future)
+# COPY ["common/StockTracker.Common/StockTracker.Common.csproj", "common/StockTracker.Common/"]
 
-# Copy source code
-COPY . .
+# Copy project file and restore dependencies
+COPY ["metrics/StockTracker.Metrics/StockTracker.Metrics.csproj", "metrics/StockTracker.Metrics/"]
+RUN dotnet restore "metrics/StockTracker.Metrics/StockTracker.Metrics.csproj"
+
+# Copy all source code
+# COPY common/ common/
+COPY metrics/StockTracker.Metrics/ metrics/StockTracker.Metrics/
 
 # Build and publish
+WORKDIR "/src/metrics/StockTracker.Metrics"
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage
@@ -40,24 +45,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8080/health/live || exit 1
 
 ENTRYPOINT ["dotnet", "StockTracker.Metrics.dll"]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

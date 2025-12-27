@@ -79,23 +79,50 @@ services:
       start_period: 30s
 
   # ===========================================
-  # Metrics Service - DISABLED (Phase 2)
+  # Metrics Service
   # Swagger at: /api/metrics/swagger
+  # Prometheus metrics at: /metrics
   # ===========================================
-  # metrics:
-  #   build:
-  #     context: ./repo/services/metrics/StockTracker.Metrics
-  #     dockerfile: Dockerfile
-  #   container_name: metrics
-  #   restart: unless-stopped
-  #   environment:
-  #     - ASPNETCORE_ENVIRONMENT=Production
-  #     - ASPNETCORE_URLS=http://+:8080
-  #   networks:
-  #     - stocktracker
+  metrics:
+    build:
+      context: ./repo/services
+      dockerfile: metrics/StockTracker.Metrics/Dockerfile
+    container_name: metrics
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - PATH_BASE=/api/metrics
+    networks:
+      - stocktracker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   # ===========================================
-  # AI Hub - DISABLED (Phase 2 - needs API keys)
+  # Grafana Alloy - Metrics Forwarder
+  # Scrapes local services and forwards to Grafana Cloud
+  # ===========================================
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    restart: unless-stopped
+    volumes:
+      - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
+    command: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
+    environment:
+      - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
+    networks:
+      - stocktracker
+    depends_on:
+      - metrics
+      - twelvedata
+
+  # ===========================================
+  # AI Hub - DISABLED (needs API keys)
   # Docs at: /api/ai-hub/docs
   # ===========================================
   # ai-hub:
