@@ -1,28 +1,14 @@
 # VM Migration Phase 2 - PENDING
 
 **Date**: December 27, 2025  
-**Status**: 🟡 PENDING - Phase 1 Complete, Phase 2 Not Started
+**Status**: 🟡 PENDING - Metrics Complete, AI-Hub & Others Pending
 
+> **Metrics Service Completed**: See `instruction/completed/azure/2025-12-27-vm-migration-metrics-complete.md`  
 > **Phase 1 Completed**: See `instruction/completed/azure/2025-12-27-vm-migration-phase1-complete.md`
 
 ## Remaining Tasks
 
-### 1. Metrics Service
-
-**Status**: ⏸️ Disabled in docker-compose.yml
-
-**TODO**:
-- [ ] Uncomment `metrics` service in `deployment/vm/docker-compose.yml`
-- [ ] Uncomment `/api/metrics*` route in `deployment/vm/Caddyfile`
-- [ ] Add trigger path to `deploy-vm.yml`: `services/metrics/**`
-- [ ] Test deployment
-- [ ] Verify Swagger at `/api/metrics/swagger`
-
-**No blockers** - Just needs to be enabled and tested.
-
----
-
-### 2. AI-Hub Service
+### 1. AI-Hub Service
 
 **Status**: ⏸️ Disabled, needs API keys
 
@@ -32,7 +18,7 @@
 - [ ] Get `GOOGLE_CLOUD_PROJECT_ID`
 - [ ] Add secrets to Infisical
 
-**TODO**:
+**Deployment**:
 - [ ] Uncomment `ai-hub` service in `deployment/vm/docker-compose.yml`
 - [ ] Uncomment `/api/ai-hub*` route in `deployment/vm/Caddyfile`
 - [ ] Add secrets to `deploy-vm.yml` env section
@@ -42,20 +28,22 @@
 
 ---
 
-### 3. Infisical CLI on VM
+### 2. Infisical CLI on VM
 
 **Status**: ❌ Not implemented (simplified with .env file)
 
 **See**: `instruction/history/Infisical/vm-infisical-integration.md`
 
 **Why Important**:
-- Currently using `.env` file on VM
+- Currently using `.env` file on VM (written by GitHub Actions)
 - Should use Infisical CLI for centralized secret management
 - Better security and audit trail
 
+**Priority**: Medium - Current approach works but less secure
+
 ---
 
-### 4. CaddyManager GUI
+### 3. CaddyManager GUI
 
 **Status**: ❌ Not implemented (Docker image access denied)
 
@@ -67,17 +55,6 @@
 
 ## Quick Reference
 
-### Enable Metrics Service
-
-```bash
-# 1. Edit docker-compose.yml - uncomment metrics service
-# 2. Edit Caddyfile - uncomment /api/metrics* route
-# 3. Deploy
-ssh azureuser@20.17.176.1
-cd /opt/stocktracker
-docker compose up -d --build metrics
-```
-
 ### Enable AI-Hub Service
 
 ```bash
@@ -85,12 +62,12 @@ docker compose up -d --build metrics
 # 1. Edit docker-compose.yml - uncomment ai-hub service
 # 2. Edit Caddyfile - uncomment /api/ai-hub* route
 # 3. Update deploy-vm.yml with new secrets
-# 4. Deploy
+# 4. Push changes - GitHub Actions will deploy
 ```
 
 ## Related Documents
 
-- [Phase 1 Completed](../../completed/azure/2025-12-27-vm-migration-phase1-complete.md)
+- [Metrics Complete](../../completed/azure/2025-12-27-vm-migration-metrics-complete.md)
+- [Phase 1 Complete](../../completed/azure/2025-12-27-vm-migration-phase1-complete.md)
 - [Phase 2 TODO](../../todo/phase-2-vm-services.md)
 - [VM Architecture](../../architecture/vm-deployment-architecture.md)
-
