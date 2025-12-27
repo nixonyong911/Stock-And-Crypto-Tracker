@@ -1,18 +1,6 @@
-# Task Completion Agent
-
-## Purpose
+# Finish Task - Cleanup Handler
 
 Handle cleanup after completing tasks. Scan `instruction/history/` and `instruction/todo/`, verify completion against conversation and code changes, split/move completed items to `instruction/completed/`.
-
----
-
-## How to Invoke
-
-In Cursor chat, say:
-- "cleanup tasks"
-- "handle completed tasks"
-- "run task completion agent"
-- Reference this file directly
 
 ---
 
@@ -45,9 +33,9 @@ For each task file found:
 
 | Evidence | Classification |
 |----------|----------------|
-| All items verified complete | ✅ FULLY COMPLETE |
-| Some items complete, some pending | 🟡 PARTIALLY COMPLETE |
-| No evidence of completion | ❌ NOT COMPLETE |
+| All items verified complete | FULLY COMPLETE |
+| Some items complete, some pending | PARTIALLY COMPLETE |
+| No evidence of completion | NOT COMPLETE |
 
 ### Step 5: Present Summary for Confirmation
 
@@ -56,24 +44,24 @@ For each task file found:
 ```
 I found the following task status based on our conversation:
 
-📁 instruction/history/azure/2025-12-27-vm-migration.md
-  - [x] Deploy TwelveData service ✅ Verified (docker ps shows running)
-  - [x] Configure Caddy routes ✅ Verified (Caddyfile updated)
-  - [ ] Enable Metrics service ❌ Not done
+instruction/history/azure/2025-12-27-vm-migration.md
+  - [x] Deploy TwelveData service - Verified (docker ps shows running)
+  - [x] Configure Caddy routes - Verified (Caddyfile updated)
+  - [ ] Enable Metrics service - Not done
 
 Recommended action:
 1. SPLIT this file:
-   - Move completed items → instruction/completed/azure/2025-12-27-vm-migration-complete.md
-   - Keep pending items → instruction/history/azure/2025-12-27-vm-migration.md
+   - Move completed items -> instruction/completed/azure/2025-12-27-vm-migration-complete.md
+   - Keep pending items -> instruction/history/azure/2025-12-27-vm-migration.md
 
-📁 instruction/todo/phase-2-vm-services.md
+instruction/todo/phase-2-vm-services.md
   - No changes detected
 
 Proceed with cleanup?
 1. Yes, apply recommended changes
 2. No, skip for now
 3. Modify (tell me what to change)
-4. **Or type your own answer**
+4. Or type your own answer
 ```
 
 ### Step 6: Execute Changes
@@ -83,7 +71,7 @@ Only after user confirms:
 1. **For FULLY COMPLETE files**:
    - Move entire file to `instruction/completed/<category>/`
    - Add `-complete` suffix to filename
-   - Example: `2025-12-27-task.md` → `2025-12-27-task-complete.md`
+   - Example: `2025-12-27-task.md` -> `2025-12-27-task-complete.md`
 
 2. **For PARTIALLY COMPLETE files**:
    - Create new file in `instruction/completed/<category>/` with completed items only
@@ -101,7 +89,7 @@ Only after user confirms:
 
 | Evidence Type | Example |
 |---------------|---------|
-| File exists/modified | "I created `Dockerfile`" or file in git diff |
+| File exists/modified | "I created Dockerfile" or file in git diff |
 | Command output shown | Docker ps shows service running |
 | Deployment confirmed | Health check passed, Swagger accessible |
 | Migration applied | EF migration status shows applied |
@@ -168,16 +156,6 @@ When creating completed files, use this structure:
 
 ---
 
-## Cross-Reference Updates
-
-When moving/splitting files, update references in:
-- The source file (if split)
-- Related architecture docs
-- `.cursorrules` (if referenced there)
-- `README.md` files (if referenced)
-
----
-
 ## Category Mapping
 
 | Source Category | Completed Destination |
@@ -202,20 +180,6 @@ Create destination category folder if it doesn't exist.
 
 ---
 
-## Example Session
-
-**User**: "cleanup tasks"
-
-**Agent**:
-1. Reviews conversation - sees TwelveData was deployed, health check passed
-2. Scans `instruction/history/` and `instruction/todo/`
-3. Finds `history/azure/2025-12-27-vm-migration-phase2-pending.md`
-4. Cross-references: Metrics service checkbox unchecked, no evidence of deployment
-5. Presents: "No tasks appear fully completed based on our conversation. The VM migration phase 2 still has pending items (Metrics, AI-Hub). No changes recommended."
-6. User confirms or provides additional context
-
----
-
 ## Quick Reference
 
 | Step | Action |
@@ -228,3 +192,4 @@ Create destination category folder if it doesn't exist.
 | 6 | Execute: move/split files |
 | 7 | Update cross-references |
 | 8 | Report completion |
+
