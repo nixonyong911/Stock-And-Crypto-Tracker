@@ -10,7 +10,7 @@ This service acts as a central collection point for metrics from all workers. Wo
 
 ```
 ┌─────────────────┐     ┌─────────────────┐
-│  AlphaVantage   │     │  Other Workers  │
+│   TwelveData    │     │  Other Workers  │
 │     Worker      │     │                 │
 └────────┬────────┘     └────────┬────────┘
          │                       │
@@ -51,7 +51,7 @@ This service acts as a central collection point for metrics from all workers. Wo
 curl -X POST http://localhost:8082/api/metrics \
   -H "Content-Type: application/json" \
   -d '{
-    "workerName": "alphavantage",
+    "workerName": "twelvedata",
     "type": "Counter",
     "name": "fetch_operations_total",
     "value": 1,
@@ -68,7 +68,7 @@ curl -X POST http://localhost:8082/api/metrics \
 curl -X POST http://localhost:8082/api/metrics/batch \
   -H "Content-Type: application/json" \
   -d '{
-    "workerName": "alphavantage",
+    "workerName": "twelvedata",
     "metrics": [
       {
         "type": "Counter",
@@ -97,8 +97,8 @@ curl -X POST http://localhost:8082/api/metrics/batch \
 ## Metric Naming
 
 Metrics are automatically prefixed with the worker name:
-- Input: `workerName: "alphavantage"`, `name: "fetch_operations_total"`
-- Output: `alphavantage_fetch_operations_total`
+- Input: `workerName: "twelvedata"`, `name: "fetch_operations_total"`
+- Output: `twelvedata_fetch_operations_total`
 
 ## Running Locally
 
