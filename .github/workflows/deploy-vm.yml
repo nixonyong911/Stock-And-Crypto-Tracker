@@ -17,7 +17,6 @@ on:
       - 'deployment/vm/**'
       - '.github/workflows/deploy-vm.yml'
       - '!services/frontend/**'
-      - '!services/data-fetchers/AlphaVantage/**'
   workflow_dispatch:
 
 jobs:
@@ -68,10 +67,12 @@ jobs:
           DEPLOY_PATH="/opt/stocktracker"
           cd \$DEPLOY_PATH
           
-          echo "=== Setting environment variables ==="
-          export DATABASE_CONNECTION_STRING="${DATABASE_CONNECTION_STRING}"
-          export TWELVE_DATA_API_KEY="${TWELVE_DATA_API_KEY}"
-          export GRAFANA_CLOUD_API_KEY="${GRAFANA_CLOUD_API_KEY}"
+          echo "=== Writing secrets to .env file ==="
+          cat > .env << 'ENVFILE'
+          DATABASE_CONNECTION_STRING='${DATABASE_CONNECTION_STRING}'
+          TWELVE_DATA_API_KEY='${TWELVE_DATA_API_KEY}'
+          GRAFANA_CLOUD_API_KEY='${GRAFANA_CLOUD_API_KEY}'
+          ENVFILE
           
           echo "=== Building services ==="
           docker compose build --no-cache twelvedata metrics
