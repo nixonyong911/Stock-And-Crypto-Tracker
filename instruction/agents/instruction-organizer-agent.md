@@ -25,7 +25,7 @@ Read all files in `instruction/unfiltered/`. If empty, report "No instructions t
 
 1. **Read** the file content completely
 2. **Classify content type**:
-   - **Service-specific**: Tied to one service (twelvedata, alphavantage, etc.)
+   - **Service-specific**: Tied to one service (twelvedata, coingecko, etc.)
    - **Generic**: Applies to ALL services/workers
 3. **Detect topics** - Does file contain multiple categories? (architecture, database, etc.)
 4. **Route accordingly**:
@@ -52,7 +52,7 @@ After processing all files, report:
 
 | Folder | Content Type | Examples |
 |--------|--------------|----------|
-| `architecture/` | Service-specific deployment, infrastructure, scheduling | TwelveData worker scheduling, AlphaVantage API flow |
+| `architecture/` | Service-specific deployment, infrastructure, scheduling | TwelveData worker scheduling, CoinGecko API flow |
 | `database/` | Service-specific schema, migrations, queries | TwelveData fetch_schedules table |
 | `cli/` | CLI commands organized by **tech stack subfolder** | `cli/.net/`, `cli/azure/`, `cli/docker/` |
 | `history/` | **Glanceable session logs by tech stack** — what was done, issues, solutions | Azure deployment fixes, .NET migration issues |
@@ -72,12 +72,12 @@ After processing all files, report:
 
 | Component | Description | Examples |
 |-----------|-------------|----------|
-| `service_name` | Specific service/worker | `twelvedata`, `alphavantage`, `frontend`, `metrics` |
+| `service_name` | Specific service/worker | `twelvedata`, `coingecko`, `frontend`, `metrics` |
 | `subfolder` | Category folder name | `architecture`, `database`, `cli` |
 
 **Examples:**
 - `architecture/twelvedata-architecture.md` - TwelveData worker scheduling
-- `database/alphavantage-database.md` - AlphaVantage-specific schema docs
+- `database/coingecko-database.md` - CoinGecko-specific schema docs
 
 ### Generic Reference Files
 
@@ -102,7 +102,7 @@ Is this content specific to ONE service?
 
 ### Service-Specific Indicators
 
-- Mentions specific API (TwelveData, AlphaVantage, etc.)
+- Mentions specific API (TwelveData, CoinGecko, etc.)
 - Service-specific rate limits or configurations
 - Specific worker behavior or scheduling
 - Tables/schemas used only by one service

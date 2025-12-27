@@ -103,7 +103,7 @@ public class MetricsAggregator : IMetricsAggregator
 
     private static string BuildMetricName(string workerName, string metricName)
     {
-        // Format: worker_metricname (e.g., alphavantage_fetch_operations_total)
+        // Format: worker_metricname (e.g., twelvedata_fetch_operations_total)
         var sanitizedWorker = SanitizeName(workerName);
         var sanitizedMetric = SanitizeName(metricName);
         return $"{sanitizedWorker}_{sanitizedMetric}";

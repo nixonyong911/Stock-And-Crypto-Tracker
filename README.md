@@ -26,7 +26,7 @@ Track stocks and cryptocurrency prices by aggregating data from multiple third-p
 │  │                    Data Fetching Layer (.NET 8)                             │ │
 │  │                                                                             │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                     │ │
-│  │  │ AlphaVantage │  │  [Service B] │  │  [Service C] │   ...               │ │
+│  │  │  TwelveData  │  │  [Service B] │  │  [Service C] │   ...               │ │
 │  │  │   Fetcher    │  │   Fetcher    │  │   Fetcher    │                     │ │
 │  │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘                     │ │
 │  │         │                 │                 │                              │ │
@@ -107,9 +107,9 @@ StockAndCryptoTracker/
 │   │       ├── Services/
 │   │       └── Dockerfile
 │   ├── data-fetchers/
-│   │   ├── AlphaVantage/             # Stock data fetcher
+│   │   ├── TwelveData/               # Stock data fetcher (10-min candles)
 │   │   │   ├── src/
-│   │   │   │   └── AlphaVantage.Worker/
+│   │   │   │   └── TwelveData.Worker/
 │   │   │   ├── Dockerfile
 │   │   │   └── README.md
 │   │   └── [Future: CoinGecko/, Finnhub/, etc.]
@@ -153,7 +153,7 @@ StockAndCryptoTracker/
 
 4. **Access the application**
    - Frontend: http://localhost:3000
-   - Alpha Vantage API: http://localhost:8081/swagger
+   - TwelveData API: http://localhost:8083/swagger
    - Metrics Service: http://localhost:8082/swagger
    - Database: localhost:5432
 
@@ -168,7 +168,7 @@ docker-compose down
 docker-compose logs -f
 
 # Specific service
-docker-compose logs -f alpha-vantage-fetcher
+docker-compose logs -f twelvedata-fetcher
 docker-compose logs -f metrics-service
 docker-compose logs -f frontend
 ```
@@ -183,8 +183,8 @@ mkdir -p services/data-fetchers/NewService/src/NewService.Worker
 ```
 
 ### 2. Create a .NET Worker Service
-Use the AlphaVantage service as a template:
-- Copy the project structure from `services/data-fetchers/AlphaVantage/`
+Use the TwelveData service as a template:
+- Copy the project structure from `services/data-fetchers/TwelveData/`
 - Rename namespaces and project files
 - Add reference to `StockTracker.Common`
 - Implement your API client in the `Services/` folder
@@ -284,9 +284,9 @@ Comment out the service in `docker-compose.yml`:
 
 #### Data Fetcher Services (.NET)
 ```bash
-cd services/data-fetchers/AlphaVantage
+cd services/data-fetchers/TwelveData
 dotnet restore
-dotnet run --project src/AlphaVantage.Worker
+dotnet run --project src/TwelveData.Worker
 ```
 
 #### Metrics Service (.NET)
@@ -311,7 +311,7 @@ docker-compose up postgres -d
 ### Running Tests
 ```bash
 # .NET services
-cd services/data-fetchers/AlphaVantage
+cd services/data-fetchers/TwelveData
 dotnet test
 
 # Frontend
@@ -325,12 +325,10 @@ See `.env.example` for all required environment variables:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `POSTGRES_USER` | Database username | Yes |
-| `POSTGRES_PASSWORD` | Database password | Yes |
-| `POSTGRES_DB` | Database name | Yes |
-| `ALPHA_VANTAGE_API_KEY` | Alpha Vantage API key | Yes |
+| `DATABASE_CONNECTION_STRING` | Supabase PostgreSQL connection | Yes |
+| `TWELVE_DATA_API_KEY` | TwelveData API key | Yes |
 | `METRICS_SERVICE_PORT` | Metrics service port | No (default: 8082) |
-| `ALPHA_VANTAGE_API_PORT` | Alpha Vantage API port | No (default: 8081) |
+| `TWELVEDATA_API_PORT` | TwelveData API port | No (default: 8083) |
 
 ## Technology Stack
 

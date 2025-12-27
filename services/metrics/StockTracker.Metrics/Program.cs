@@ -23,6 +23,9 @@ try
     // Add controllers
     builder.Services.AddControllers();
     
+    // Get path base from environment (for reverse proxy)
+    var pathBase = Environment.GetEnvironmentVariable("PATH_BASE") ?? "";
+    
     // Add Swagger
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
@@ -33,6 +36,16 @@ try
             Version = "v1",
             Description = "Central metrics aggregation service for all workers"
         });
+        
+        // Add server URL for reverse proxy
+        if (!string.IsNullOrEmpty(pathBase))
+        {
+            c.AddServer(new Microsoft.OpenApi.Models.OpenApiServer
+            {
+                Url = pathBase,
+                Description = "Metrics API (via Caddy reverse proxy)"
+            });
+        }
     });
 
     // Add health checks
@@ -40,14 +53,20 @@ try
 
     var app = builder.Build();
 
-    // Configure pipeline
+    // Configure pipeline - PATH_BASE must be first
+    if (!string.IsNullOrEmpty(pathBase))
+    {
+        app.UsePathBase(pathBase);
+    }
+    
     app.UseSerilogRequestLogging();
 
     // Swagger UI
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "StockTracker Metrics Service v1");
+        // Use relative path for swagger.json to work behind reverse proxy
+        c.SwaggerEndpoint("v1/swagger.json", "StockTracker Metrics Service v1");
         c.RoutePrefix = "swagger";
     });
 

@@ -34,48 +34,7 @@ services:
       - stocktracker-network
 
   # ===========================================
-  # Data Fetcher: Alpha Vantage (Stock Data)
-  # ===========================================
-  alpha-vantage-fetcher:
-    build:
-      context: ./services
-      dockerfile: data-fetchers/AlphaVantage/Dockerfile
-    container_name: stocktracker-alpha-vantage
-    restart: unless-stopped
-    environment:
-      # Supabase Configuration
-      - Supabase__Url=${NEXT_PUBLIC_SUPABASE_URL}
-      - Supabase__AnonKey=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
-      - Supabase__ServiceRoleKey=${SUPABASE_SECRET_DEFAULT_KEY}
-      # Database (Supabase PostgreSQL pooler)
-      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
-      # Alpha Vantage API
-      - AlphaVantage__ApiKey=${ALPHA_VANTAGE_API_KEY}
-      - AlphaVantage__BaseUrl=https://www.alphavantage.co
-      - AlphaVantage__FetchIntervalMinutes=${ALPHA_VANTAGE_FETCH_INTERVAL:-60}
-      - AlphaVantage__Symbols=${ALPHA_VANTAGE_SYMBOLS:-AAPL,GOOGL,MSFT,AMZN,TSLA}
-      # Metrics Service
-      - MetricsService__BaseUrl=http://metrics-service:8080
-      - MetricsService__WorkerName=alphavantage
-      - MetricsService__Enabled=true
-      # Environment
-      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-    ports:
-      - "${ALPHA_VANTAGE_API_PORT:-8081}:8080"
-    depends_on:
-      metrics-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 15s
-    networks:
-      - stocktracker-network
-
-  # ===========================================
-  # Data Fetcher: TwelveData (Stock Data - 15min candles)
+  # Data Fetcher: TwelveData (Stock Data - 10min candles)
   # ===========================================
   twelvedata-fetcher:
     build:

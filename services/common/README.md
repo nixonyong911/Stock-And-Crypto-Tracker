@@ -81,7 +81,7 @@ Add to `appsettings.json`:
 {
   "MetricsService": {
     "BaseUrl": "http://metrics-service:8080",
-    "WorkerName": "alphavantage",
+    "WorkerName": "twelvedata",
     "Enabled": true,
     "TimeoutSeconds": 5
   }

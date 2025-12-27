@@ -29,7 +29,7 @@ class ChatRequest(BaseModel):
     caller_service: Optional[str] = Field(
         None,
         description="Name of the calling service for logging (e.g., twelvedata-worker)",
-        examples=["twelvedata-worker", "alphavantage-worker", "frontend"]
+        examples=["twelvedata-worker", "frontend"]
     )
 
 

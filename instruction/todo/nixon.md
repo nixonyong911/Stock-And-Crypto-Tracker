@@ -5,3 +5,7 @@ ai api
 centralized worker to handle cronjob, each worker's configuration, such as when to schedule, disable or enable worker, worker log, worker status, etc etc
 Infisical on VM → Cancelled (simplified to use GitHub secrets directly)
 CaddyManager GUI → Removed (Docker image not publicly accessible)
+
+set standard on cursorrule 
+-asking question with allowed custom answer
+-when research or choosing services, always consider, free tier usage, any cli support

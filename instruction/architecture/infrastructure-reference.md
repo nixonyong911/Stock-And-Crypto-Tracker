@@ -5,12 +5,12 @@
 | Component | Provider | Auto-Deploy |
 |-----------|----------|-------------|
 | Frontend (Next.js) | Vercel | Yes (git push) |
-| Backend Workers (.NET) | Azure Container Apps | Yes (GitHub Actions) |
+| Backend Workers (.NET) | Azure VM | Yes (GitHub Actions → SSH) |
 | Database | Supabase | N/A (managed) |
 
 ---
 
-## Azure Resources
+## Azure VM Resources
 
 ```
 ===========================================
@@ -24,38 +24,25 @@ Tenant ID           : d2d302fb-0aef-4773-94a5-7950c6f64a35
 RESOURCE GROUP
 ===========================================
 Name                : rg-stocktracker
-Location            : southeastasia
+Location            : malaysiawest
 
 ===========================================
-CONTAINER REGISTRY (ACR)
+VIRTUAL MACHINE
 ===========================================
-Name                : acrstocktracker911
-Login Server        : acrstocktracker911.azurecr.io
-Username            : acrstocktracker911
+Name                : nx-linux-server-azure
+IP Address          : 20.17.176.1
+FQDN                : nxserver.malaysiawest.cloudapp.azure.com
+User                : azureuser
+SSH Key             : ~/.ssh/nx-linux-server-azure_key (1).pem
 
 ===========================================
-CONTAINER APPS ENVIRONMENT
+RUNNING SERVICES (Docker)
 ===========================================
-Name                : cae-stocktracker
-Location            : southeastasia
-
-===========================================
-CONTAINER APPS
-===========================================
-AlphaVantage Worker
-- Name              : ca-alphavantage
-- Ingress           : External
-- URL               : https://ca-alphavantage.calmwater-f6ffc3da.southeastasia.azurecontainerapps.io
-
-Metrics Service
-- Name              : ca-metrics
-- Ingress           : Internal
-
-===========================================
-SERVICE PRINCIPAL (GitHub Actions)
-===========================================
-Name                : github-stocktracker
-Client ID           : 4d0c2cec-3b17-45bb-8c25-70204bc9397d
+- Caddy (reverse proxy, auto HTTPS)
+- n8n (workflow automation)
+- TwelveData (stock data fetcher)
+- Metrics (Phase 2 - disabled)
+- AI-Hub (Phase 2 - disabled)
 ```
 
 ---
@@ -64,20 +51,17 @@ Client ID           : 4d0c2cec-3b17-45bb-8c25-70204bc9397d
 
 ```
 ===========================================
-REPOSITORY SECRETS (9 Total)
+REPOSITORY SECRETS
 ===========================================
-Azure Infrastructure:
-├── AZURE_CREDENTIALS
-├── ACR_LOGIN_SERVER
-├── ACR_USERNAME
-└── ACR_PASSWORD
-
 Application:
 ├── NEXT_PUBLIC_SUPABASE_URL
 ├── NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
 ├── SUPABASE_SECRET_DEFAULT_KEY
 ├── DATABASE_CONNECTION_STRING
-└── ALPHA_VANTAGE_API_KEY
+└── TWELVE_DATA_API_KEY
+
+VM Access:
+└── VM_SSH_PRIVATE_KEY
 ```
 
 ---
@@ -86,35 +70,41 @@ Application:
 
 | Service | URL |
 |---------|-----|
-| Frontend (Vercel) | *Configured in Vercel Dashboard* |
-| AlphaVantage Worker | https://ca-alphavantage.calmwater-f6ffc3da.southeastasia.azurecontainerapps.io |
-| Health Check | https://ca-alphavantage.calmwater-f6ffc3da.southeastasia.azurecontainerapps.io/health/live |
+| Frontend (Vercel) | https://stock-tracker.vercel.app/ |
+| n8n Dashboard | https://nxserver.malaysiawest.cloudapp.azure.com/ |
+| TwelveData Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger |
+| TwelveData Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live |
 | GitHub Actions | https://github.com/nixonyong911/Stock-And-Crypto-Tracker/actions |
-| Azure Portal | https://portal.azure.com |
 
 ---
 
 ## Quick Commands
 
-### Check Azure Container Apps
+### SSH to Azure VM
 ```powershell
-az containerapp list --resource-group rg-stocktracker -o table
+# Using PowerShell alias
+ssh-azure
+
+# Or direct SSH
+ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1
 ```
 
-### View Logs
-```powershell
-az containerapp logs show --name ca-alphavantage --resource-group rg-stocktracker --follow
+### Check Running Services
+```bash
+# On VM
+docker ps
+docker compose logs -f
 ```
 
 ### Test Health Endpoint
 ```powershell
-Invoke-WebRequest -Uri "https://ca-alphavantage.calmwater-f6ffc3da.southeastasia.azurecontainerapps.io/health/live" -UseBasicParsing
+Invoke-WebRequest -Uri "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" -UseBasicParsing
 ```
 
 ### Manual Deploy Trigger
 ```powershell
 # Trigger GitHub Actions manually
-gh workflow run "Deploy to Azure Container Apps"
+gh workflow run "Deploy to Azure VM"
 ```
 
 ---
@@ -124,43 +114,64 @@ gh workflow run "Deploy to Azure Container Apps"
 ```
 .github/
 └── workflows/
-    └── deploy-azure.yml          # GitHub Actions for Azure deployment
+    └── deploy-vm.yml              # GitHub Actions for VM deployment
 
 instruction/
-├── README.md                     # Main documentation index
+├── README.md                      # Main documentation index
 ├── database/
-│   └── README.md                 # Database documentation
+│   └── README.md                  # Database documentation
 └── architecture/
-    ├── README.md                 # Architecture documentation index
-    ├── overview.md               # Overall system architecture
-    ├── azure-container-apps-deployment.md
+    ├── README.md                  # Architecture documentation index
+    ├── overview.md                # Overall system architecture
+    ├── vm-deployment-architecture.md  # Current VM setup
     ├── vercel-frontend-deployment.md
-    └── infrastructure-reference.md  # This file
+    ├── infisical-secrets-management.md
+    └── infrastructure-reference.md    # This file
+
+deployment/
+└── vm/
+    ├── docker-compose.yml         # VM service definitions
+    ├── Caddyfile                  # Reverse proxy config
+    └── scripts/                   # Setup scripts
 
 services/
-├── frontend/                     # Next.js (Vercel)
+├── frontend/                      # Next.js (Vercel)
 ├── data-fetchers/
-│   └── AlphaVantage/            # .NET Worker (Azure)
+│   └── TwelveData/               # .NET Worker (Azure VM)
 ├── metrics/
-│   └── StockTracker.Metrics/    # .NET Service (Azure)
-└── common/                       # Shared .NET library
+│   └── StockTracker.Metrics/     # .NET Service (Phase 2)
+├── ai/
+│   └── ai-hub/                   # Python FastAPI (Phase 2)
+└── common/                        # Shared .NET library
 ```
 
+---
 
+## CI/CD Flow
 
+```
+Developer pushes to main
+         │
+         ▼
+GitHub Actions (deploy-vm.yml)
+         │
+         ├── Checkout code
+         ├── SSH to VM
+         ├── git pull on VM
+         ├── Copy deployment configs
+         ├── docker compose build
+         └── docker compose up -d
+         │
+         ▼
+Azure VM runs services via Docker
+```
 
+---
 
+## Secrets Management
 
+All secrets are managed via **Infisical Cloud** and auto-sync to:
+- GitHub Secrets (for CI/CD)
+- Vercel (for frontend)
 
-
-
-
-
-
-
-
-
-
-
-
-
+See: [infisical-secrets-management.md](infisical-secrets-management.md)

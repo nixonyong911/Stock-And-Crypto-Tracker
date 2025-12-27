@@ -17,7 +17,7 @@ docker-compose --env-file .env.staging up -d
 docker-compose logs -f
 
 # View logs for specific service
-docker-compose logs -f alphavantage
+docker-compose logs -f twelvedata-fetcher
 ```
 
 ## Build & Restart
@@ -27,7 +27,7 @@ docker-compose logs -f alphavantage
 docker-compose up -d --build
 
 # Rebuild specific service
-docker-compose up -d --build alphavantage
+docker-compose up -d --build twelvedata-fetcher
 ```
 
 ## Stop & Clean

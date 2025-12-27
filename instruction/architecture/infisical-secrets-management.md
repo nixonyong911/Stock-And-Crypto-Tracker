@@ -5,7 +5,7 @@
 Infisical Cloud is the **single source of truth** for all secrets in this project. Secrets auto-sync to GitHub Actions and Vercel.
 
 ```
-Infisical Cloud ──► Auto-sync ──► GitHub Secrets (for Azure deployments)
+Infisical Cloud ──► Auto-sync ──► GitHub Secrets (for VM deployments)
                ──► Auto-sync ──► Vercel (for frontend env vars)
                ──► CLI inject ──► Local development (docker-compose)
 ```
@@ -39,10 +39,7 @@ Infisical Cloud ──► Auto-sync ──► GitHub Secrets (for Azure deployme
 
 | Secret | Synced To | Used By |
 |--------|-----------|---------|
-| `AZURE_CREDENTIALS` | GitHub | GitHub Actions (Azure login) |
-| `ACR_LOGIN_SERVER` | GitHub | GitHub Actions (Docker push) |
-| `ACR_USERNAME` | GitHub | GitHub Actions (Docker push) |
-| `ACR_PASSWORD` | GitHub | GitHub Actions (Docker push) |
+| `VM_SSH_PRIVATE_KEY` | GitHub | GitHub Actions (SSH to VM) |
 
 ---
 
@@ -121,7 +118,7 @@ infisical run --env=prod -- dotnet run
 1. **Add to Infisical** → Project → Production environment → Add Secret
 2. **Copy to other environments** if needed (Staging, Development)
 3. **Wait for auto-sync** → GitHub/Vercel will update automatically
-4. **Update workflow** if secret needs to be passed to Azure Container Apps
+4. **Update workflow** if secret needs to be passed to VM services
 
 ### Example: Adding a New API Key
 
@@ -130,9 +127,9 @@ infisical run --env=prod -- dotnet run
    Name: NEW_API_KEY
    Value: xxx
 
-2. If needed in Azure deployment, update deploy-azure.yml:
-   environmentVariables: |
-     NewService__ApiKey=${{ secrets.NEW_API_KEY }}
+2. If needed in VM deployment, update deploy-vm.yml:
+   env:
+     NEW_API_KEY: ${{ secrets.NEW_API_KEY }}
 ```
 
 ---
@@ -165,34 +162,8 @@ infisical secrets --env=prod
 
 ---
 
-## Migration Notes
-
-### Previous Setup (Deprecated)
-
-```
-.env.staging (local) → Manual copy → GitHub Secrets
-                    → Manual copy → Vercel Dashboard
-```
-
-### Current Setup
-
-```
-Infisical Cloud → Auto-sync → GitHub Secrets
-               → Auto-sync → Vercel
-               → CLI inject → Local development
-```
-
-### Backup
-
-- Original `.env.staging` file kept as local backup (gitignored)
-- Original GitHub Secrets retained with "Disable Secret Deletion" enabled
-- Can revert to manual workflow if needed
-
----
-
 ## Related Documentation
 
-- [Infrastructure Reference](infrastructure-reference.md) - Azure resources and URLs
-- [Azure Deployment](azure-container-apps-deployment.md) - CI/CD workflow details
+- [Infrastructure Reference](infrastructure-reference.md) - VM resources and URLs
+- [VM Deployment](vm-deployment-architecture.md) - CI/CD workflow details
 - [Vercel Deployment](vercel-frontend-deployment.md) - Frontend deployment
-

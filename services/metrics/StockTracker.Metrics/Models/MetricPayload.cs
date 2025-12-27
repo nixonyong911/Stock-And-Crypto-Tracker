@@ -6,7 +6,7 @@ namespace StockTracker.Metrics.Models;
 public class MetricPayload
 {
     /// <summary>
-    /// Name of the worker sending the metric (e.g., "alphavantage", "coingecko")
+    /// Name of the worker sending the metric (e.g., "twelvedata", "coingecko")
     /// </summary>
     public string WorkerName { get; set; } = string.Empty;
     

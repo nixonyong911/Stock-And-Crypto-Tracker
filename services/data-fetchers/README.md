@@ -46,7 +46,7 @@ Each data fetcher is an independent .NET 8 ASP.NET Core service that:
 
 | Service | Description | API Type | Status |
 |---------|-------------|----------|--------|
-| AlphaVantage | Stock market data | Stock | Active |
+| TwelveData | Stock market data (10-min candles) | Stock | Active |
 
 ## Adding a New Data Fetcher
 
@@ -58,11 +58,11 @@ mkdir -p services/data-fetchers/NewService/src/NewService.Worker/{Configuration,
 
 ### 2. Use the Template
 
-Copy the AlphaVantage service as a template:
+Copy the TwelveData service as a template:
 
 ```bash
 # Copy structure
-cp -r services/data-fetchers/AlphaVantage/* services/data-fetchers/NewService/
+cp -r services/data-fetchers/TwelveData/* services/data-fetchers/NewService/
 
 # Rename files and update namespaces
 # - Rename .csproj file
