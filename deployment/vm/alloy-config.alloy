@@ -17,17 +17,8 @@ prometheus.scrape "metrics_service" {
   job_name        = "stocktracker-metrics"
 }
 
-// Scrape TwelveData worker for health metrics
-prometheus.scrape "twelvedata_worker" {
-  targets = [{
-    __address__ = "twelvedata:8080",
-  }]
-  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
-  
-  scrape_interval = "30s"
-  metrics_path    = "/metrics"
-  job_name        = "twelvedata-worker"
-}
+// NOTE: TwelveData and other workers push metrics TO the Metrics Service
+// We only need to scrape the central Metrics Service which aggregates all worker metrics
 
 // Forward all metrics to Grafana Cloud
 prometheus.remote_write "grafana_cloud" {
