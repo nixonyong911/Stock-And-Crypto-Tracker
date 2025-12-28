@@ -44,8 +44,8 @@ RestartSec=10
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/mnt/stock-tracker /tmp
+# Note: CLIs (claude, cursor-agent) need to write config files to home dir
+ReadWritePaths=/mnt/stock-tracker /tmp /home/azureuser
 
 # Logging
 StandardOutput=journal
