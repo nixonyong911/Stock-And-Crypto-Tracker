@@ -18,12 +18,33 @@ class Settings(BaseSettings):
     
     # Database (supports both DATABASE_URL and DATABASE_CONNECTION_STRING)
     database_url: str = ""
-    database_connection_string: str = ""
+    database_connection_string: str = ""  # .NET format
     
     @property
     def db_url(self) -> str:
-        """Get the database URL from either env var."""
-        return self.database_url or self.database_connection_string or "postgresql://postgres:postgres@localhost:5432/postgres"
+        """Get the database URL, converting from .NET format if needed."""
+        if self.database_url:
+            return self.database_url
+        
+        if self.database_connection_string:
+            # Parse .NET connection string format:
+            # User Id=xxx;Password=xxx;Server=xxx;Port=xxx;Database=xxx
+            conn_str = self.database_connection_string
+            parts = dict(p.split('=', 1) for p in conn_str.split(';') if '=' in p)
+            
+            user = parts.get('User Id', 'postgres')
+            password = parts.get('Password', '')
+            server = parts.get('Server', 'localhost')
+            port = parts.get('Port', '5432')
+            database = parts.get('Database', 'postgres')
+            
+            # URL encode password for special characters
+            from urllib.parse import quote_plus
+            encoded_password = quote_plus(password)
+            
+            return f"postgresql://{user}:{encoded_password}@{server}:{port}/{database}"
+        
+        return "postgresql://postgres:postgres@localhost:5432/postgres"
     
     # Google Cloud Project (for rate limit tracking - limits are per project)
     google_cloud_project_id: str = "default-project"
