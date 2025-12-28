@@ -457,30 +457,48 @@ async def list_cli_endpoints():
 async def cli_stock_tracker_claude_opus45(request: CLIMessageRequest):
     """Stock Tracker + Claude Opus 4.5."""
     executor = get_cli_executor()
-    result = await executor.execute(
-        cli="claude",
-        message=request.message,
-        context_path="/mnt/stock-tracker",
-        model="opus-4.5"
-    )
-    if result.success:
-        return result.output
-    raise HTTPException(500, detail=result.error)
+    try:
+        result = await executor.execute(
+            cli="claude",
+            message=request.message,
+            context_path="/mnt/stock-tracker",
+            model="opus-4.5"
+        )
+        if result.success:
+            return result.output
+        # Include both error and output for debugging
+        error_detail = result.error or result.output or "Unknown CLI error"
+        logger.error("Claude CLI failed", error=error_detail, exit_code=result.exit_code)
+        raise HTTPException(500, detail=error_detail)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Claude endpoint error", error=str(e))
+        raise HTTPException(500, detail=str(e))
 
 
 @app.post("/cli/stock-tracker/cursor/opus-4.5")
 async def cli_stock_tracker_cursor_opus45(request: CLIMessageRequest):
     """Stock Tracker + Cursor Opus 4.5."""
     executor = get_cli_executor()
-    result = await executor.execute(
-        cli="cursor-agent",
-        message=request.message,
-        context_path="/mnt/stock-tracker",
-        model="opus-4.5"
-    )
-    if result.success:
-        return result.output
-    raise HTTPException(500, detail=result.error)
+    try:
+        result = await executor.execute(
+            cli="cursor-agent",
+            message=request.message,
+            context_path="/mnt/stock-tracker",
+            model="opus-4.5"
+        )
+        if result.success:
+            return result.output
+        # Include both error and output for debugging
+        error_detail = result.error or result.output or "Unknown CLI error"
+        logger.error("Cursor CLI failed", error=error_detail, exit_code=result.exit_code)
+        raise HTTPException(500, detail=error_detail)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Cursor endpoint error", error=str(e))
+        raise HTTPException(500, detail=str(e))
 
 
 if __name__ == "__main__":

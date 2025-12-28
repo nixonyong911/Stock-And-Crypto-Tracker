@@ -118,18 +118,25 @@ class CLIExecutor:
         output_format: str,
         model: Optional[str] = None
     ) -> str:
-        """Build the CLI command string."""
+        """
+        Build the CLI command string.
+        
+        Note: Claude Code CLI does NOT support --model flag.
+        The model is determined by account settings.
+        cursor-agent may support --model but verify before using.
+        """
         # Escape quotes in message for shell
         escaped_message = message.replace('\\', '\\\\').replace('"', '\\"')
         
         if cli == "claude":
-            if model:
-                return f'claude --model {model} -p "{escaped_message}" --output-format {output_format}'
+            # Claude Code CLI doesn't support --model flag
+            # Model is determined by account/subscription (Pro = Opus, Free = Sonnet)
             return f'claude -p "{escaped_message}" --output-format {output_format}'
         elif cli == "cursor-agent":
+            # cursor-agent may support model flag - test and update as needed
             if model:
-                return f'cursor-agent --model {model} -p "{escaped_message}" --output-format {output_format}'
-            return f'cursor-agent -p "{escaped_message}" --output-format {output_format}'
+                return f'cursor-agent --model {model} -p "{escaped_message}"'
+            return f'cursor-agent -p "{escaped_message}"'
         else:
             raise ValueError(f"Unknown CLI: {cli}. Supported: claude, cursor-agent")
     
