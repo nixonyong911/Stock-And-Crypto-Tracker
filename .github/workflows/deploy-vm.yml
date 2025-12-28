@@ -54,8 +54,9 @@ jobs:
           cp $DEPLOY_PATH/repo/deployment/vm/Caddyfile $DEPLOY_PATH/
           cp $DEPLOY_PATH/repo/deployment/vm/alloy-config.alloy $DEPLOY_PATH/
           sudo cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.sh $DEPLOY_PATH/scripts/
+          sudo cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.service $DEPLOY_PATH/scripts/ 2>/dev/null || true
           sudo chmod +x $DEPLOY_PATH/scripts/*.sh
-          sudo chown azureuser:azureuser $DEPLOY_PATH/scripts/*.sh
+          sudo chown azureuser:azureuser $DEPLOY_PATH/scripts/*
           
           echo "=== Config sync complete ==="
           ls -la $DEPLOY_PATH/
