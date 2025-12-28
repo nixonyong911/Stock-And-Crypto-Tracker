@@ -122,21 +122,15 @@ services:
       - twelvedata
 
   # ===========================================
-  # AI Hub - DISABLED (needs API keys)
-  # Docs at: /api/ai-hub/docs
+  # AI Hub - Runs on HOST (not Docker)
   # ===========================================
-  # ai-hub:
-  #   build:
-  #     context: ./repo/services/ai/ai-hub
-  #     dockerfile: Dockerfile
-  #   container_name: ai-hub
-  #   restart: unless-stopped
-  #   environment:
-  #     - DATABASE_URL=${DATABASE_CONNECTION_STRING}
-  #     - AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH=${AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH:-}
-  #     - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID:-default-project}
-  #   networks:
-  #     - stocktracker
+  # AI Hub runs as a systemd service directly on the VM host
+  # to access CLIs (claude, cursor-agent) installed on the host.
+  # 
+  # Service: /etc/systemd/system/ai-hub.service
+  # Port: 8084 (accessible via 172.17.0.1:8084 from containers)
+  # Docs: https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs
+  # ===========================================
 
 networks:
   stocktracker:

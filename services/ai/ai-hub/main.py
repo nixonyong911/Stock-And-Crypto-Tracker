@@ -31,10 +31,12 @@ from schemas import (
     ModelInfo,
     TokenUsage,
     ErrorCodes,
+    CLIMessageRequest,
 )
 from services.rate_limiter import RateLimiter
 from services.retry_handler import RetryHandler, RetryResult
 from services.logger import AIHubLogger
+from services.cli_executor import get_cli_executor
 
 # Configure structured logging
 structlog.configure(
@@ -410,9 +412,80 @@ async def get_recent_errors(model_id: str = None, limit: int = 50):
     return await ai_logger.get_recent_errors(model_id=model_id, limit=limit)
 
 
+# ===========================================
+# CLI Endpoints - Pre-configured agents
+# ===========================================
+# Format: /<type>/<instruction-folder>/<agent>/<mode>
+# - type: cli or api
+# - instruction-folder: maps to /mnt/<folder>
+# - agent: claude, cursor, etc.
+# - mode: opus-4.5, sonnet-4, default, etc.
+
+CLI_ENDPOINTS = [
+    {
+        "path": "/cli/stock-tracker/claude/opus-4.5",
+        "instruction_folder": "stock-tracker",
+        "context_path": "/mnt/stock-tracker",
+        "agent": "claude",
+        "mode": "opus-4.5",
+        "description": "Stock Tracker analysis with Claude Opus 4.5"
+    },
+    {
+        "path": "/cli/stock-tracker/cursor/opus-4.5",
+        "instruction_folder": "stock-tracker",
+        "context_path": "/mnt/stock-tracker",
+        "agent": "cursor",
+        "mode": "opus-4.5",
+        "description": "Stock Tracker analysis with Cursor Opus 4.5"
+    }
+]
+
+
+@app.get("/cli")
+async def list_cli_endpoints():
+    """Discovery endpoint - list all available CLI endpoints."""
+    return {
+        "format": "/<type>/<instruction-folder>/<agent>/<mode>",
+        "endpoints": CLI_ENDPOINTS,
+        "total": len(CLI_ENDPOINTS)
+    }
+
+
+@app.post("/cli/stock-tracker/claude/opus-4.5")
+async def cli_stock_tracker_claude_opus45(request: CLIMessageRequest):
+    """Stock Tracker + Claude Opus 4.5."""
+    executor = get_cli_executor()
+    result = await executor.execute(
+        cli="claude",
+        message=request.message,
+        context_path="/mnt/stock-tracker",
+        model="opus-4.5"
+    )
+    if result.success:
+        return result.output
+    raise HTTPException(500, detail=result.error)
+
+
+@app.post("/cli/stock-tracker/cursor/opus-4.5")
+async def cli_stock_tracker_cursor_opus45(request: CLIMessageRequest):
+    """Stock Tracker + Cursor Opus 4.5."""
+    executor = get_cli_executor()
+    result = await executor.execute(
+        cli="cursor-agent",
+        message=request.message,
+        context_path="/mnt/stock-tracker",
+        model="opus-4.5"
+    )
+    if result.success:
+        return result.output
+    raise HTTPException(500, detail=result.error)
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
+
 
 
 

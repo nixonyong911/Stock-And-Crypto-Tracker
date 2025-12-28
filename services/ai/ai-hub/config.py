@@ -9,7 +9,7 @@ Example: api-stockandcryptotracker-google-gemini-3-flash
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from pydantic_settings import BaseSettings
 
 
@@ -37,6 +37,20 @@ class Settings(BaseSettings):
     # Log settings
     log_truncation_length: int = 500
     log_retention_days: int = 7
+    
+    # ===========================================
+    # CLI Execution Settings
+    # ===========================================
+    # CLI prefix - prepended to all CLI commands
+    # Production (empty): claude -p "msg" -> direct execution
+    # Local dev (SSH):    ssh user@host claude -p "msg" -> via SSH
+    ai_hub_cli_prefix: str = ""  # Empty = direct, or SSH command for local dev
+    
+    # Default context path on VM
+    ai_hub_default_context_path: str = "/mnt/stock-tracker"
+    
+    # CLI timeout (CLI calls can take longer than API calls)
+    ai_hub_cli_timeout_seconds: int = 120
     
     class Config:
         env_file = ".env"
@@ -164,6 +178,8 @@ def get_config() -> AIHubConfig:
     if _config is None:
         _config = AIHubConfig.load()
     return _config
+
+
 
 
 

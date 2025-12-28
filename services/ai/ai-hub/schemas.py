@@ -99,6 +99,20 @@ class ModelsListResponse(BaseModel):
     total: int
 
 
+# ===========================================
+# CLI Endpoint Schemas
+# ===========================================
+
+class CLIMessageRequest(BaseModel):
+    """Simple request for CLI endpoints - worker only provides message."""
+    
+    message: str = Field(
+        ...,
+        description="The message to send to the AI CLI",
+        min_length=1
+    )
+
+
 # Error codes
 class ErrorCodes:
     """Standard error codes for the AI Hub."""
@@ -111,6 +125,7 @@ class ErrorCodes:
     PROVIDER_ERROR = "PROVIDER_ERROR"
     TIMEOUT = "TIMEOUT"
     INTERNAL_ERROR = "INTERNAL_ERROR"
+    CLI_EXECUTION_ERROR = "CLI_EXECUTION_ERROR"
 
 
 

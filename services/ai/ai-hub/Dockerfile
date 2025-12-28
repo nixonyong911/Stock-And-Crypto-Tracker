@@ -1,5 +1,9 @@
 # AI Hub Service Dockerfile
 # Multi-stage build for smaller final image
+#
+# NOTE: This Dockerfile is for local development/testing only.
+# In production, ai-hub runs directly on the VM host as a systemd service
+# to access CLIs (claude, cursor-agent) that are installed on the host.
 
 # Build stage
 FROM python:3.11-slim as builder
@@ -51,6 +55,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
 
 # Run the application
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
-
-
-

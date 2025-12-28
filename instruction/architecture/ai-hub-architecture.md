@@ -2,14 +2,16 @@
 
 ## Overview
 
-Centralized Python FastAPI service providing AI capabilities to all microservices. Acts as gateway to AI providers (Google Gemini) with built-in rate limiting, retry handling, and request logging.
+Centralized Python FastAPI service acting as gateway between microservices and AI CLIs (claude, cursor-agent) running on the Azure VM. **ai-hub runs directly on the VM host** (not in Docker) as a systemd service, providing direct access to CLIs installed on the host.
 
 **Key Benefits:**
-- Single point of configuration for AI API keys
-- Centralized rate limit management (per Google project)
-- Automatic retry with exponential backoff for transient errors
+- Single point of configuration for AI CLI access
+- Direct CLI access (no SSH overhead in production)
+- Project-specific context folders on VM
+- Response verification before returning to services
 - Full request/response logging for debugging and auditing
 - Language-agnostic HTTP API consumable by any service
+- Docker containers access ai-hub via `172.17.0.1:8084` (Docker bridge gateway)
 
 ---
 
@@ -17,28 +19,64 @@ Centralized Python FastAPI service providing AI capabilities to all microservice
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         Consumer Services                                │
+│                         Consumer Services (Docker)                       │
 ├─────────────────┬─────────────────┬─────────────────┬───────────────────┤
 │  .NET Workers   │  Next.js Frontend│  Go Services    │  Python Services  │
 └────────┬────────┴────────┬─────────┴────────┬────────┴─────────┬─────────┘
-         │            HTTP POST /api/chat     │                  │
+         │     HTTP POST to 172.17.0.1:8084 (Docker bridge)     │
          └─────────────────┴──────────────────┴──────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    AI Hub Service (Python FastAPI)                       │
-│                    Port: 8084 (Docker) / 8080 (internal)                │
+│                    AI Hub Service (systemd on HOST)                      │
+│                    Port: 8084 (accessible via Caddy at /api/ai-hub)     │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  /api/chat → Rate Limiter → Retry Handler → Model Registry → Gemini    │
-│       │         (RPM/TPM/RPD)   (429/500/503)                           │
-│       └─────────────────────────────────────────────────────────────────│
-│                              │                              │           │
-│                              ▼                              ▼           │
-│                     Google Gemini API              Supabase PostgreSQL  │
-│                                                    (ai_hub_logs,        │
-│                                                     ai_hub_rate_tracking)│
+│  /api/chat → CLI Executor → Direct CLI Call → Response Verifier         │
+│       │                                                                  │
+│       ├── claude CLI (installed on host)                                │
+│       ├── cursor-agent CLI (installed on host)                          │
+│       └── /mnt/stock-tracker/ (context folder)                          │
+│                                                      │                  │
+│                                                      ▼                  │
+│                                            Supabase PostgreSQL          │
+│                                            (ai_hub_logs)                │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Production Flow (ai-hub on host):**
+```
+Docker Service → 172.17.0.1:8084 → ai-hub → direct CLI → Response → Service
+```
+
+**Local Dev Flow (ai-hub local + SSH):**
+```
+Local Service → ai-hub → SSH → VM → CLI → Response → Service
+```
+
+---
+
+## VM Context Structure
+
+Project-specific context folders on the Azure VM provide specialized instructions and knowledge for AI CLIs.
+
+```
+/mnt/stock-tracker/               # This project's AI context on VM
+├── agents/                       # Agent definitions (future sub-agents)
+├── skills/                       # Specialized capabilities
+├── context/                      # Project context for AI to understand
+│   └── project-overview.md       # What this project does
+├── instruction/                  # How AI should behave
+│   └── coding-conventions.md     # Style rules, patterns
+└── readme.md                     # Entry point for AI (read first)
+```
+
+**Usage:** When ai-hub executes a CLI command, it `cd`s into the project context folder first:
+
+```bash
+cd /mnt/stock-tracker && claude -p "Analyze this candlestick pattern..."
+```
+
+This allows the AI CLI to automatically read the context files and understand the project.
 
 ---
 
@@ -47,16 +85,19 @@ Centralized Python FastAPI service providing AI capabilities to all microservice
 ```
 services/ai/ai-hub/
 ├── main.py                     # FastAPI app, endpoints, lifecycle
-├── config.py                   # Model registry, API keys, rate limits
+├── config.py                   # Model registry, SSH config, VM paths
 ├── schemas.py                  # Pydantic request/response models
 ├── models/
-│   ├── base.py                 # Abstract base: APIModelClient, CLIModelClient
+│   ├── base.py                 # Abstract base: CLIModelClient
 │   ├── registry.py             # Model routing and client caching
-│   └── google/gemini.py        # Google Gemini client implementation
+│   ├── anthropic/
+│   │   └── claude.py           # Claude CLI client implementation
+│   └── cursor/
+│       └── cursor_agent.py     # Cursor-agent CLI client implementation
 ├── services/
-│   ├── rate_limiter.py         # RPM/TPM/RPD tracking per Google project
-│   ├── retry_handler.py        # Exponential backoff for 429/500/503
-│   └── logger.py               # Database logging with 500-char truncation
+│   ├── cli_executor.py         # SSH connection and CLI execution
+│   ├── response_verifier.py    # Validate AI responses
+│   └── logger.py               # Database logging
 ├── db/connection.py            # Async PostgreSQL connection pool
 ├── Dockerfile
 └── requirements.txt
@@ -66,48 +107,111 @@ services/ai/ai-hub/
 
 ## Model ID Naming Convention
 
-**Format:** `<type>-<username>-<company>-<model>`
+**Format:** `cli-<username>-<company>-<model>`
 
 | Field | Description | Examples |
 |-------|-------------|----------|
-| type | `api` or `cli` | api, cli |
-| username | Account/service identifier | stockandcryptotracker, trading |
-| company | AI provider | google, anthropic, openai |
-| model | Model name | gemini-3-flash, claude-sonnet |
+| type | Always `cli` for CLI-based | cli |
+| username | Account/context identifier | nixon, stocktracker |
+| company | AI provider | anthropic, cursor |
+| model | CLI/model name | claude, cursor-agent |
 
 **Examples:**
-- `api-stockandcryptotracker-google-gemini-3-flash` (current default)
-- `cli-nixon-anthropic-claude-sonnet` (future CLI-based)
+- `cli-nixon-anthropic-claude` - Claude CLI with nixon's context
+- `cli-stocktracker-cursor-agent` - Cursor agent for stock tracker
 
 ---
 
 ## Configuration
 
+### Execution Modes (CLI Prefix Pattern)
+
+ai-hub uses a **CLI prefix pattern** to abstract the connection method between environments:
+
+| Environment | `AI_HUB_CLI_PREFIX` | Result |
+|-------------|---------------------|--------|
+| **Production** | Empty (`""`) | Direct CLI execution on host |
+| **Local Dev** | SSH command | CLI execution via SSH |
+
+**Production (prefix empty, ai-hub runs on VM host):**
+```bash
+# AI_HUB_CLI_PREFIX=""
+cd "/mnt/stock-tracker/" && claude -p "message"
+```
+
+**Local Development (prefix = SSH command):**
+```bash
+# AI_HUB_CLI_PREFIX="ssh -i ~/.ssh/key.pem azureuser@20.17.176.1"
+ssh -i ~/.ssh/key.pem azureuser@20.17.176.1 'cd "/mnt/stock-tracker/" && claude -p "message"'
+```
+
+**How It Works:**
+The CLI executor prepends the prefix to all commands:
+```
+<AI_HUB_CLI_PREFIX> '<cd context && cli command>'
+```
+
+This allows the same ai-hub code to work in both environments - only the secret changes.
+
+---
+
+### Default Context Directory
+
+**Default:** `/mnt/stock-tracker/`
+
+All AI CLI commands are executed from this directory by default. This ensures the AI has access to project context files.
+
+**Command Pattern:**
+```bash
+cd "/mnt/stock-tracker/" && <cli> -p "<message>"
+```
+
+**Examples:**
+```bash
+# Claude CLI
+cd "/mnt/stock-tracker/" && claude -p "Analyze this candlestick pattern..."
+
+# Cursor Agent
+cd "/mnt/stock-tracker/" && cursor-agent -p "Review recent code changes..."
+```
+
+When adding new endpoints to ai-hub, always use this pattern to ensure consistent context access.
+
+---
+
 ### Environment Variables
 
 ```bash
-# Required
-DATABASE_URL=postgresql://user:pass@host:5432/db
-AI_HUB_MODELS=api-stockandcryptotracker-google-gemini-3-flash
-AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH=your_gemini_api_key
+# ===========================================
+# CLI Prefix (key abstraction for local vs production)
+# ===========================================
+AI_HUB_CLI_PREFIX=                    # Empty for production, SSH cmd for local dev
+AI_HUB_DEFAULT_CONTEXT_PATH=/mnt/stock-tracker
+AI_HUB_CLI_TIMEOUT_SECONDS=120        # CLI calls can take longer than API calls
 
-# Optional (with defaults)
-GOOGLE_CLOUD_PROJECT_ID=default-project
-AI_HUB_GEMINI_RPM_LIMIT=15          # Requests per minute (Free tier)
-AI_HUB_GEMINI_TPM_LIMIT=1000000     # Tokens per minute
-AI_HUB_GEMINI_RPD_LIMIT=1500        # Requests per day
-AI_HUB_MAX_RETRIES=3
-AI_HUB_TIMEOUT_SECONDS=30
+# ===========================================
+# Database
+# ===========================================
+DATABASE_URL=postgresql://user:pass@host:5432/db
 ```
 
-### API Key Environment Variable Pattern
+### Environment by Deployment
 
-Model ID → Environment variable:
-- Replace `-` with `_`
-- Uppercase everything
-- Prefix with `AI_KEY_`
+| Variable | Local Dev | Production |
+|----------|-----------|------------|
+| `AI_HUB_CLI_PREFIX` | `ssh -i ~/.ssh/key.pem azureuser@20.17.176.1` | Empty (`""`) |
+| `AI_HUB_DEFAULT_CONTEXT_PATH` | `/mnt/stock-tracker` | `/mnt/stock-tracker` |
+| `DATABASE_URL` | From Infisical | From Infisical |
 
-Example: `api-stockandcryptotracker-google-gemini-3-flash` → `AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH`
+### Infisical Secrets
+
+| Secret | Environment | Purpose |
+|--------|-------------|---------|
+| `AI_HUB_CLI_PREFIX` | Local (staging) | SSH command for remote CLI access |
+| `AI_HUB_CLI_PREFIX` | Production | Empty (direct CLI on host) |
+
+> **Note:** CLI authentication (ANTHROPIC_API_KEY, etc.) is already configured on the VM host.
+> ai-hub does not need API keys - CLIs are pre-authenticated.
 
 ---
 
@@ -116,24 +220,26 @@ Example: `api-stockandcryptotracker-google-gemini-3-flash` → `AI_KEY_API_STOCK
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/chat` | POST | Main AI interaction endpoint |
-| `/api/models` | GET | List registered models |
+| `/api/models` | GET | List registered CLI models |
 | `/api/stats?hours=24` | GET | Usage statistics |
 | `/api/errors?limit=50` | GET | Recent error logs |
-| `/health` | GET | Health check with DB status |
-| `/health/live` | GET | Kubernetes liveness probe |
-| `/health/ready` | GET | Kubernetes readiness probe |
+| `/health` | GET | Health check with DB and VM status |
+| `/health/live` | GET | Liveness probe |
+| `/health/ready` | GET | Readiness probe (checks SSH connectivity) |
 
 ### POST /api/chat
 
 **Request:**
 ```json
 {
-  "model_id": "api-stockandcryptotracker-google-gemini-3-flash",
+  "model_id": "cli-nixon-anthropic-claude",
   "message": "Analyze this candlestick pattern...",
   "system_prompt": "You are a technical trading analyst.",
   "caller_service": "twelvedata-worker"
 }
 ```
+
+> **Note:** All requests use the default context path `/mnt/stock-tracker/`. No need to specify `context_path` unless overriding.
 
 **Success Response (200):**
 ```json
@@ -141,101 +247,138 @@ Example: `api-stockandcryptotracker-google-gemini-3-flash` → `AI_KEY_API_STOCK
   "success": true,
   "request_id": "uuid",
   "response": "The candlestick shows a bullish hammer pattern...",
-  "tokens_used": { "input": 45, "output": 120, "total": 165 },
-  "duration_ms": 850
+  "cli_used": "claude",
+  "execution_time_ms": 3500,
+  "context_path": "/mnt/stock-tracker"
 }
 ```
 
-**Rate Limited (429):**
+**Error Response (500):**
 ```json
 {
   "success": false,
-  "error": "Rate limit exceeded (RPM)",
-  "error_code": "RATE_LIMIT_EXHAUSTED",
-  "rate_limit_type": "RPM",
-  "retry_after_seconds": 45
+  "error": "CLI execution failed",
+  "error_code": "CLI_EXECUTION_ERROR",
+  "details": "SSH connection timeout"
 }
 ```
 
 ---
 
-## Rate Limiting
+## CLI Execution Flow
 
-Based on [Google Gemini Rate Limits](https://ai.google.dev/gemini-api/docs/rate-limits).
+### 1. Request Received
+Service sends POST to `/api/chat` with model_id and message.
 
-| Limit | Description | Reset | Free Tier |
-|-------|-------------|-------|-----------|
-| **RPM** | Requests per minute | Rolling 60s | 15 |
-| **TPM** | Tokens per minute | Rolling 60s | 1,000,000 |
-| **RPD** | Requests per day | **Midnight Pacific** | 1,500 |
+### 2. Model Resolution
+ai-hub looks up CLI configuration for the model_id.
 
-**Critical:** Rate limits are per Google Cloud **PROJECT**, not per API key.
+### 3. CLI Execution
+ai-hub executes the CLI command using the prefix pattern:
 
-### Upgrading Limits
+**Command Template:**
+```bash
+<AI_HUB_CLI_PREFIX> 'cd "/mnt/stock-tracker/" && <cli> -p "<message>" --output-format text'
+```
 
-| Tier | Qualification |
-|------|---------------|
-| Tier 1 | Link paid billing account |
-| Tier 2 | >$250 total spend + 30 days |
-| Tier 3 | >$1,000 total spend + 30 days |
+**Production (prefix empty - direct execution):**
+```bash
+cd "/mnt/stock-tracker/" && claude -p "Your prompt here" --output-format text
+```
+
+**Local Dev (prefix = SSH):**
+```bash
+ssh -i key.pem user@host 'cd "/mnt/stock-tracker/" && claude -p "Your prompt here" --output-format text'
+```
+
+> **Important:** Always use this `cd` pattern when adding new AI endpoints to ensure CLI has access to project context.
+
+### 4. Response Capture
+Captures stdout/stderr from CLI execution.
+
+### 5. Response Verification
+ai-hub validates the response (non-empty, no error markers).
+
+### 6. Return to Service
+Returns verified response to calling service.
+
+---
+
+## Adding New CLI Models
+
+### 1. Install CLI on VM
+
+```bash
+# SSH to VM
+ssh -i key.pem azureuser@20.17.176.1
+
+# Install new CLI (example: new-ai-cli)
+curl https://new-ai.com/install | bash
+```
+
+### 2. Create Project Context Folder (if new project)
+
+```bash
+mkdir -p /mnt/new-project/{agents,skills,context,instruction}
+echo "# New Project" > /mnt/new-project/readme.md
+```
+
+### 3. Add Environment Variables
+
+```bash
+AI_HUB_MODELS=cli-nixon-anthropic-claude,cli-newproject-newai-newcli
+```
+
+### 4. Create Client Class (if new provider)
+
+```python
+# models/newai/newcli.py
+from models.base import CLIModelClient, CLIResponse
+
+class NewCLIClient(CLIModelClient):
+    def build_command(self, message: str, system_prompt: str = None) -> str:
+        cmd = f'new-ai-cli -p "{message}"'
+        if system_prompt:
+            cmd += f' --system "{system_prompt}"'
+        return cmd
+```
+
+### 5. Register in Model Registry
+
+```python
+# models/registry.py
+def _create_client(self, config: ModelConfig):
+    if config.company == "anthropic":
+        return ClaudeClient(...)
+    elif config.company == "cursor":
+        return CursorAgentClient(...)
+    elif config.company == "newai":
+        return NewCLIClient(...)  # Add new provider
+```
 
 ---
 
 ## Error Handling
-
-### Automatic Retry Strategy
-
-| HTTP Status | Type | Strategy | Max Retries |
-|-------------|------|----------|-------------|
-| 429 | Rate Limit | Backoff: 1s, 2s, 4s, 8s | 3 |
-| 500 | Server Error | Backoff: 0.5s, 1s | 2 |
-| 503 | Unavailable | Backoff: 1s, 2s | 2 |
-| Timeout | Timeout | Single retry | 1 |
-| 400/401/403 | Client Error | No retry | 0 |
 
 ### Error Codes
 
 | Code | Description | Action |
 |------|-------------|--------|
 | `MODEL_NOT_FOUND` | Model ID not in registry | Check model_id spelling |
-| `API_KEY_MISSING` | No API key configured | Add env variable |
-| `RATE_LIMIT_PRE_CHECK` | Would exceed limit | Wait and retry |
-| `RATE_LIMIT_EXHAUSTED` | Hit limit after retries | Wait longer |
-| `PROVIDER_ERROR` | AI provider error | Check Gemini status |
+| `SSH_CONNECTION_ERROR` | Cannot connect to VM | Check VM status, SSH key |
+| `CLI_NOT_FOUND` | CLI not installed on VM | Install CLI on VM |
+| `CLI_EXECUTION_ERROR` | CLI returned error | Check CLI logs on VM |
+| `CONTEXT_PATH_ERROR` | Context folder not found | Create folder on VM |
+| `TIMEOUT_ERROR` | CLI execution timeout | Increase timeout or simplify prompt |
+| `RESPONSE_EMPTY` | CLI returned empty response | Check CLI authentication |
 
----
+### Retry Strategy
 
-## Adding New AI Models
-
-### 1. Add Environment Variables
-
-```bash
-AI_HUB_MODELS=api-stockandcryptotracker-google-gemini-3-flash,api-trading-google-gemini-2.5-pro
-AI_KEY_API_TRADING_GOOGLE_GEMINI_2_5_PRO=your_new_key
-```
-
-### 2. (For new providers) Create Client Class
-
-```python
-# models/openai/chatgpt.py
-from models.base import APIModelClient, ModelResponse
-
-class ChatGPTClient(APIModelClient):
-    async def generate(self, message: str, system_prompt: str = None) -> ModelResponse:
-        # Implementation
-        pass
-```
-
-### 3. Register in Model Registry
-
-```python
-# models/registry.py
-def _create_client(self, config: ModelConfig):
-    if config.company == "google":
-        return GeminiClient(...)
-    elif config.company == "openai":
-        return ChatGPTClient(...)  # Add new provider
-```
+| Error Type | Strategy | Max Retries |
+|------------|----------|-------------|
+| SSH timeout | Reconnect | 2 |
+| CLI timeout | None (expensive) | 0 |
+| Empty response | Retry with same prompt | 1 |
 
 ---
 
@@ -243,20 +386,108 @@ def _create_client(self, config: ModelConfig):
 
 | Issue | Solution |
 |-------|----------|
-| "Model not found" | Check `AI_HUB_MODELS` includes model ID, verify format |
-| "API key not configured" | Add `AI_KEY_<NORMALIZED_MODEL_ID>` env var |
-| Rate limit errors | Check `/api/stats`, consider upgrading tier |
-| Database connection errors | Verify `DATABASE_URL`, check Supabase pooler |
+| "SSH connection refused" | Check VM is running, port 22 open, SSH key valid |
+| "CLI not found" | SSH to VM, verify CLI installed: `which claude` |
+| "Context path not found" | Create folder: `mkdir -p /mnt/stock-tracker` |
+| "Empty response" | Check CLI auth: `claude --version` on VM |
+| "Timeout" | Increase `AI_HUB_TIMEOUT_SECONDS`, simplify prompt |
+| "Permission denied" | Check SSH key permissions (600), VM user |
+
+### Debug Commands
+
+```bash
+# Test SSH connection
+ssh -i key.pem azureuser@20.17.176.1 "echo 'SSH OK'"
+
+# Test CLI on VM
+ssh -i key.pem azureuser@20.17.176.1 "claude --version"
+ssh -i key.pem azureuser@20.17.176.1 "cursor-agent --version"
+
+# Test with default context directory
+ssh -i key.pem azureuser@20.17.176.1 'cd "/mnt/stock-tracker/" && claude -p "Hello"'
+ssh -i key.pem azureuser@20.17.176.1 'cd "/mnt/stock-tracker/" && cursor-agent -p "Hello"'
+```
+
+---
+
+## Deployment
+
+### Production Architecture
+
+ai-hub runs **directly on the VM host** (not in Docker) as a systemd service:
+
+```
+Azure VM Host
+├── systemd: ai-hub.service (port 8084)
+│   ├── FastAPI app
+│   ├── Direct access to claude, cursor-agent CLIs
+│   └── Direct access to /mnt/stock-tracker/
+│
+├── Docker Compose
+│   ├── Caddy (reverse proxy)
+│   │   └── /api/ai-hub/* → 172.17.0.1:8084 (host)
+│   ├── TwelveData Worker
+│   ├── Metrics Service
+│   └── n8n
+│
+└── CLIs (installed on host)
+    ├── claude
+    └── cursor-agent
+```
+
+### Service Files
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `ai-hub.service` | `/etc/systemd/system/` | Systemd unit file |
+| `ai-hub.env` | `/etc/ai-hub.env` | Environment variables |
+| App code | `/app/repo/services/ai/ai-hub/` | Python source |
+
+### Management Commands
+
+```bash
+# SSH to VM
+ssh-azure  # or: ssh -i key.pem azureuser@20.17.176.1
+
+# Service management
+sudo systemctl status ai-hub
+sudo systemctl restart ai-hub
+sudo systemctl stop ai-hub
+
+# View logs
+journalctl -u ai-hub -f
+journalctl -u ai-hub --since "10 min ago"
+
+# Test endpoint
+curl http://localhost:8084/health/live
+```
+
+---
+
+## VM Details
+
+| Property | Value |
+|----------|-------|
+| Host | 20.17.176.1 |
+| User | azureuser |
+| FQDN | nxserver.malaysiawest.cloudapp.azure.com |
+| SSH Port | 22 |
+| CLIs Installed | claude (2.0.76), cursor-agent (2025.12.17) |
+| **Default Context Path** | `/mnt/stock-tracker/` |
+| **AI Hub Port** | 8084 (host) |
+| **Docker Bridge Gateway** | 172.17.0.1 (for container-to-host) |
+
+**CLI Execution Pattern:**
+```bash
+cd "/mnt/stock-tracker/" && <cli> -p "<message>"
+```
 
 ---
 
 ## Future Improvements
 
-- [ ] OpenAI ChatGPT support
-- [ ] Anthropic Claude CLI support
-- [ ] Request queuing for rate limits
-- [ ] Response caching
-- [ ] WebSocket streaming
-
-
-
+- [ ] Sub-agent orchestration
+- [ ] Response caching for repeated queries
+- [ ] WebSocket streaming for real-time responses
+- [ ] Multiple VM support for load balancing
+- [ ] Agent-specific context folders per task type

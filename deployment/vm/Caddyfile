@@ -33,11 +33,13 @@ nxserver.malaysiawest.cloudapp.azure.com {
     }
     
     # ===========================================
-    # AI Hub API - DISABLED (Phase 2)
+    # AI Hub API - Gateway to AI CLIs (runs on HOST, not Docker)
+    # Docs at: /api/ai-hub/docs
+    # Proxies to systemd service on host via Docker bridge gateway
     # ===========================================
-    # handle_path /api/ai-hub/* {
-    #     reverse_proxy ai-hub:8080
-    # }
+    handle_path /api/ai-hub/* {
+        reverse_proxy 172.17.0.1:8084
+    }
     
     # ===========================================
     # n8n - Default/Fallback (root path)

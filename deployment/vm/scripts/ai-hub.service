@@ -1,0 +1,57 @@
+# ===========================================
+# AI Hub Systemd Service
+# ===========================================
+# Runs ai-hub directly on the VM host (not in Docker)
+# to access CLIs (claude, cursor-agent) installed on host.
+#
+# Install:
+#   sudo cp ai-hub.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable ai-hub
+#   sudo systemctl start ai-hub
+# ===========================================
+
+[Unit]
+Description=AI Hub - Gateway to AI CLIs (claude, cursor-agent)
+After=network.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=azureuser
+Group=azureuser
+WorkingDirectory=/app/repo/services/ai/ai-hub
+
+# Environment - defaults (override via /etc/ai-hub.env)
+Environment=AI_HUB_CLI_PREFIX=
+Environment=AI_HUB_DEFAULT_CONTEXT_PATH=/mnt/stock-tracker
+Environment=AI_HUB_CLI_TIMEOUT_SECONDS=120
+
+# Load additional environment from file (secrets from Infisical)
+EnvironmentFile=-/etc/ai-hub.env
+
+# Python path
+Environment=PATH=/home/azureuser/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+# Run uvicorn
+ExecStart=/home/azureuser/.local/bin/uvicorn main:app --host 0.0.0.0 --port 8084
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/mnt/stock-tracker /tmp
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-hub
+
+[Install]
+WantedBy=multi-user.target
+
