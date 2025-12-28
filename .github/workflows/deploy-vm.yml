@@ -53,8 +53,9 @@ jobs:
           cp $DEPLOY_PATH/repo/deployment/vm/docker-compose.yml $DEPLOY_PATH/
           cp $DEPLOY_PATH/repo/deployment/vm/Caddyfile $DEPLOY_PATH/
           cp $DEPLOY_PATH/repo/deployment/vm/alloy-config.alloy $DEPLOY_PATH/
-          cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.sh $DEPLOY_PATH/scripts/
-          chmod +x $DEPLOY_PATH/scripts/*.sh
+          sudo cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.sh $DEPLOY_PATH/scripts/
+          sudo chmod +x $DEPLOY_PATH/scripts/*.sh
+          sudo chown azureuser:azureuser $DEPLOY_PATH/scripts/*.sh
           
           echo "=== Config sync complete ==="
           ls -la $DEPLOY_PATH/
