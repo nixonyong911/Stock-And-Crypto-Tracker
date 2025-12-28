@@ -82,14 +82,16 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting AI Hub Service")
     
-    # Initialize database connection pool
-    await DatabaseConnection.get_pool()
-    
-    # Ensure tables exist (fallback if EF Core migration not run)
+    # Initialize database connection pool (optional - CLI endpoints don't need DB)
     try:
-        await ensure_tables_exist()
+        await DatabaseConnection.get_pool()
+        # Ensure tables exist (fallback if EF Core migration not run)
+        try:
+            await ensure_tables_exist()
+        except Exception as e:
+            logger.warning("Could not ensure tables", error=str(e))
     except Exception as e:
-        logger.warning("Could not ensure tables", error=str(e))
+        logger.warning("Database connection failed (CLI endpoints will still work)", error=str(e))
     
     # Start cleanup task
     cleanup = asyncio.create_task(cleanup_task())
