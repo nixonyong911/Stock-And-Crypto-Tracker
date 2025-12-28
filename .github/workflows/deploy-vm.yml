@@ -90,7 +90,7 @@ jobs:
           AI_HUB_DIR="$DEPLOY_PATH/repo/services/ai/ai-hub"
           
           echo "=== Installing AI Hub dependencies ==="
-          pip3 install --user -q -r "$AI_HUB_DIR/requirements.txt"
+          pip3 install --user -q --break-system-packages -r "$AI_HUB_DIR/requirements.txt"
           
           echo "=== Installing systemd service ==="
           sudo cp "$DEPLOY_PATH/scripts/ai-hub.service" /etc/systemd/system/ai-hub.service
