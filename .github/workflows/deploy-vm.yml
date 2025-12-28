@@ -16,6 +16,7 @@ on:
       - 'services/data-fetchers/TwelveData/**'
       - 'services/metrics/**'
       - 'services/ai/ai-hub/**'
+      - 'services/back-office/**'
       - 'services/common/**'
       - 'deployment/vm/**'
       - '.github/workflows/deploy-vm.yml'
@@ -67,7 +68,7 @@ jobs:
           cd $DEPLOY_PATH
           
           echo "=== Building Docker services ==="
-          docker compose build --no-cache twelvedata metrics
+          docker compose build --no-cache twelvedata metrics back-office
           
           echo "=== Starting Docker services with Infisical secret injection ==="
           # Use start-services.sh which authenticates with Infisical and injects secrets
@@ -120,7 +121,10 @@ jobs:
           echo "=== Checking AI Hub (host service) ==="
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/health/live && echo "AI Hub: OK" || echo "AI Hub: Starting..."
           
-          echo "=== Checking Alloy (via SSH) ==="
+          echo "=== Checking Back Office ==="
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ && echo "Back Office: OK" || echo "Back Office: Starting..."
+          
+          echo "=== Checking Alloy (via SSH) ===" 
           ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "Alloy: Check logs"
           
           echo ""
@@ -132,4 +136,5 @@ jobs:
           echo "  - TwelveData: https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger"
           echo "  - Metrics:    https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger"
           echo "  - AI Hub:     https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs"
+          echo "  - Back Office: https://nxserver.malaysiawest.cloudapp.azure.com/back-office/"
           echo "  - Grafana:    https://grafana.com (check your dashboard)"

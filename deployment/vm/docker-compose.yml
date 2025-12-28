@@ -132,6 +132,27 @@ services:
   # Docs: https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs
   # ===========================================
 
+  # ===========================================
+  # Back Office - Admin & Testing UI
+  # Access at: /back-office
+  # ===========================================
+  back-office:
+    build:
+      context: ./repo/services/back-office
+      dockerfile: Dockerfile
+    container_name: back-office
+    restart: unless-stopped
+    environment:
+      - AI_HUB_URL=http://172.17.0.1:8084
+    networks:
+      - stocktracker
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
 networks:
   stocktracker:
     driver: bridge

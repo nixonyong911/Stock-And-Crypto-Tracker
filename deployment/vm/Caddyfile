@@ -42,6 +42,13 @@ nxserver.malaysiawest.cloudapp.azure.com {
     }
     
     # ===========================================
+    # Back Office - Admin & Testing UI
+    # ===========================================
+    handle_path /back-office/* {
+        reverse_proxy back-office:3000
+    }
+    
+    # ===========================================
     # n8n - Default/Fallback (root path)
     # ===========================================
     handle {
