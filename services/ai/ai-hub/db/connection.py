@@ -28,7 +28,7 @@ class DatabaseConnection:
                 if cls._pool is None:
                     config = get_config()
                     cls._pool = await asyncpg.create_pool(
-                        config.settings.database_url,
+                        config.settings.db_url,
                         min_size=2,
                         max_size=10,
                         command_timeout=30,
@@ -158,6 +158,8 @@ async def ensure_tables_exist() -> None:
         logger.info("AI Hub database tables ensured")
     except Exception as e:
         logger.warning("Could not ensure tables (may already exist via EF Core)", error=str(e))
+
+
 
 
 

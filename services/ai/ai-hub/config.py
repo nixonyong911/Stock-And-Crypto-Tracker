@@ -16,8 +16,14 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings from environment variables."""
     
-    # Database
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/postgres"
+    # Database (supports both DATABASE_URL and DATABASE_CONNECTION_STRING)
+    database_url: str = ""
+    database_connection_string: str = ""
+    
+    @property
+    def db_url(self) -> str:
+        """Get the database URL from either env var."""
+        return self.database_url or self.database_connection_string or "postgresql://postgres:postgres@localhost:5432/postgres"
     
     # Google Cloud Project (for rate limit tracking - limits are per project)
     google_cloud_project_id: str = "default-project"
