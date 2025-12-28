@@ -13,6 +13,8 @@ Quick reference for all worker/service endpoints accessible via Caddy reverse pr
 | **TwelveData Health** | `/api/twelvedata/health/live` | Health check |
 | **Metrics Swagger** | `/api/metrics/swagger` | Metrics API documentation |
 | **Metrics Health** | `/api/metrics/health/live` | Health check |
+| **AI-Hub Docs** | `/api/ai-hub/docs` | AI Gateway API documentation |
+| **AI-Hub Health** | `/api/ai-hub/health/live` | Health check |
 
 ## Monitoring (Grafana Cloud)
 
@@ -20,12 +22,6 @@ Quick reference for all worker/service endpoints accessible via Caddy reverse pr
 |---------|--------|---------|
 | **Grafana Alloy** | Internal only | Scrapes metrics, forwards to Grafana Cloud |
 | **Grafana Cloud** | [grafana.com](https://grafana.com) | Dashboards, alerting, monitoring |
-
-## Disabled Services
-
-| Service | Path | Status |
-|---------|------|--------|
-| **AI-Hub Docs** | `/api/ai-hub/docs` | Needs API keys |
 
 ## Full URLs
 
@@ -42,8 +38,9 @@ https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger
 https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live
 https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/metrics  # Prometheus format
 
-# AI Hub (disabled)
+# AI Hub - Gateway to AI CLIs
 https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs
+https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/health/live
 ```
 
 ## TwelveData API Endpoints
@@ -64,6 +61,15 @@ https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs
 | `/api/metrics/api/metrics/batch` | POST | Record batch metrics |
 | `/api/metrics/api/metrics/workers` | GET | List registered workers |
 | `/api/metrics/metrics` | GET | Prometheus scrape endpoint |
+
+## AI Hub API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/ai-hub/health/live` | GET | Liveness check |
+| `/api/ai-hub/api/chat` | POST | Main AI interaction endpoint |
+| `/api/ai-hub/api/models` | GET | List registered CLI models |
+| `/api/ai-hub/docs` | GET | FastAPI Swagger documentation |
 
 ## Manual Testing via Swagger
 

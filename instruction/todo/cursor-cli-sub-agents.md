@@ -188,3 +188,5 @@ Cursor IDE (Main Agent)
 - [Claude Code Subagents](https://code.claude.com/docs/en/sub-agents) (inspiration)
 - [Existing finish-task command](.cursor/commands/finish-task.md)
 
+
+

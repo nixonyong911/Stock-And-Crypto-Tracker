@@ -90,3 +90,5 @@ oci iam availability-domain list --output table
 
 
 
+
+

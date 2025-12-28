@@ -126,6 +126,7 @@ CLI documentation is organized by **tech stack**, not by service. Route CLI cont
 | Tech Stack | Folder | Detection Keywords |
 |------------|--------|-------------------|
 | .NET | `cli/.net/` | `dotnet`, `ef`, `nuget`, `.csproj`, `migrations` |
+| AI | `cli/AI/` | `claude`, `claude-code`, `cursor-agent`, `anthropic`, `AI agent`, `coding agent` |
 | Azure | `cli/azure/` | `az `, `az.`, `Azure CLI`, `containerapp`, `acr` |
 | Caddy | `cli/caddy/` | `caddy`, `Caddyfile`, `reverse_proxy`, `tls` |
 | Docker | `cli/docker/` | `docker`, `docker-compose`, `Dockerfile` |
@@ -211,6 +212,7 @@ Reuse the same tech stack folders as CLI:
 | Tech Stack | Folder |
 |------------|--------|
 | .NET | `history/.net/` |
+| AI | `history/AI/` |
 | Azure | `history/azure/` |
 | Caddy | `history/caddy/` |
 | Docker | `history/docker/` |
