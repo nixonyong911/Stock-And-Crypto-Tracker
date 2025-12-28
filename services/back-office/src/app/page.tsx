@@ -19,6 +19,9 @@ export default function BackOfficePage() {
     null
   );
 
+  // Get basePath from Next.js config for API calls
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/back-office";
+
   const sendToAgent = async (agent: "claude" | "cursor") => {
     if (!message.trim()) return;
 
@@ -27,7 +30,7 @@ export default function BackOfficePage() {
     setResponse("");
 
     try {
-      const res = await fetch(`/api/${agent}`, {
+      const res = await fetch(`${basePath}/api/${agent}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
@@ -148,7 +151,7 @@ export default function BackOfficePage() {
                 <span className="rounded bg-orange-500/20 px-2 py-0.5 text-orange-400">
                   POST
                 </span>
-                <span className="text-slate-300">/api/claude</span>
+                <span className="text-slate-300">/back-office/api/claude</span>
                 <span className="text-slate-500">
                   → /cli/stock-tracker/claude/opus-4.5
                 </span>
@@ -157,7 +160,7 @@ export default function BackOfficePage() {
                 <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-emerald-400">
                   POST
                 </span>
-                <span className="text-slate-300">/api/cursor</span>
+                <span className="text-slate-300">/back-office/api/cursor</span>
                 <span className="text-slate-500">
                   → /cli/stock-tracker/cursor/opus-4.5
                 </span>
