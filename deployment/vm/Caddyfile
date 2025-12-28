@@ -43,8 +43,9 @@ nxserver.malaysiawest.cloudapp.azure.com {
     
     # ===========================================
     # Back Office - Admin & Testing UI
+    # Uses handle (not handle_path) because Next.js basePath handles the prefix
     # ===========================================
-    handle_path /back-office/* {
+    handle /back-office* {
         reverse_proxy back-office:3000
     }
     
