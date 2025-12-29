@@ -259,6 +259,131 @@ public class StockFetchService : IStockFetchService
         }
     }
 
+    public async Task<BatchFetchResult> FetchAllActiveTickersAsync(string? date = null, CancellationToken cancellationToken = default)
+    {
+        var fetchDate = string.IsNullOrWhiteSpace(date) ? "yesterday" : date;
+        var result = new BatchFetchResult();
+        
+        _logger.LogInformation("Starting batch fetch for all active tickers with date {Date}", fetchDate);
+        
+        try
+        {
+            // Get the data source
+            var dataSource = await _priceRepository.GetDataSourceByNameAsync(DataSourceName);
+            if (dataSource == null)
+            {
+                throw new InvalidOperationException($"Data source '{DataSourceName}' not found in database.");
+            }
+
+            // Get all active tickers
+            var tickers = await _tickerRepository.GetActiveTickersAsync();
+            var tickerList = tickers.ToList();
+            
+            if (tickerList.Count == 0)
+            {
+                _logger.LogWarning("No active tickers found for batch fetch");
+                return result;
+            }
+
+            _logger.LogInformation("Found {Count} active tickers for batch fetch", tickerList.Count);
+
+            // Use default config with provided date
+            var config = new FetchConfig
+            {
+                FetchDate = fetchDate,
+                Interval = "15min",
+                OutputSize = 30,
+                Exchange = "NASDAQ",
+                Timezone = "America/New_York",
+                RateLimitDelaySeconds = 8
+            };
+
+            foreach (var ticker in tickerList)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning("Batch fetch cancelled");
+                    break;
+                }
+
+                var symbolResult = new SymbolResult { Symbol = ticker.Symbol };
+                var stopwatch = Stopwatch.StartNew();
+
+                try
+                {
+                    var recordsInserted = await FetchAndStoreSymbolDataAsync(ticker, dataSource.Id, config, cancellationToken);
+                    
+                    symbolResult.Success = true;
+                    symbolResult.RecordsInserted = recordsInserted;
+                    result.SuccessCount++;
+                    result.TotalRecordsInserted += recordsInserted;
+
+                    // Record success metrics
+                    await _metrics.IncrementCounterAsync("fetch_operations_total", 1,
+                        new Dictionary<string, string>
+                        {
+                            ["symbol"] = ticker.Symbol,
+                            ["status"] = "success"
+                        });
+                    
+                    await _metrics.IncrementCounterAsync("records_inserted_total", recordsInserted,
+                        new Dictionary<string, string> { ["symbol"] = ticker.Symbol });
+
+                    _logger.LogInformation("Fetched {Records} records for {Symbol}", recordsInserted, ticker.Symbol);
+
+                    // Rate limiting
+                    await Task.Delay(TimeSpan.FromSeconds(config.RateLimitDelaySeconds), cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    symbolResult.Success = false;
+                    symbolResult.Error = ex.Message;
+                    result.FailedCount++;
+
+                    // Record error metrics
+                    await _metrics.IncrementCounterAsync("fetch_operations_total", 1,
+                        new Dictionary<string, string>
+                        {
+                            ["symbol"] = ticker.Symbol,
+                            ["status"] = "error"
+                        });
+                    
+                    await _metrics.IncrementCounterAsync("fetch_errors_total", 1,
+                        new Dictionary<string, string>
+                        {
+                            ["symbol"] = ticker.Symbol,
+                            ["error_type"] = ex.GetType().Name
+                        });
+
+                    _logger.LogWarning(ex, "Error fetching {Symbol}", ticker.Symbol);
+                }
+                finally
+                {
+                    stopwatch.Stop();
+                    await _metrics.ObserveHistogramAsync("fetch_duration_seconds",
+                        stopwatch.Elapsed.TotalSeconds,
+                        new Dictionary<string, string> { ["symbol"] = ticker.Symbol });
+                    
+                    result.SymbolResults.Add(symbolResult);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fatal error during batch fetch");
+            throw;
+        }
+
+        _logger.LogInformation("Batch fetch completed: {Success} success, {Failed} failed, {Records} records",
+            result.SuccessCount, result.FailedCount, result.TotalRecordsInserted);
+
+        return result;
+    }
+
     private async Task<int> FetchAndStoreSymbolDataAsync(StockTicker ticker, int dataSourceId, FetchConfig config, CancellationToken cancellationToken)
     {
         var response = await _apiClient.GetTimeSeriesAsync(ticker.Symbol, config, cancellationToken);

@@ -5,6 +5,12 @@ namespace TwelveData.Worker.Repositories;
 public interface IStockTickerRepository
 {
     Task<IEnumerable<StockTicker>> GetActiveTickersAsync(string exchange, string currency);
+    
+    /// <summary>
+    /// Gets all active tickers regardless of exchange.
+    /// </summary>
+    Task<IEnumerable<StockTicker>> GetActiveTickersAsync();
+    
     Task<StockTicker?> GetBySymbolAsync(string symbol);
     
     /// <summary>

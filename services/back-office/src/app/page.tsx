@@ -1,174 +1,178 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase, WorkerRegistry } from "@/lib/supabase";
+import { Activity, Database, CheckCircle, XCircle, Clock } from "lucide-react";
+import Link from "next/link";
 
-export default function BackOfficePage() {
-  const [message, setMessage] = useState("");
-  const [response, setResponse] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeAgent, setActiveAgent] = useState<"claude" | "cursor" | null>(
-    null
-  );
+interface WorkerWithHealth extends WorkerRegistry {
+  healthStatus?: 'healthy' | 'unhealthy' | 'unknown';
+}
 
-  // Get basePath from Next.js config for API calls
+export default function DashboardPage() {
+  const [workers, setWorkers] = useState<WorkerWithHealth[]>([]);
+  const [loading, setLoading] = useState(true);
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/back-office";
 
-  const sendToAgent = async (agent: "claude" | "cursor") => {
-    if (!message.trim()) return;
-
-    setIsLoading(true);
-    setActiveAgent(agent);
-    setResponse("");
-
-    try {
-      const res = await fetch(`${basePath}/api/${agent}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-
-      const text = await res.text();
-
-      if (!res.ok) {
-        try {
-          const error = JSON.parse(text);
-          setResponse(`Error: ${error.error || "Unknown error"}`);
-        } catch {
-          setResponse(`Error: ${text}`);
-        }
-      } else {
-        setResponse(text);
+  useEffect(() => {
+    async function loadDashboard() {
+      try {
+        const { data, error } = await supabase
+          .from('worker_registry')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_name');
+        
+        if (error) throw error;
+        
+        // Check health for each worker
+        const workersWithHealth = await Promise.all(
+          (data || []).map(async (worker) => {
+            if (!worker.health_endpoint) {
+              return { ...worker, healthStatus: 'unknown' as const };
+            }
+            
+            try {
+              const healthUrl = `https://nxserver.malaysiawest.cloudapp.azure.com${worker.health_endpoint}`;
+              const response = await fetch(healthUrl, { 
+                method: 'GET',
+                cache: 'no-store',
+              });
+              return {
+                ...worker,
+                healthStatus: response.ok ? 'healthy' as const : 'unhealthy' as const
+              };
+            } catch {
+              return { ...worker, healthStatus: 'unhealthy' as const };
+            }
+          })
+        );
+        
+        setWorkers(workersWithHealth);
+      } catch (err) {
+        console.error('Failed to load dashboard:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      setResponse(`Connection error: ${error}`);
-    } finally {
-      setIsLoading(false);
-      setActiveAgent(null);
     }
-  };
+    
+    loadDashboard();
+  }, []);
+
+  const healthyCount = workers.filter(w => w.healthStatus === 'healthy').length;
+  const totalCount = workers.length;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
-      <div className="mx-auto max-w-4xl space-y-8">
+    <div className="p-8">
+      <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
-        <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
-            AI Hub Back Office
-          </h1>
-          <p className="mt-2 text-slate-400">
-            Test AI CLI endpoints directly from your browser
+        <div>
+          <h1 className="text-3xl font-bold text-slate-100">Dashboard</h1>
+          <p className="text-slate-400 mt-1">
+            Overview of all workers and their status
           </p>
         </div>
 
-        {/* Input Card */}
-        <Card className="border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-slate-100">Send Message</CardTitle>
-            <CardDescription className="text-slate-400">
-              Enter your message to send to Claude or Cursor AI agents
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Textarea
-              placeholder="Enter your message here..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="min-h-[150px] resize-none border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500/20"
-            />
-            <div className="flex gap-4">
-              <Button
-                onClick={() => sendToAgent("claude")}
-                disabled={isLoading || !message.trim()}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold"
-              >
-                {isLoading && activeAgent === "claude" ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Processing...
-                  </span>
-                ) : (
-                  "Send to Claude (Opus 4.5)"
-                )}
-              </Button>
-              <Button
-                onClick={() => sendToAgent("cursor")}
-                disabled={isLoading || !message.trim()}
-                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold"
-              >
-                {isLoading && activeAgent === "cursor" ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Processing...
-                  </span>
-                ) : (
-                  "Send to Cursor (Opus 4.5)"
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="border-slate-800 bg-slate-900/50">
+            <CardHeader className="pb-2">
+              <CardDescription className="text-slate-400">Total Workers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-cyan-400" />
+                <span className="text-2xl font-bold text-slate-100">{totalCount}</span>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Response Card */}
-        <Card className="border-slate-800 bg-slate-900/50 backdrop-blur-sm">
+          <Card className="border-slate-800 bg-slate-900/50">
+            <CardHeader className="pb-2">
+              <CardDescription className="text-slate-400">Healthy</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-emerald-400" />
+                <span className="text-2xl font-bold text-emerald-400">{healthyCount}</span>
+                <span className="text-slate-500">/ {totalCount}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-800 bg-slate-900/50">
+            <CardHeader className="pb-2">
+              <CardDescription className="text-slate-400">Status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-cyan-400" />
+                <span className={`text-lg font-semibold ${
+                  healthyCount === totalCount ? 'text-emerald-400' : 'text-amber-400'
+                }`}>
+                  {healthyCount === totalCount ? 'All Operational' : 'Degraded'}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Workers List */}
+        <Card className="border-slate-800 bg-slate-900/50">
           <CardHeader>
-            <CardTitle className="text-slate-100">Response</CardTitle>
+            <CardTitle className="text-slate-100">Workers</CardTitle>
             <CardDescription className="text-slate-400">
-              Raw response from the AI agent
+              All registered workers and their current status
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {response ? (
-              <pre className="whitespace-pre-wrap rounded-lg border border-slate-700 bg-slate-950 p-4 text-sm text-slate-100 font-mono overflow-x-auto max-h-[500px] overflow-y-auto">
-                {response}
-              </pre>
+            {loading ? (
+              <div className="text-center py-8 text-slate-500">Loading workers...</div>
+            ) : workers.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">No workers registered</div>
             ) : (
-              <div className="rounded-lg border border-dashed border-slate-700 bg-slate-950/50 p-8 text-center text-slate-500">
-                Response will appear here...
+              <div className="space-y-3">
+                {workers.map((worker) => (
+                  <Link
+                    key={worker.id}
+                    href={`${basePath}/data-fetchers/${worker.name}`}
+                    className="flex items-center justify-between p-4 rounded-lg border border-slate-800 bg-slate-950/50 hover:bg-slate-900/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-3 h-3 rounded-full ${
+                        worker.healthStatus === 'healthy' ? 'bg-emerald-400' :
+                        worker.healthStatus === 'unhealthy' ? 'bg-red-400' :
+                        'bg-slate-600'
+                      }`} />
+                      <div>
+                        <div className="font-medium text-slate-200">{worker.display_name}</div>
+                        <div className="text-sm text-slate-500">{worker.description}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        worker.service_type === 'data-fetcher' 
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-purple-500/20 text-purple-400'
+                      }`}>
+                        {worker.service_type}
+                      </span>
+                      {worker.healthStatus === 'healthy' ? (
+                        <CheckCircle className="w-5 h-5 text-emerald-400" />
+                      ) : worker.healthStatus === 'unhealthy' ? (
+                        <XCircle className="w-5 h-5 text-red-400" />
+                      ) : (
+                        <Clock className="w-5 h-5 text-slate-600" />
+                      )}
+                    </div>
+                  </Link>
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
-
-        {/* Endpoints Info */}
-        <Card className="border-slate-800 bg-slate-900/30">
-          <CardHeader>
-            <CardTitle className="text-sm text-slate-400">
-              API Endpoints
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 text-sm font-mono">
-              <div className="flex items-center gap-2">
-                <span className="rounded bg-orange-500/20 px-2 py-0.5 text-orange-400">
-                  POST
-                </span>
-                <span className="text-slate-300">/back-office/api/claude</span>
-                <span className="text-slate-500">
-                  → /cli/stock-tracker/claude/opus-4.5
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-emerald-400">
-                  POST
-                </span>
-                <span className="text-slate-300">/back-office/api/cursor</span>
-                <span className="text-slate-500">
-                  → /cli/stock-tracker/cursor/opus-4.5
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
-    </main>
+    </div>
   );
 }

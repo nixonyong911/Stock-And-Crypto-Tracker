@@ -98,6 +98,55 @@ public class FetchController : ControllerBase
     }
 
     /// <summary>
+    /// Trigger fetch for all active tickers. Useful for cron jobs and batch operations.
+    /// </summary>
+    /// <param name="date">Optional date to fetch. Format: "YYYY-MM-DD" or "yesterday". Defaults to "yesterday".</param>
+    [HttpPost("trigger/all")]
+    [ProducesResponseType(typeof(BatchFetchResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BatchFetchResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<BatchFetchResponse>> TriggerFetchAll([FromQuery] string? date = null)
+    {
+        var fetchDate = string.IsNullOrWhiteSpace(date) ? "yesterday" : date;
+        
+        _logger.LogInformation("Batch fetch triggered for all active tickers with date {Date} via API", fetchDate);
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var fetchService = scope.ServiceProvider.GetRequiredService<IStockFetchService>();
+
+            var result = await fetchService.FetchAllActiveTickersAsync(date);
+
+            return Ok(new BatchFetchResponse
+            {
+                Success = result.FailedCount == 0,
+                Message = $"Batch fetch completed: {result.SuccessCount} succeeded, {result.FailedCount} failed, {result.TotalRecordsInserted} records inserted.",
+                Date = fetchDate,
+                SuccessCount = result.SuccessCount,
+                FailedCount = result.FailedCount,
+                TotalRecordsInserted = result.TotalRecordsInserted,
+                Results = result.SymbolResults.Select(r => new SymbolFetchResult
+                {
+                    Symbol = r.Symbol,
+                    Success = r.Success,
+                    RecordsInserted = r.RecordsInserted,
+                    Error = r.Error
+                }).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during batch fetch");
+            return StatusCode(500, new BatchFetchResponse
+            {
+                Success = false,
+                Message = $"Batch fetch error: {ex.Message}",
+                Date = fetchDate
+            });
+        }
+    }
+
+    /// <summary>
     /// Get service status and configuration info
     /// </summary>
     [HttpGet("status")]
@@ -144,5 +193,24 @@ public class ConfigInfo
     public int OutputSize { get; set; }
     public string Exchange { get; set; } = string.Empty;
     public string Timezone { get; set; } = string.Empty;
+}
+
+public class BatchFetchResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? Date { get; set; }
+    public int SuccessCount { get; set; }
+    public int FailedCount { get; set; }
+    public int TotalRecordsInserted { get; set; }
+    public List<SymbolFetchResult>? Results { get; set; }
+}
+
+public class SymbolFetchResult
+{
+    public string Symbol { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public int RecordsInserted { get; set; }
+    public string? Error { get; set; }
 }
 
