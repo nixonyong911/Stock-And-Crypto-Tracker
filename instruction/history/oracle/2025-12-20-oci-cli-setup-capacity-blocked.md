@@ -34,3 +34,4 @@ oci compute instance launch --shape "VM.Standard.E2.1.Micro" ...
 
 
 
+
