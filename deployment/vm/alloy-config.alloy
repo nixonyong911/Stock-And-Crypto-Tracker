@@ -59,6 +59,35 @@ loki.source.journal "ai_hub" {
   forward_to = [loki.write.grafana_cloud.receiver]
 }
 
+// ===========================================
+// Weekly Cleanup Script Logs
+// ===========================================
+
+// Read cleanup log file
+local.file_match "cleanup_logs" {
+  path_targets = [{
+    __path__ = "/var/log/weekly-cleanup.log",
+  }]
+}
+
+loki.source.file "cleanup" {
+  targets    = local.file_match.cleanup_logs.targets
+  forward_to = [loki.process.cleanup.receiver]
+}
+
+// Add labels and process
+loki.process "cleanup" {
+  stage.static_labels {
+    values = {
+      job     = "weekly-cleanup",
+      service = "vm-maintenance",
+      host    = "azure-vm",
+    }
+  }
+  
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
 // Forward logs to Grafana Cloud Loki
 // Get credentials from: Grafana Cloud > Connections > Loki
 loki.write "grafana_cloud" {

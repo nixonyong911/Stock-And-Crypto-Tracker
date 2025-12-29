@@ -128,8 +128,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
-      # Journal access for log collection (ai-hub runs on host)
-      - /var/log/journal:/var/log/journal:ro
+      # Host logs: journal (ai-hub) + weekly cleanup script logs
+      - /var/log:/var/log:ro
       - /run/log/journal:/run/log/journal:ro
       - /etc/machine-id:/etc/machine-id:ro
     command: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
