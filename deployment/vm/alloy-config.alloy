@@ -63,9 +63,8 @@ loki.source.journal "ai_hub" {
 // Get credentials from: Grafana Cloud > Connections > Loki
 loki.write "grafana_cloud" {
   endpoint {
-    // URL format: https://logs-prod-<region>.grafana.net/loki/api/v1/push
-    // Check your Grafana Cloud Loki connection for the correct URL
-    url = "https://logs-prod-012.grafana.net/loki/api/v1/push"
+    // URL for stockandcryptotracker Grafana Cloud
+    url = "https://logs-prod-020.grafana.net/loki/api/v1/push"
     
     basic_auth {
       // GRAFANA_CLOUD_LOKI_USER: Your Loki user ID from Grafana Cloud
