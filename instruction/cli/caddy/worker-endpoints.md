@@ -9,7 +9,7 @@ Quick reference for all worker/service endpoints accessible via Caddy reverse pr
 | Service | Path | Purpose |
 |---------|------|---------|
 | **n8n** | `/` | Workflow automation dashboard |
-| **Back-Office** | `/back-office` | AI Hub test UI |
+| **Back-Office** | `/back-office` | Admin UI (data-fetchers, CLI testing) |
 | **TwelveData Swagger** | `/api/twelvedata/swagger` | API documentation & testing |
 | **TwelveData Health** | `/api/twelvedata/health/live` | Health check |
 | **Metrics Swagger** | `/api/metrics/swagger` | Metrics API documentation |
@@ -58,7 +58,8 @@ https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/metrics  # Promethe
 |----------|--------|-------------|
 | `/api/twelvedata/health/live` | GET | Liveness check |
 | `/api/twelvedata/health/ready` | GET | Readiness check |
-| `/api/twelvedata/api/fetch/trigger/all` | POST | Trigger manual fetch |
+| `/api/twelvedata/api/fetch/trigger/{symbol}` | POST | Fetch single symbol (optional `?date=YYYY-MM-DD`) |
+| `/api/twelvedata/api/fetch/trigger/all` | POST | Fetch all active tickers |
 | `/api/twelvedata/api/fetch/status` | GET | Get fetch status |
 
 ## Metrics API Endpoints

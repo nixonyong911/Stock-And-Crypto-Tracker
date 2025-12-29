@@ -177,6 +177,60 @@ WHERE data_source_id = 1;
 
 The worker includes a configurable delay between API calls (default: 8 seconds) to avoid hitting Twelve Data rate limits. Adjust `rate_limit_delay_seconds` in `fetch_config` based on your API plan tier.
 
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health/live` | GET | Liveness probe |
+| `/health/ready` | GET | Readiness probe |
+| `/api/fetch/trigger/{symbol}` | POST | Fetch single symbol (optional `?date=YYYY-MM-DD`) |
+| `/api/fetch/trigger/all` | POST | Fetch all active tickers |
+| `/api/fetch/status` | GET | Service configuration |
+
+### Manual Fetch Examples
+
+```bash
+# Fetch single symbol (yesterday's data)
+curl -X POST https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/api/fetch/trigger/AAPL
+
+# Fetch with specific date
+curl -X POST "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/api/fetch/trigger/AAPL?date=2025-12-26"
+
+# Fetch all active tickers
+curl -X POST https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/api/fetch/trigger/all
+```
+
+## Back-Office Integration
+
+The TwelveData worker is integrated with the back-office management system, allowing:
+
+- **No-code configuration**: Enable/disable schedule, modify tickers without rebuild
+- **Real-time monitoring**: Grafana panels embedded in back-office UI
+- **Manual triggers**: Fetch buttons for testing directly from UI
+
+### Configuration via Back-Office
+
+Navigate to: `/back-office/data-fetchers/twelvedata`
+
+Features:
+- Toggle schedule on/off
+- View last run status
+- Trigger manual fetches
+- Enable/disable individual tickers
+
+### Metrics
+
+The worker emits Prometheus-format metrics:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `twelvedata_worker_up` | gauge | 1 if running |
+| `twelvedata_fetch_operations_total` | counter | Fetch attempts |
+| `twelvedata_records_inserted_total` | counter | Records stored |
+| `twelvedata_fetch_duration_seconds` | histogram | API latency |
+
+View metrics: `https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/metrics`
+
 ## Troubleshooting
 
 ### No data fetched
@@ -185,9 +239,22 @@ The worker includes a configurable delay between API calls (default: 8 seconds) 
 2. Verify `stock_tickers` has active entries with matching exchange
 3. Check `data_sources` has "TwelveData" entry with `is_active = true`
 4. Review logs for API errors
+5. Check date - market must be open (weekdays, non-holidays)
 
 ### Schedule not running
 
 1. Verify current UTC time vs `schedule_time_utc`
 2. Check worker logs for schedule loading
 3. Ensure database connection is working
+
+### "No data available" API error
+
+1. The date might be a weekend or market holiday
+2. The symbol might not exist on the exchange
+3. Try a known good date: `?date=2025-12-26` (Friday)
+
+## Related Documentation
+
+- [Data-Fetcher & Back-Office Architecture](../../../instruction/architecture/data-fetcher-backoffice-integration.md)
+- [Data-Fetcher Requirements Runbook](../../../instruction/runbooks/data-fetcher-requirements.md)
+- [Metrics Specification](../../../instruction/reference/metrics-specification.md)
