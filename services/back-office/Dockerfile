@@ -7,10 +7,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Supabase public config (embedded at build time)
-ARG NEXT_PUBLIC_SUPABASE_URL=https://dseyuaoarfrkihzujutz.supabase.co
-ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzZXl1YW9hcmZya2loenVqdXR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxNzY2ODYsImV4cCI6MjA4MDc1MjY4Nn0.sA19TSAAHzTu4TvpdCvfMcB8ZTHzR-rAAFiWISefOjo
+# Supabase public config (passed as build args from docker-compose)
+# NEVER hardcode secrets here - they come from Infisical via docker-compose build args
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
 
+# Next.js embeds NEXT_PUBLIC_* vars at build time
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
 

@@ -162,6 +162,10 @@ services:
     build:
       context: ./repo/services/back-office
       dockerfile: Dockerfile
+      # Pass Supabase public keys at build time (Next.js embeds NEXT_PUBLIC_* at build)
+      args:
+        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+        - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
     container_name: back-office
     restart: unless-stopped
     extra_hosts:
@@ -169,9 +173,6 @@ services:
     environment:
       - AI_HUB_URL=http://host.docker.internal:8084
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
-      # Supabase for worker registry queries
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
     networks:
       - stocktracker
     healthcheck:
