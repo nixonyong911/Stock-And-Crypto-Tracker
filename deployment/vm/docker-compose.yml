@@ -169,6 +169,9 @@ services:
     environment:
       - AI_HUB_URL=http://host.docker.internal:8084
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
+      # Supabase for worker registry queries
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
     networks:
       - stocktracker
     healthcheck:
