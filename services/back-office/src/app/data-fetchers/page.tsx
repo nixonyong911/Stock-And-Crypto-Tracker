@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase, WorkerRegistry, FetchSchedule } from "@/lib/supabase";
+import { getSupabase, WorkerRegistry, FetchSchedule } from "@/lib/supabase";
 import { Database, CheckCircle, XCircle, Clock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -18,6 +18,12 @@ export default function DataFetchersPage() {
 
   useEffect(() => {
     async function loadWorkers() {
+      const supabase = getSupabase();
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         // Load workers
         const { data: workersData, error: workersError } = await supabase

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase, WorkerRegistry } from "@/lib/supabase";
+import { getSupabase, WorkerRegistry } from "@/lib/supabase";
 import { Activity, Database, CheckCircle, XCircle, Clock } from "lucide-react";
 import Link from "next/link";
 
@@ -17,6 +17,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboard() {
+      const supabase = getSupabase();
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         const { data, error } = await supabase
           .from('worker_registry')

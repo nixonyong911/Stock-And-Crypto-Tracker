@@ -1,9 +1,28 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create a singleton client, handling missing env vars during build
+let supabaseInstance: SupabaseClient | null = null;
+
+export const getSupabase = (): SupabaseClient | null => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('Supabase credentials not configured');
+    return null;
+  }
+  
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+  }
+  
+  return supabaseInstance;
+};
+
+// Legacy export for backward compatibility
+export const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient(supabaseUrl, supabaseAnonKey) 
+  : null as unknown as SupabaseClient;
 
 // Types for our database tables
 export interface WorkerRegistry {

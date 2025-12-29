@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { supabase, WorkerRegistry, FetchSchedule, StockTicker } from "@/lib/supabase";
+import { getSupabase, WorkerRegistry, FetchSchedule, StockTicker } from "@/lib/supabase";
 import { 
   CheckCircle, 
   XCircle, 
@@ -34,6 +34,12 @@ export default function WorkerConfigPage() {
 
   useEffect(() => {
     async function loadWorkerDetails() {
+      const supabase = getSupabase();
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         // Load worker from registry
         const { data: workerData, error: workerError } = await supabase
@@ -94,6 +100,8 @@ export default function WorkerConfigPage() {
 
   const handleToggleSchedule = async () => {
     if (!schedule) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
     
     const { error } = await supabase
       .from('fetch_schedules')
@@ -106,6 +114,9 @@ export default function WorkerConfigPage() {
   };
 
   const handleToggleTicker = async (ticker: StockTicker) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    
     const { error } = await supabase
       .from('stock_tickers')
       .update({ is_active: !ticker.is_active })

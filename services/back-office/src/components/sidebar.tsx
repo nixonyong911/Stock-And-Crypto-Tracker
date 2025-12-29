@@ -12,7 +12,7 @@ import {
   Home,
   Settings,
 } from "lucide-react";
-import { supabase, WorkerRegistry } from "@/lib/supabase";
+import { getSupabase, WorkerRegistry } from "@/lib/supabase";
 
 interface SidebarProps {
   className?: string;
@@ -20,7 +20,7 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/back-office";
+  const basePath = "/back-office";
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     cli: false,
@@ -32,6 +32,12 @@ export function Sidebar({ className }: SidebarProps) {
 
   useEffect(() => {
     async function loadWorkers() {
+      const supabase = getSupabase();
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         const { data, error } = await supabase
           .from('worker_registry')
