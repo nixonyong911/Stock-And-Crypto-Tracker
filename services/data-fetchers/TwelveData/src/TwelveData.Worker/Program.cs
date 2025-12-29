@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Polly;
 using Polly.Extensions.Http;
 using Serilog;
+using StockTracker.Common.Metrics;
 using TwelveData.Worker.Configuration;
 using TwelveData.Worker.Repositories;
 using TwelveData.Worker.Services;
@@ -42,6 +43,9 @@ try
 
     // Register services
     builder.Services.AddScoped<IStockFetchService, StockFetchService>();
+
+    // Register metrics client for pushing metrics to central metrics service
+    builder.Services.AddMetricsClient(builder.Configuration);
 
     // Register the background worker
     builder.Services.AddHostedService<StockFetchWorker>();
