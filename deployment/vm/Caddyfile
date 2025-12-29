@@ -32,14 +32,6 @@ nxserver.malaysiawest.cloudapp.azure.com {
         reverse_proxy metrics:8080
     }
     
-    # ===========================================
-    # AI Hub API - Gateway to AI CLIs (runs on HOST, not Docker)
-    # Docs at: /api/ai-hub/docs
-    # Proxies to systemd service on host via Docker bridge gateway
-    # ===========================================
-    handle_path /api/ai-hub/* {
-        reverse_proxy 172.17.0.1:8084
-    }
     
     # ===========================================
     # Back Office - Admin & Testing UI
