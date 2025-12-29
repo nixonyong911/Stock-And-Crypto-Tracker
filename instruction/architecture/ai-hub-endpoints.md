@@ -21,7 +21,7 @@ Workers only need to provide the message.
 | Segment | Description | Examples |
 |---------|-------------|----------|
 | `type` | `cli` or `api` | `cli` (CLI-based), `api` (API-based) |
-| `instruction-folder` | Folder name → `/mnt/<folder>` | `stock-tracker` → `/mnt/stock-tracker` |
+| `instruction-folder` | Folder name → `/mnt/<folder>` | `stock-tracker` → `/home/azureuser/stock-tracker` |
 | `agent` | AI agent name | `claude`, `cursor` |
 | `mode` | Model/mode variant | `opus-4.5`, `sonnet-4`, `default` |
 
@@ -29,8 +29,8 @@ Workers only need to provide the message.
 
 | Endpoint | Context Path | CLI | Mode |
 |----------|--------------|-----|------|
-| `/cli/stock-tracker/claude/opus-4.5` | `/mnt/stock-tracker` | claude | opus-4.5 |
-| `/cli/stock-tracker/cursor/opus-4.5` | `/mnt/stock-tracker` | cursor-agent | opus-4.5 |
+| `/cli/stock-tracker/claude/opus-4.5` | `/home/azureuser/stock-tracker` | claude | opus-4.5 |
+| `/cli/stock-tracker/cursor/opus-4.5` | `/home/azureuser/stock-tracker` | cursor-agent | opus-4.5 |
 | `/cli/new-feature/claude/sonnet-4` | `/mnt/new-feature` | claude | sonnet-4 |
 
 ---
@@ -49,7 +49,7 @@ Lists all available CLI endpoints.
     {
       "path": "/cli/stock-tracker/claude/opus-4.5",
       "instruction_folder": "stock-tracker",
-      "context_path": "/mnt/stock-tracker",
+      "context_path": "/home/azureuser/stock-tracker",
       "agent": "claude",
       "mode": "opus-4.5",
       "description": "Stock Tracker analysis with Claude Opus 4.5"
@@ -57,7 +57,7 @@ Lists all available CLI endpoints.
     {
       "path": "/cli/stock-tracker/cursor/opus-4.5",
       "instruction_folder": "stock-tracker",
-      "context_path": "/mnt/stock-tracker",
+      "context_path": "/home/azureuser/stock-tracker",
       "agent": "cursor",
       "mode": "opus-4.5",
       "description": "Stock Tracker analysis with Cursor Opus 4.5"
@@ -86,7 +86,7 @@ Stock Tracker analysis with Claude Opus 4.5.
 
 **Execution:**
 ```bash
-cd /mnt/stock-tracker && claude --model opus-4.5 -p "<message>" --output-format text
+cd /home/azureuser/stock-tracker && claude --model opus-4.5 -p "<message>" --output-format text
 ```
 
 ---
@@ -106,7 +106,7 @@ Stock Tracker analysis with Cursor Opus 4.5.
 
 **Execution:**
 ```bash
-cd /mnt/stock-tracker && cursor-agent --model opus-4.5 -p "<message>" --output-format text
+cd /home/azureuser/stock-tracker && cursor-agent --model opus-4.5 -p "<message>" --output-format text
 ```
 
 ---
@@ -194,12 +194,12 @@ sudo systemctl restart ai-hub
 │ AI Hub (host:8084, systemd service)                                 │
 │                                                                     │
 │ Pre-configured:                                                     │
-│   - context_path: /mnt/stock-tracker                                │
+│   - context_path: /home/azureuser/stock-tracker                                │
 │   - cli: claude                                                     │
 │   - model: opus-4.5                                                 │
 │                                                                     │
 │ Executes:                                                           │
-│   cd /mnt/stock-tracker && claude --model opus-4.5 -p "<msg>"       │
+│   cd /home/azureuser/stock-tracker && claude --model opus-4.5 -p "<msg>"       │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼

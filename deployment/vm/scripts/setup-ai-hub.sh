@@ -31,8 +31,8 @@ fi
 
 # 2. Create context directory
 echo "Creating context directory..."
-mkdir -p /mnt/stock-tracker/{agents,skills,context,instruction}
-chown -R azureuser:azureuser /mnt/stock-tracker
+mkdir -p /home/azureuser/stock-tracker/{agents,skills,context,instruction}
+chown -R azureuser:azureuser /home/azureuser/stock-tracker
 
 # 3. Install systemd service
 echo "Installing systemd service..."
@@ -52,7 +52,7 @@ if [ ! -f /etc/ai-hub.env ]; then
 AI_HUB_CLI_PREFIX=
 
 # Context path
-AI_HUB_DEFAULT_CONTEXT_PATH=/mnt/stock-tracker
+AI_HUB_DEFAULT_CONTEXT_PATH=/home/azureuser/stock-tracker
 
 # Database (injected by Infisical)
 # DATABASE_URL=

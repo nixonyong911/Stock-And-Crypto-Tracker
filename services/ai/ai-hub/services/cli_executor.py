@@ -37,9 +37,9 @@ class CLIExecutor:
     
     Example:
         prefix = "ssh -i key.pem user@host"
-        command = 'cd /mnt/stock-tracker && claude -p "hello"'
+        command = 'cd /home/azureuser/stock-tracker && claude -p "hello"'
         
-        Final: ssh -i key.pem user@host 'cd /mnt/stock-tracker && claude -p "hello"'
+        Final: ssh -i key.pem user@host 'cd /home/azureuser/stock-tracker && claude -p "hello"'
     """
     
     def __init__(self):
@@ -63,7 +63,7 @@ class CLIExecutor:
         Args:
             cli: CLI to use ('claude' or 'cursor-agent')
             message: The prompt/message to send
-            context_path: Override context path (default: /mnt/stock-tracker)
+            context_path: Override context path (default: /home/azureuser/stock-tracker)
             model: Model variant to use (e.g., 'opus-4.5', 'sonnet-4')
             output_format: Output format ('text' or 'json')
         

@@ -38,7 +38,7 @@ AI Hub is a centralized gateway service that allows Docker container workers to 
 │  │ │ twelvedata  │ │────▶│  │             │──│ cursor-agent │ │   │
 │  │ └─────────────┘ │     │  └─────────────┘  └──────────────┘ │   │
 │  │                 │     │                                     │   │
-│  │ ┌─────────────┐ │     │  Context: /mnt/stock-tracker/       │   │
+│  │ ┌─────────────┐ │     │  Context: /home/azureuser/stock-tracker/       │   │
 │  │ │   metrics   │ │     │  ├── agents/                        │   │
 │  │ └─────────────┘ │     │  ├── skills/                        │   │
 │  │                 │     │  ├── context/                       │   │
@@ -239,7 +239,7 @@ cursor-agent -p "your message"
 ### Execution Flow
 
 1. Build CLI command with escaped message
-2. `cd` to context directory (`/mnt/stock-tracker`)
+2. `cd` to context directory (`/home/azureuser/stock-tracker`)
 3. Execute via `asyncio.create_subprocess_shell`
 4. Capture stdout/stderr
 5. Return `CLIResult` with output or error
@@ -248,14 +248,14 @@ cursor-agent -p "your message"
 
 - **Claude CLI does NOT support `--model` flag** - model determined by account settings
 - **Timeout**: 120 seconds (configurable)
-- **Context path**: `/mnt/stock-tracker` (default)
+- **Context path**: `/home/azureuser/stock-tracker` (default)
 
 ---
 
 ## VM Context Structure
 
 ```
-/mnt/stock-tracker/
+/home/azureuser/stock-tracker/
 ├── agents/       # Future: AI agent configurations
 ├── skills/       # Future: Reusable skill definitions
 ├── context/      # Future: Project context files
@@ -361,7 +361,7 @@ docker exec back-office wget -qO- http://172.17.0.1:8084/cli
 1. **AI Hub binds to 0.0.0.0:8084** - Only accessible from Docker bridge and localhost
 2. **Systemd hardening**: `NoNewPrivileges=true`, `ProtectSystem=strict`
 3. **Secrets via Infisical** - Never hardcoded
-4. **ReadWritePaths** limited to `/mnt/stock-tracker`, `/tmp`, `/home/azureuser`
+4. **ReadWritePaths** limited to `/home/azureuser/stock-tracker`, `/tmp`, `/home/azureuser`
 
 ---
 

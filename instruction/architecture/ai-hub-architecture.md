@@ -35,7 +35,7 @@ Centralized Python FastAPI service acting as gateway between microservices and A
 │       │                                                                  │
 │       ├── claude CLI (installed on host)                                │
 │       ├── cursor-agent CLI (installed on host)                          │
-│       └── /mnt/stock-tracker/ (context folder)                          │
+│       └── /home/azureuser/stock-tracker/ (context folder)                          │
 │                                                      │                  │
 │                                                      ▼                  │
 │                                            Supabase PostgreSQL          │
@@ -60,7 +60,7 @@ Local Service → ai-hub → SSH → VM → CLI → Response → Service
 Project-specific context folders on the Azure VM provide specialized instructions and knowledge for AI CLIs.
 
 ```
-/mnt/stock-tracker/               # This project's AI context on VM
+/home/azureuser/stock-tracker/               # This project's AI context on VM
 ├── agents/                       # Agent definitions (future sub-agents)
 ├── skills/                       # Specialized capabilities
 ├── context/                      # Project context for AI to understand
@@ -73,7 +73,7 @@ Project-specific context folders on the Azure VM provide specialized instruction
 **Usage:** When ai-hub executes a CLI command, it `cd`s into the project context folder first:
 
 ```bash
-cd /mnt/stock-tracker && claude -p "Analyze this candlestick pattern..."
+cd /home/azureuser/stock-tracker && claude -p "Analyze this candlestick pattern..."
 ```
 
 This allows the AI CLI to automatically read the context files and understand the project.
@@ -136,13 +136,13 @@ ai-hub uses a **CLI prefix pattern** to abstract the connection method between e
 **Production (prefix empty, ai-hub runs on VM host):**
 ```bash
 # AI_HUB_CLI_PREFIX=""
-cd "/mnt/stock-tracker/" && claude -p "message"
+cd "/home/azureuser/stock-tracker/" && claude -p "message"
 ```
 
 **Local Development (prefix = SSH command):**
 ```bash
 # AI_HUB_CLI_PREFIX="ssh -i ~/.ssh/key.pem azureuser@20.17.176.1"
-ssh -i ~/.ssh/key.pem azureuser@20.17.176.1 'cd "/mnt/stock-tracker/" && claude -p "message"'
+ssh -i ~/.ssh/key.pem azureuser@20.17.176.1 'cd "/home/azureuser/stock-tracker/" && claude -p "message"'
 ```
 
 **How It Works:**
@@ -157,22 +157,22 @@ This allows the same ai-hub code to work in both environments - only the secret 
 
 ### Default Context Directory
 
-**Default:** `/mnt/stock-tracker/`
+**Default:** `/home/azureuser/stock-tracker/`
 
 All AI CLI commands are executed from this directory by default. This ensures the AI has access to project context files.
 
 **Command Pattern:**
 ```bash
-cd "/mnt/stock-tracker/" && <cli> -p "<message>"
+cd "/home/azureuser/stock-tracker/" && <cli> -p "<message>"
 ```
 
 **Examples:**
 ```bash
 # Claude CLI
-cd "/mnt/stock-tracker/" && claude -p "Analyze this candlestick pattern..."
+cd "/home/azureuser/stock-tracker/" && claude -p "Analyze this candlestick pattern..."
 
 # Cursor Agent
-cd "/mnt/stock-tracker/" && cursor-agent -p "Review recent code changes..."
+cd "/home/azureuser/stock-tracker/" && cursor-agent -p "Review recent code changes..."
 ```
 
 When adding new endpoints to ai-hub, always use this pattern to ensure consistent context access.
@@ -186,7 +186,7 @@ When adding new endpoints to ai-hub, always use this pattern to ensure consisten
 # CLI Prefix (key abstraction for local vs production)
 # ===========================================
 AI_HUB_CLI_PREFIX=                    # Empty for production, SSH cmd for local dev
-AI_HUB_DEFAULT_CONTEXT_PATH=/mnt/stock-tracker
+AI_HUB_DEFAULT_CONTEXT_PATH=/home/azureuser/stock-tracker
 AI_HUB_CLI_TIMEOUT_SECONDS=120        # CLI calls can take longer than API calls
 
 # ===========================================
@@ -200,7 +200,7 @@ DATABASE_URL=postgresql://user:pass@host:5432/db
 | Variable | Local Dev | Production |
 |----------|-----------|------------|
 | `AI_HUB_CLI_PREFIX` | `ssh -i ~/.ssh/key.pem azureuser@20.17.176.1` | Empty (`""`) |
-| `AI_HUB_DEFAULT_CONTEXT_PATH` | `/mnt/stock-tracker` | `/mnt/stock-tracker` |
+| `AI_HUB_DEFAULT_CONTEXT_PATH` | `/home/azureuser/stock-tracker` | `/home/azureuser/stock-tracker` |
 | `DATABASE_URL` | From Infisical | From Infisical |
 
 ### Infisical Secrets
@@ -239,7 +239,7 @@ DATABASE_URL=postgresql://user:pass@host:5432/db
 }
 ```
 
-> **Note:** All requests use the default context path `/mnt/stock-tracker/`. No need to specify `context_path` unless overriding.
+> **Note:** All requests use the default context path `/home/azureuser/stock-tracker/`. No need to specify `context_path` unless overriding.
 
 **Success Response (200):**
 ```json
@@ -249,7 +249,7 @@ DATABASE_URL=postgresql://user:pass@host:5432/db
   "response": "The candlestick shows a bullish hammer pattern...",
   "cli_used": "claude",
   "execution_time_ms": 3500,
-  "context_path": "/mnt/stock-tracker"
+  "context_path": "/home/azureuser/stock-tracker"
 }
 ```
 
@@ -278,17 +278,17 @@ ai-hub executes the CLI command using the prefix pattern:
 
 **Command Template:**
 ```bash
-<AI_HUB_CLI_PREFIX> 'cd "/mnt/stock-tracker/" && <cli> -p "<message>" --output-format text'
+<AI_HUB_CLI_PREFIX> 'cd "/home/azureuser/stock-tracker/" && <cli> -p "<message>" --output-format text'
 ```
 
 **Production (prefix empty - direct execution):**
 ```bash
-cd "/mnt/stock-tracker/" && claude -p "Your prompt here" --output-format text
+cd "/home/azureuser/stock-tracker/" && claude -p "Your prompt here" --output-format text
 ```
 
 **Local Dev (prefix = SSH):**
 ```bash
-ssh -i key.pem user@host 'cd "/mnt/stock-tracker/" && claude -p "Your prompt here" --output-format text'
+ssh -i key.pem user@host 'cd "/home/azureuser/stock-tracker/" && claude -p "Your prompt here" --output-format text'
 ```
 
 > **Important:** Always use this `cd` pattern when adding new AI endpoints to ensure CLI has access to project context.
@@ -388,7 +388,7 @@ def _create_client(self, config: ModelConfig):
 |-------|----------|
 | "SSH connection refused" | Check VM is running, port 22 open, SSH key valid |
 | "CLI not found" | SSH to VM, verify CLI installed: `which claude` |
-| "Context path not found" | Create folder: `mkdir -p /mnt/stock-tracker` |
+| "Context path not found" | Create folder: `mkdir -p /home/azureuser/stock-tracker` |
 | "Empty response" | Check CLI auth: `claude --version` on VM |
 | "Timeout" | Increase `AI_HUB_TIMEOUT_SECONDS`, simplify prompt |
 | "Permission denied" | Check SSH key permissions (600), VM user |
@@ -404,8 +404,8 @@ ssh -i key.pem azureuser@20.17.176.1 "claude --version"
 ssh -i key.pem azureuser@20.17.176.1 "cursor-agent --version"
 
 # Test with default context directory
-ssh -i key.pem azureuser@20.17.176.1 'cd "/mnt/stock-tracker/" && claude -p "Hello"'
-ssh -i key.pem azureuser@20.17.176.1 'cd "/mnt/stock-tracker/" && cursor-agent -p "Hello"'
+ssh -i key.pem azureuser@20.17.176.1 'cd "/home/azureuser/stock-tracker/" && claude -p "Hello"'
+ssh -i key.pem azureuser@20.17.176.1 'cd "/home/azureuser/stock-tracker/" && cursor-agent -p "Hello"'
 ```
 
 ---
@@ -421,7 +421,7 @@ Azure VM Host
 ├── systemd: ai-hub.service (port 8084)
 │   ├── FastAPI app
 │   ├── Direct access to claude, cursor-agent CLIs
-│   └── Direct access to /mnt/stock-tracker/
+│   └── Direct access to /home/azureuser/stock-tracker/
 │
 ├── Docker Compose
 │   ├── Caddy (reverse proxy)
@@ -473,13 +473,13 @@ curl http://localhost:8084/health/live
 | FQDN | nxserver.malaysiawest.cloudapp.azure.com |
 | SSH Port | 22 |
 | CLIs Installed | claude (2.0.76), cursor-agent (2025.12.17) |
-| **Default Context Path** | `/mnt/stock-tracker/` |
+| **Default Context Path** | `/home/azureuser/stock-tracker/` |
 | **AI Hub Port** | 8084 (host) |
 | **Docker Bridge Gateway** | 172.17.0.1 (for container-to-host) |
 
 **CLI Execution Pattern:**
 ```bash
-cd "/mnt/stock-tracker/" && <cli> -p "<message>"
+cd "/home/azureuser/stock-tracker/" && <cli> -p "<message>"
 ```
 
 ---

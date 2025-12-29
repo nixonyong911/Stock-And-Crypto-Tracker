@@ -84,10 +84,10 @@ Removed `ProtectHome=read-only` and added home directory to `ReadWritePaths`:
 ```ini
 # Before
 ProtectHome=read-only
-ReadWritePaths=/mnt/stock-tracker /tmp
+ReadWritePaths=/home/azureuser/stock-tracker /tmp
 
 # After
-ReadWritePaths=/mnt/stock-tracker /tmp /home/azureuser
+ReadWritePaths=/home/azureuser/stock-tracker /tmp /home/azureuser
 ```
 
 ### Related Files

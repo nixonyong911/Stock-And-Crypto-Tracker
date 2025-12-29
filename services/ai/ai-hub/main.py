@@ -419,49 +419,55 @@ async def get_recent_errors(model_id: str = None, limit: int = 50):
 # ===========================================
 # Format: /<type>/<instruction-folder>/<agent>/<mode>
 # - type: cli or api
-# - instruction-folder: maps to /mnt/<folder>
+# - instruction-folder: maps to context path (from AI_HUB_DEFAULT_CONTEXT_PATH)
 # - agent: claude, cursor, etc.
 # - mode: opus-4.5, sonnet-4, default, etc.
 
-CLI_ENDPOINTS = [
-    {
-        "path": "/cli/stock-tracker/claude/opus-4.5",
-        "instruction_folder": "stock-tracker",
-        "context_path": "/mnt/stock-tracker",
-        "agent": "claude",
-        "mode": "opus-4.5",
-        "description": "Stock Tracker analysis with Claude Opus 4.5"
-    },
-    {
-        "path": "/cli/stock-tracker/cursor/opus-4.5",
-        "instruction_folder": "stock-tracker",
-        "context_path": "/mnt/stock-tracker",
-        "agent": "cursor",
-        "mode": "opus-4.5",
-        "description": "Stock Tracker analysis with Cursor Opus 4.5"
-    }
-]
+def get_cli_endpoints():
+    """Get CLI endpoints with context path from config."""
+    config = get_config()
+    context_path = config.settings.ai_hub_default_context_path
+    return [
+        {
+            "path": "/cli/stock-tracker/claude/opus-4.5",
+            "instruction_folder": "stock-tracker",
+            "context_path": context_path,
+            "agent": "claude",
+            "mode": "opus-4.5",
+            "description": "Stock Tracker analysis with Claude Opus 4.5"
+        },
+        {
+            "path": "/cli/stock-tracker/cursor/opus-4.5",
+            "instruction_folder": "stock-tracker",
+            "context_path": context_path,
+            "agent": "cursor",
+            "mode": "opus-4.5",
+            "description": "Stock Tracker analysis with Cursor Opus 4.5"
+        }
+    ]
 
 
 @app.get("/cli")
 async def list_cli_endpoints():
     """Discovery endpoint - list all available CLI endpoints."""
+    endpoints = get_cli_endpoints()
     return {
         "format": "/<type>/<instruction-folder>/<agent>/<mode>",
-        "endpoints": CLI_ENDPOINTS,
-        "total": len(CLI_ENDPOINTS)
+        "endpoints": endpoints,
+        "total": len(endpoints)
     }
 
 
 @app.post("/cli/stock-tracker/claude/opus-4.5")
 async def cli_stock_tracker_claude_opus45(request: CLIMessageRequest):
     """Stock Tracker + Claude Opus 4.5."""
+    config = get_config()
     executor = get_cli_executor()
     try:
         result = await executor.execute(
             cli="claude",
             message=request.message,
-            context_path="/mnt/stock-tracker",
+            context_path=config.settings.ai_hub_default_context_path,
             model="opus-4.5"
         )
         if result.success:
@@ -480,12 +486,13 @@ async def cli_stock_tracker_claude_opus45(request: CLIMessageRequest):
 @app.post("/cli/stock-tracker/cursor/opus-4.5")
 async def cli_stock_tracker_cursor_opus45(request: CLIMessageRequest):
     """Stock Tracker + Cursor Opus 4.5."""
+    config = get_config()
     executor = get_cli_executor()
     try:
         result = await executor.execute(
             cli="cursor-agent",
             message=request.message,
-            context_path="/mnt/stock-tracker",
+            context_path=config.settings.ai_hub_default_context_path,
             model="opus-4.5"
         )
         if result.success:

@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     ai_hub_cli_prefix: str = ""  # Empty = direct, or SSH command for local dev
     
     # Default context path on VM
-    ai_hub_default_context_path: str = "/mnt/stock-tracker"
+    ai_hub_default_context_path: str = "/home/azureuser/stock-tracker"
     
     # CLI timeout (CLI calls can take longer than API calls)
     ai_hub_cli_timeout_seconds: int = 120

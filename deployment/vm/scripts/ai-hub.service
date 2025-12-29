@@ -24,7 +24,7 @@ WorkingDirectory=/opt/stocktracker/repo/services/ai/ai-hub
 
 # Environment - defaults (override via /etc/ai-hub.env)
 Environment=AI_HUB_CLI_PREFIX=
-Environment=AI_HUB_DEFAULT_CONTEXT_PATH=/mnt/stock-tracker
+Environment=AI_HUB_DEFAULT_CONTEXT_PATH=/home/azureuser/stock-tracker
 Environment=AI_HUB_CLI_TIMEOUT_SECONDS=120
 
 # Load additional environment from file (secrets from Infisical)
@@ -45,7 +45,7 @@ RestartSec=10
 NoNewPrivileges=true
 ProtectSystem=strict
 # Note: CLIs (claude, cursor-agent) need to write config files to home dir
-ReadWritePaths=/mnt/stock-tracker /tmp /home/azureuser
+ReadWritePaths=/tmp /home/azureuser
 
 # Logging
 StandardOutput=journal
