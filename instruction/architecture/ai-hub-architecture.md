@@ -421,19 +421,23 @@ Azure VM Host
 ├── systemd: ai-hub.service (port 8084)
 │   ├── FastAPI app
 │   ├── Direct access to claude, cursor-agent CLIs
+│   ├── API key authentication (X-API-Key header)
 │   └── Direct access to /home/azureuser/stock-tracker/
 │
 ├── Docker Compose
 │   ├── Caddy (reverse proxy)
-│   │   └── /api/ai-hub/* → 172.17.0.1:8084 (host)
-│   ├── TwelveData Worker
-│   ├── Metrics Service
-│   └── n8n
+│   │   └── NOTE: ai-hub NOT exposed publicly (internal only)
+│   ├── TwelveData Worker → host.docker.internal:8084
+│   ├── Metrics Service → host.docker.internal:8084
+│   ├── back-office → host.docker.internal:8084
+│   └── n8n → host.docker.internal:8084
 │
 └── CLIs (installed on host)
     ├── claude
     └── cursor-agent
 ```
+
+**Security:** ai-hub is NOT exposed via Caddy. Only Docker containers can access it via `host.docker.internal:8084` with a valid `X-API-Key` header.
 
 ### Service Files
 
@@ -474,12 +478,143 @@ curl http://localhost:8084/health/live
 | SSH Port | 22 |
 | CLIs Installed | claude (2.0.76), cursor-agent (2025.12.17) |
 | **Default Context Path** | `/home/azureuser/stock-tracker/` |
-| **AI Hub Port** | 8084 (host) |
-| **Docker Bridge Gateway** | 172.17.0.1 (for container-to-host) |
+| **AI Hub Port** | 8084 (host, internal only) |
+| **Docker Access** | `host.docker.internal:8084` + `X-API-Key` header |
 
 **CLI Execution Pattern:**
 ```bash
 cd "/home/azureuser/stock-tracker/" && <cli> -p "<message>"
+```
+
+---
+
+## Consumer Services
+
+### Back-Office (Docker Container)
+
+Test UI for AI Hub endpoints. Runs in Docker, calls AI Hub via Docker bridge.
+
+| Property | Value |
+|----------|-------|
+| Location | `services/back-office/` |
+| Runtime | Next.js 16 with shadcn/ui |
+| Port | 3000 (container) |
+| Public URL | `https://nxserver.malaysiawest.cloudapp.azure.com/back-office` |
+
+**Architecture:**
+```
+Browser → Caddy → back-office container → AI Hub (host)
+                         │
+                         ▼
+              http://host.docker.internal:8084
+              + X-API-Key: <AI_HUB_API_KEY>
+```
+
+**Key Files:**
+
+| File | Purpose |
+|------|---------|
+| `src/app/page.tsx` | Main UI with message input |
+| `src/app/api/claude/route.ts` | API route proxying to AI Hub |
+| `next.config.ts` | `basePath: "/back-office"` |
+| `Dockerfile` | Multi-stage build |
+
+**API Route Example:**
+```typescript
+const AI_HUB_URL = process.env.AI_HUB_URL || "http://host.docker.internal:8084";
+const AI_HUB_API_KEY = process.env.AI_HUB_API_KEY || "";
+
+export async function POST(req: Request) {
+  const { message } = await req.json();
+  
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (AI_HUB_API_KEY) {
+    headers["X-API-Key"] = AI_HUB_API_KEY;
+  }
+  
+  const response = await fetch(
+    `${AI_HUB_URL}/cli/stock-tracker/claude/opus-4.5`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ message }),
+    }
+  );
+  
+  return new Response(await response.text(), {
+    headers: { "Content-Type": "text/plain" },
+  });
+}
+```
+
+### Caddy Configuration
+
+```caddyfile
+# NOTE: ai-hub is NOT exposed via Caddy (internal only)
+# Containers access it via host.docker.internal:8084 + X-API-Key header
+
+# Back-office (Docker container) - use handle, not handle_path
+handle /back-office* {
+    reverse_proxy back-office:3000
+}
+```
+
+> **Security:** ai-hub is intentionally NOT exposed via Caddy. Only internal Docker containers can access it using `host.docker.internal:8084` with a valid API key.
+
+---
+
+## CI/CD Deployment
+
+### Deployment Flow
+
+```
+Push to main
+    │
+    ▼
+GitHub Actions (deploy-vm.yml)
+    │
+    ├── Build Docker services (twelvedata, metrics, back-office)
+    │
+    ├── Deploy AI Hub (host service)
+    │   ├── Install Python dependencies
+    │   ├── Copy systemd service file
+    │   ├── Reload systemd daemon
+    │   └── Restart ai-hub service
+    │
+    └── Start Docker services with Infisical secrets
+```
+
+### AI Hub Deployment Script
+
+```yaml
+- name: Deploy AI Hub (host service)
+  run: |
+    ssh azureuser@20.17.176.1 'bash -s' << 'EOF'
+    pip3 install --user -q --break-system-packages -r requirements.txt
+    sudo cp ai-hub.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable ai-hub
+    sudo systemctl restart ai-hub
+    EOF
+```
+
+---
+
+## CLI Limitations
+
+### Claude CLI
+
+- **No `--model` flag** - Model determined by user's Claude subscription (Pro = Opus, Free = Sonnet)
+- Use `--output-format text` for plain text responses
+
+```bash
+# Correct - no model flag
+claude -p "message" --output-format text
+
+# WRONG - will error
+claude --model opus-4.5 -p "message"
 ```
 
 ---

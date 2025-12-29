@@ -38,3 +38,46 @@ prometheus.remote_write "grafana_cloud" {
   }
 }
 
+// ===========================================
+// Log Collection - Forward to Grafana Cloud Loki
+// ===========================================
+
+// Collect logs from ai-hub systemd service (runs on host)
+loki.source.journal "ai_hub" {
+  path = "/var/log/journal"
+  
+  // Filter to only ai-hub service
+  matches = "_SYSTEMD_UNIT=ai-hub.service"
+  
+  // Add labels for querying
+  labels = {
+    job     = "ai-hub",
+    service = "ai-hub",
+    host    = "azure-vm",
+  }
+  
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+// Forward logs to Grafana Cloud Loki
+// Get credentials from: Grafana Cloud > Connections > Loki
+loki.write "grafana_cloud" {
+  endpoint {
+    // URL format: https://logs-prod-<region>.grafana.net/loki/api/v1/push
+    // Check your Grafana Cloud Loki connection for the correct URL
+    url = "https://logs-prod-012.grafana.net/loki/api/v1/push"
+    
+    basic_auth {
+      // GRAFANA_CLOUD_LOKI_USER: Your Loki user ID from Grafana Cloud
+      username = env("GRAFANA_CLOUD_LOKI_USER")
+      // Uses the same API key as metrics
+      password = env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+  
+  external_labels = {
+    environment = "production",
+    project     = "stocktracker",
+  }
+}
+

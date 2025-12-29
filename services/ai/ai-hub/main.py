@@ -16,8 +16,9 @@ from typing import Union
 from uuid import uuid4
 
 import structlog
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from config import get_config
 from db.connection import DatabaseConnection, ensure_tables_exist
@@ -124,6 +125,54 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ===========================================
+# API Key Authentication Middleware
+# ===========================================
+@app.middleware("http")
+async def verify_api_key(request: Request, call_next):
+    """
+    Validate X-API-Key header for all non-health endpoints.
+    
+    - Health endpoints (/health*) are excluded for k8s probes
+    - Returns 401 if API key is missing or invalid
+    - If AI_HUB_API_KEY is not configured, authentication is disabled (dev mode)
+    """
+    # Skip auth for health endpoints
+    if request.url.path.startswith("/health"):
+        return await call_next(request)
+    
+    # Skip auth for OpenAPI docs
+    if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
+        return await call_next(request)
+    
+    config = get_config()
+    expected_key = config.settings.ai_hub_api_key
+    
+    # If no API key configured, skip auth (dev mode)
+    if not expected_key:
+        logger.warning("API key authentication disabled (AI_HUB_API_KEY not set)")
+        return await call_next(request)
+    
+    # Validate API key
+    api_key = request.headers.get("X-API-Key")
+    
+    if not api_key:
+        logger.warning("Request missing API key", path=request.url.path)
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Missing X-API-Key header"}
+        )
+    
+    if api_key != expected_key:
+        logger.warning("Invalid API key", path=request.url.path)
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid API key"}
+        )
+    
+    return await call_next(request)
 
 
 @app.get("/health", response_model=HealthResponse)

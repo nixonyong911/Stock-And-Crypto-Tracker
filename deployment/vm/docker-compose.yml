@@ -38,6 +38,8 @@ services:
     image: n8nio/n8n:latest
     container_name: n8n
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - N8N_HOST=0.0.0.0
       - N8N_PORT=5678
@@ -45,6 +47,9 @@ services:
       - N8N_PROTOCOL=https
       - N8N_EDITOR_BASE_URL=https://nxserver.malaysiawest.cloudapp.azure.com
       - TZ=Asia/Singapore
+      # AI Hub access (for workflow automation with AI)
+      - AI_HUB_URL=http://host.docker.internal:8084
+      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     volumes:
       - ./n8n-data:/home/node/.n8n
     networks:
@@ -60,6 +65,8 @@ services:
       dockerfile: data-fetchers/TwelveData/Dockerfile
     container_name: twelvedata
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
@@ -69,6 +76,9 @@ services:
       - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
       - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
       - TwelveData__BaseUrl=https://api.twelvedata.com
+      # AI Hub access (for future AI analysis features)
+      - AI_HUB_URL=http://host.docker.internal:8084
+      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
     healthcheck:
@@ -89,10 +99,15 @@ services:
       dockerfile: metrics/StockTracker.Metrics/Dockerfile
     container_name: metrics
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - PATH_BASE=/api/metrics
+      # AI Hub access (for future AI analysis features)
+      - AI_HUB_URL=http://host.docker.internal:8084
+      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
     healthcheck:
@@ -103,8 +118,9 @@ services:
       start_period: 30s
 
   # ===========================================
-  # Grafana Alloy - Metrics Forwarder
+  # Grafana Alloy - Metrics & Logs Forwarder
   # Scrapes local services and forwards to Grafana Cloud
+  # Also collects ai-hub logs from systemd journal
   # ===========================================
   alloy:
     image: grafana/alloy:latest
@@ -112,9 +128,15 @@ services:
     restart: unless-stopped
     volumes:
       - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
+      # Journal access for log collection (ai-hub runs on host)
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
     command: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
     environment:
       - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
+      # Loki user ID from Grafana Cloud > Connections > Loki
+      - GRAFANA_CLOUD_LOKI_USER=${GRAFANA_CLOUD_LOKI_USER}
     networks:
       - stocktracker
     depends_on:
@@ -128,8 +150,8 @@ services:
   # to access CLIs (claude, cursor-agent) installed on the host.
   # 
   # Service: /etc/systemd/system/ai-hub.service
-  # Port: 8084 (accessible via 172.17.0.1:8084 from containers)
-  # Docs: https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs
+  # Port: 8084 (internal only - NOT exposed via Caddy)
+  # Access: Containers use host.docker.internal:8084 + X-API-Key header
   # ===========================================
 
   # ===========================================
@@ -142,8 +164,11 @@ services:
       dockerfile: Dockerfile
     container_name: back-office
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - AI_HUB_URL=http://172.17.0.1:8084
+      - AI_HUB_URL=http://host.docker.internal:8084
+      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
     healthcheck:

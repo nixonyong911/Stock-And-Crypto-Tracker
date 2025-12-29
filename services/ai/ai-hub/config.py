@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     # CLI timeout (CLI calls can take longer than API calls)
     ai_hub_cli_timeout_seconds: int = 120
     
+    # ===========================================
+    # API Key Authentication
+    # ===========================================
+    # Single shared key for all internal services
+    ai_hub_api_key: str = ""  # Set via AI_HUB_API_KEY env var
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
