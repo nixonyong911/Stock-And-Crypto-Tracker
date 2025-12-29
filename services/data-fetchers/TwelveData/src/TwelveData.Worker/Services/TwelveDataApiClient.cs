@@ -45,34 +45,45 @@ public class TwelveDataApiClient : ITwelveDataApiClient
         try
         {
             var url = BuildTimeSeriesUrl(symbol, config);
+            var urlForLogging = BuildTimeSeriesUrlForLogging(symbol, config);
             
-            _logger.LogDebug("Fetching time series for {Symbol} from {Url}", symbol, url);
+            _logger.LogInformation("TwelveData API Request: {Symbol} - {Url}", symbol, urlForLogging);
             
             var response = await _httpClient.GetAsync(url, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            
+            // Log raw response for debugging
+            _logger.LogDebug("TwelveData API Response for {Symbol}: {Response}", symbol, 
+                content.Length > 500 ? content.Substring(0, 500) + "..." : content);
+            
+            response.EnsureSuccessStatusCode();
             
             var timeSeriesResponse = JsonSerializer.Deserialize<TimeSeriesResponse>(content);
             
             if (timeSeriesResponse == null)
             {
-                _logger.LogWarning("Failed to deserialize response for {Symbol}", symbol);
+                _logger.LogWarning("Failed to deserialize response for {Symbol}. Raw: {Response}", symbol, content);
                 return null;
             }
             
             // Check for API error responses
             if (timeSeriesResponse.Status == "error")
             {
-                _logger.LogWarning("API error for {Symbol}: {Message} (Code: {Code})", 
-                    symbol, timeSeriesResponse.Message, timeSeriesResponse.Code);
+                _logger.LogWarning("TwelveData API error for {Symbol}: {Message} (Code: {Code}). Request: {Url}", 
+                    symbol, timeSeriesResponse.Message, timeSeriesResponse.Code, urlForLogging);
                 return null;
             }
 
-            _logger.LogDebug("Fetched {Count} data points for {Symbol}", 
-                timeSeriesResponse.Values?.Count ?? 0, symbol);
+            _logger.LogInformation("TwelveData API Success: {Symbol} - {Count} data points fetched", 
+                symbol, timeSeriesResponse.Values?.Count ?? 0);
             
             return timeSeriesResponse;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error fetching time series for {Symbol}. Status: {Status}", 
+                symbol, ex.StatusCode);
+            throw;
         }
         catch (Exception ex)
         {
@@ -83,13 +94,45 @@ public class TwelveDataApiClient : ITwelveDataApiClient
 
     private string BuildTimeSeriesUrl(string symbol, FetchConfig config)
     {
+        // Resolve "yesterday" to actual date for TwelveData API
+        var resolvedDate = ResolveFetchDate(config.FetchDate);
+        
         return $"/time_series?symbol={symbol}" +
                $"&interval={config.Interval}" +
                $"&exchange={config.Exchange}" +
-               $"&date={config.FetchDate}" +
+               $"&date={resolvedDate}" +
                $"&timezone={config.Timezone}" +
                $"&outputsize={config.OutputSize}" +
                $"&apikey={_settings.ApiKey}";
+    }
+
+    private string BuildTimeSeriesUrlForLogging(string symbol, FetchConfig config)
+    {
+        var resolvedDate = ResolveFetchDate(config.FetchDate);
+        
+        return $"/time_series?symbol={symbol}" +
+               $"&interval={config.Interval}" +
+               $"&exchange={config.Exchange}" +
+               $"&date={resolvedDate}" +
+               $"&timezone={config.Timezone}" +
+               $"&outputsize={config.OutputSize}" +
+               $"&apikey=***REDACTED***";
+    }
+
+    /// <summary>
+    /// Resolves fetch date - converts "yesterday", "today" to actual YYYY-MM-DD format
+    /// TwelveData accepts both formats, but explicit dates are more reliable
+    /// </summary>
+    private static string ResolveFetchDate(string fetchDate)
+    {
+        var lowerDate = fetchDate.ToLowerInvariant().Trim();
+        
+        return lowerDate switch
+        {
+            "yesterday" => DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd"),
+            "today" => DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            _ => fetchDate // Already in YYYY-MM-DD format
+        };
     }
 
     /// <summary>

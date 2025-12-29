@@ -191,10 +191,10 @@ public class StockFetchWorker : BackgroundService
     /// <summary>
     /// Calculate delay until the next occurrence of the scheduled time
     /// </summary>
-    private static TimeSpan CalculateDelayUntilScheduledTime(TimeOnly scheduleTimeUtc)
+    private static TimeSpan CalculateDelayUntilScheduledTime(TimeSpan scheduleTimeUtc)
     {
         var now = DateTime.UtcNow;
-        var todayScheduled = now.Date.Add(scheduleTimeUtc.ToTimeSpan());
+        var todayScheduled = now.Date.Add(scheduleTimeUtc);
         
         // If the scheduled time has already passed today, schedule for tomorrow
         if (now >= todayScheduled)
