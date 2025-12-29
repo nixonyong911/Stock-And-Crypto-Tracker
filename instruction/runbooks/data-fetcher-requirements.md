@@ -95,6 +95,14 @@ VALUES (
                 "is_enabled": {"type": "boolean", "label": "Enabled"}
             }
         },
+        "fetch_config": {
+            "properties": {
+                "exchange": {"type": "select", "options": ["NASDAQ", "NYSE"], "label": "Exchange"},
+                "interval": {"type": "select", "options": ["15min", "30min", "1h", "1day"], "label": "Interval"},
+                "timezone": {"type": "string", "label": "Timezone", "default": "America/New_York"},
+                "output_size": {"type": "number", "label": "Output Size", "default": 30}
+            }
+        },
         "grafana_panels": [
             {"name": "Worker Status", "panelId": "1", "dashboardUid": "yourworker-details"}
         ]
