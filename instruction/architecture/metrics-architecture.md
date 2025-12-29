@@ -1,18 +1,18 @@
-# Metrics & Grafana Cloud Setup - Implementation Notes
-
-**Date**: December 27, 2025  
-**Status**: Completed  
-**Related**: Phase 2 VM Services
-
----
+# Metrics Service Architecture
 
 ## Overview
 
-This document captures the implementation of centralized monitoring using the Metrics Service and Grafana Cloud integration.
+Centralized metrics aggregation service that collects metrics from all workers and exposes them to Grafana Cloud via Alloy.
+
+**Key Benefits:**
+- Single Prometheus scrape endpoint for all workers
+- Workers push metrics via HTTP (no direct Prometheus scraping of workers)
+- Grafana Cloud integration for dashboards and alerting
+- 14-day retention on free tier
 
 ---
 
-## Architecture
+## Data Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -44,18 +44,24 @@ This document captures the implementation of centralized monitoring using the Me
                                                           └────────────────────┘
 ```
 
+**Key Principle:** Workers PUSH metrics to the Metrics Service. Grafana/Alloy only scrapes the Metrics Service.
+
 ---
 
-## Components Deployed
+## Components
 
 ### 1. Metrics Service
-- **Container**: `metrics`
-- **Image**: Built from `services/metrics/StockTracker.Metrics/Dockerfile`
-- **Port**: 8080 (internal)
-- **Public URL**: https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/
-- **Swagger**: https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger
 
-**Endpoints**:
+| Property | Value |
+|----------|-------|
+| Container | `metrics` |
+| Image | Built from `services/metrics/StockTracker.Metrics/Dockerfile` |
+| Port | 8080 (internal) |
+| Public URL | `https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/` |
+| Swagger | `https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger` |
+
+**Endpoints:**
+
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/health/live` | GET | Liveness check |
@@ -65,22 +71,31 @@ This document captures the implementation of centralized monitoring using the Me
 | `/metrics` | GET | Prometheus scrape endpoint |
 
 ### 2. Grafana Alloy
-- **Container**: `alloy`
-- **Image**: `grafana/alloy:latest`
-- **Config**: `/opt/stocktracker/alloy-config.alloy`
-- **Purpose**: Scrapes Metrics Service, forwards to Grafana Cloud
+
+| Property | Value |
+|----------|-------|
+| Container | `alloy` |
+| Image | `grafana/alloy:latest` |
+| Config | `/opt/stocktracker/alloy-config.alloy` |
+| Purpose | Scrapes Metrics Service, forwards to Grafana Cloud |
 
 ### 3. Grafana Cloud
-- **Stack**: `stockandcryptotracker`
-- **Region**: `prod-ap-southeast-1`
-- **Datasource**: `grafanacloud-stockandcryptotracker-prom`
-- **Free Tier Limits**: 10K metrics, 14-day retention
+
+| Property | Value |
+|----------|-------|
+| Stack | `stockandcryptotracker` |
+| Region | `prod-ap-southeast-1` |
+| Datasource | `grafanacloud-stockandcryptotracker-prom` |
+| Free Tier Limits | 10K metrics, 14-day retention |
 
 ---
 
-## Configuration Files
+## Configuration
 
-### Alloy Config (`deployment/vm/alloy-config.alloy`)
+### Alloy Config
+
+**File:** `deployment/vm/alloy-config.alloy`
+
 ```alloy
 prometheus.scrape "metrics_service" {
   targets = [{ __address__ = "metrics:8080" }]
@@ -106,23 +121,25 @@ prometheus.remote_write "grafana_cloud" {
 }
 ```
 
-### Docker Compose Services Added
+### Docker Compose
+
+Services defined in `deployment/vm/docker-compose.yml`:
 - `metrics` - Central metrics aggregation
 - `alloy` - Grafana Cloud forwarder
 
 ---
 
-## Secrets Required
+## Secrets
 
 | Secret | Location | Purpose |
 |--------|----------|---------|
 | `GRAFANA_CLOUD_API_KEY` | Infisical → GitHub Secrets | Alloy auth to Grafana Cloud |
 
-**Token Format**: `glc_eyJvIjo...` (Grafana Cloud Access Policy token)
+**Token Format:** `glc_eyJvIjo...` (Grafana Cloud Access Policy token)
 
 ---
 
-## Verification Commands
+## Verification
 
 ```bash
 # Check services running
@@ -139,38 +156,45 @@ curl https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/workers
 ```
 
 ### Grafana Cloud Queries
-- `up` - Service health
-- `{job="stocktracker-metrics"}` - All metrics
-- `up{project="stocktracker"}` - Filtered by project
+
+| Query | Purpose |
+|-------|---------|
+| `up` | Service health |
+| `{job="stocktracker-metrics"}` | All metrics |
+| `up{project="stocktracker"}` | Filtered by project |
 
 ---
 
 ## Troubleshooting
 
-### Issue: 401 Unauthorized in Alloy logs
-**Cause**: Invalid or missing `GRAFANA_CLOUD_API_KEY`
-**Fix**: 
+### 401 Unauthorized in Alloy logs
+
+**Cause:** Invalid or missing `GRAFANA_CLOUD_API_KEY`
+
+**Fix:**
 1. Create new token in Grafana Cloud → Access Policies
 2. Update secret in Infisical/GitHub
 3. Re-deploy via GitHub Actions
 
-### Issue: Metrics not appearing in Grafana
-**Cause**: Alloy not scraping or forwarding
-**Fix**:
+### Metrics not appearing in Grafana
+
+**Cause:** Alloy not scraping or forwarding
+
+**Fix:**
 1. Check `docker logs alloy`
 2. Verify Metrics Service is healthy
 3. Restart Alloy: `docker compose restart alloy`
 
 ---
 
-## Files Changed in This Implementation
+## Files
 
-| File | Change |
-|------|--------|
-| `services/metrics/StockTracker.Metrics/Program.cs` | Added PATH_BASE support |
-| `services/metrics/StockTracker.Metrics/Dockerfile` | Updated build context |
-| `deployment/vm/docker-compose.yml` | Enabled metrics + alloy |
-| `deployment/vm/Caddyfile` | Added metrics route |
-| `deployment/vm/alloy-config.alloy` | New - Alloy configuration |
-| `.github/workflows/deploy-vm.yml` | Added triggers + secrets |
+| File | Purpose |
+|------|---------|
+| `services/metrics/StockTracker.Metrics/Program.cs` | Metrics service app |
+| `services/metrics/StockTracker.Metrics/Dockerfile` | Container build |
+| `deployment/vm/docker-compose.yml` | Service definitions |
+| `deployment/vm/Caddyfile` | Reverse proxy route |
+| `deployment/vm/alloy-config.alloy` | Alloy configuration |
+| `.github/workflows/deploy-vm.yml` | CI/CD triggers |
 

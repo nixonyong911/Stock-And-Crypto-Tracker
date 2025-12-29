@@ -38,24 +38,6 @@ Phase 1 deployed core services (Caddy, n8n, TwelveData) to the Azure VM. Phase 2
 
 ## Pending Items
 
-### 3. Enable AI-Hub Service
-
-Prerequisites needed:
-- [ ] Create Google Cloud project for Gemini API
-- [ ] Generate `AI_KEY_API_STOCKANDCRYPTOTRACKER_GOOGLE_GEMINI_3_FLASH`
-- [ ] Get `GOOGLE_CLOUD_PROJECT_ID`
-- [ ] Add secrets to Infisical (`prod` environment)
-
-Deployment:
-- [ ] Uncomment `ai-hub` service in `deployment/vm/docker-compose.yml`
-- [ ] Uncomment `/api/ai-hub*` route in `deployment/vm/Caddyfile`
-- [ ] Reference secrets in docker-compose.yml: `${SECRET_NAME}` (no deploy-vm.yml changes needed!)
-- [ ] Add `deploy-vm.yml` path trigger: `services/ai/**`
-- [ ] Push changes and verify deployment
-- [ ] Test Docs at `/api/ai-hub/docs`
-
----
-
 ## Enhancement TODOs
 
 ### Worker Metrics Implementation (High Priority)

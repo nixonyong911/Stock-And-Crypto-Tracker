@@ -1,14 +1,6 @@
 # Worker Metrics Implementation Guide
 
-**Date**: December 27, 2025  
-**Status**: Reference Documentation  
-**Purpose**: How to add metrics to new workers
-
----
-
-## Overview
-
-This guide explains how workers should push metrics to the central Metrics Service, which then exposes them to Grafana Cloud via Alloy.
+How to add metrics to any worker. Workers push metrics to the central Metrics Service, which exposes them to Grafana Cloud.
 
 ---
 
@@ -20,30 +12,24 @@ This guide explains how workers should push metrics to the central Metrics Servi
 │  (TwelveData,   │ ──────► │                  │ ◄────── │         │ ──────► │              │
 │   AI-Hub, etc)  │  POST   │  /api/metrics    │         │         │         │  Dashboards  │
 └─────────────────┘         └──────────────────┘         └─────────┘         └──────────────┘
-        │                            │
-        │ Uses IMetricsClient        │ Aggregates & Exposes
-        │ from StockTracker.Common   │ Prometheus format
-        ▼                            ▼
 ```
 
-**Key Principle**: Workers PUSH metrics to the Metrics Service. Grafana/Alloy only scrapes the Metrics Service.
+**Key Principle:** Workers PUSH metrics to the Metrics Service. Grafana/Alloy only scrapes the Metrics Service.
 
 ---
 
-## Adding Metrics to a New Worker
+## Adding Metrics to a Worker
 
-### Step 1: Add StockTracker.Common Reference
+### Step 1: Add Project Reference
 
-In your worker's `.csproj`:
 ```xml
 <ProjectReference Include="..\..\common\StockTracker.Common\StockTracker.Common.csproj" />
 ```
 
 ### Step 2: Register IMetricsClient
 
-In `Program.cs` or `Startup.cs`:
 ```csharp
-// Add metrics client
+// Program.cs
 builder.Services.AddMetricsClient(options =>
 {
     options.MetricsServiceUrl = "http://metrics:8080"; // Docker network
@@ -51,7 +37,7 @@ builder.Services.AddMetricsClient(options =>
 });
 ```
 
-### Step 3: Inject and Use IMetricsClient
+### Step 3: Use IMetricsClient
 
 ```csharp
 public class YourService
@@ -69,22 +55,18 @@ public class YourService
         
         try
         {
-            // Your work here...
             await FetchData();
             
-            // Record success counter
             await _metrics.IncrementCounterAsync("fetch_operations_total", 
                 labels: new { status = "success", symbol = "AAPL" });
         }
         catch (Exception ex)
         {
-            // Record failure counter
             await _metrics.IncrementCounterAsync("fetch_operations_total",
                 labels: new { status = "error", error_type = ex.GetType().Name });
         }
         finally
         {
-            // Record duration histogram
             await _metrics.RecordHistogramAsync("fetch_duration_seconds",
                 stopwatch.Elapsed.TotalSeconds,
                 labels: new { operation = "fetch_data" });
@@ -93,9 +75,9 @@ public class YourService
 }
 ```
 
-### Step 4: Verify Metrics Flow
+### Step 4: Verify
 
-1. Check worker logs - should show metrics being sent
+1. Check worker logs - metrics being sent
 2. Call `GET /api/metrics/workers` - worker should appear
 3. Query in Grafana: `{job="stocktracker-metrics"}`
 
@@ -105,28 +87,28 @@ public class YourService
 
 | Type | Use Case | Example |
 |------|----------|---------|
-| **Counter** | Monotonically increasing values | Operations count, errors |
+| **Counter** | Monotonically increasing | Operations count, errors |
 | **Gauge** | Values that go up/down | Active connections, queue size |
 | **Histogram** | Distribution of values | Request duration, response size |
 
-### Counter Example
+### Counter
+
 ```csharp
-// Total operations
 await _metrics.IncrementCounterAsync("fetch_operations_total",
     labels: new { status = "success" });
 ```
 
-### Gauge Example
+### Gauge
+
 ```csharp
-// Current active connections
 await _metrics.SetGaugeAsync("active_connections", 
     connectionCount,
     labels: new { service = "api" });
 ```
 
-### Histogram Example
+### Histogram
+
 ```csharp
-// Request duration
 await _metrics.RecordHistogramAsync("request_duration_seconds",
     duration.TotalSeconds,
     labels: new { endpoint = "/api/data" });
@@ -134,9 +116,9 @@ await _metrics.RecordHistogramAsync("request_duration_seconds",
 
 ---
 
-## Metric Naming Conventions
+## Naming Conventions
 
-Format: `{worker}_{metric_name}_{unit}`
+**Format:** `{metric_name}_{unit}`
 
 | Good | Bad |
 |------|-----|
@@ -144,14 +126,14 @@ Format: `{worker}_{metric_name}_{unit}`
 | `request_duration_seconds` | `requestTime` |
 | `api_errors_total` | `errors` |
 
-**Rules**:
+**Rules:**
 - Use snake_case
 - Include unit suffix (`_total`, `_seconds`, `_bytes`)
 - Be descriptive but concise
 
 ---
 
-## Critical Metrics to Implement
+## Critical Metrics
 
 ### For Every Worker
 
@@ -160,15 +142,15 @@ Format: `{worker}_{metric_name}_{unit}`
 | `worker_up` | Gauge | `worker_name` | Is worker alive? (1=up, 0=down) |
 | `worker_last_heartbeat_timestamp` | Gauge | `worker_name` | When was last activity? |
 
-### For API-Fetching Workers (e.g., TwelveData)
+### For API-Fetching Workers
 
 | Metric | Type | Labels | Purpose |
 |--------|------|--------|---------|
-| `fetch_operations_total` | Counter | `status`, `symbol`, `data_source` | Count of fetch attempts |
-| `fetch_duration_seconds` | Histogram | `operation`, `symbol` | How long fetches take |
-| `fetch_errors_total` | Counter | `error_type`, `symbol` | Count of failures |
-| `api_quota_remaining` | Gauge | `data_source` | API rate limit remaining |
-| `records_inserted_total` | Counter | `table`, `symbol` | Records saved to DB |
+| `fetch_operations_total` | Counter | `status`, `symbol`, `data_source` | Fetch attempts |
+| `fetch_duration_seconds` | Histogram | `operation`, `symbol` | Fetch timing |
+| `fetch_errors_total` | Counter | `error_type`, `symbol` | Failures |
+| `api_quota_remaining` | Gauge | `data_source` | Rate limit remaining |
+| `records_inserted_total` | Counter | `table`, `symbol` | Records saved |
 
 ### For Background Workers
 
@@ -180,64 +162,16 @@ Format: `{worker}_{metric_name}_{unit}`
 
 ---
 
-## Example: TwelveData Worker Metrics
-
-```csharp
-// In StockFetchService.cs
-
-public async Task FetchStockData(string symbol)
-{
-    // Record attempt
-    await _metrics.IncrementCounterAsync("fetch_operations_total",
-        labels: new { status = "attempt", symbol, data_source = "twelvedata" });
-
-    var stopwatch = Stopwatch.StartNew();
-    
-    try
-    {
-        var data = await _apiClient.GetTimeSeriesAsync(symbol);
-        stopwatch.Stop();
-        
-        // Record success
-        await _metrics.IncrementCounterAsync("fetch_operations_total",
-            labels: new { status = "success", symbol, data_source = "twelvedata" });
-        
-        // Record duration
-        await _metrics.RecordHistogramAsync("fetch_duration_seconds",
-            stopwatch.Elapsed.TotalSeconds,
-            labels: new { operation = "api_call", symbol });
-        
-        // Record records inserted
-        var insertedCount = await SaveToDatabase(data);
-        await _metrics.IncrementCounterAsync("records_inserted_total",
-            value: insertedCount,
-            labels: new { table = "stock_prices", symbol });
-    }
-    catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
-    {
-        await _metrics.IncrementCounterAsync("fetch_errors_total",
-            labels: new { error_type = "rate_limit", symbol });
-        throw;
-    }
-    catch (Exception ex)
-    {
-        await _metrics.IncrementCounterAsync("fetch_errors_total",
-            labels: new { error_type = ex.GetType().Name, symbol });
-        throw;
-    }
-}
-```
-
----
-
-## Grafana Dashboard Queries
+## Grafana Queries
 
 ### Service Health
+
 ```promql
 up{job="stocktracker-metrics"}
 ```
 
 ### Fetch Success Rate (last 1h)
+
 ```promql
 sum(rate(fetch_operations_total{status="success"}[1h])) 
 / 
@@ -245,21 +179,24 @@ sum(rate(fetch_operations_total{status=~"success|error"}[1h]))
 * 100
 ```
 
-### Average Fetch Duration
+### Average Fetch Duration (p95)
+
 ```promql
 histogram_quantile(0.95, rate(fetch_duration_seconds_bucket[5m]))
 ```
 
 ### Error Rate by Type
+
 ```promql
 sum by (error_type) (rate(fetch_errors_total[1h]))
 ```
 
 ---
 
-## Alert Examples (Grafana Cloud)
+## Alert Examples
 
-### Worker Down Alert
+### Worker Down
+
 ```yaml
 - alert: WorkerDown
   expr: up{job="stocktracker-metrics"} == 0
@@ -270,7 +207,8 @@ sum by (error_type) (rate(fetch_errors_total[1h]))
     summary: "Metrics service is down"
 ```
 
-### High Error Rate Alert
+### High Error Rate
+
 ```yaml
 - alert: HighFetchErrorRate
   expr: |
@@ -287,7 +225,7 @@ sum by (error_type) (rate(fetch_errors_total[1h]))
 
 ---
 
-## TODO: Enhancement Tasks
+## TODO
 
 ### High Priority
 - [ ] Add `IMetricsClient` usage to TwelveData worker

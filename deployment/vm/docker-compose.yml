@@ -172,7 +172,7 @@ services:
     networks:
       - stocktracker
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/back-office"]
       interval: 30s
       timeout: 3s
       retries: 3
