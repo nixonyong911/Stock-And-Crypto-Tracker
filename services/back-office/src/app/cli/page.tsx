@@ -17,8 +17,6 @@ export default function CliTestingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgent, setActiveAgent] = useState<"claude" | "cursor" | null>(null);
 
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/back-office";
-
   const sendToAgent = async (agent: "claude" | "cursor") => {
     if (!message.trim()) return;
 
@@ -27,7 +25,8 @@ export default function CliTestingPage() {
     setResponse("");
 
     try {
-      const res = await fetch(`${basePath}/api/${agent}`, {
+      // Use relative path - browser will use correct base URL
+      const res = await fetch(`/back-office/api/${agent}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),

@@ -14,7 +14,8 @@ interface WorkerWithSchedule extends WorkerRegistry {
 export default function DataFetchersPage() {
   const [workers, setWorkers] = useState<WorkerWithSchedule[]>([]);
   const [loading, setLoading] = useState(true);
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/back-office";
+  // Next.js basePath handles the /back-office prefix automatically for Link components
+  const basePath = "";
 
   useEffect(() => {
     async function loadWorkers() {

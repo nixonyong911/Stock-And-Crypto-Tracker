@@ -13,7 +13,8 @@ interface WorkerWithHealth extends WorkerRegistry {
 export default function DashboardPage() {
   const [workers, setWorkers] = useState<WorkerWithHealth[]>([]);
   const [loading, setLoading] = useState(true);
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/back-office";
+  // Next.js basePath handles the /back-office prefix automatically
+  const basePath = "";
 
   useEffect(() => {
     async function loadDashboard() {

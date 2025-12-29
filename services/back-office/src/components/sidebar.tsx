@@ -20,7 +20,9 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
-  const basePath = "/back-office";
+  // Next.js basePath in next.config.ts handles the /back-office prefix automatically
+  // So we use empty string here to avoid double-prefixing
+  const basePath = "";
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     cli: false,
