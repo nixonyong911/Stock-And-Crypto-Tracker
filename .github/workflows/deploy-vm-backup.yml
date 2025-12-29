@@ -1,0 +1,147 @@
+# ===========================================
+# BACKUP - Original Pipeline Before Optimization
+# ===========================================
+# Created: Auto-generated backup before CI/CD optimization
+# To restore: Rename this file to deploy-vm.yml
+# ===========================================
+# Services: n8n, Caddy, TwelveData, Metrics, Alloy
+# AI Hub: Runs directly on host (systemd), not Docker
+# Monitoring: Grafana Cloud (via Alloy)
+# Secrets: Injected at runtime via Infisical CLI (Machine Identity)
+# ===========================================
+
+name: "[BACKUP] Deploy to Azure VM"
+
+on:
+  workflow_dispatch:  # Manual trigger only (auto-deploy disabled)
+  # Original triggers (commented out for backup):
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'services/data-fetchers/TwelveData/**'
+  #     - 'services/metrics/**'
+  #     - 'services/ai/ai-hub/**'
+  #     - 'services/back-office/**'
+  #     - 'services/common/**'
+  #     - 'deployment/vm/**'
+  #     - '.github/workflows/deploy-vm.yml'
+  #     - '!services/frontend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 20.17.176.1 >> ~/.ssh/known_hosts
+
+      - name: Sync repository to VM
+        run: |
+          ssh azureuser@20.17.176.1 'bash -s' << 'EOF'
+          set -e
+          DEPLOY_PATH="/opt/stocktracker"
+          
+          echo "=== Syncing repository ==="
+          cd $DEPLOY_PATH/repo
+          git fetch origin main
+          git reset --hard origin/main
+          
+          echo "=== Copying config files ==="
+          cp $DEPLOY_PATH/repo/deployment/vm/docker-compose.yml $DEPLOY_PATH/
+          cp $DEPLOY_PATH/repo/deployment/vm/Caddyfile $DEPLOY_PATH/
+          cp $DEPLOY_PATH/repo/deployment/vm/alloy-config.alloy $DEPLOY_PATH/
+          sudo cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.sh $DEPLOY_PATH/scripts/
+          sudo cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.service $DEPLOY_PATH/scripts/ 2>/dev/null || true
+          sudo chmod +x $DEPLOY_PATH/scripts/*.sh
+          sudo chown azureuser:azureuser $DEPLOY_PATH/scripts/*
+          
+          echo "=== Config sync complete ==="
+          ls -la $DEPLOY_PATH/
+          EOF
+
+      - name: Build and deploy Docker services
+        run: |
+          ssh azureuser@20.17.176.1 'bash -s' << 'EOF'
+          set -e
+          DEPLOY_PATH="/opt/stocktracker"
+          cd $DEPLOY_PATH
+          
+          echo "=== Building Docker services ==="
+          docker compose build --no-cache twelvedata metrics back-office
+          
+          echo "=== Starting Docker services with Infisical secret injection ==="
+          # Use start-services.sh which authenticates with Infisical and injects secrets
+          ./scripts/start-services.sh up -d
+          
+          echo "=== Cleanup old images ==="
+          docker image prune -f
+          
+          echo "=== Running containers ==="
+          docker ps
+          EOF
+
+      - name: Deploy AI Hub (host service)
+        run: |
+          ssh azureuser@20.17.176.1 'bash -s' << 'EOF'
+          set -e
+          DEPLOY_PATH="/opt/stocktracker"
+          AI_HUB_DIR="$DEPLOY_PATH/repo/services/ai/ai-hub"
+          
+          echo "=== Installing AI Hub dependencies ==="
+          pip3 install --user -q --break-system-packages -r "$AI_HUB_DIR/requirements.txt"
+          
+          echo "=== Installing systemd service ==="
+          sudo cp "$DEPLOY_PATH/scripts/ai-hub.service" /etc/systemd/system/ai-hub.service
+          sudo systemctl daemon-reload
+          sudo systemctl enable ai-hub
+          
+          echo "=== Restarting AI Hub service ==="
+          sudo systemctl restart ai-hub
+          sleep 3
+          sudo systemctl status ai-hub --no-pager || true
+          
+          echo "=== AI Hub deployment complete ==="
+          EOF
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting for services to start..."
+          sleep 45
+          
+          echo "=== Checking n8n ==="
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/ > /dev/null && echo "n8n: OK" || echo "n8n: May need login"
+          
+          echo "=== Checking TwelveData ==="
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live && echo "TwelveData: OK" || echo "TwelveData: Starting..."
+          
+          echo "=== Checking Metrics ==="
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live && echo "Metrics: OK" || echo "Metrics: Starting..."
+          
+          echo "=== Checking AI Hub (host service) ==="
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/health/live && echo "AI Hub: OK" || echo "AI Hub: Starting..."
+          
+          echo "=== Checking Back Office ==="
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ && echo "Back Office: OK" || echo "Back Office: Starting..."
+          
+          echo "=== Checking Alloy (via SSH) ===" 
+          ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "Alloy: Check logs"
+          
+          echo ""
+          echo "=========================================="
+          echo "Deployment complete!"
+          echo "=========================================="
+          echo "URLs:"
+          echo "  - n8n:        https://nxserver.malaysiawest.cloudapp.azure.com/"
+          echo "  - TwelveData: https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger"
+          echo "  - Metrics:    https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger"
+          echo "  - AI Hub:     https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs"
+          echo "  - Back Office: https://nxserver.malaysiawest.cloudapp.azure.com/back-office/"
+          echo "  - Grafana:    https://grafana.com (check your dashboard)"
+

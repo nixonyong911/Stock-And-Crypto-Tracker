@@ -1,6 +1,15 @@
 # ===========================================
 # Deploy Backend Services to Azure VM
 # ===========================================
+# ALL OPTIMIZATIONS APPLIED:
+# Phase 1: Smart health polling, AI Hub venv caching, combined SSH
+# Phase 2: GHA builds, BuildKit caching, compressed transfer, auto-fallback
+# Phase 3: Selective builds (paths-filter), parallel matrix builds
+#
+# BASELINE (before optimization): ~8-12 min
+# TARGET (Phase 3): ~3-5 min (60-70% faster)
+# BEST CASE (config-only): ~1-2 min (skip all builds)
+# ===========================================
 # Services: n8n, Caddy, TwelveData, Metrics, Alloy
 # AI Hub: Runs directly on host (systemd), not Docker
 # Monitoring: Grafana Cloud (via Alloy)
@@ -22,9 +31,231 @@ on:
       - '.github/workflows/deploy-vm.yml'
       - '!services/frontend/**'
   workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force rebuild all services (ignore change detection)'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
+  # ===========================================
+  # PHASE 3: Detect which services changed
+  # ===========================================
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      twelvedata: ${{ steps.filter.outputs.twelvedata }}
+      metrics: ${{ steps.filter.outputs.metrics }}
+      backoffice: ${{ steps.filter.outputs.backoffice }}
+      aihub: ${{ steps.filter.outputs.aihub }}
+      config: ${{ steps.filter.outputs.config }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            twelvedata:
+              - 'services/data-fetchers/TwelveData/**'
+              - 'services/common/**'
+            metrics:
+              - 'services/metrics/**'
+              - 'services/common/**'
+            backoffice:
+              - 'services/back-office/**'
+            aihub:
+              - 'services/ai/ai-hub/**'
+            config:
+              - 'deployment/vm/**'
+              - '.github/workflows/deploy-vm.yml'
+
+      - name: Log detected changes
+        run: |
+          echo "=========================================="
+          echo "=== Detected Changes ==="
+          echo "=========================================="
+          echo "TwelveData: ${{ steps.filter.outputs.twelvedata }}"
+          echo "Metrics: ${{ steps.filter.outputs.metrics }}"
+          echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
+          echo "AI Hub: ${{ steps.filter.outputs.aihub }}"
+          echo "Config: ${{ steps.filter.outputs.config }}"
+          echo "Force Build: ${{ github.event.inputs.force_build }}"
+          
+          # Summary
+          echo "## 🔍 Change Detection" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Changed |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| TwelveData | ${{ steps.filter.outputs.twelvedata }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Metrics | ${{ steps.filter.outputs.metrics }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| AI Hub | ${{ steps.filter.outputs.aihub }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Config | ${{ steps.filter.outputs.config }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # PHASE 3: Build only changed services (parallel)
+  # ===========================================
+  build:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    # Skip build job entirely if only config changed and not forcing
+    if: needs.detect-changes.outputs.any_service == 'true' || github.event.inputs.force_build == 'true'
+    outputs:
+      build_success: ${{ steps.build-result.outputs.success }}
+      images_built: ${{ steps.build-result.outputs.images }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build TwelveData (only if changed or forced)
+      - name: Build TwelveData image
+        id: build-twelvedata
+        if: needs.detect-changes.outputs.twelvedata == 'true' || github.event.inputs.force_build == 'true'
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/
+          file: services/data-fetchers/TwelveData/Dockerfile
+          tags: twelvedata:latest
+          cache-from: type=gha,scope=twelvedata
+          cache-to: type=gha,mode=max,scope=twelvedata
+          outputs: type=docker,dest=/tmp/twelvedata.tar
+
+      # Build Metrics (only if changed or forced)
+      - name: Build Metrics image
+        id: build-metrics
+        if: needs.detect-changes.outputs.metrics == 'true' || github.event.inputs.force_build == 'true'
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/
+          file: services/metrics/StockTracker.Metrics/Dockerfile
+          tags: metrics:latest
+          cache-from: type=gha,scope=metrics
+          cache-to: type=gha,mode=max,scope=metrics
+          outputs: type=docker,dest=/tmp/metrics.tar
+
+      # Build Back Office (only if changed or forced)
+      - name: Build Back Office image
+        id: build-backoffice
+        if: needs.detect-changes.outputs.backoffice == 'true' || github.event.inputs.force_build == 'true'
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/back-office/
+          file: services/back-office/Dockerfile
+          tags: back-office:latest
+          cache-from: type=gha,scope=backoffice
+          cache-to: type=gha,mode=max,scope=backoffice
+          outputs: type=docker,dest=/tmp/back-office.tar
+
+      # Compress built images
+      - name: Compress Docker images
+        id: compress
+        run: |
+          mkdir -p /tmp/images
+          BUILT=""
+          
+          if [ -f /tmp/twelvedata.tar ]; then
+            gzip -1 < /tmp/twelvedata.tar > /tmp/images/twelvedata.tar.gz
+            BUILT="${BUILT}twelvedata,"
+            echo "✅ TwelveData compressed"
+          else
+            echo "⏭️ TwelveData skipped (unchanged)"
+          fi
+          
+          if [ -f /tmp/metrics.tar ]; then
+            gzip -1 < /tmp/metrics.tar > /tmp/images/metrics.tar.gz
+            BUILT="${BUILT}metrics,"
+            echo "✅ Metrics compressed"
+          else
+            echo "⏭️ Metrics skipped (unchanged)"
+          fi
+          
+          if [ -f /tmp/back-office.tar ]; then
+            gzip -1 < /tmp/back-office.tar > /tmp/images/back-office.tar.gz
+            BUILT="${BUILT}backoffice,"
+            echo "✅ Back Office compressed"
+          else
+            echo "⏭️ Back Office skipped (unchanged)"
+          fi
+          
+          echo "built=$BUILT" >> $GITHUB_OUTPUT
+          ls -lh /tmp/images/ 2>/dev/null || echo "No images to transfer"
+
+      # Check build result
+      - name: Check build result
+        id: build-result
+        run: |
+          # Check if any images were actually built
+          if ls /tmp/images/*.tar.gz 1>/dev/null 2>&1; then
+            SUCCESS="true"
+            IMAGES="${{ steps.compress.outputs.built }}"
+            echo "✅ Build complete: $IMAGES"
+          else
+            SUCCESS="false"
+            IMAGES=""
+            echo "⚠️ No images built"
+          fi
+          
+          echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+          echo "images=$IMAGES" >> $GITHUB_OUTPUT
+
+      # Upload artifacts
+      - name: Upload Docker images
+        if: steps.build-result.outputs.success == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-images
+          path: /tmp/images/*.tar.gz
+          retention-days: 1
+          if-no-files-found: warn
+
+      # Log transfer metrics
+      - name: Log transfer metrics
+        run: |
+          echo "## 📦 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if ls /tmp/images/*.tar.gz 1>/dev/null 2>&1; then
+            TOTAL_SIZE=$(du -ch /tmp/images/*.tar.gz 2>/dev/null | tail -1 | cut -f1 || echo "0")
+            echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
+            
+            for service in twelvedata metrics back-office; do
+              if [ -f "/tmp/images/${service}.tar.gz" ]; then
+                SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
+                echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $service | - | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Total transfer**: $TOTAL_SIZE" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No images built (all skipped or failed)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 Azure inbound transfer is FREE" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # Deploy to VM
+  # ===========================================
   deploy:
+    needs: [detect-changes, build]
+    # Always run deploy (even if build was skipped for config-only changes)
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     
     steps:
@@ -38,13 +269,86 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 20.17.176.1 >> ~/.ssh/known_hosts
 
-      - name: Sync repository to VM
+      # Download pre-built images if available
+      - name: Download Docker images
+        if: needs.build.outputs.build_success == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+          path: ./docker-images
+
+      # ===========================================
+      # PRIMARY PATH: Transfer pre-built images
+      # ===========================================
+      - name: Transfer and load images (GHA build path)
+        if: needs.build.outputs.build_success == 'true'
         run: |
-          ssh azureuser@20.17.176.1 'bash -s' << 'EOF'
+          echo "=========================================="
+          echo "=== Transferring GHA-built images ==="
+          echo "=========================================="
+          
+          if ls ./docker-images/*.tar.gz 1>/dev/null 2>&1; then
+            echo "📤 Transferring images to VM..."
+            scp -o ServerAliveInterval=60 ./docker-images/*.tar.gz azureuser@20.17.176.1:/tmp/
+            
+            ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
+          set -e
+          echo "📥 Loading Docker images..."
+          
+          for img in /tmp/*.tar.gz; do
+            if [ -f "$img" ]; then
+              NAME=$(basename "$img" .tar.gz)
+              echo "Loading $NAME..."
+              gunzip -c "$img" | docker load
+              rm "$img"
+              echo "✅ $NAME loaded"
+            fi
+          done
+          
+          echo "✅ Images loaded"
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | head -10
+          EOF
+          else
+            echo "⏭️ No images to transfer (all services unchanged)"
+          fi
+
+      # ===========================================
+      # FALLBACK PATH: Build on VM if needed
+      # ===========================================
+      - name: Fallback - Build on VM
+        if: |
+          needs.build.result == 'failure' || 
+          (needs.detect-changes.outputs.any_service == 'true' && needs.build.outputs.build_success != 'true')
+        run: |
+          echo "::warning::GHA build failed or incomplete, falling back to VM build"
+          echo "=========================================="
+          echo "=== FALLBACK: Building on VM ==="
+          echo "=========================================="
+          
+          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
+          set -e
+          DEPLOY_PATH="/opt/stocktracker"
+          cd $DEPLOY_PATH
+          
+          echo "📦 Building Docker services on VM (fallback mode)..."
+          DOCKER_BUILDKIT=1 docker compose build twelvedata metrics back-office
+          
+          echo "✅ VM build complete"
+          EOF
+
+      # ===========================================
+      # Sync config and start services
+      # ===========================================
+      - name: Sync config and deploy services
+        run: |
+          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
           set -e
           DEPLOY_PATH="/opt/stocktracker"
           
+          echo "=========================================="
           echo "=== Syncing repository ==="
+          echo "=========================================="
           cd $DEPLOY_PATH/repo
           git fetch origin main
           git reset --hard origin/main
@@ -58,22 +362,10 @@ jobs:
           sudo chmod +x $DEPLOY_PATH/scripts/*.sh
           sudo chown azureuser:azureuser $DEPLOY_PATH/scripts/*
           
-          echo "=== Config sync complete ==="
-          ls -la $DEPLOY_PATH/
-          EOF
-
-      - name: Build and deploy Docker services
-        run: |
-          ssh azureuser@20.17.176.1 'bash -s' << 'EOF'
-          set -e
-          DEPLOY_PATH="/opt/stocktracker"
+          echo "=========================================="
+          echo "=== Starting services ==="
+          echo "=========================================="
           cd $DEPLOY_PATH
-          
-          echo "=== Building Docker services ==="
-          docker compose build --no-cache twelvedata metrics back-office
-          
-          echo "=== Starting Docker services with Infisical secret injection ==="
-          # Use start-services.sh which authenticates with Infisical and injects secrets
           ./scripts/start-services.sh up -d
           
           echo "=== Cleanup old images ==="
@@ -83,17 +375,53 @@ jobs:
           docker ps
           EOF
 
-      - name: Deploy AI Hub (host service)
+      # ===========================================
+      # AI Hub deployment (only if changed)
+      # ===========================================
+      - name: Deploy AI Hub (with venv caching)
+        if: needs.detect-changes.outputs.aihub == 'true' || needs.detect-changes.outputs.config == 'true' || github.event.inputs.force_build == 'true'
         run: |
-          ssh azureuser@20.17.176.1 'bash -s' << 'EOF'
+          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
           set -e
           DEPLOY_PATH="/opt/stocktracker"
           AI_HUB_DIR="$DEPLOY_PATH/repo/services/ai/ai-hub"
+          AI_HUB_VENV="$DEPLOY_PATH/ai-hub-venv"
+          REQS_FILE="$AI_HUB_DIR/requirements.txt"
+          HASH_FILE="$AI_HUB_VENV/.requirements_hash"
           
-          echo "=== Installing AI Hub dependencies ==="
-          pip3 install --user -q --break-system-packages -r "$AI_HUB_DIR/requirements.txt"
+          echo "=========================================="
+          echo "=== AI Hub Deployment with Venv Caching ==="
+          echo "=========================================="
           
-          echo "=== Installing systemd service ==="
+          # Calculate hash of requirements.txt
+          REQS_HASH=$(sha256sum "$REQS_FILE" | cut -d' ' -f1)
+          echo "Requirements hash: $REQS_HASH"
+          
+          # Check if venv exists and hash matches
+          if [ -d "$AI_HUB_VENV" ] && [ -f "$HASH_FILE" ]; then
+              CACHED_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "")
+              if [ "$REQS_HASH" = "$CACHED_HASH" ]; then
+                  echo "✅ Requirements unchanged - skipping pip install (cached)"
+              else
+                  echo "📦 Requirements changed - reinstalling dependencies..."
+                  rm -rf "$AI_HUB_VENV"
+                  python3 -m venv "$AI_HUB_VENV"
+                  "$AI_HUB_VENV/bin/pip" install --upgrade pip -q
+                  "$AI_HUB_VENV/bin/pip" install -q -r "$REQS_FILE"
+                  echo "$REQS_HASH" > "$HASH_FILE"
+                  echo "✅ Dependencies installed and cached"
+              fi
+          else
+              echo "📦 Creating new venv and installing dependencies..."
+              rm -rf "$AI_HUB_VENV"
+              python3 -m venv "$AI_HUB_VENV"
+              "$AI_HUB_VENV/bin/pip" install --upgrade pip -q
+              "$AI_HUB_VENV/bin/pip" install -q -r "$REQS_FILE"
+              echo "$REQS_HASH" > "$HASH_FILE"
+              echo "✅ Venv created and dependencies installed"
+          fi
+          
+          echo "=== Installing/updating systemd service ==="
           sudo cp "$DEPLOY_PATH/scripts/ai-hub.service" /etc/systemd/system/ai-hub.service
           sudo systemctl daemon-reload
           sudo systemctl enable ai-hub
@@ -103,40 +431,78 @@ jobs:
           sleep 3
           sudo systemctl status ai-hub --no-pager || true
           
-          echo "=== AI Hub deployment complete ==="
+          echo "✅ AI Hub deployment complete"
           EOF
 
-      - name: Verify deployment
+      - name: Skip AI Hub (unchanged)
+        if: needs.detect-changes.outputs.aihub != 'true' && needs.detect-changes.outputs.config != 'true' && github.event.inputs.force_build != 'true'
         run: |
-          echo "Waiting for services to start..."
-          sleep 45
+          echo "⏭️ AI Hub unchanged - skipping deployment"
+          echo "   (service continues running with existing code)"
+
+      # ===========================================
+      # Smart health polling
+      # ===========================================
+      - name: Verify deployment (smart health polling)
+        run: |
+          echo "=========================================="
+          echo "=== Smart Health Polling ==="
+          echo "=========================================="
           
-          echo "=== Checking n8n ==="
-          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/ > /dev/null && echo "n8n: OK" || echo "n8n: May need login"
+          wait_healthy() {
+            local url=$1
+            local name=$2
+            local max_attempts=30
+            local attempt=0
+            
+            echo "Waiting for $name..."
+            while [ $attempt -lt $max_attempts ]; do
+              if curl -sf "$url" > /dev/null 2>&1; then
+                echo "✅ $name: OK (${attempt}s)"
+                return 0
+              fi
+              sleep 2
+              attempt=$((attempt + 2))
+            done
+            echo "⚠️ $name: TIMEOUT after ${max_attempts}s"
+            return 1
+          }
           
-          echo "=== Checking TwelveData ==="
-          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live && echo "TwelveData: OK" || echo "TwelveData: Starting..."
+          echo ""
+          echo "=== Checking services ==="
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/ > /dev/null && echo "✅ n8n: OK" || echo "⚠️ n8n: May need login"
           
-          echo "=== Checking Metrics ==="
-          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live && echo "Metrics: OK" || echo "Metrics: Starting..."
+          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" "TwelveData"
+          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live" "Metrics"
+          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/health/live" "AI Hub"
           
-          echo "=== Checking AI Hub (host service) ==="
-          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/health/live && echo "AI Hub: OK" || echo "AI Hub: Starting..."
+          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ > /dev/null && echo "✅ Back Office: OK" || echo "⚠️ Back Office: Starting..."
           
-          echo "=== Checking Back Office ==="
-          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ && echo "Back Office: OK" || echo "Back Office: Starting..."
+          ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "⚠️ Alloy: Check logs"
           
-          echo "=== Checking Alloy (via SSH) ===" 
-          ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "Alloy: Check logs"
+          # Summary
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Build path indicator
+          if [ "${{ needs.build.outputs.build_success }}" == "true" ]; then
+            echo "✅ **Build Path**: GitHub Actions (optimized)" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.detect-changes.outputs.any_service }}" != "true" ]; then
+            echo "⏭️ **Build Path**: Skipped (config-only change)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Build Path**: VM fallback" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Service URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- [n8n](https://nxserver.malaysiawest.cloudapp.azure.com/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [TwelveData Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
+          echo "- [AI Hub Docs](https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
           
           echo ""
           echo "=========================================="
-          echo "Deployment complete!"
+          echo "✅ Deployment complete!"
           echo "=========================================="
-          echo "URLs:"
-          echo "  - n8n:        https://nxserver.malaysiawest.cloudapp.azure.com/"
-          echo "  - TwelveData: https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger"
-          echo "  - Metrics:    https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger"
-          echo "  - AI Hub:     https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs"
-          echo "  - Back Office: https://nxserver.malaysiawest.cloudapp.azure.com/back-office/"
-          echo "  - Grafana:    https://grafana.com (check your dashboard)"

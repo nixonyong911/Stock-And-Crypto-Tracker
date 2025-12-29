@@ -4,9 +4,13 @@
 # ===========================================
 # This script is called by the systemd service to start ai-hub
 # with secrets injected from Infisical.
+#
+# PHASE 1 OPTIMIZATION: Uses venv for faster deployments
+# Venv path: /opt/stocktracker/ai-hub-venv
 # ===========================================
 
 DEPLOY_PATH="/opt/stocktracker"
+AI_HUB_VENV="$DEPLOY_PATH/ai-hub-venv"
 cd $DEPLOY_PATH
 
 # Load Infisical auth
@@ -23,7 +27,13 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
-# Run ai-hub with secrets injected
-cd /opt/stocktracker/repo/services/ai/ai-hub
-exec infisical run --env=prod --projectId=$INFISICAL_PROJECT_ID --token=$TOKEN -- /home/azureuser/.local/bin/uvicorn main:app --host 0.0.0.0 --port 8084
+# Check if venv exists
+if [ ! -d "$AI_HUB_VENV" ]; then
+    echo "ERROR: AI Hub venv not found at $AI_HUB_VENV"
+    echo "Run deployment workflow to create the venv"
+    exit 1
+fi
 
+# Run ai-hub with secrets injected (using venv python)
+cd /opt/stocktracker/repo/services/ai/ai-hub
+exec infisical run --env=prod --projectId=$INFISICAL_PROJECT_ID --token=$TOKEN -- "$AI_HUB_VENV/bin/uvicorn" main:app --host 0.0.0.0 --port 8084
