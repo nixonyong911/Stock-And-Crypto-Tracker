@@ -198,3 +198,5 @@ curl https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/workers
 | `deployment/vm/alloy-config.alloy` | Alloy configuration |
 | `.github/workflows/deploy-vm.yml` | CI/CD triggers |
 
+
+

@@ -145,3 +145,5 @@ jobs:
           echo "  - Back Office: https://nxserver.malaysiawest.cloudapp.azure.com/back-office/"
           echo "  - Grafana:    https://grafana.com (check your dashboard)"
 
+
+

@@ -482,7 +482,9 @@ jobs:
           
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" "TwelveData"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live" "Metrics"
-          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/health/live" "AI Hub"
+          
+          # AI Hub runs on host (not exposed via Caddy) - check via SSH
+          ssh azureuser@20.17.176.1 'curl -sf http://localhost:8084/health/live' > /dev/null && echo "✅ AI Hub: OK" || echo "⚠️ AI Hub: Check systemd logs"
           
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ > /dev/null && echo "✅ Back Office: OK" || echo "⚠️ Back Office: Starting..."
           
@@ -507,8 +509,8 @@ jobs:
           echo "- [n8n](https://nxserver.malaysiawest.cloudapp.azure.com/)" >> $GITHUB_STEP_SUMMARY
           echo "- [TwelveData Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
-          echo "- [AI Hub Docs](https://nxserver.malaysiawest.cloudapp.azure.com/api/ai-hub/docs)" >> $GITHUB_STEP_SUMMARY
           echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
+          echo "- AI Hub: Internal only (localhost:8084 via SSH)" >> $GITHUB_STEP_SUMMARY
           
           echo ""
           echo "=========================================="

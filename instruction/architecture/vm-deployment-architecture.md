@@ -1,10 +1,10 @@
 # VM Deployment Architecture
 
-**Last Updated**: December 27, 2025
+**Last Updated**: December 31, 2025
 
 ## Overview
 
-All backend services run on a single Azure VM using Docker Compose, with Caddy as the reverse proxy providing automatic HTTPS.
+All backend services run on a single Azure VM using Docker Compose, with Caddy as the reverse proxy providing automatic HTTPS. AI Hub runs directly on the host as a systemd service (not in Docker) to access CLIs installed on the host.
 
 ## Architecture Diagram
 
@@ -13,21 +13,20 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │                              SYSTEM ARCHITECTURE                                 │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
-│   ┌──────────────┐                                            ┌─────────────┐   │
-│   │   FRONTEND   │                                            │  DATABASE   │   │
-│   │   (Vercel)   │                                            │ (Supabase)  │   │
-│   ├──────────────┤                                            ├─────────────┤   │
-│   │              │                                            │             │   │
-│   │  Next.js 14  │                                            │ PostgreSQL  │   │
-│   │              │                                            │             │   │
-│   └──────┬───────┘                                            └──────▲──────┘   │
-│          │                                                           │          │
-│          │ Supabase Client                          Supabase Client  │          │
-│          │                                                           │          │
-│          ▼                                                           │          │
-│   ┌──────────────────────────────────────────────────────────────────┴───────┐  │
-│   │                         AZURE VM (nx-linux-server-azure)                  │  │
-│   │                         20.17.176.1 / Standard_B2s                        │  │
+│   ┌──────────────┐    ┌──────────────┐                      ┌─────────────┐     │
+│   │   FRONTEND   │    │  BACK-OFFICE │                      │  DATABASE   │     │
+│   │   (Vercel)   │    │    (VM)      │                      │ (Supabase)  │     │
+│   ├──────────────┤    ├──────────────┤                      ├─────────────┤     │
+│   │  Next.js 15  │    │  Next.js 16  │                      │ PostgreSQL  │     │
+│   │   Public     │    │  Admin UI    │                      │             │     │
+│   └──────┬───────┘    └──────┬───────┘                      └──────▲──────┘     │
+│          │                   │                                     │            │
+│          │ Supabase Client   │ /back-office             All services│            │
+│          │                   │                                     │            │
+│          ▼                   ▼                                     │            │
+│   ┌──────────────────────────────────────────────────────────────────────────┐  │
+│   │                     AZURE VM (nx-linux-server-azure)                      │  │
+│   │                     20.17.176.1 / Standard_B2s / Ubuntu 24.04            │  │
 │   ├──────────────────────────────────────────────────────────────────────────┤  │
 │   │                                                                           │  │
 │   │   ┌─────────────────────────────────────────────────────────────────┐    │  │
@@ -37,22 +36,35 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │   │      │                                                           │    │  │
 │   │   │      ├── /                    → n8n:5678                         │    │  │
 │   │   │      ├── /api/twelvedata/*    → twelvedata:8080                  │    │  │
-│   │   │      ├── /api/metrics/*       → metrics:8080 (Phase 2)           │    │  │
-│   │   │      └── /api/ai-hub/*        → ai-hub:8080 (Phase 2)            │    │  │
+│   │   │      ├── /api/metrics/*       → metrics:8080                     │    │  │
+│   │   │      └── /back-office*        → back-office:3000                 │    │  │
+│   │   │                                                                  │    │  │
+│   │   │      NOTE: AI Hub NOT exposed (internal only at :8084)           │    │  │
 │   │   └─────────────────────────────────────────────────────────────────┘    │  │
 │   │                                         │                                 │  │
-│   │   ┌──────────────┐  ┌──────────────┐  ┌┴─────────────┐  ┌─────────────┐  │  │
-│   │   │     n8n      │  │  TwelveData  │  │   Metrics    │  │   AI-Hub    │  │  │
-│   │   │              │  │    Worker    │  │   Service    │  │   Gateway   │  │  │
-│   │   │  :5678       │  │    :8080     │  │    :8080     │  │    :8080    │  │  │
-│   │   │              │  │              │  │              │  │             │  │  │
-│   │   │  Workflows   │  │  Stock Data  │  │  Aggregates  │  │  AI Models  │  │  │
-│   │   │  Automation  │  │  Fetching    │  │  Metrics     │  │  Gateway    │  │  │
-│   │   └──────────────┘  └──────────────┘  └──────────────┘  └─────────────┘  │  │
-│   │         ✅               ✅                 ⏸️                ⏸️          │  │
-│   │       Active           Active            Phase 2          Phase 2        │  │
+│   │   ┌─────────────────────────────────────┼───────────────────────────┐    │  │
+│   │   │              DOCKER CONTAINERS      │                           │    │  │
+│   │   ├──────────────┬──────────────┬───────┴──────┬──────────────┬─────┤    │  │
+│   │   │     n8n      │  TwelveData  │   Metrics    │  Back-office │Alloy│    │  │
+│   │   │   :5678      │    :8080     │    :8080     │    :3000     │     │    │  │
+│   │   │  Workflows   │  Stock Data  │  Aggregates  │   Admin UI   │Logs │    │  │
+│   │   └──────────────┴──────────────┴──────────────┴──────────────┴─────┘    │  │
+│   │              │              │              │              │               │  │
+│   │              └──────────────┴──────────────┴──────────────┘               │  │
+│   │                          host.docker.internal:8084                        │  │
+│   │                                    │                                      │  │
+│   │   ┌────────────────────────────────▼────────────────────────────────┐    │  │
+│   │   │              AI HUB (systemd service on HOST)                    │    │  │
+│   │   │              Port 8084 - Internal only                           │    │  │
+│   │   │              FastAPI + Claude CLI + Cursor-agent CLI             │    │  │
+│   │   └─────────────────────────────────────────────────────────────────┘    │  │
 │   │                                                                           │  │
 │   └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │                        GRAFANA CLOUD (Observability)                     │   │
+│   │   Alloy forwards metrics (Prometheus) and logs (Loki) to Grafana Cloud   │   │
+│   └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -68,16 +80,23 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │   Developer  │      │    GitHub    │      │          Azure VM            │  │
 │   │              │      │   Actions    │      │                              │  │
 │   │  git push    │─────▶│              │──SSH─▶│  1. git pull                 │  │
-│   │              │      │  Triggers:   │      │  2. docker compose build     │  │
-│   │              │      │  - main push │      │  3. docker compose up -d     │  │
-│   │              │      │  - manual    │      │  4. Health checks            │  │
+│   │              │      │  Build on    │      │  2. docker load (pre-built)  │  │
+│   │              │      │  GHA runners │      │  3. docker compose up -d     │  │
+│   │              │      │  (parallel)  │      │  4. AI Hub: systemd restart  │  │
+│   │              │      │              │      │  5. Health checks            │  │
 │   └──────────────┘      └──────────────┘      └──────────────────────────────┘  │
 │                                                                                  │
 │   Trigger Paths:                                                                 │
 │   - services/data-fetchers/TwelveData/**                                        │
+│   - services/metrics/**                                                          │
+│   - services/ai/ai-hub/**                                                        │
+│   - services/back-office/**                                                      │
 │   - services/common/**                                                           │
 │   - deployment/vm/**                                                             │
 │   - .github/workflows/deploy-vm.yml                                              │
+│                                                                                  │
+│   Excluded (deployed via Vercel):                                                │
+│   - services/frontend/**                                                         │
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -93,20 +112,26 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │         │                                                                        │
 │         ├──► GitHub Secrets (auto-sync)                                          │
 │         │         │                                                              │
-│         │         └──► GitHub Actions ──► SSH ──► VM Environment Variables       │
+│         │         └──► GitHub Actions ──► SSH ──► VM                             │
+│         │                                          │                             │
+│         │                        start-services.sh uses Infisical CLI            │
+│         │                        (Machine Identity auth)                         │
 │         │                                                                        │
-│         └──► Vercel (auto-sync for frontend)                                     │
+│         └──► Vercel (auto-sync for frontend NEXT_PUBLIC_* vars)                  │
 │                                                                                  │
 │   Secrets Inventory:                                                             │
 │   ┌────────────────────────────────────┬───────────────────────────────────┐    │
 │   │ Secret                             │ Used By                           │    │
 │   ├────────────────────────────────────┼───────────────────────────────────┤    │
-│   │ DATABASE_CONNECTION_STRING         │ TwelveData, Metrics, AI-Hub       │    │
+│   │ DATABASE_CONNECTION_STRING         │ TwelveData, AI-Hub (local)        │    │
 │   │ TWELVE_DATA_API_KEY                │ TwelveData Worker                 │    │
+│   │ AI_HUB_API_KEY                     │ n8n, TwelveData, Metrics, Back-office │ │
+│   │ GRAFANA_CLOUD_API_KEY              │ Alloy (metrics forwarder)         │    │
+│   │ GRAFANA_CLOUD_LOKI_USER            │ Alloy (logs forwarder)            │    │
+│   │ NEXT_PUBLIC_SUPABASE_URL           │ Frontend, Back-office             │    │
+│   │ NEXT_PUBLIC_SUPABASE_PUBLISHABLE.. │ Frontend, Back-office             │    │
 │   │ VM_SSH_PRIVATE_KEY                 │ GitHub Actions                    │    │
 │   │ PAT_GITHUB                         │ Clone private repo (if needed)    │    │
-│   │ AI_KEY_...GOOGLE_GEMINI_3_FLASH    │ AI-Hub (Phase 2)                  │    │
-│   │ GOOGLE_CLOUD_PROJECT_ID            │ AI-Hub (Phase 2)                  │    │
 │   └────────────────────────────────────┴───────────────────────────────────┘    │
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -122,18 +147,29 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 | **Location** | Malaysia West |
 | **Public IP** | 20.17.176.1 |
 | **DNS** | nxserver.malaysiawest.cloudapp.azure.com |
-| **OS** | Ubuntu 22.04 LTS |
+| **OS** | Ubuntu 24.04.3 LTS |
 | **Docker** | Docker Compose v2 |
 
-## Service Ports (Internal)
+## Services
 
-| Service | Port | Notes |
-|---------|------|-------|
-| Caddy | 80, 443, 2019 | 2019 is admin API |
-| n8n | 5678 | Internal only |
-| TwelveData | 8080 | Internal only |
-| Metrics | 8080 | Phase 2 |
-| AI-Hub | 8080 | Phase 2 |
+### Docker Containers
+
+| Service | Port | Caddy Route | Description |
+|---------|------|-------------|-------------|
+| Caddy | 80, 443, 2019 | — | Reverse proxy (2019 = admin API) |
+| n8n | 5678 | `/` (default) | Workflow automation |
+| TwelveData | 8080 | `/api/twelvedata/*` | Stock data worker |
+| Metrics | 8080 | `/api/metrics/*` | Metrics aggregation |
+| Back-office | 3000 | `/back-office*` | Admin UI |
+| Alloy | 12345 | — (internal) | Metrics/logs forwarder to Grafana Cloud |
+
+### Host Service (systemd)
+
+| Service | Port | Access | Description |
+|---------|------|--------|-------------|
+| AI Hub | 8084 | Internal only | AI CLI gateway (claude, cursor-agent) |
+
+**Why AI Hub runs on host**: Needs direct access to CLIs (claude, cursor-agent) installed on the VM. Docker containers access it via `host.docker.internal:8084` with `X-API-Key` header.
 
 ## File Structure on VM
 
@@ -141,39 +177,85 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 /opt/stocktracker/
 ├── docker-compose.yml      # Synced from repo
 ├── Caddyfile               # Synced from repo
+├── alloy-config.alloy      # Synced from repo (Grafana Alloy config)
+├── ai-hub-venv/            # Python venv for AI Hub (cached by requirements hash)
+├── config/                 # Infisical auth config (Machine Identity)
 ├── n8n-data/               # n8n persistent data
 ├── logs/                   # Job logs
 ├── scripts/
-│   ├── setup.sh            # Initial setup
-│   └── run-twelvedata.sh   # Cron job script
+│   ├── setup.sh            # Initial VM setup
+│   ├── start-services.sh   # Docker compose with Infisical injection
+│   ├── start-ai-hub.sh     # AI Hub startup script
+│   ├── ai-hub.service      # Systemd unit file
+│   ├── run-twelvedata.sh   # Cron job script (if needed)
+│   └── weekly-cleanup.sh   # Old data cleanup
 └── repo/                   # Git clone of repository
     └── services/           # Source code
 ```
 
-## Comparison: Before vs After
+## Caddy Routes (Actual Configuration)
 
-| Aspect | Before (ACA) | After (VM) |
-|--------|--------------|------------|
-| **Hosting** | Azure Container Apps | Azure VM |
-| **Registry** | Azure Container Registry | Local Docker build |
-| **Proxy** | Azure managed | Caddy (self-managed) |
-| **SSL** | Azure managed | Let's Encrypt (auto) |
-| **Cost** | ~$30-50/month | VM cost only (~$15/month) |
-| **Scaling** | Auto (to 0) | Manual |
-| **Debugging** | Limited | Full SSH access |
-| **Scheduling** | Container Apps Job | Linux cron |
+```caddyfile
+nxserver.malaysiawest.cloudapp.azure.com {
+    # TwelveData Worker API
+    handle_path /api/twelvedata/* {
+        reverse_proxy twelvedata:8080
+    }
+    
+    # Metrics Service API
+    handle_path /api/metrics/* {
+        reverse_proxy metrics:8080
+    }
+    
+    # Back Office - Admin UI
+    handle /back-office* {
+        reverse_proxy back-office:3000
+    }
+    
+    # n8n - Default (root path)
+    handle {
+        reverse_proxy n8n:5678
+    }
+}
 
-## Health Check URLs
+# NOTE: AI Hub is NOT exposed via Caddy
+# Internal access only: host.docker.internal:8084
+```
 
-| Service | URL | Expected |
-|---------|-----|----------|
-| n8n | https://nxserver.malaysiawest.cloudapp.azure.com/ | 200 or login page |
-| TwelveData | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live | `Healthy` |
+## Public URLs
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| n8n | https://nxserver.malaysiawest.cloudapp.azure.com/ | Workflow automation |
+| TwelveData Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger | API docs |
+| TwelveData Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live | Health check |
+| Metrics Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger | API docs |
+| Metrics Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live | Health check |
+| Back Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ | Admin UI |
+| AI Hub | localhost:8084 (via SSH) | Internal only |
+
+## Health Check Commands
+
+```bash
+# From local machine (via SSH)
+ssh azureuser@20.17.176.1 "curl -sf http://localhost:8084/health/live"  # AI Hub
+
+# Public endpoints
+curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live
+curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live
+curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/
+
+# Docker container status
+ssh azureuser@20.17.176.1 "docker ps"
+
+# AI Hub systemd status
+ssh azureuser@20.17.176.1 "sudo systemctl status ai-hub"
+```
 
 ## Related Documents
 
-- [Migration History](./2025-12-27-full-vm-migration-from-container-apps.md)
-- [Worker Endpoints](../cli/caddy/worker-endpoints.md)
-- [Phase 2 TODO](../todo/phase-2-vm-services.md)
-- [Infrastructure Reference](infrastructure-reference.md)
-
+- [Core Context](../rules/core-context.md) - Project overview and tech stack
+- [CI/CD Deployment](../rules/cicd-deployment.md) - Pipeline details
+- [Secrets Management](../rules/secrets-infisical.md) - Infisical workflow
+- [AI Hub Architecture](ai-hub-architecture.md) - AI service details
+- [Worker Endpoints](../cli/caddy/worker-endpoints.md) - Caddy routes reference

@@ -29,7 +29,7 @@ Centralized Python FastAPI service acting as gateway between microservices and A
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                    AI Hub Service (systemd on HOST)                      │
-│                    Port: 8084 (accessible via Caddy at /api/ai-hub)     │
+│                    Port: 8084 (internal only - NOT exposed via Caddy)  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  /api/chat → CLI Executor → Direct CLI Call → Response Verifier         │
 │       │                                                                  │
