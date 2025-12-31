@@ -110,6 +110,30 @@ curl -sf .../back-office/
 
 **Impact**: Services often start in 10-20s. Saves 25-35s vs fixed 45s sleep.
 
+## Docker Image Loading
+
+When loading Docker images on the VM, use **explicit service names** instead of glob patterns:
+
+```bash
+# CORRECT: Explicit service names
+for NAME in twelvedata metrics back-office; do
+  img="/tmp/${NAME}.tar.gz"
+  if [ -f "$img" ]; then
+    gunzip -c "$img" | docker load
+    rm "$img"
+  fi
+done
+
+# WRONG: Glob pattern (may pick up unrelated files)
+for img in /tmp/*.tar.gz; do  # DON'T DO THIS
+  ...
+done
+```
+
+**Why**: The `/tmp/` directory may contain other `.tar.gz` files (e.g., `grafanactl`, system packages) that are NOT Docker images.
+
+---
+
 ## Fallback Strategy
 
 If GitHub Actions builds fail, the pipeline automatically falls back to building on VM:
