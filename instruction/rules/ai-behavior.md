@@ -44,7 +44,8 @@ When generating a new plan (using `create_plan` tool):
 ```
 1. [Actual work items...]
 2. [More work items...]
-3. Update skills and rules documentation  ← ALWAYS LAST
+3. Update skills and rules documentation
+4. Git commit and verify success  ← ALWAYS LAST
 ```
 
 ---
@@ -65,6 +66,67 @@ I notice we made changes that may affect documentation:
 Should I invoke rules-keeper to update affected rules?
 1. Yes
 2. No
+3. Or type your own answer
+```
+
+---
+
+## Git Commit Verification
+
+After completing skills/rules updates, verify changes are committed:
+
+### Workflow
+
+```
+Skills/Rules update complete
+       │
+       ├── 1. Commit changes to git
+       │      └── git add . && git commit -m "<message>"
+       │
+       ├── 2. Verify commit success
+       │      ├── SUCCESS → Done ✅
+       │      └── FAILURE → Go to step 3
+       │
+       ├── 3. Diagnose and fix the issue
+       │      ├── Check error message
+       │      ├── Fix the problem (lint errors, conflicts, etc.)
+       │      └── Return to step 1
+       │
+       └── 4. If fixes were made (step 3 triggered):
+              └── Re-check if skills/rules need updating
+                  (fixes may have introduced new patterns or conventions)
+```
+
+### Commit Message Format
+
+```
+docs: update skills and rules documentation
+
+- Updated [specific files]
+- [Reason for update]
+```
+
+### Error Handling
+
+| Error Type | Action |
+|------------|--------|
+| Lint errors | Fix linting issues, re-commit |
+| Merge conflicts | Resolve conflicts, re-commit |
+| Pre-commit hook failure | Address hook requirements, re-commit |
+| No changes to commit | Skip commit (already up to date) |
+
+### Re-check Documentation
+
+If fixes were required (step 3 was triggered), always ask:
+
+```
+I had to fix issues before the commit succeeded:
+- [List of fixes made]
+
+These fixes may require documentation updates.
+Should I re-check if skills/rules need updating?
+1. Yes, re-check documentation
+2. No, the fixes were minor
 3. Or type your own answer
 ```
 

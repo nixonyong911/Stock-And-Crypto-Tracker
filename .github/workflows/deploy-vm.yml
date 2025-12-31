@@ -296,9 +296,10 @@ jobs:
           set -e
           echo "📥 Loading Docker images..."
           
-          for img in /tmp/*.tar.gz; do
+          # Only load our specific service images (not other .tar.gz files in /tmp)
+          for NAME in twelvedata metrics back-office; do
+            img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
-              NAME=$(basename "$img" .tar.gz)
               echo "Loading $NAME..."
               gunzip -c "$img" | docker load
               rm "$img"

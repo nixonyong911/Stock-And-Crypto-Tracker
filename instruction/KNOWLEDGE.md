@@ -26,6 +26,7 @@
 | 2025-12-31 | Reorganized instruction/: rules = project LAWS (always applied), skills = lazy-loaded (on-demand) |
 | 2025-12-31 | CLI docs migrated to skills/cli-*/SKILL.md format for on-demand loading |
 | 2025-12-31 | Created rules-keeper skill for auto-updating rules when code changes |
+| 2025-12-31 | CI/CD fix: Docker image loading must use explicit filenames, not `/tmp/*.tar.gz` glob (prevents loading unrelated tarballs) |
 | 2025-12-30 | PostgreSQL TIME columns map to `TimeSpan` in C# with Dapper (not `TimeOnly`) |
 | 2025-12-30 | Next.js `NEXT_PUBLIC_*` env vars must be available at build time (use Docker build args) |
 | 2025-12-30 | Next.js `basePath` handles prefixing automatically - don't manually prefix links |
