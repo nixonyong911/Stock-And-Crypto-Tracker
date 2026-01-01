@@ -1,6 +1,6 @@
 ---
 name: worker-requirements
-description: Project standard for workers - defines requirements for creating new workers AND reviewing/maintaining existing workers. Covers API endpoints, database, metrics, Grafana dashboard, CI/CD pipeline, and deployment verification.
+description: Comprehensive guide for .NET worker microservices in the Stock Tracker system. When Claude needs to work with workers (data-fetchers, analysis) for: (1) Creating new workers with health endpoints, metrics, and CI/CD integration, (2) Reviewing existing workers for project compliance, (3) Troubleshooting worker deployment or configuration issues, or (4) Adding workers to the Docker/Caddy/pipeline infrastructure.
 triggers:
   - "create new worker"
   - "add new worker"
