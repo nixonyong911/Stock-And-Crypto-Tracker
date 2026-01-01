@@ -399,6 +399,9 @@ jobs:
           cd $DEPLOY_PATH
           ./scripts/start-services.sh up -d
           
+          echo "=== Reloading Caddy config ==="
+          docker exec caddy caddy reload --config /etc/caddy/Caddyfile || docker restart caddy
+          
           echo "=== Cleanup old images ==="
           docker image prune -f
           
