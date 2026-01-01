@@ -31,5 +31,6 @@ The project now uses:
 
 See active documentation at:
 - [VM Deployment Architecture](../architecture/vm-deployment-architecture.md)
-- [Infrastructure Reference](../architecture/infrastructure-reference.md)
+- [Infrastructure Config](../reference/infrastructure-config.md) - VM details, ports, service URLs
 - [Infisical Secrets Management](../architecture/infisical-secrets-management.md)
+- [CI/CD Deployment](../rules/cicd-deployment.md)

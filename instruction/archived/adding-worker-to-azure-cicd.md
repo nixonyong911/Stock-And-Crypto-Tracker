@@ -1,11 +1,13 @@
 # Adding a Worker to Azure Container Apps CI/CD (ARCHIVED)
 
 > **DEPRECATED**: This document is archived for historical reference only.
-> 
+>
 > As of December 27, 2025, all backend services have been migrated from Azure Container Apps to an Azure VM.
 > The CI/CD pipeline now deploys directly to the VM via SSH.
-> 
-> For adding new workers, see: [VM Deployment Architecture](../../../architecture/vm-deployment-architecture.md)
+>
+> For adding new workers, see:
+> - [Data-Fetcher Skill](../skills/data-fetcher/SKILL.md)
+> - [CI/CD Deployment](../rules/cicd-deployment.md)
 
 ---
 
