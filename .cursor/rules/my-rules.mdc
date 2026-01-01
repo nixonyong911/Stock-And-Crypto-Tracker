@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+-when i say worker, i mean services in /services/workers

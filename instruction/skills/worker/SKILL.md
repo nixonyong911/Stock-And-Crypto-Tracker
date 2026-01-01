@@ -1,7 +1,6 @@
 ---
 name: worker-requirements
-description: Comprehensive guide for .NET worker microservices in the Stock Tracker system. When Claude needs to work with workers (data-fetchers, analysis) for: (1) Creating new workers with health endpoints, metrics, and CI/CD integration, (2) Reviewing existing workers for project compliance, (3) Troubleshooting worker deployment or configuration issues, or (4) Adding workers to the Docker/Caddy/pipeline infrastructure.
-triggers:
+description: Comprehensive guide for workers (/services/workers). For: (1) Creating new workers (2) Reviewing existing workers for project compliance, (3) Troubleshooting worker deployment or configuration issues, or (4) Adding new workers 
   - "create new worker"
   - "add new worker"
   - "new data fetcher"
@@ -11,13 +10,16 @@ triggers:
   - "worker compliance"
   - "check worker"
   - "worker standard"
+  - "lets add a new worker"
+  - "lets create a new data-fetcher"
+  - "lets create a new analsis" 
 ---
 
 # Worker Requirements
 
 ## Overview
 
-This skill defines the **project standard** for all workers in the Stock Tracker system. Use this for:
+This skill defines the **project standard** for all workers in the project. Use this for:
 - **Creating new workers** - Follow the step-by-step guide
 - **Reviewing existing workers** - Use the compliance checklist
 - **Maintaining workers** - Reference requirements during updates
