@@ -19,6 +19,10 @@ This skill guides you through creating a new data-fetcher worker that:
 - Can be configured without rebuilds
 - Follows established patterns
 
+**For detailed patterns, code examples, and verification commands**: See [Data-Fetcher Patterns Reference](../../reference/data-fetcher-patterns.md)
+
+---
+
 ## Prerequisites
 
 Before starting, ensure access to:
@@ -30,153 +34,74 @@ Before starting, ensure access to:
 
 ---
 
+## High-Level Workflow
+
+```
+1. API Endpoints     → Implement required REST endpoints
+2. Database Setup    → Register worker, data source, schedule
+3. Metrics          → Emit standard Prometheus metrics
+4. Grafana          → Create monitoring dashboard
+5. Infrastructure   → Configure Caddy, Docker, secrets, CI/CD
+6. Documentation    → Update relevant docs
+7. Verification     → Test pre and post deployment
+```
+
+---
+
 ## Step 1: Create API Endpoints
 
-Every data-fetcher MUST implement these endpoints:
+Every data-fetcher MUST implement:
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/health/live` | GET | Liveness probe (returns 200 if running) |
-| `/health/ready` | GET | Readiness check (returns 200 if DB connected) |
-| `/api/fetch/status` | GET | Worker config and status |
-| `/api/fetch/trigger/{symbol}` | POST | Manual single-symbol fetch |
-| `/api/fetch/trigger/all` | POST | Manual batch fetch |
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /health/live` | Liveness probe (200 if running) |
+| `GET /health/ready` | Readiness check (200 if DB connected) |
+| `GET /api/fetch/status` | Worker config and current status |
+| `POST /api/fetch/trigger/{symbol}` | Manual single-symbol fetch |
+| `POST /api/fetch/trigger/all` | Manual batch fetch |
 
-### Response DTOs
-
-```csharp
-// Status Response
-{
-    "service": "YourWorker Stock Fetcher",
-    "status": "Running",
-    "defaultConfig": {
-        "fetchDate": "yesterday",
-        "interval": "15min",
-        "exchange": "NASDAQ"
-    }
-}
-
-// Fetch Response
-{
-    "success": true,
-    "message": "Fetched 26 records for symbol AAPL",
-    "symbol": "AAPL",
-    "date": "2025-12-26",
-    "recordsInserted": 26
-}
-
-// Batch Fetch Response
-{
-    "success": true,
-    "successCount": 8,
-    "failedCount": 0,
-    "totalRecordsInserted": 208,
-    "results": [{"symbol": "AAPL", "success": true, "recordsInserted": 26}]
-}
-```
+**See response DTOs and examples**: [Data-Fetcher Patterns - API Endpoints](../../reference/data-fetcher-patterns.md#required-api-endpoints)
 
 ---
 
 ## Step 2: Database Registration
 
-### 2.1 Register in `worker_registry`
+Register the worker in three tables:
 
-```sql
-INSERT INTO worker_registry (
-    name, display_name, description, service_type, 
-    health_endpoint, status_endpoint, config_schema
-)
-VALUES (
-    'yourworker',
-    'YourWorker Stock Fetcher',
-    'Fetches stock data from YourWorker API',
-    'data-fetcher',
-    '/api/yourworker/health/live',
-    '/api/yourworker/api/fetch/status',
-    '{
-        "schedule": {
-            "properties": {
-                "schedule_time_utc": {"type": "time", "label": "Schedule Time (UTC)"},
-                "is_enabled": {"type": "boolean", "label": "Enabled"}
-            }
-        },
-        "fetch_config": {
-            "properties": {
-                "exchange": {"type": "select", "options": ["NASDAQ", "NYSE"]},
-                "interval": {"type": "select", "options": ["15min", "30min", "1h", "1day"]}
-            }
-        },
-        "grafana_panels": [
-            {"name": "Worker Status", "panelId": "1", "dashboardUid": "yourworker-details"}
-        ]
-    }'::jsonb
-);
-```
+1. **`worker_registry`** - Worker metadata and UI config schema
+2. **`data_sources`** - External API URL and description
+3. **`fetch_schedules`** - Cron schedule and fetch configuration
 
-### 2.2 Create Data Source
-
-```sql
-INSERT INTO data_sources (name, api_url, description)
-VALUES ('YourWorker', 'https://api.yourworker.com/v1', 'YourWorker API');
-```
-
-### 2.3 Create Fetch Schedule
-
-```sql
-INSERT INTO fetch_schedules (
-    data_source_id, name, description, schedule_time_utc, is_enabled, fetch_config
-)
-VALUES (
-    (SELECT id FROM data_sources WHERE name = 'YourWorker'),
-    'YourWorker Daily Stocks',
-    'Daily fetch at market close',
-    '22:00:00',
-    true,
-    '{"interval": "15min", "outputSize": 30, "exchange": "NASDAQ"}'::jsonb
-);
-```
+**See SQL templates**: [Data-Fetcher Patterns - Database Registration](../../reference/data-fetcher-patterns.md#database-registration-pattern)
 
 ---
 
 ## Step 3: Implement Metrics
 
-Use `IMetricsClient` from `StockTracker.Common`:
+Use `IMetricsClient` from `StockTracker.Common` to emit standard metrics:
 
 | Metric | Type | Purpose |
 |--------|------|---------|
-| `worker_up` | gauge | 1 if running |
+| `worker_up` | gauge | Health indicator |
 | `worker_info` | gauge | Version metadata |
-| `fetch_operations_total` | counter | Fetch attempts |
-| `fetch_errors_total` | counter | Error breakdown |
-| `fetch_duration_seconds` | histogram | API latency |
-| `records_inserted_total` | counter | Data volume |
+| `fetch_operations_total` | counter | Fetch attempts (labeled by status) |
+| `fetch_errors_total` | counter | Error counts (labeled by type) |
+| `fetch_duration_seconds` | histogram | API latency distribution |
+| `records_inserted_total` | counter | Data volume tracking |
 
-```csharp
-// On worker start
-await _metrics.SetGaugeAsync("worker_up", 1);
-await _metrics.SetGaugeAsync("worker_info", 1, new Dictionary<string, string>
-{
-    ["version"] = "1.0.0",
-    ["worker_name"] = "yourworker"
-});
-
-// On successful fetch
-await _metrics.IncrementCounterAsync("fetch_operations_total", 1,
-    new Dictionary<string, string> { ["symbol"] = symbol, ["status"] = "success" });
-```
+**See code examples**: [Data-Fetcher Patterns - Metrics Implementation](../../reference/data-fetcher-patterns.md#metrics-implementation-pattern)
 
 ---
 
 ## Step 4: Create Grafana Dashboard
 
-Create `grafana/dashboards/yourworker-details.json` with panels:
+Create `grafana/dashboards/yourworker-details.json` with standard panels:
+- Worker Status (up/down)
+- Fetch Operations Rate
+- Error Rate Percentage
+- Records Inserted Over Time
 
-| Panel | Type | Query |
-|-------|------|-------|
-| Worker Status | Stat | `yourworker_worker_up` |
-| Fetch Operations | Time series | `rate(yourworker_fetch_operations_total[5m])` |
-| Error Rate | Gauge | `rate(errors) / rate(operations) * 100` |
-| Records Inserted | Time series | `increase(yourworker_records_inserted_total[1h])` |
+**See panel queries**: [Data-Fetcher Patterns - Grafana Dashboard](../../reference/data-fetcher-patterns.md#grafana-dashboard-pattern)
 
 ---
 
@@ -184,7 +109,7 @@ Create `grafana/dashboards/yourworker-details.json` with panels:
 
 ### 5.1 Caddy Route
 
-Add to `deployment/vm/Caddyfile`:
+Add reverse proxy route to `deployment/vm/Caddyfile`:
 
 ```
 handle_path /api/yourworker/* {
@@ -192,94 +117,89 @@ handle_path /api/yourworker/* {
 }
 ```
 
-### 5.2 Docker Compose
+### 5.2 Docker Compose Service
 
-Add to `deployment/vm/docker-compose.yml`:
-
-```yaml
-yourworker:
-  build:
-    context: ./repo/services
-    dockerfile: data-fetchers/YourWorker/Dockerfile
-  container_name: yourworker
-  restart: unless-stopped
-  networks:
-    - stock-tracker
-  environment:
-    - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
-    - YourWorker__ApiKey=${YOUR_WORKER_API_KEY}
-    - Metrics__ServiceUrl=http://metrics:8080
-    - ASPNETCORE_URLS=http://+:8080
-    - PATH_BASE=/api/yourworker
-  healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
-    interval: 30s
-    timeout: 10s
-    retries: 3
-```
+Add service to `deployment/vm/docker-compose.yml` with:
+- Build context pointing to your Dockerfile
+- Environment variables (DB connection, API keys, metrics URL, PATH_BASE)
+- Health check using `/health/live` endpoint
+- Network: `stock-tracker`
 
 ### 5.3 Secrets (Infisical)
 
-Add to Infisical `prod` environment:
-- `YOUR_WORKER_API_KEY`
-- Any other API credentials
+Add API keys and credentials to Infisical `prod` environment.
 
 ### 5.4 CI/CD Trigger
 
-Add to `.github/workflows/deploy-vm.yml`:
-
+Add path trigger to `.github/workflows/deploy-vm.yml`:
 ```yaml
 paths:
   - 'services/data-fetchers/YourWorker/**'
 ```
 
+**See full templates**: [Data-Fetcher Patterns - Infrastructure Setup](../../reference/data-fetcher-patterns.md#infrastructure-setup-pattern)
+
 ---
 
 ## Step 6: Documentation Updates
 
-- [ ] Update `instruction/skills/cli-caddy/SKILL.md`
-- [ ] Update `services/data-fetchers/README.md`
-- [ ] Create `services/data-fetchers/YourWorker/README.md`
+Update these files to include your new worker:
+- [ ] `instruction/skills/cli-caddy/SKILL.md` - Add new route
+- [ ] `services/data-fetchers/README.md` - List new worker
+- [ ] `services/data-fetchers/YourWorker/README.md` - Create worker-specific docs
 
 ---
 
 ## Step 7: Verification
 
-### Pre-Deployment
+### Pre-Deployment Checklist
 
 - [ ] Worker builds successfully
-- [ ] Health endpoints respond
-- [ ] Fetch endpoints work
-- [ ] Metrics are emitted
+- [ ] Health endpoints respond (200 OK)
+- [ ] Fetch endpoints work with test data
+- [ ] Metrics are emitted to Metrics service
+- [ ] Database entries created (worker_registry, data_sources, fetch_schedules)
 
-### Post-Deployment
+### Post-Deployment Testing
 
 ```bash
-# Check container
-ssh-azure "docker ps | grep yourworker"
-
-# Check health
+# Quick health check
 curl https://nxserver.malaysiawest.cloudapp.azure.com/api/yourworker/health/live
 
-# Test fetch
+# Test single symbol fetch
 curl -X POST https://nxserver.malaysiawest.cloudapp.azure.com/api/yourworker/api/fetch/trigger/AAPL
 
-# Verify in back-office
+# Verify in back-office UI
 # Navigate to /back-office/data-fetchers
 ```
 
-### Database Verification
+**See full verification commands and SQL queries**: [Data-Fetcher Patterns - Verification](../../reference/data-fetcher-patterns.md#verification-checklist)
 
-```sql
-SELECT * FROM worker_registry WHERE name = 'yourworker';
-SELECT * FROM fetch_schedules WHERE name LIKE '%YourWorker%';
-```
+---
+
+## Common Pitfalls
+
+1. **Forgot PATH_BASE** - Causes 404 errors in Docker
+   - Solution: Add `PATH_BASE=/api/yourworker` environment variable
+
+2. **Metrics not appearing** - Worker metrics isolated
+   - Solution: Ensure `Metrics__ServiceUrl=http://metrics:8080` is set
+
+3. **Health checks failing** - Caddy strips path prefix
+   - Solution: Use `handle_path` instead of `handle` in Caddyfile
+
+4. **Database connection timeout** - Async without ConfigureAwait
+   - Solution: Use `ConfigureAwait(false)` in library code
+
+5. **Back-office not discovering worker** - Missing worker_registry entry
+   - Solution: Verify `worker_registry` SQL was executed
 
 ---
 
 ## Related
 
-- [Data-Fetcher Architecture](../../architecture/data-fetcher-backoffice-integration.md)
-- [Metrics Specification](../../reference/metrics-specification.md)
-- [Infisical Secrets](../../architecture/infisical-secrets-management.md)
-
+- [Data-Fetcher Patterns Reference](../../reference/data-fetcher-patterns.md) - Full patterns and examples
+- [Data-Fetcher Architecture](../../architecture/data-fetcher-backoffice-integration.md) - System design
+- [Metrics Specification](../../reference/metrics-specification.md) - Metrics naming and labels
+- [Infrastructure Config](../../reference/infrastructure-config.md) - VM and service details
+- [Infisical Secrets Management](../../architecture/infisical-secrets-management.md) - Secret handling

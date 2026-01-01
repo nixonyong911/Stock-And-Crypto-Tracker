@@ -232,3 +232,40 @@ Push to main branch with changes in trigger paths.
 | Baseline (before optimization) | ~8-12 min |
 
 **Improvement**: 60-70% faster than original pipeline.
+
+---
+
+## Docker Build Context Notes
+
+### Context Paths: GitHub Actions vs VM
+
+The Docker build context path differs between GitHub Actions and VM deployment:
+
+| Environment | Context Path | Reason |
+|-------------|--------------|--------|
+| **GitHub Actions** | `context: services/` | Runs from repository root |
+| **VM docker-compose** | `context: ./repo/services` | docker-compose.yml is in `deployment/vm/`, repo cloned to `./repo/` |
+
+**GitHub Actions Example** (`.github/workflows/deploy-vm.yml`):
+```yaml
+- name: Build YourWorker image
+  uses: docker/build-push-action@v5
+  with:
+    context: services/                           # ← Relative to repo root
+    file: services/data-fetchers/YourWorker/Dockerfile
+```
+
+**VM docker-compose Example** (`deployment/vm/docker-compose.yml`):
+```yaml
+yourworker:
+  build:
+    context: ./repo/services                     # ← Relative to docker-compose.yml location
+    dockerfile: data-fetchers/YourWorker/Dockerfile
+```
+
+### Why This Matters
+
+1. **GitHub Actions**: The workflow file is at `.github/workflows/` and the context is relative to the repository root (where the workflow runs)
+2. **VM**: The `docker-compose.yml` file is at `deployment/vm/` and the repository is cloned to `/opt/stocktracker/repo/`, so the context is `./repo/services`
+
+**Key Takeaway**: Always use the correct context path for your environment. The Dockerfile path remains the same in both cases (relative to the context).
