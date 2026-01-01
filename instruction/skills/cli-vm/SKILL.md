@@ -1,8 +1,23 @@
+---
+name: cli-vm
+description: Azure VM connection, Docker commands, service health checks, and AI Hub management. Use when checking VM status or managing services.
+triggers:
+  - "check vm"
+  - "connect to vm"
+  - "vm status"
+  - "ssh azure"
+  - "check services"
+---
+
 # Azure VM Operations
 
-When user asks to "check VM", "connect to VM", "check services", or similar:
+## Overview
 
-> **📚 Infrastructure Reference**: See [Infrastructure Configuration](../reference/infrastructure-config.md) for comprehensive VM details, ports, and service endpoints.
+Commands and references for managing the Azure VM that hosts backend services.
+
+> **Infrastructure Reference**: See [Infrastructure Configuration](../../reference/infrastructure-config.md) for comprehensive VM details, ports, and service endpoints.
+
+---
 
 ## VM Details
 
@@ -15,7 +30,9 @@ When user asks to "check VM", "connect to VM", "check services", or similar:
 | Deploy Path | `/opt/stocktracker` |
 | Services | Caddy, n8n, TwelveData, Metrics, Back-office, Alloy, AI Hub |
 
-> **Note**: These values are centralized in [Infrastructure Configuration](../reference/infrastructure-config.md). If infrastructure changes, update that file first.
+> **Note**: These values are centralized in [Infrastructure Configuration](../../reference/infrastructure-config.md). If infrastructure changes, update that file first.
+
+---
 
 ## Direct SSH Commands (Preferred for AI)
 
@@ -33,6 +50,8 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 
 **Fallback**: If direct SSH fails, use `ssh-azure` for interactive session.
 
+---
+
 ## Common Docker Commands (Inside VM)
 
 | Command | Purpose |
@@ -42,6 +61,8 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 | `docker compose logs -f` | Follow all logs |
 | `docker compose up -d --build <service>` | Rebuild and restart |
 
+---
+
 ## AI Hub Commands (systemd service)
 
 | Command | Purpose |
@@ -50,6 +71,8 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 | `sudo systemctl restart ai-hub` | Restart AI Hub |
 | `journalctl -u ai-hub -f` | Follow AI Hub logs |
 | `journalctl -u ai-hub --since "10 min ago"` | Recent logs |
+
+---
 
 ## Service URLs
 
@@ -63,9 +86,12 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 | Back Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ |
 | AI Hub Health | localhost:8084/health/live (via SSH only) |
 
+---
+
 ## Key Commands
 
 ### EF Migrations
+
 ```powershell
 cd services/common/StockTracker.Data.Migrations
 dotnet run -- migrate     # Apply migrations
@@ -74,6 +100,7 @@ dotnet ef migrations add <Name>  # New migration
 ```
 
 ### Docker (Local with Infisical)
+
 ```powershell
 # Inject secrets from Infisical and run docker-compose
 infisical run --env=prod -- docker-compose up -d
@@ -81,7 +108,17 @@ docker-compose logs -f
 ```
 
 ### VM Deployment (Manual)
+
 ```powershell
 # SSH and restart services
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd /opt/stocktracker && ./scripts/start-services.sh up -d"
 ```
+
+---
+
+## Related
+
+- [Infrastructure Configuration](../../reference/infrastructure-config.md) - Full VM details
+- [cli-docker](../cli-docker/SKILL.md) - Docker commands
+- [cli-powershell](../cli-powershell/SKILL.md) - PowerShell functions including ssh-azure
+

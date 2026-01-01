@@ -1,7 +1,7 @@
 # Project Knowledge State
 
 **Last Updated**: 2026-01-01
-**Updated By**: Candlestick Analysis Worker Implementation
+**Updated By**: Rules to Skills Migration
 
 ---
 
@@ -25,6 +25,7 @@
 
 | Date | Learning |
 |------|----------|
+| 2026-01-01 | Migrated 3 procedural rules to skills: cli-vm, task-workflow, doc-archiver (~680 lines reduced from rules) |
 | 2026-01-01 | Candlestick Analysis Worker: aggregates 15-min candles to daily, detects 8 single-candle patterns |
 | 2026-01-01 | Database migrations via Supabase MCP `apply_migration` (not EF Core history table) |
 | 2025-12-31 | Reorganized instruction/: rules = project LAWS (always applied), skills = lazy-loaded (on-demand) |
@@ -59,11 +60,14 @@
 | [skill-creator](skills/skill-creator/SKILL.md) | "create skill", "new skill" | Creating new spec-compliant skills |
 | [rules-keeper](skills/rules-keeper/SKILL.md) | "update rules", "architecture changed" | Updating rules when code changes |
 | [data-fetcher](skills/data-fetcher/SKILL.md) | "new worker", "new data fetcher" | Creating new data-fetcher workers |
+| [task-workflow](skills/task-workflow/SKILL.md) | "manage tasks", "complete task" | Task lifecycle management |
+| [doc-archiver](skills/doc-archiver/SKILL.md) | "deprecate doc", "archive docs" | Documentation deprecation workflow |
 
 ### CLI Skills (Lazy-Loaded)
 
 | Skill | Triggers | Use When |
 |-------|----------|----------|
+| [cli-vm](skills/cli-vm/SKILL.md) | "check vm", "ssh azure" | VM connection and service management |
 | [cli-docker](skills/cli-docker/SKILL.md) | "docker commands" | Managing containers |
 | [cli-caddy](skills/cli-caddy/SKILL.md) | "worker endpoints", "caddy routes" | Service URLs, proxy config |
 | [cli-grafana](skills/cli-grafana/SKILL.md) | "grafana cli", "export dashboard" | Managing Grafana dashboards |
