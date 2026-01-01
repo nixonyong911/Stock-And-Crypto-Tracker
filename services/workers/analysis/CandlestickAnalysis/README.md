@@ -51,7 +51,7 @@ The worker reads its schedule from `fetch_schedules` table via `data_sources.nam
 ## Local Development
 
 ```bash
-cd services/analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker
+cd services/workers/analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker
 dotnet run
 ```
 

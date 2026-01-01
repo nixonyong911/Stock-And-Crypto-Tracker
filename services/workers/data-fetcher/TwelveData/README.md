@@ -124,7 +124,7 @@ VALUES
 ## Running Locally
 
 ```bash
-cd services/data-fetchers/TwelveData/src/TwelveData.Worker
+cd services/workers/data-fetcher/TwelveData/src/TwelveData.Worker
 
 # Set environment variables
 export TWELVE_DATA_API_KEY=your_api_key

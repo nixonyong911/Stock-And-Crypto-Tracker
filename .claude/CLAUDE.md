@@ -20,7 +20,7 @@ Microservices-based stock and cryptocurrency tracker:
 infisical run --env=prod -- docker-compose up -d
 
 # .NET worker (e.g., TwelveData)
-cd services/data-fetchers/TwelveData
+cd services/workers/data-fetcher/TwelveData
 dotnet restore && dotnet run --project src/TwelveData.Worker
 
 # Metrics Service
@@ -40,7 +40,7 @@ npm install && npm run dev
 
 ```bash
 # .NET - all tests
-dotnet test services/data-fetchers/TwelveData
+dotnet test services/workers/data-fetcher/TwelveData
 
 # .NET - single test
 dotnet test --filter "FullyQualifiedName~TestMethodName"
@@ -67,8 +67,11 @@ services/
 │   ├── StockTracker.Data/        # EF Core entities & DbContext
 │   ├── StockTracker.Data.Migrations/  # Migration CLI
 │   └── StockTracker.Common/      # Shared utilities (metrics, health)
-├── data-fetchers/
-│   └── TwelveData/               # Stock data worker (Docker on VM)
+├── workers/                      # All worker services
+│   ├── data-fetcher/
+│   │   └── TwelveData/          # Stock data worker (Docker on VM)
+│   └── analysis/
+│       └── CandlestickAnalysis/ # Analysis worker (Docker on VM)
 ├── frontend/                     # Next.js public app (Vercel)
 └── metrics/                      # Metrics aggregation service
 
