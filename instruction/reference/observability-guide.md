@@ -372,6 +372,6 @@ new Dictionary<string, string> { ["status"] = "success" }
 |----------|---------|
 | [Metrics Specification](metrics-specification.md) | Standard metrics all workers should emit |
 | [Metrics Architecture](../architecture/metrics-architecture.md) | Infrastructure details |
-| [Worker Metrics Implementation](worker-metrics-implementation.md) | Detailed implementation guide |
+| [Metrics Specification](metrics-specification.md) | Detailed metrics specification |
 | [Grafana CLI](../cli/grafana/commands.md) | grafanactl commands |
 

@@ -626,5 +626,4 @@ var twelveDataApiKey = builder.Configuration["TwelveData:ApiKey"]
 - [AI Behavior Guidelines](../ai-behavior.md) - Code review checklist
 
 ### Skills
-- [Data-Fetcher Skill](../../skills/data-fetcher/SKILL.md) - Creating .NET workers
-- [Data-Fetcher Patterns](../../reference/data-fetcher-patterns.md) - Standard API, metrics, DB patterns
+- [Creating New Worker Skill](../../skills/creating-new-worker/SKILL.md) - Creating .NET workers

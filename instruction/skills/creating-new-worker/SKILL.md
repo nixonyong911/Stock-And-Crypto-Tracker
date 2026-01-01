@@ -29,6 +29,17 @@ This skill guides AI agents through creating a new worker that integrates with t
 
 ---
 
+## Prerequisites
+
+Before starting, ensure access to:
+- [ ] Supabase project (database)
+- [ ] Infisical (secrets management)
+- [ ] Azure VM (deployment target)
+- [ ] Grafana Cloud (dashboards)
+- [ ] Understanding of the external API being integrated
+
+---
+
 ## High-Level Workflow
 
 ```
@@ -224,14 +235,30 @@ Workers MUST follow:
 
 ---
 
-## Infrastructure Files to Update
+## Common Pitfalls
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| 404 errors in Docker | Missing PATH_BASE | Add `PATH_BASE=/api/yourworker` env var |
+| Metrics not appearing | Missing MetricsService URL | Set `MetricsService__BaseUrl=http://metrics:8080` |
+| Health checks failing | Wrong Caddy directive | Use `handle_path` not `handle` in Caddyfile |
+| DB connection timeout | Async deadlock | Use `ConfigureAwait(false)` in library code |
+| Back-office not discovering | Missing worker_registry | Execute worker_registry SQL |
+
+**Technical details:** [Troubleshooting Reference](references/troubleshooting/REFERENCE.md)
+
+---
+
+## Step 9: Documentation Updates
+
+After worker is deployed and verified, update:
 
 | File | Update |
 |------|--------|
 | `deployment/vm/docker-compose.yml` | Add service definition |
 | `deployment/vm/Caddyfile` | Add reverse proxy route |
 | `.github/workflows/deploy-vm.yml` | Add CI/CD triggers |
-| `instruction/KNOWLEDGE.md` | Add service URL |
+| `instruction/KNOWLEDGE.md` | **Add service URL to Quick Reference** |
 | `instruction/skills/cli-caddy/SKILL.md` | Add route reference |
 
 ---
@@ -246,6 +273,7 @@ Workers MUST follow:
 - [CI/CD Pipeline](references/cicd-pipeline/REFERENCE.md)
 - [Verification](references/verification/REFERENCE.md)
 - [Coding Standards](references/coding-standards/REFERENCE.md)
+- [Troubleshooting](references/troubleshooting/REFERENCE.md)
 
 ### Architecture & Rules
 - [Data-Fetcher Architecture](../../architecture/data-fetcher-backoffice-integration.md)

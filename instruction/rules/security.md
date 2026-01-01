@@ -505,7 +505,7 @@ Before deploying to production, verify:
 - [TypeScript Conventions](./conventions/typescript.md) - See type safety and error handling
 
 ### Skills
-- [Data-Fetcher Skill](../skills/data-fetcher/SKILL.md) - Worker creation with security best practices
+- [Creating New Worker Skill](../skills/creating-new-worker/SKILL.md) - Worker creation with security best practices
 - [CLI Infisical Skill](../skills/cli-infisical/SKILL.md) - Managing secrets via CLI
 
 ---

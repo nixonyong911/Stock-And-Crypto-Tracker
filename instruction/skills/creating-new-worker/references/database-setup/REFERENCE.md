@@ -1,6 +1,6 @@
 # Database Setup Reference
 
-## 1. Create Entity Class
+## 1. Create Entity (if needed)
 
 `services/common/StockTracker.Data/Entities/YourEntity.cs`:
 ```csharp
@@ -12,29 +12,12 @@ public class YourEntity
 }
 ```
 
-## 2. Register in DbContext
-
-`StockTrackerDbContext.cs`:
+Register in `StockTrackerDbContext.cs`:
 ```csharp
 public DbSet<YourEntity> YourEntities => Set<YourEntity>();
 ```
 
-## 3. Create Configuration
-
-`Configurations/YourEntityConfiguration.cs`:
-```csharp
-public class YourEntityConfiguration : IEntityTypeConfiguration<YourEntity>
-{
-    public void Configure(EntityTypeBuilder<YourEntity> builder)
-    {
-        builder.ToTable("your_entities");
-        builder.HasKey(e => e.Id);
-        builder.Property(e => e.CreatedAt).HasColumnName("created_at");
-    }
-}
-```
-
-## 4. Apply Migration via Supabase MCP
+## 2. Apply Migration via Supabase MCP
 
 Use `apply_migration` (NOT EF Core):
 ```sql
@@ -43,7 +26,20 @@ CREATE TABLE your_entities (
     symbol VARCHAR(10) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX ix_your_entities_symbol ON your_entities(symbol);
 ```
 
-## Related: [Database Schema](../../../../database/schema.md)
+## 3. Register Worker (for Back-Office Discovery)
+
+```sql
+INSERT INTO worker_registry (name, display_name, description, service_type,
+    health_endpoint, status_endpoint, config_schema)
+VALUES (
+    'yourworker', 'YourWorker Service', 'Description', 'data-fetcher',
+    '/api/yourworker/health/live', '/api/yourworker/api/fetch/status',
+    '{"schedule": {"properties": {"schedule_time_utc": {"type": "time"}}}}'::jsonb
+);
+```
+
+## Related
+- [Database Schema](../../../../database/schema.md)
+- [Troubleshooting](../troubleshooting/REFERENCE.md) - Back-office discovery issues

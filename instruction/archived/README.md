@@ -8,6 +8,9 @@
 
 | File | Description | Archived Date |
 |------|-------------|---------------|
+| [2026-01-02-data-fetcher-skill.md](2026-01-02-data-fetcher-skill.md) | Data-fetcher skill (replaced by creating-new-worker) | Jan 02, 2026 |
+| [2026-01-02-data-fetcher-patterns.md](2026-01-02-data-fetcher-patterns.md) | Data-fetcher patterns (distributed to references) | Jan 02, 2026 |
+| [2026-01-02-worker-metrics-implementation.md](2026-01-02-worker-metrics-implementation.md) | Worker metrics guide (merged with metrics-specification) | Jan 02, 2026 |
 | [container-apps-cli.md](container-apps-cli.md) | Azure Container Apps CLI commands | Dec 27, 2025 |
 | [adding-worker-to-azure-cicd.md](adding-worker-to-azure-cicd.md) | Guide for adding workers to Container Apps CI/CD | Dec 27, 2025 |
 | [2025-12-26-twelvedata-worker-migration-to-vm.md](2025-12-26-twelvedata-worker-migration-to-vm.md) | TwelveData migration notes | Dec 26, 2025 |

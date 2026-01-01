@@ -44,4 +44,4 @@ environment:
 ```
 
 ## Related
-- [Data-Fetcher Patterns](../../../../reference/data-fetcher-patterns.md)
+- [Verification Reference](../verification/REFERENCE.md)

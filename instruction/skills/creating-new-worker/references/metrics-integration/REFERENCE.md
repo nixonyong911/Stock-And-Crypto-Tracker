@@ -44,4 +44,4 @@ try {
 ```
 
 ## Related
-- [Worker Metrics Implementation](../../../../reference/worker-metrics-implementation.md)
+- [Metrics Specification](../../../../reference/metrics-specification.md)

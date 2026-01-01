@@ -52,7 +52,7 @@ Self-contained instructions following the [Agent Skills spec](https://agentskill
 - [knowledge-keeper](skills/knowledge-keeper/SKILL.md) - Maintain project knowledge
 - [skill-creator](skills/skill-creator/SKILL.md) - Create new spec-compliant skills
 - [rules-keeper](skills/rules-keeper/SKILL.md) - Maintain project rules when code changes
-- [data-fetcher](skills/data-fetcher/SKILL.md) - Create new data-fetcher workers
+- [creating-new-worker](skills/creating-new-worker/SKILL.md) - Create new workers
 
 **CLI Skills:**
 - [cli-docker](skills/cli-docker/SKILL.md), [cli-caddy](skills/cli-caddy/SKILL.md), [cli-grafana](skills/cli-grafana/SKILL.md), etc.
@@ -103,7 +103,7 @@ Project-wide constraints that ALL agents must follow:
 
 ### Reference
 - [Metrics Specification](reference/metrics-specification.md)
-- [Worker Metrics Implementation](reference/worker-metrics-implementation.md)
+- [Infrastructure Config](reference/infrastructure-config.md)
 
 ### Database
 - [Schema Reference](database/schema.md)
@@ -112,7 +112,7 @@ Project-wide constraints that ALL agents must follow:
 - [knowledge-keeper](skills/knowledge-keeper/SKILL.md) - Maintain project knowledge
 - [skill-creator](skills/skill-creator/SKILL.md) - Create spec-compliant skills
 - [rules-keeper](skills/rules-keeper/SKILL.md) - Update rules when code changes
-- [data-fetcher](skills/data-fetcher/SKILL.md) - Create data-fetcher workers
+- [creating-new-worker](skills/creating-new-worker/SKILL.md) - Create new workers
 
 ### Skills (CLI)
 - [cli-docker](skills/cli-docker/SKILL.md) - Docker/compose commands
@@ -142,8 +142,8 @@ When code changes affect documentation:
 
 ### Creating New Workers
 
-1. Say "Create new data fetcher for [API name]"
-2. Agent invokes `skills/data-fetcher/SKILL.md`
+1. Say "Create new worker for [API name]"
+2. Agent invokes `skills/creating-new-worker/SKILL.md`
 3. Follow the step-by-step guide
 
 ### Creating New Skills

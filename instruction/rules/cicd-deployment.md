@@ -280,5 +280,5 @@ yourworker:
 - [Infrastructure Config](../reference/infrastructure-config.md) - VM and service configuration
 
 ### Skills
-- [Data-Fetcher Skill](../skills/data-fetcher/SKILL.md) - Adding workers to CI/CD pipeline
+- [Creating New Worker Skill](../skills/creating-new-worker/SKILL.md) - Adding workers to CI/CD pipeline
 - [CLI GitHub Skill](../skills/cli-github/SKILL.md) - Working with GitHub Actions
