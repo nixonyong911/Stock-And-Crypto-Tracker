@@ -81,3 +81,5 @@ gh run cancel <run-id>
 - [cicd-deployment](../../rules/cicd-deployment.md) - CI/CD pipeline law
 - [vm-operations](../../rules/vm-operations.md) - VM operations
 
+
+
