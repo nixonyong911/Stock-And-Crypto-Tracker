@@ -619,6 +619,12 @@ var twelveDataApiKey = builder.Configuration["TwelveData:ApiKey"]
 
 ## Related Documentation
 
+### Rules
 - [Security Best Practices](../security.md)
 - [Docker Conventions](./docker.md)
 - [TypeScript Conventions](./typescript.md)
+- [AI Behavior Guidelines](../ai-behavior.md) - Code review checklist
+
+### Skills
+- [Data-Fetcher Skill](../../skills/data-fetcher/SKILL.md) - Creating .NET workers
+- [Data-Fetcher Patterns](../../reference/data-fetcher-patterns.md) - Standard API, metrics, DB patterns

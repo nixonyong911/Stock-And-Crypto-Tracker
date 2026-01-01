@@ -198,8 +198,15 @@ curl -X POST https://nxserver.malaysiawest.cloudapp.azure.com/api/yourworker/api
 
 ## Related
 
+### Reference & Architecture
 - [Data-Fetcher Patterns Reference](../../reference/data-fetcher-patterns.md) - Full patterns and examples
 - [Data-Fetcher Architecture](../../architecture/data-fetcher-backoffice-integration.md) - System design
 - [Metrics Specification](../../reference/metrics-specification.md) - Metrics naming and labels
 - [Infrastructure Config](../../reference/infrastructure-config.md) - VM and service details
 - [Infisical Secrets Management](../../architecture/infisical-secrets-management.md) - Secret handling
+
+### Rules & Conventions
+- [C# Conventions](../../rules/conventions/csharp.md) - Coding standards for .NET
+- [Docker Conventions](../../rules/conventions/docker.md) - Container best practices
+- [Security Best Practices](../../rules/security.md) - Secret management, input validation
+- [CI/CD Deployment](../../rules/cicd-deployment.md) - Adding workers to pipeline

@@ -269,3 +269,16 @@ yourworker:
 2. **VM**: The `docker-compose.yml` file is at `deployment/vm/` and the repository is cloned to `/opt/stocktracker/repo/`, so the context is `./repo/services`
 
 **Key Takeaway**: Always use the correct context path for your environment. The Dockerfile path remains the same in both cases (relative to the context).
+
+---
+
+## Related Documentation
+
+### Rules
+- [Docker Conventions](./conventions/docker.md) - Multi-stage builds, security, optimization
+- [Security Best Practices](./security.md) - Secret management in CI/CD
+- [Infrastructure Config](../reference/infrastructure-config.md) - VM and service configuration
+
+### Skills
+- [Data-Fetcher Skill](../skills/data-fetcher/SKILL.md) - Adding workers to CI/CD pipeline
+- [CLI GitHub Skill](../skills/cli-github/SKILL.md) - Working with GitHub Actions

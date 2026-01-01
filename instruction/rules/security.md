@@ -497,9 +497,16 @@ Before deploying to production, verify:
 
 ## Related Documentation
 
+### Rules
 - [Secrets Management (Infisical)](./secrets-infisical.md)
 - [CI/CD Deployment](./cicd-deployment.md)
 - [Core Context](./core-context.md)
+- [C# Conventions](./conventions/csharp.md) - See error handling and validation sections
+- [TypeScript Conventions](./conventions/typescript.md) - See type safety and error handling
+
+### Skills
+- [Data-Fetcher Skill](../skills/data-fetcher/SKILL.md) - Worker creation with security best practices
+- [CLI Infisical Skill](../skills/cli-infisical/SKILL.md) - Managing secrets via CLI
 
 ---
 
