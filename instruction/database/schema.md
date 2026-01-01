@@ -159,6 +159,79 @@ CREATE INDEX idx_crypto_prices_time ON crypto_prices(price_time);
 CREATE INDEX idx_crypto_prices_ticker_time ON crypto_prices(crypto_ticker_id, price_time);
 ```
 
+### analysis_stock_candlestick_pattern
+
+```sql
+CREATE TABLE analysis_stock_candlestick_pattern (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    stock_ticker_id INT NOT NULL REFERENCES stock_tickers(id) ON DELETE CASCADE,
+    analysis_date DATE NOT NULL,
+    
+    -- Daily aggregated candle
+    daily_open DECIMAL(18,6),
+    daily_high DECIMAL(18,6),
+    daily_low DECIMAL(18,6),
+    daily_close DECIMAL(18,6),
+    daily_volume BIGINT,
+    
+    -- Candle characteristics
+    body_size DECIMAL(18,6),
+    range_size DECIMAL(18,6),
+    upper_wick DECIMAL(18,6),
+    lower_wick DECIMAL(18,6),
+    is_bullish BOOLEAN,
+    
+    -- Detected patterns as JSONB
+    detected_patterns JSONB NOT NULL DEFAULT '[]',
+    
+    -- Metadata
+    candles_aggregated INT DEFAULT 0,
+    analysis_version VARCHAR(20) DEFAULT '1.0.0',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    UNIQUE(stock_ticker_id, analysis_date)
+);
+
+-- Indexes
+CREATE INDEX idx_analysis_candlestick_date ON analysis_stock_candlestick_pattern(analysis_date);
+CREATE INDEX idx_analysis_candlestick_ticker_date ON analysis_stock_candlestick_pattern(stock_ticker_id, analysis_date);
+CREATE INDEX idx_analysis_candlestick_patterns ON analysis_stock_candlestick_pattern USING GIN(detected_patterns);
+CREATE INDEX idx_analysis_candlestick_bullish ON analysis_stock_candlestick_pattern(analysis_date, is_bullish);
+```
+
+#### `detected_patterns` JSON Structure
+
+```json
+[
+  {
+    "pattern": "doji",
+    "confidence": 0.92,
+    "signal": "indecision",
+    "description": "Open and close nearly equal, indicates market indecision"
+  },
+  {
+    "pattern": "hammer",
+    "confidence": 0.85,
+    "signal": "bullish_reversal",
+    "description": "Small body at top with long lower shadow, bullish reversal signal"
+  }
+]
+```
+
+#### Supported Patterns
+
+| Pattern | Signal | Description |
+|---------|--------|-------------|
+| `doji` | indecision | Open and close nearly equal |
+| `long_legged_doji` | indecision | Doji with long shadows both sides |
+| `hammer` | bullish_reversal | Small body at top, long lower shadow |
+| `inverted_hammer` | bullish_reversal | Small body at bottom, long upper shadow |
+| `shooting_star` | bearish_reversal | Same shape as inverted hammer |
+| `marubozu_bullish` | strong_bullish | Full body, no shadows |
+| `marubozu_bearish` | strong_bearish | Full body, no shadows |
+| `spinning_top` | indecision | Small body, shadows both sides |
+
 ## Data Retention
 
 - **Intraday data (10-min candles)**: 90 days

@@ -10,7 +10,7 @@
 # TARGET (Phase 3): ~3-5 min (60-70% faster)
 # BEST CASE (config-only): ~1-2 min (skip all builds)
 # ===========================================
-# Services: n8n, Caddy, TwelveData, Metrics, Alloy
+# Services: n8n, Caddy, TwelveData, Metrics, Candlestick Analysis, Alloy
 # AI Hub: Runs directly on host (systemd), not Docker
 # Monitoring: Grafana Cloud (via Alloy)
 # Secrets: Injected at runtime via Infisical CLI (Machine Identity)
@@ -24,6 +24,7 @@ on:
     branches: [main]
     paths:
       - 'services/data-fetchers/TwelveData/**'
+      - 'services/analysis/**'
       - 'services/metrics/**'
       - 'services/ai/ai-hub/**'
       - 'services/back-office/**'
@@ -47,11 +48,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       twelvedata: ${{ steps.filter.outputs.twelvedata }}
+      analysis: ${{ steps.filter.outputs.analysis }}
       metrics: ${{ steps.filter.outputs.metrics }}
       backoffice: ${{ steps.filter.outputs.backoffice }}
       aihub: ${{ steps.filter.outputs.aihub }}
       config: ${{ steps.filter.outputs.config }}
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -63,6 +65,9 @@ jobs:
           filters: |
             twelvedata:
               - 'services/data-fetchers/TwelveData/**'
+              - 'services/common/**'
+            analysis:
+              - 'services/analysis/**'
               - 'services/common/**'
             metrics:
               - 'services/metrics/**'
@@ -81,6 +86,7 @@ jobs:
           echo "=== Detected Changes ==="
           echo "=========================================="
           echo "TwelveData: ${{ steps.filter.outputs.twelvedata }}"
+          echo "Analysis: ${{ steps.filter.outputs.analysis }}"
           echo "Metrics: ${{ steps.filter.outputs.metrics }}"
           echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
           echo "AI Hub: ${{ steps.filter.outputs.aihub }}"
@@ -93,6 +99,7 @@ jobs:
           echo "| Service | Changed |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|---------|" >> $GITHUB_STEP_SUMMARY
           echo "| TwelveData | ${{ steps.filter.outputs.twelvedata }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Analysis | ${{ steps.filter.outputs.analysis }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Metrics | ${{ steps.filter.outputs.metrics }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
           echo "| AI Hub | ${{ steps.filter.outputs.aihub }} |" >> $GITHUB_STEP_SUMMARY
@@ -130,6 +137,20 @@ jobs:
           cache-from: type=gha,scope=twelvedata
           cache-to: type=gha,mode=max,scope=twelvedata
           outputs: type=docker,dest=/tmp/twelvedata.tar
+
+      # Build Candlestick Analysis (only if changed or forced)
+      - name: Build Candlestick Analysis image
+        id: build-analysis
+        if: needs.detect-changes.outputs.analysis == 'true' || github.event.inputs.force_build == 'true'
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/
+          file: services/analysis/CandlestickAnalysis/Dockerfile
+          tags: candlestick-analysis:latest
+          cache-from: type=gha,scope=analysis
+          cache-to: type=gha,mode=max,scope=analysis
+          outputs: type=docker,dest=/tmp/candlestick-analysis.tar
 
       # Build Metrics (only if changed or forced)
       - name: Build Metrics image
@@ -172,6 +193,14 @@ jobs:
             echo "✅ TwelveData compressed"
           else
             echo "⏭️ TwelveData skipped (unchanged)"
+          fi
+          
+          if [ -f /tmp/candlestick-analysis.tar ]; then
+            gzip -1 < /tmp/candlestick-analysis.tar > /tmp/images/candlestick-analysis.tar.gz
+            BUILT="${BUILT}analysis,"
+            echo "✅ Candlestick Analysis compressed"
+          else
+            echo "⏭️ Candlestick Analysis skipped (unchanged)"
           fi
           
           if [ -f /tmp/metrics.tar ]; then
@@ -232,7 +261,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
             
-            for service in twelvedata metrics back-office; do
+            for service in twelvedata candlestick-analysis metrics back-office; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -298,7 +327,7 @@ jobs:
           echo "📥 Loading Docker images..."
           
           # Only load our specific service images (not other .tar.gz files in /tmp)
-          for NAME in twelvedata metrics back-office; do
+          for NAME in twelvedata candlestick-analysis metrics back-office; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -334,7 +363,7 @@ jobs:
           cd $DEPLOY_PATH
           
           echo "📦 Building Docker services on VM (fallback mode)..."
-          DOCKER_BUILDKIT=1 docker compose build twelvedata metrics back-office
+          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office
           
           echo "✅ VM build complete"
           EOF
@@ -483,6 +512,7 @@ jobs:
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/ > /dev/null && echo "✅ n8n: OK" || echo "⚠️ n8n: May need login"
           
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" "TwelveData"
+          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/health/live" "Candlestick Analysis"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live" "Metrics"
           
           # AI Hub runs on host (not exposed via Caddy) - check via SSH
@@ -510,6 +540,7 @@ jobs:
           echo "### 🔗 Service URLs" >> $GITHUB_STEP_SUMMARY
           echo "- [n8n](https://nxserver.malaysiawest.cloudapp.azure.com/)" >> $GITHUB_STEP_SUMMARY
           echo "- [TwelveData Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Candlestick Analysis Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
           echo "- AI Hub: Internal only (localhost:8084 via SSH)" >> $GITHUB_STEP_SUMMARY

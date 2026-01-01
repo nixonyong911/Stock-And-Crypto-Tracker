@@ -1,7 +1,7 @@
 # Project Knowledge State
 
 **Last Updated**: 2026-01-01
-**Updated By**: Phase 2 Documentation Security Improvements
+**Updated By**: Candlestick Analysis Worker Implementation
 
 ---
 
@@ -10,6 +10,7 @@
 | Component | Service Type | Status | Last Change | Notes |
 |-----------|--------------|--------|-------------|-------|
 | TwelveData Worker | data-fetcher | ✅ Running | 2025-12-30 | Stock data fetcher on VM (Docker) |
+| Candlestick Analysis | analysis | ⏳ Ready | 2026-01-01 | Daily candlestick pattern analyzer (Docker) |
 | n8n | workflow | ✅ Running | 2025-12-27 | Workflow automation on VM (Docker) |
 | Caddy | reverse-proxy | ✅ Running | 2025-12-27 | Auto HTTPS reverse proxy (Docker) |
 | Back-Office | frontend | ✅ Running | 2025-12-30 | Admin UI on VM (Docker) |
@@ -24,6 +25,8 @@
 
 | Date | Learning |
 |------|----------|
+| 2026-01-01 | Candlestick Analysis Worker: aggregates 15-min candles to daily, detects 8 single-candle patterns |
+| 2026-01-01 | Database migrations via Supabase MCP `apply_migration` (not EF Core history table) |
 | 2025-12-31 | Reorganized instruction/: rules = project LAWS (always applied), skills = lazy-loaded (on-demand) |
 | 2025-12-31 | CLI docs migrated to skills/cli-*/SKILL.md format for on-demand loading |
 | 2025-12-31 | Created rules-keeper skill for auto-updating rules when code changes |
@@ -81,6 +84,7 @@
 |---------|-----|
 | n8n | https://nxserver.malaysiawest.cloudapp.azure.com/ |
 | TwelveData | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger |
+| Candlestick Analysis | https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger |
 | Back-Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office |
 | Frontend | https://stock-tracker.vercel.app/ |
 

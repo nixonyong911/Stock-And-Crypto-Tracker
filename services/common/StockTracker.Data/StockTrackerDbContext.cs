@@ -35,6 +35,9 @@ public class StockTrackerDbContext : DbContext
     // AI Hub tables
     public DbSet<AiHubLog> AiHubLogs => Set<AiHubLog>();
     public DbSet<AiHubRateTracking> AiHubRateTrackings => Set<AiHubRateTracking>();
+    
+    // Analysis tables
+    public DbSet<AnalysisStockCandlestickPattern> AnalysisStockCandlestickPatterns => Set<AnalysisStockCandlestickPattern>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

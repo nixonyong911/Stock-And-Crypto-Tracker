@@ -89,6 +89,40 @@ services:
       start_period: 30s
 
   # ===========================================
+  # Candlestick Analysis Worker
+  # Swagger at: /api/analysis/swagger
+  # ===========================================
+  candlestick-analysis:
+    build:
+      context: ./repo/services
+      dockerfile: analysis/CandlestickAnalysis/Dockerfile
+    container_name: candlestick-analysis
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # Path base for reverse proxy
+      - PATH_BASE=/api/analysis
+      # Database connection
+      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      # Metrics service for pushing metrics
+      - MetricsService__BaseUrl=http://metrics:8080
+      - MetricsService__WorkerName=candlestick-analysis
+      - MetricsService__Enabled=true
+    networks:
+      - stocktracker
+    depends_on:
+      - metrics
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  # ===========================================
   # Metrics Service
   # Swagger at: /api/metrics/swagger
   # Prometheus metrics at: /metrics
@@ -142,6 +176,7 @@ services:
     depends_on:
       - metrics
       - twelvedata
+      - candlestick-analysis
 
   # ===========================================
   # AI Hub - Runs on HOST (not Docker)

@@ -32,6 +32,14 @@ nxserver.malaysiawest.cloudapp.azure.com {
         reverse_proxy metrics:8080
     }
     
+    # ===========================================
+    # Candlestick Analysis Worker API
+    # Swagger UI: /api/analysis/swagger
+    # ===========================================
+    handle_path /api/analysis/* {
+        reverse_proxy candlestick-analysis:8080
+    }
+    
     
     # ===========================================
     # Back Office - Admin & Testing UI

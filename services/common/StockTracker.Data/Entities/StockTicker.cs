@@ -19,5 +19,6 @@ public class StockTicker
     // Navigation properties
     public Universe Universe { get; set; } = null!;
     public ICollection<StockPrice> Prices { get; set; } = new List<StockPrice>();
+    public ICollection<AnalysisStockCandlestickPattern> CandlestickPatterns { get; set; } = new List<AnalysisStockCandlestickPattern>();
 }
 

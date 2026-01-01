@@ -6,6 +6,7 @@ PostgreSQL database hosted on Supabase.
 
 The database serves as the central data store:
 - **Data Fetcher Workers** (write): Store fetched stock and crypto price data
+- **Analysis Workers** (read/write): Read price data, write analysis results
 - **Frontend Service** (read): Query and display data to users
 - **AI Agents** (read): Analyze price patterns for trading signals
 
@@ -27,8 +28,11 @@ See [EF Migrations CLI](../cli/ef-migrations.md) for commands.
 | `fetch_schedules` | Worker scheduling & runtime config | Service role only |
 | `stock_tickers` | Stock/ETF master list | Read-only |
 | `crypto_tickers` | Cryptocurrency master list | Read-only |
-| `stock_prices` | 10-minute stock candles | Read-only |
-| `crypto_prices` | 10-minute crypto candles | Read-only |
+| `stock_prices` | 15-minute stock candles | Read-only |
+| `crypto_prices` | 15-minute crypto candles | Read-only |
+| `analysis_stock_candlestick_pattern` | Daily candlestick pattern analysis | Service role only |
+| `worker_registry` | Worker discovery for back-office | Service role only |
+| `worker_metrics_daily` | Daily aggregated worker metrics | Service role only |
 
 See [schema.md](schema.md) for detailed table definitions.
 
@@ -63,7 +67,19 @@ See [schema.md](schema.md) for detailed table definitions.
 │ price_time          │  │ price_time          │
 │ open/high/low/close │  │ open/high/low/close │
 │ volume              │  │ volume, market_cap  │
-└─────────────────────┘  └─────────────────────┘
+└──────────┬──────────┘  └─────────────────────┘
+           │
+           ▼
+┌────────────────────────────────────┐
+│ analysis_stock_candlestick_pattern │
+├────────────────────────────────────┤
+│ id (PK)                            │
+│ stock_ticker_id (FK)               │
+│ analysis_date                      │
+│ daily_open/high/low/close/volume   │
+│ body_size, range_size, wicks       │
+│ detected_patterns (JSONB)          │
+└────────────────────────────────────┘
 ```
 
 ## Connection
