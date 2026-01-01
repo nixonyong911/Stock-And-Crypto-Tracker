@@ -15,6 +15,8 @@ triggers:
 
 Caddy reverse proxy configuration and all worker/service endpoints for the Stock Tracker platform.
 
+> **📚 Infrastructure Reference**: See [Infrastructure Configuration](../../reference/infrastructure-config.md) for all VM details, ports, and service configuration.
+
 ---
 
 ## Base URL

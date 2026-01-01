@@ -14,6 +14,7 @@
 # AI Hub: Runs directly on host (systemd), not Docker
 # Monitoring: Grafana Cloud (via Alloy)
 # Secrets: Injected at runtime via Infisical CLI (Machine Identity)
+# Infrastructure Config: instruction/reference/infrastructure-config.md
 # ===========================================
 
 name: Deploy to Azure VM

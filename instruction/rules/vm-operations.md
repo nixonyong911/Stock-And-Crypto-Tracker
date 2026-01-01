@@ -2,6 +2,8 @@
 
 When user asks to "check VM", "connect to VM", "check services", or similar:
 
+> **📚 Infrastructure Reference**: See [Infrastructure Configuration](../reference/infrastructure-config.md) for comprehensive VM details, ports, and service endpoints.
+
 ## VM Details
 
 | Detail | Value |
@@ -12,6 +14,8 @@ When user asks to "check VM", "connect to VM", "check services", or similar:
 | FQDN | `nxserver.malaysiawest.cloudapp.azure.com` |
 | Deploy Path | `/opt/stocktracker` |
 | Services | Caddy, n8n, TwelveData, Metrics, Back-office, Alloy, AI Hub |
+
+> **Note**: These values are centralized in [Infrastructure Configuration](../reference/infrastructure-config.md). If infrastructure changes, update that file first.
 
 ## Direct SSH Commands (Preferred for AI)
 
