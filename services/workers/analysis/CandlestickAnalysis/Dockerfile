@@ -9,15 +9,15 @@ WORKDIR /src
 COPY ["common/StockTracker.Common/StockTracker.Common.csproj", "common/StockTracker.Common/"]
 
 # Copy project file and restore dependencies
-COPY ["analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker/CandlestickAnalysis.Worker.csproj", "analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker/"]
-RUN dotnet restore "analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker/CandlestickAnalysis.Worker.csproj"
+COPY ["workers/analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker/CandlestickAnalysis.Worker.csproj", "workers/analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker/"]
+RUN dotnet restore "workers/analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker/CandlestickAnalysis.Worker.csproj"
 
 # Copy all source code
 COPY common/ common/
-COPY analysis/CandlestickAnalysis/src/ analysis/CandlestickAnalysis/src/
+COPY workers/analysis/CandlestickAnalysis/src/ workers/analysis/CandlestickAnalysis/src/
 
 # Build and publish
-WORKDIR "/src/analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker"
+WORKDIR "/src/workers/analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker"
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - using ASP.NET runtime for web API

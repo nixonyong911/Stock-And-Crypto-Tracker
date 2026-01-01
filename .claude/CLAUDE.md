@@ -39,8 +39,11 @@ npm install && npm run dev
 ### Testing
 
 ```bash
-# .NET
+# .NET - all tests
 dotnet test services/data-fetchers/TwelveData
+
+# .NET - single test
+dotnet test --filter "FullyQualifiedName~TestMethodName"
 
 # Node.js (frontend/back-office)
 npm test
@@ -135,6 +138,7 @@ TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
 | Service | URL |
 |---------|-----|
 | TwelveData API | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger |
+| Candlestick Analysis | https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger |
 | Back-Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office |
 | Frontend | https://stock-tracker.vercel.app/ |
 

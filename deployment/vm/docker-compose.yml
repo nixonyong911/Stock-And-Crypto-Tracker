@@ -62,7 +62,7 @@ services:
   twelvedata:
     build:
       context: ./repo/services
-      dockerfile: data-fetchers/TwelveData/Dockerfile
+      dockerfile: workers/data-fetcher/TwelveData/Dockerfile
     container_name: twelvedata
     restart: unless-stopped
     extra_hosts:
@@ -95,7 +95,7 @@ services:
   candlestick-analysis:
     build:
       context: ./repo/services
-      dockerfile: analysis/CandlestickAnalysis/Dockerfile
+      dockerfile: workers/analysis/CandlestickAnalysis/Dockerfile
     container_name: candlestick-analysis
     restart: unless-stopped
     extra_hosts:

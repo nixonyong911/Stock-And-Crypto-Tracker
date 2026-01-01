@@ -39,7 +39,7 @@ services:
   twelvedata-fetcher:
     build:
       context: ./services
-      dockerfile: data-fetchers/TwelveData/Dockerfile
+      dockerfile: workers/data-fetcher/TwelveData/Dockerfile
     container_name: stocktracker-twelvedata
     restart: unless-stopped
     environment:
@@ -161,7 +161,7 @@ services:
   # CoinGecko Crypto Fetcher (Example - uncomment when ready)
   # coingecko-fetcher:
   #   build:
-  #     context: ./services/data-fetchers/CoinGecko
+  #     context: ./services/workers/data-fetcher/CoinGecko
   #     dockerfile: Dockerfile
   #   container_name: stocktracker-coingecko
   #   restart: unless-stopped

@@ -23,8 +23,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'services/data-fetchers/TwelveData/**'
-      - 'services/analysis/**'
+      - 'services/workers/data-fetcher/TwelveData/**'
+      - 'services/workers/analysis/**'
       - 'services/metrics/**'
       - 'services/ai/ai-hub/**'
       - 'services/back-office/**'
@@ -64,10 +64,10 @@ jobs:
         with:
           filters: |
             twelvedata:
-              - 'services/data-fetchers/TwelveData/**'
+              - 'services/workers/data-fetcher/TwelveData/**'
               - 'services/common/**'
             analysis:
-              - 'services/analysis/**'
+              - 'services/workers/analysis/**'
               - 'services/common/**'
             metrics:
               - 'services/metrics/**'
@@ -132,7 +132,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: services/
-          file: services/data-fetchers/TwelveData/Dockerfile
+          file: services/workers/data-fetcher/TwelveData/Dockerfile
           tags: twelvedata:latest
           cache-from: type=gha,scope=twelvedata
           cache-to: type=gha,mode=max,scope=twelvedata
@@ -146,7 +146,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: services/
-          file: services/analysis/CandlestickAnalysis/Dockerfile
+          file: services/workers/analysis/CandlestickAnalysis/Dockerfile
           tags: candlestick-analysis:latest
           cache-from: type=gha,scope=analysis
           cache-to: type=gha,mode=max,scope=analysis

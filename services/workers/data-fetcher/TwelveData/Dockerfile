@@ -9,15 +9,15 @@ WORKDIR /src
 COPY ["common/StockTracker.Common/StockTracker.Common.csproj", "common/StockTracker.Common/"]
 
 # Copy project file and restore dependencies
-COPY ["data-fetchers/TwelveData/src/TwelveData.Worker/TwelveData.Worker.csproj", "data-fetchers/TwelveData/src/TwelveData.Worker/"]
-RUN dotnet restore "data-fetchers/TwelveData/src/TwelveData.Worker/TwelveData.Worker.csproj"
+COPY ["workers/data-fetcher/TwelveData/src/TwelveData.Worker/TwelveData.Worker.csproj", "workers/data-fetcher/TwelveData/src/TwelveData.Worker/"]
+RUN dotnet restore "workers/data-fetcher/TwelveData/src/TwelveData.Worker/TwelveData.Worker.csproj"
 
 # Copy all source code
 COPY common/ common/
-COPY data-fetchers/TwelveData/src/ data-fetchers/TwelveData/src/
+COPY workers/data-fetcher/TwelveData/src/ workers/data-fetcher/TwelveData/src/
 
 # Build and publish
-WORKDIR "/src/data-fetchers/TwelveData/src/TwelveData.Worker"
+WORKDIR "/src/workers/data-fetcher/TwelveData/src/TwelveData.Worker"
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - using ASP.NET runtime for web API
