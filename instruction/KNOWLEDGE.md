@@ -1,7 +1,7 @@
 # Project Knowledge State
 
-**Last Updated**: 2026-01-01
-**Updated By**: Creating New Worker Skill
+**Last Updated**: 2026-01-02
+**Updated By**: Worker Folder Consolidation
 
 ---
 
@@ -9,8 +9,8 @@
 
 | Component | Service Type | Status | Last Change | Notes |
 |-----------|--------------|--------|-------------|-------|
-| TwelveData Worker | data-fetcher | ✅ Running | 2025-12-30 | Stock data fetcher on VM (Docker) |
-| Candlestick Analysis | analysis | ⏳ Ready | 2026-01-01 | Daily candlestick pattern analyzer (Docker) |
+| TwelveData Worker | data-fetcher | ✅ Running | 2026-01-02 | `services/workers/data-fetcher/TwelveData/` |
+| Candlestick Analysis | analysis | ⏳ Ready | 2026-01-02 | `services/workers/analysis/CandlestickAnalysis/` |
 | n8n | workflow | ✅ Running | 2025-12-27 | Workflow automation on VM (Docker) |
 | Caddy | reverse-proxy | ✅ Running | 2025-12-27 | Auto HTTPS reverse proxy (Docker) |
 | Back-Office | frontend | ✅ Running | 2025-12-30 | Admin UI on VM (Docker) |
