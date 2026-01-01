@@ -25,3 +25,5 @@ Environment variables override `appsettings.json` using double-underscore notati
 - `Supabase__Url` → `{ "Supabase": { "Url": "" } }`
 - `ConnectionStrings__DefaultConnection` → `{ "ConnectionStrings": { "DefaultConnection": "" } }`
 
+
+

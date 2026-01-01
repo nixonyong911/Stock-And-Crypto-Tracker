@@ -17,3 +17,5 @@ import { supabase } from '@/lib/supabase/client'
 - Frontend: `services/frontend/` (Next.js on Vercel)
 - Back-office: `services/back-office/` (Next.js admin UI)
 
+
+

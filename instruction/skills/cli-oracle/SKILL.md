@@ -98,3 +98,5 @@ oci compute instance terminate --instance-id <INSTANCE_OCID> --force
 
 - [vm-operations](../../rules/vm-operations.md) - VM operations reference
 
+
+

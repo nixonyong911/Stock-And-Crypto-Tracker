@@ -79,3 +79,5 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "doc
 - [vm-operations](../../rules/vm-operations.md) - VM operations reference
 - [cli-docker](../cli-docker/SKILL.md) - Docker commands
 
+
+

@@ -365,3 +365,5 @@ After creating a skill:
 - [knowledge-keeper](../knowledge-keeper/SKILL.md) - Detects patterns for new skills
 - [KNOWLEDGE.md](../../KNOWLEDGE.md) - Available Skills table
 
+
+

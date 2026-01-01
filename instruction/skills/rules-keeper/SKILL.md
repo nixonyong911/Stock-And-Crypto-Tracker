@@ -166,3 +166,5 @@ knowledge-keeper detects pattern
 - [KNOWLEDGE.md](../../KNOWLEDGE.md) - Project state and learnings
 - [archived/README.md](../../archived/README.md) - Deprecation tracking
 
+
+

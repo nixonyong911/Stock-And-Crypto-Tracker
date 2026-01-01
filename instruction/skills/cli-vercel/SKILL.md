@@ -64,3 +64,5 @@ These are automatically synced via Infisical integration.
 - [vercel-frontend-deployment](../../architecture/vercel-frontend-deployment.md) - Deployment architecture
 - [secrets-infisical](../../rules/secrets-infisical.md) - Environment variable sync
 
+
+
