@@ -1,7 +1,7 @@
 # Project Knowledge State
 
 **Last Updated**: 2026-01-01
-**Updated By**: Rules to Skills Migration
+**Updated By**: Creating New Worker Skill
 
 ---
 
@@ -25,6 +25,7 @@
 
 | Date | Learning |
 |------|----------|
+| 2026-01-01 | Created creating-new-worker skill with 7 focused reference files (~4100 tokens total) |
 | 2026-01-01 | Migrated 3 procedural rules to skills: cli-vm, task-workflow, doc-archiver (~680 lines reduced from rules) |
 | 2026-01-01 | Candlestick Analysis Worker: aggregates 15-min candles to daily, detects 8 single-candle patterns |
 | 2026-01-01 | Database migrations via Supabase MCP `apply_migration` (not EF Core history table) |
@@ -59,6 +60,7 @@
 | [knowledge-keeper](skills/knowledge-keeper/SKILL.md) | "update knowledge", "finish task" | Extracting learnings, managing tasks |
 | [skill-creator](skills/skill-creator/SKILL.md) | "create skill", "new skill" | Creating new spec-compliant skills |
 | [rules-keeper](skills/rules-keeper/SKILL.md) | "update rules", "architecture changed" | Updating rules when code changes |
+| [creating-new-worker](skills/creating-new-worker/SKILL.md) | "create new worker", "add worker" | Complete worker creation guide |
 | [data-fetcher](skills/data-fetcher/SKILL.md) | "new worker", "new data fetcher" | Creating new data-fetcher workers |
 | [task-workflow](skills/task-workflow/SKILL.md) | "manage tasks", "complete task" | Task lifecycle management |
 | [doc-archiver](skills/doc-archiver/SKILL.md) | "deprecate doc", "archive docs" | Documentation deprecation workflow |
