@@ -33,7 +33,7 @@ System.Data.DataException: Error parsing column 4 (scheduletimeutc=22:00:00 - Ob
 ## Affected Files
 
 ### Model
-`services/data-fetchers/TwelveData/src/TwelveData.Worker/Models/FetchSchedule.cs`
+`services/workers/data-fetcher/TwelveData/src/TwelveData.Worker/Models/FetchSchedule.cs`
 
 ```csharp
 public class FetchSchedule
@@ -45,7 +45,7 @@ public class FetchSchedule
 ```
 
 ### Repository
-`services/data-fetchers/TwelveData/src/TwelveData.Worker/Repositories/FetchScheduleRepository.cs`
+`services/workers/data-fetcher/TwelveData/src/TwelveData.Worker/Repositories/FetchScheduleRepository.cs`
 
 ```csharp
 // Line 25: This column causes the error
@@ -53,7 +53,7 @@ fs.schedule_time_utc as ScheduleTimeUtc,
 ```
 
 ### Worker
-`services/data-fetchers/TwelveData/src/TwelveData.Worker/Workers/StockFetchWorker.cs`
+`services/workers/data-fetcher/TwelveData/src/TwelveData.Worker/Workers/StockFetchWorker.cs`
 
 ```csharp
 // Line 40: This call throws the exception
