@@ -14,6 +14,8 @@ triggers:
 
 Create and validate skills following the [Agent Skills specification](https://agentskills.io/specification). This skill ensures all skills in `instruction/skills/` are spec-compliant and well-structured.
 
+**For detailed specification, templates, and validation rules**: See [Skill Specification Reference](../../reference/skill-specification.md)
+
 ---
 
 ## How to Invoke
@@ -32,7 +34,7 @@ Create and validate skills following the [Agent Skills specification](https://ag
 
 ---
 
-## Skill Structure
+## Quick Reference: Skill Structure
 
 ```
 instruction/skills/
@@ -43,98 +45,18 @@ instruction/skills/
     └── assets/           # Optional: static resources
 ```
 
----
-
-## SKILL.md Format
-
-### Frontmatter (Required Fields)
+### Frontmatter Requirements
 
 ```yaml
 ---
-name: skill-name
-description: A description of what this skill does and when to use it.
+name: skill-name                    # Required: lowercase, hyphens, max 64 chars
+description: What and when to use.  # Required: 1-1024 chars
+triggers:                           # Optional: for discovery
+  - "trigger phrase"
 ---
 ```
 
-### Frontmatter (Optional Fields)
-
-```yaml
----
-name: skill-name
-description: What this skill does and when to use it.
-license: Apache-2.0
-compatibility: Requires docker, git access
-metadata:
-  author: stock-tracker
-  version: "1.0"
-allowed-tools: Bash(git:*) Read
----
-```
-
-### Project Extension: Triggers
-
-This project uses a `triggers` field for skill discovery:
-
-```yaml
----
-name: data-fetcher
-description: ...
-triggers:
-  - "create new data fetcher"
-  - "add new worker"
----
-```
-
-### Body Content
-
-Markdown instructions after frontmatter. Recommended sections:
-- Overview
-- Prerequisites
-- Step-by-step instructions
-- Examples
-- Verification/testing
-- Related links
-
----
-
-## Validation Rules
-
-### Name Field (`name`)
-
-| Rule | Valid | Invalid |
-|------|-------|---------|
-| Max 64 characters | `pdf-processing` | `this-name-is-way-too-long-...` |
-| Lowercase only | `data-fetcher` | `Data-Fetcher` |
-| Letters, numbers, hyphens | `api-v2` | `api_v2` |
-| No consecutive hyphens | `my-skill` | `my--skill` |
-| No leading/trailing hyphen | `skill-name` | `-skill-name-` |
-| Must match directory name | `skills/data-fetcher/` → `name: data-fetcher` | Mismatch |
-
-### Description Field (`description`)
-
-| Rule | Example |
-|------|---------|
-| 1-1024 characters | Required |
-| Describe WHAT it does | "Extracts text from PDF files" |
-| Describe WHEN to use | "Use when working with PDF documents" |
-
-**Good example:**
-```yaml
-description: Complete guide for creating a new data-fetcher worker that integrates with the Stock Tracker system, including API endpoints, database registration, metrics, and deployment.
-```
-
-**Bad example:**
-```yaml
-description: Helps with data fetching.
-```
-
-### Body Content
-
-| Rule | Limit |
-|------|-------|
-| Max lines | 500 |
-| Max tokens | ~5000 |
-| File reference depth | 1 level |
+**See full frontmatter spec and templates**: [Skill Specification Reference](../../reference/skill-specification.md)
 
 ---
 
@@ -142,132 +64,30 @@ description: Helps with data fetching.
 
 ```
 User: "Create skill for [task]"
-       │
-       ├── 1. Determine if task is repeatable
-       │      └── If not, suggest reference doc instead
-       │
-       ├── 2. Generate skill name
-       │      └── Validate against spec rules
-       │
-       ├── 3. Gather requirements
-       │      ├── What does this skill do?
-       │      ├── When should it be used?
-       │      ├── What are the steps?
-       │      └── Any prerequisites?
-       │
-       ├── 4. Create skill directory
-       │      └── instruction/skills/{skill-name}/
-       │
-       ├── 5. Generate SKILL.md
-       │      ├── Valid frontmatter
-       │      └── Step-by-step body
-       │
-       ├── 6. Add optional directories if needed
-       │      ├── scripts/ - for executable helpers
-       │      ├── references/ - for detailed docs
-       │      └── assets/ - for templates/data
-       │
-       ├── 7. Validate final skill
-       │
-       └── 8. Update KNOWLEDGE.md
-              └── Add to Available Skills table
-```
-
----
-
-## Templates
-
-### Minimal SKILL.md
-
-```yaml
----
-name: skill-name
-description: Brief description of what this skill does and when to use it.
-triggers:
-  - "trigger phrase 1"
-  - "trigger phrase 2"
----
-
-# Skill Title
-
-## Overview
-
-Brief explanation of the skill's purpose.
-
-## Steps
-
-1. First step
-2. Second step
-3. Third step
-
-## Verification
-
-- [ ] How to verify the skill worked
-```
-
-### Full SKILL.md
-
-```yaml
----
-name: skill-name
-description: Complete description (max 1024 chars) explaining what this skill does and when to use it. Include keywords that help identify relevant tasks.
-license: Apache-2.0
-compatibility: Requires access to Supabase, Azure VM, and Infisical
-metadata:
-  author: stock-tracker
-  version: "1.0"
-triggers:
-  - "primary trigger"
-  - "alternative trigger"
----
-
-# Skill Title
-
-## Overview
-
-Detailed explanation of the skill's purpose and scope.
-
-## Prerequisites
-
-Before starting, ensure:
-- [ ] Requirement 1
-- [ ] Requirement 2
-
----
-
-## Step 1: First Major Step
-
-### 1.1 Sub-step
-
-Details and code examples.
-
-### 1.2 Sub-step
-
-More details.
-
----
-
-## Step 2: Second Major Step
-
-Content...
-
----
-
-## Verification
-
-### Pre-Deployment
-- [ ] Check 1
-- [ ] Check 2
-
-### Post-Deployment
-- [ ] Verify 1
-- [ ] Verify 2
-
----
-
-## Related
-
-- [Link to related doc](../../path/to/doc.md)
+      │
+      ├── 1. Determine if task is repeatable
+      │      └── If not, suggest reference doc instead
+      │
+      ├── 2. Generate skill name (validate against spec)
+      │
+      ├── 3. Gather requirements
+      │      ├── What does this skill do?
+      │      ├── When should it be used?
+      │      ├── What are the steps?
+      │      └── Any prerequisites?
+      │
+      ├── 4. Create skill directory: instruction/skills/{name}/
+      │
+      ├── 5. Generate SKILL.md using template from spec
+      │
+      ├── 6. Add optional directories if needed
+      │      ├── scripts/ - for executable helpers
+      │      ├── references/ - for detailed docs
+      │      └── assets/ - for templates/data
+      │
+      ├── 7. Validate against spec rules
+      │
+      └── 8. Update KNOWLEDGE.md Available Skills table
 ```
 
 ---
@@ -280,7 +100,7 @@ Content...
 | One-time setup instructions | Task (`tasks/active/{name}.md`) |
 | Reference information | Reference doc (`reference/{name}.md`) |
 | Architecture decisions | Architecture doc (`architecture/{name}.md`) |
-| Command cheatsheet | CLI doc (`cli/{category}/{name}.md`) |
+| Command cheatsheet | Skill (`skills/cli-{category}/SKILL.md`) |
 
 **Create a skill when:**
 - Same process done 2+ times
@@ -295,75 +115,42 @@ Content...
 
 ---
 
-## Anti-Patterns
+## Validation Checklist
 
-### DON'T: Overly Generic Names
+After creating a skill, ensure:
 
-```yaml
-# Bad
-name: worker
-name: setup
-name: deploy
+- [ ] SKILL.md exists in `instruction/skills/{name}/`
+- [ ] `name` matches directory name (lowercase, hyphens)
+- [ ] `name` is max 64 characters
+- [ ] `description` explains what AND when (1-1024 chars)
+- [ ] `triggers` field included for discovery
+- [ ] Body has clear step-by-step instructions
+- [ ] Body is under 500 lines (extract to reference docs if longer)
+- [ ] File references are 1 level deep max
+- [ ] Added to KNOWLEDGE.md Available Skills table
 
-# Good
-name: data-fetcher
-name: vm-service-setup
-name: grafana-dashboard
-```
-
-### DON'T: Vague Descriptions
-
-```yaml
-# Bad
-description: Helps with workers.
-
-# Good
-description: Complete guide for creating a new data-fetcher worker that integrates with the Stock Tracker system, including API endpoints, database registration, and deployment.
-```
-
-### DON'T: Deeply Nested References
-
-```markdown
-<!-- Bad: 3 levels deep -->
-See [guide](references/subfolder/another/guide.md)
-
-<!-- Good: 1 level deep -->
-See [guide](references/guide.md)
-```
-
-### DON'T: Monolithic Skills
-
-```markdown
-<!-- Bad: 1000+ lines covering everything -->
-
-<!-- Good: Split into focused skills -->
-skills/data-fetcher/     → Creating workers
-skills/grafana-panel/    → Dashboard setup
-skills/vm-deploy/        → Deployment steps
-```
+**For full validation rules and anti-patterns**: See [Skill Specification Reference](../../reference/skill-specification.md)
 
 ---
 
-## Post-Creation Checklist
+## Quick Start: Create a New Skill
 
-After creating a skill:
+1. **Create directory**:
+   ```bash
+   mkdir -p instruction/skills/{skill-name}
+   ```
 
-- [ ] SKILL.md exists in `instruction/skills/{name}/`
-- [ ] `name` matches directory name
-- [ ] `description` explains what AND when
-- [ ] `triggers` field included for discovery
-- [ ] Body has clear step-by-step instructions
-- [ ] Body is under 500 lines
-- [ ] File references are 1 level deep max
-- [ ] Added to KNOWLEDGE.md Available Skills table
+2. **Create SKILL.md** using [minimal template](../../reference/skill-specification.md#minimal-template)
+
+3. **Validate** against [spec rules](../../reference/skill-specification.md#validation-rules)
+
+4. **Register** in [KNOWLEDGE.md](../../KNOWLEDGE.md)
 
 ---
 
 ## Related
 
-- [Agent Skills Specification](https://agentskills.io/specification)
+- [Skill Specification Reference](../../reference/skill-specification.md) - Full spec, templates, validation
+- [Agent Skills Specification](https://agentskills.io/specification) - Official spec
 - [knowledge-keeper](../knowledge-keeper/SKILL.md) - Detects patterns for new skills
 - [KNOWLEDGE.md](../../KNOWLEDGE.md) - Available Skills table
-
-
-

@@ -70,16 +70,17 @@ A microservices-based stock and cryptocurrency tracking application with:
 
 ## Important Notes
 
-1. **Infisical is source of truth** - All secrets managed in Infisical Cloud, auto-sync to GitHub/Vercel
-2. **Never commit secrets** - `.env.staging` is gitignored (kept as backup only)
-3. **RLS is enabled** - `data_sources` requires service role key
-4. **Local development** - Use `infisical run --env=prod -- <command>` to inject secrets
-5. **10-min candle data** - 90 day retention for intraday analysis
-6. **Supabase MCP available** - Use for database queries in AI conversations
-7. **`.infisical.json` is safe to commit** - Only contains workspace ID, no secrets
-8. **Caddy worker endpoints** - When adding new Caddy reverse proxy routes, update `instruction/cli/caddy/worker-endpoints.md`
-9. **VM deployment** - Backend services run on Azure VM (`nx-linux-server-azure`), not Container Apps
-10. **CLI documentation** - Detailed commands in `instruction/cli/` (PowerShell, Docker, Azure CLI)
-11. **AI Hub runs on host** - Python service as systemd unit (not Docker) to access host CLIs; containers use `host.docker.internal:8084`
-12. **Grafana Cloud** - Metrics/logs forwarded via Alloy; dashboards in `grafana/dashboards/`
-13. **Back-office** - Admin UI at `/back-office` on VM; uses Supabase for data display + AI Hub integration
+1. **Security is critical** - Follow [Security Best Practices](./security.md) for all code changes (secrets, input validation, auth, OWASP Top 10)
+2. **Infisical is source of truth** - All secrets managed in Infisical Cloud, auto-sync to GitHub/Vercel
+3. **Never commit secrets** - `.env.staging` is gitignored (kept as backup only); use placeholders in `.env.example`
+4. **RLS is enabled** - `data_sources` requires service role key
+5. **Local development** - Use `infisical run --env=prod -- <command>` to inject secrets
+6. **10-min candle data** - 90 day retention for intraday analysis
+7. **Supabase MCP available** - Use for database queries in AI conversations
+8. **`.infisical.json` is safe to commit** - Only contains workspace ID, no secrets
+9. **Caddy worker endpoints** - When adding new Caddy reverse proxy routes, update `instruction/skills/cli-caddy/SKILL.md`
+10. **VM deployment** - Backend services run on Azure VM (`nx-linux-server-azure`), not Container Apps
+11. **CLI documentation** - Detailed commands in `instruction/cli/` (PowerShell, Docker, Azure CLI)
+12. **AI Hub runs on host** - Python service as systemd unit (not Docker) to access host CLIs; containers use `host.docker.internal:8084`
+13. **Grafana Cloud** - Metrics/logs forwarded via Alloy; dashboards in `grafana/dashboards/`
+14. **Back-office** - Admin UI at `/back-office` on VM; uses Supabase for data display + AI Hub integration

@@ -1,7 +1,7 @@
 # Project Knowledge State
 
-**Last Updated**: December 31, 2025  
-**Updated By**: Agents to Skills Migration
+**Last Updated**: 2026-01-01
+**Updated By**: Phase 2 Documentation Security Improvements
 
 ---
 
@@ -9,13 +9,14 @@
 
 | Component | Service Type | Status | Last Change | Notes |
 |-----------|--------------|--------|-------------|-------|
-| TwelveData Worker | data-fetcher | ✅ Running | 2025-12-30 | Stock data fetcher |
-| n8n | workflow | ✅ Running | 2025-12-27 | Workflow automation |
-| Caddy | reverse-proxy | ✅ Running | 2025-12-27 | Auto HTTPS |
-| Back-Office | frontend | ✅ Running | 2025-12-30 | Worker management UI |
+| TwelveData Worker | data-fetcher | ✅ Running | 2025-12-30 | Stock data fetcher on VM (Docker) |
+| n8n | workflow | ✅ Running | 2025-12-27 | Workflow automation on VM (Docker) |
+| Caddy | reverse-proxy | ✅ Running | 2025-12-27 | Auto HTTPS reverse proxy (Docker) |
+| Back-Office | frontend | ✅ Running | 2025-12-30 | Admin UI on VM (Docker) |
 | Frontend | frontend | ✅ Running | 2025-12-27 | Main Next.js app (Vercel) |
-| Metrics Service | metrics | ⏸️ Phase 2 | - | Disabled |
-| AI Hub | ai | ⏸️ Phase 2 | - | Disabled |
+| Metrics Service | metrics | ✅ Running | 2025-12-27 | Metrics aggregation API (Docker) |
+| Grafana Alloy | observability | ✅ Running | 2025-12-27 | Metrics & logs forwarder to Grafana Cloud |
+| AI Hub | ai | ✅ Running | 2025-12-29 | AI Gateway (systemd on VM host) |
 
 ---
 

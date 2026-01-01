@@ -41,6 +41,8 @@ ssh-azure
 | User | azureuser |
 | Key | `~\.ssh\nx-linux-server-azure_key (1).pem` |
 
+> **📚 Infrastructure Reference**: See [Infrastructure Configuration](../../reference/infrastructure-config.md) for comprehensive VM and service configuration.
+
 ---
 
 ## cursor-agent
