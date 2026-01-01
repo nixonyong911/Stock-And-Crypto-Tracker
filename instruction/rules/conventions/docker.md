@@ -46,5 +46,5 @@ handle_path /api/yourworker/* {
 }
 ```
 
-**Remember**: Update `instruction/cli/caddy/worker-endpoints.md` when adding new routes.
+**Remember**: Update `instruction/skills/cli-caddy/SKILL.md` when adding new routes.
 

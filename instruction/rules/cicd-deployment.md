@@ -209,7 +209,7 @@ Options:
 
 6. Add Caddy route to `deployment/vm/Caddyfile`
 
-7. Update `instruction/cli/caddy/worker-endpoints.md` with the new endpoint
+7. Update `instruction/skills/cli-caddy/SKILL.md` with the new endpoint
 
 ## Deployment Commands
 

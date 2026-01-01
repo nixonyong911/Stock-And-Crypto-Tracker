@@ -252,7 +252,7 @@ sum by (error_type) (rate(fetch_errors_total[1h]))
 | `services/common/StockTracker.Common/Metrics/` | IMetricsClient interface |
 | `services/metrics/StockTracker.Metrics/` | Central metrics service |
 | `deployment/vm/alloy-config.alloy` | Grafana Alloy config |
-| `instruction/cli/caddy/worker-endpoints.md` | Service URLs reference |
+| `instruction/skills/cli-caddy/SKILL.md` | Service URLs reference |
 
 
 

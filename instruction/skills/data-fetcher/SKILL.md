@@ -237,7 +237,7 @@ paths:
 
 ## Step 6: Documentation Updates
 
-- [ ] Update `instruction/cli/caddy/worker-endpoints.md`
+- [ ] Update `instruction/skills/cli-caddy/SKILL.md`
 - [ ] Update `services/data-fetchers/README.md`
 - [ ] Create `services/data-fetchers/YourWorker/README.md`
 
