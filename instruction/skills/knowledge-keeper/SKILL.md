@@ -49,9 +49,10 @@ When user asks for repeatable tasks, read and follow relevant skill:
 
 | User Says | Invoke Skill |
 |-----------|--------------|
-| "create new data fetcher" | `skills/creating-new-worker/SKILL.md` |
-| "add new worker" | `skills/creating-new-worker/SKILL.md` |
-| "onboard new API" | `skills/creating-new-worker/SKILL.md` |
+| "create new data fetcher" | `skills/worker-requirements/SKILL.md` |
+| "add new worker" | `skills/worker-requirements/SKILL.md` |
+| "review worker" | `skills/worker-requirements/SKILL.md` |
+| "onboard new API" | `skills/worker-requirements/SKILL.md` |
 | "create skill for X" | `skills/skill-creator/SKILL.md` |
 | "new skill" | `skills/skill-creator/SKILL.md` |
 

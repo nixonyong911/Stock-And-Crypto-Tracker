@@ -25,7 +25,9 @@
 
 | Date | Learning |
 |------|----------|
-| 2026-01-02 | Archived data-fetcher skill, data-fetcher-patterns.md, worker-metrics-implementation.md (replaced by creating-new-worker) |
+| 2026-01-02 | Workers consolidated: `services/workers/{type}/{name}/` structure (data-fetcher, analysis) |
+| 2026-01-02 | Skill renamed: `creating-new-worker` → `worker-requirements` (standard for new AND existing workers) |
+| 2026-01-02 | Archived data-fetcher skill, data-fetcher-patterns.md, worker-metrics-implementation.md (replaced by worker-requirements) |
 | 2026-01-01 | Created creating-new-worker skill with 7 focused reference files (~4100 tokens total) |
 | 2026-01-01 | Migrated 3 procedural rules to skills: cli-vm, task-workflow, doc-archiver (~680 lines reduced from rules) |
 | 2026-01-01 | Candlestick Analysis Worker: aggregates 15-min candles to daily, detects 8 single-candle patterns |
@@ -61,7 +63,7 @@
 | [knowledge-keeper](skills/knowledge-keeper/SKILL.md) | "update knowledge", "finish task" | Extracting learnings, managing tasks |
 | [skill-creator](skills/skill-creator/SKILL.md) | "create skill", "new skill" | Creating new spec-compliant skills |
 | [rules-keeper](skills/rules-keeper/SKILL.md) | "update rules", "architecture changed" | Updating rules when code changes |
-| [creating-new-worker](skills/creating-new-worker/SKILL.md) | "create new worker", "new data fetcher" | Complete worker creation guide |
+| [worker-requirements](skills/worker-requirements/SKILL.md) | "create new worker", "review worker", "worker compliance" | Worker standard (create & review) |
 | [task-workflow](skills/task-workflow/SKILL.md) | "manage tasks", "complete task" | Task lifecycle management |
 | [doc-archiver](skills/doc-archiver/SKILL.md) | "deprecate doc", "archive docs" | Documentation deprecation workflow |
 

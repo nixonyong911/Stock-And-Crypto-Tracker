@@ -173,18 +173,21 @@ docker-compose logs -f metrics-service
 docker-compose logs -f frontend
 ```
 
-## Adding a New Data Fetcher Service
+## Adding a New Worker Service
 
-The architecture is designed to easily add new data sources. Follow these steps:
+The architecture is designed to easily add new workers. Follow these steps:
 
 ### 1. Create the Service Directory
 ```bash
-mkdir -p services/data-fetchers/NewService/src/NewService.Worker
+# For data-fetcher workers:
+mkdir -p services/workers/data-fetcher/NewService/src/NewService.Worker
+# For analysis workers:
+mkdir -p services/workers/analysis/NewService/src/NewService.Worker
 ```
 
 ### 2. Create a .NET Worker Service
-Use the TwelveData service as a template:
-- Copy the project structure from `services/data-fetchers/TwelveData/`
+Use an existing worker as a template:
+- Copy the project structure from `services/workers/data-fetcher/TwelveData/` or `services/workers/analysis/CandlestickAnalysis/`
 - Rename namespaces and project files
 - Add reference to `StockTracker.Common`
 - Implement your API client in the `Services/` folder
@@ -226,7 +229,7 @@ ENTRYPOINT ["dotnet", "NewService.Worker.dll"]
 ```yaml
 new-service-fetcher:
   build:
-    context: ./services/data-fetchers/NewService
+    context: ./services/workers/data-fetcher/NewService
     dockerfile: Dockerfile
   environment:
     - ConnectionStrings__DefaultConnection=Host=postgres;...
@@ -282,9 +285,9 @@ Comment out the service in `docker-compose.yml`:
 
 ### Local Development Setup
 
-#### Data Fetcher Services (.NET)
+#### Worker Services (.NET)
 ```bash
-cd services/data-fetchers/TwelveData
+cd services/workers/data-fetcher/TwelveData
 dotnet restore
 dotnet run --project src/TwelveData.Worker
 ```
@@ -310,8 +313,8 @@ docker-compose up postgres -d
 
 ### Running Tests
 ```bash
-# .NET services
-cd services/data-fetchers/TwelveData
+# .NET workers
+cd services/workers/data-fetcher/TwelveData
 dotnet test
 
 # Frontend

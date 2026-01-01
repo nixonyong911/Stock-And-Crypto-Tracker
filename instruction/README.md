@@ -17,7 +17,7 @@ instruction/
 │   ├── knowledge-keeper/  # Maintain project knowledge
 │   ├── skill-creator/     # Create new skills
 │   ├── rules-keeper/      # Maintain project rules
-│   ├── data-fetcher/      # Create data-fetcher workers
+│   ├── worker-requirements/  # Worker standard (create & review)
 │   └── cli-*/             # CLI skills by tech stack (docker, caddy, grafana, etc.)
 ├── rules/              # Project-wide LAWS (always applied)
 │   ├── core-context.md    # Project overview & structure
@@ -52,7 +52,7 @@ Self-contained instructions following the [Agent Skills spec](https://agentskill
 - [knowledge-keeper](skills/knowledge-keeper/SKILL.md) - Maintain project knowledge
 - [skill-creator](skills/skill-creator/SKILL.md) - Create new spec-compliant skills
 - [rules-keeper](skills/rules-keeper/SKILL.md) - Maintain project rules when code changes
-- [creating-new-worker](skills/creating-new-worker/SKILL.md) - Create new workers
+- [worker-requirements](skills/worker-requirements/SKILL.md) - Worker standard (create & review)
 
 **CLI Skills:**
 - [cli-docker](skills/cli-docker/SKILL.md), [cli-caddy](skills/cli-caddy/SKILL.md), [cli-grafana](skills/cli-grafana/SKILL.md), etc.
@@ -112,7 +112,7 @@ Project-wide constraints that ALL agents must follow:
 - [knowledge-keeper](skills/knowledge-keeper/SKILL.md) - Maintain project knowledge
 - [skill-creator](skills/skill-creator/SKILL.md) - Create spec-compliant skills
 - [rules-keeper](skills/rules-keeper/SKILL.md) - Update rules when code changes
-- [creating-new-worker](skills/creating-new-worker/SKILL.md) - Create new workers
+- [worker-requirements](skills/worker-requirements/SKILL.md) - Worker standard (create & review)
 
 ### Skills (CLI)
 - [cli-docker](skills/cli-docker/SKILL.md) - Docker/compose commands
@@ -140,11 +140,11 @@ When code changes affect documentation:
 1. `knowledge-keeper` → updates KNOWLEDGE.md, creates skills
 2. `rules-keeper` → updates rules/*.md, archives obsolete rules
 
-### Creating New Workers
+### Creating or Reviewing Workers
 
-1. Say "Create new worker for [API name]"
-2. Agent invokes `skills/creating-new-worker/SKILL.md`
-3. Follow the step-by-step guide
+1. Say "Create new worker for [API name]" or "Review worker [name]"
+2. Agent invokes `skills/worker-requirements/SKILL.md`
+3. For new: follow step-by-step guide; For review: use compliance checklist
 
 ### Creating New Skills
 

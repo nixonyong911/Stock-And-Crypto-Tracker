@@ -49,7 +49,8 @@ Azure VM runs services via Docker
 ## Trigger Paths
 
 The pipeline triggers on changes to:
-- `services/data-fetchers/TwelveData/**`
+- `services/workers/data-fetcher/TwelveData/**`
+- `services/workers/analysis/**`
 - `services/metrics/**`
 - `services/ai/ai-hub/**`
 - `services/back-office/**`
@@ -66,7 +67,8 @@ The pipeline uses `dorny/paths-filter` to detect which services changed:
 
 | Service | Trigger Paths |
 |---------|---------------|
-| TwelveData | `services/data-fetchers/TwelveData/**`, `services/common/**` |
+| TwelveData | `services/workers/data-fetcher/TwelveData/**`, `services/common/**` |
+| Analysis | `services/workers/analysis/**`, `services/common/**` |
 | Metrics | `services/metrics/**`, `services/common/**` |
 | Back Office | `services/back-office/**` |
 | AI Hub | `services/ai/ai-hub/**` |
@@ -167,16 +169,22 @@ Options:
 
 ## Adding New Workers to CI/CD
 
-1. Add trigger path to `deploy-vm.yml`:
+1. Add trigger path to `deploy-vm.yml` (use correct worker type path):
    ```yaml
    paths:
-     - 'services/data-fetchers/YourWorker/**'
+     # For data-fetcher workers:
+     - 'services/workers/data-fetcher/YourWorker/**'
+     # For analysis workers:
+     - 'services/workers/analysis/YourWorker/**'
    ```
 
 2. Add change detection filter:
    ```yaml
    yourworker:
-     - 'services/data-fetchers/YourWorker/**'
+     # For data-fetcher workers:
+     - 'services/workers/data-fetcher/YourWorker/**'
+     # For analysis workers:
+     - 'services/workers/analysis/YourWorker/**'
      - 'services/common/**'
    ```
 
@@ -187,7 +195,10 @@ Options:
      uses: docker/build-push-action@v5
      with:
        context: services/
-       file: services/data-fetchers/YourWorker/Dockerfile
+       # For data-fetcher workers:
+       file: services/workers/data-fetcher/YourWorker/Dockerfile
+       # For analysis workers:
+       file: services/workers/analysis/YourWorker/Dockerfile
        tags: yourworker:latest
        cache-from: type=gha,scope=yourworker
        cache-to: type=gha,mode=max,scope=yourworker
@@ -252,7 +263,7 @@ The Docker build context path differs between GitHub Actions and VM deployment:
   uses: docker/build-push-action@v5
   with:
     context: services/                           # ← Relative to repo root
-    file: services/data-fetchers/YourWorker/Dockerfile
+    file: services/workers/data-fetcher/YourWorker/Dockerfile
 ```
 
 **VM docker-compose Example** (`deployment/vm/docker-compose.yml`):
@@ -260,7 +271,7 @@ The Docker build context path differs between GitHub Actions and VM deployment:
 yourworker:
   build:
     context: ./repo/services                     # ← Relative to docker-compose.yml location
-    dockerfile: data-fetchers/YourWorker/Dockerfile
+    dockerfile: workers/data-fetcher/YourWorker/Dockerfile
 ```
 
 ### Why This Matters
@@ -280,5 +291,5 @@ yourworker:
 - [Infrastructure Config](../reference/infrastructure-config.md) - VM and service configuration
 
 ### Skills
-- [Creating New Worker Skill](../skills/creating-new-worker/SKILL.md) - Adding workers to CI/CD pipeline
+- [Worker Requirements](../skills/worker-requirements/SKILL.md) - Adding workers to CI/CD pipeline
 - [CLI GitHub Skill](../skills/cli-github/SKILL.md) - Working with GitHub Actions

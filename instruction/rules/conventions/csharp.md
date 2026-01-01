@@ -63,7 +63,7 @@ entity.Property(e => e.CreatedAt)
 | `StockTracker.Data` | EF Core entities & DbContext | EF Core, Npgsql |
 | `StockTracker.Data.Migrations` | Migration CLI tool | StockTracker.Data |
 | `StockTracker.Common` | Shared utilities, metrics client | - |
-| `services/data-fetchers/TwelveData` | Stock data fetcher worker | Dapper, StockTracker.Data |
+| `services/workers/data-fetcher/TwelveData` | Stock data fetcher worker | Dapper, StockTracker.Data |
 | `services/metrics` | Metrics aggregation API | Prometheus, StockTracker.Common |
 
 ---
@@ -626,4 +626,4 @@ var twelveDataApiKey = builder.Configuration["TwelveData:ApiKey"]
 - [AI Behavior Guidelines](../ai-behavior.md) - Code review checklist
 
 ### Skills
-- [Creating New Worker Skill](../../skills/creating-new-worker/SKILL.md) - Creating .NET workers
+- [Worker Requirements](../../skills/worker-requirements/SKILL.md) - Creating .NET workers

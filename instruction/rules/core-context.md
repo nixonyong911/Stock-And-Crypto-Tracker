@@ -60,8 +60,11 @@ A microservices-based stock and cryptocurrency tracking application with:
 │   │   ├── StockTracker.Data/           # EF Core entities & DbContext
 │   │   ├── StockTracker.Data.Migrations/ # Migration CLI tool
 │   │   └── StockTracker.Common/         # Shared utilities (metrics, health)
-│   ├── data-fetchers/
-│   │   └── TwelveData/                  # Stock data worker (Docker on VM)
+│   ├── workers/                         # All worker services
+│   │   ├── data-fetcher/
+│   │   │   └── TwelveData/             # Stock data worker (Docker on VM)
+│   │   └── analysis/
+│   │       └── CandlestickAnalysis/    # Analysis worker (Docker on VM)
 │   ├── frontend/                        # Next.js public app (Vercel)
 │   └── metrics/                         # Metrics aggregation service (Docker on VM)
 └── .github/workflows/

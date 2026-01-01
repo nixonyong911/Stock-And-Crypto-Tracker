@@ -167,7 +167,7 @@ Port 8083 is default, override with `TWELVEDATA_API_PORT` env var.
 ### Using .NET CLI
 
 ```bash
-cd services/data-fetchers/TwelveData/src/TwelveData.Worker
+cd services/workers/data-fetcher/TwelveData/src/TwelveData.Worker
 dotnet run
 ```
 
@@ -213,7 +213,7 @@ var builder = new NpgsqlConnectionStringBuilder(baseConnectionString)
 ## Related Documentation
 
 - [Database Schema](../database/schema.md) - `fetch_schedules` table definition
-- [TwelveData Worker README](../../services/data-fetchers/TwelveData/README.md) - Service documentation
+- [TwelveData Worker README](../../services/workers/data-fetcher/TwelveData/README.md) - Service documentation
 - [Adding Workers to CI/CD](../reference/adding-worker-to-azure-cicd.md) - Deployment guide
 
 

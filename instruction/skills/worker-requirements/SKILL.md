@@ -1,23 +1,51 @@
 ---
-name: creating-new-worker
-description: Step-by-step guide for creating a new worker (data-fetcher, analysis) with all required integrations - API endpoints, database, metrics, Grafana dashboard, CI/CD pipeline, and deployment verification.
+name: worker-requirements
+description: Project standard for workers - defines requirements for creating new workers AND reviewing/maintaining existing workers. Covers API endpoints, database, metrics, Grafana dashboard, CI/CD pipeline, and deployment verification.
 triggers:
   - "create new worker"
   - "add new worker"
-  - "creating new worker"
   - "new data fetcher"
   - "new analysis worker"
+  - "review worker"
+  - "worker requirements"
+  - "worker compliance"
+  - "check worker"
+  - "worker standard"
 ---
 
-# Creating New Worker Skill
+# Worker Requirements
 
 ## Overview
 
-This skill guides AI agents through creating a new worker that integrates with the Stock Tracker system.
+This skill defines the **project standard** for all workers in the Stock Tracker system. Use this for:
+- **Creating new workers** - Follow the step-by-step guide
+- **Reviewing existing workers** - Use the compliance checklist
+- **Maintaining workers** - Reference requirements during updates
+
+**Worker Location:** `services/workers/{type}/{name}/`
 
 **Worker Types:**
 - `data-fetcher` - Fetches external API data (e.g., TwelveData, CoinGecko)
+  - Location: `services/workers/data-fetcher/{name}/`
 - `analysis` - Processes existing data (e.g., CandlestickAnalysis)
+  - Location: `services/workers/analysis/{name}/`
+
+---
+
+## Worker Type Confirmation
+
+**If user doesn't specify worker type, prompt with:**
+
+```
+What type of worker would you like to create/review?
+1. data-fetcher worker - Fetches external API data (e.g., TwelveData, CoinGecko)
+2. analysis worker - Processes existing data (e.g., CandlestickAnalysis)
+3. New type of worker - Define a new worker category
+```
+
+---
+
+## Required Components
 
 **Every worker MUST include:**
 - Health endpoints (`/health/live`, `/health/ready`)
@@ -232,6 +260,37 @@ Workers MUST follow:
 - **Conventions**: C# naming, structured logging, async patterns
 
 **Technical details:** [Coding Standards Reference](references/coding-standards/REFERENCE.md)
+
+---
+
+## Reviewing Existing Workers
+
+Use this checklist when reviewing or auditing existing workers for compliance:
+
+### Compliance Checklist
+
+| Requirement | Check | Location |
+|-------------|-------|----------|
+| Health endpoints | `/health/live` and `/health/ready` respond 200 | `Controllers/` |
+| Swagger docs | UI accessible at `/api/{worker}/swagger` | `Program.cs` |
+| Metrics emission | Uses `IMetricsClient` from `StockTracker.Common` | `Services/` |
+| Grafana dashboard | JSON exists in `grafana/dashboards/` | Dashboard file |
+| CI/CD integration | Paths in `deploy-vm.yml` triggers | Workflow file |
+| Database registration | Entry in `data_sources` table | Supabase |
+| Schedule registration | Entry in `fetch_schedules` table | Supabase |
+| Secrets via Infisical | No hardcoded secrets | `appsettings.json` |
+| Docker health check | `HEALTHCHECK` in Dockerfile | `Dockerfile` |
+| PATH_BASE configured | Environment variable set | `docker-compose.yml` |
+
+### Common Compliance Issues
+
+| Issue | How to Detect | Fix |
+|-------|---------------|-----|
+| Missing metrics | No `IMetricsClient` injection | Add DI registration |
+| Hardcoded secrets | Search for API keys in code | Move to Infisical |
+| No health checks | 404 on `/health/live` | Add health endpoints |
+| Missing dashboard | No file in `grafana/dashboards/` | Create dashboard JSON |
+| CI/CD not triggered | Changes don't trigger deploy | Add path to workflow |
 
 ---
 

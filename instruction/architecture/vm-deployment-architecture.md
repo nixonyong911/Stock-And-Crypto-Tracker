@@ -87,7 +87,7 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   └──────────────┘      └──────────────┘      └──────────────────────────────┘  │
 │                                                                                  │
 │   Trigger Paths:                                                                 │
-│   - services/data-fetchers/TwelveData/**                                        │
+│   - services/workers/data-fetcher/TwelveData/**                                 │
 │   - services/metrics/**                                                          │
 │   - services/ai/ai-hub/**                                                        │
 │   - services/back-office/**                                                      │
