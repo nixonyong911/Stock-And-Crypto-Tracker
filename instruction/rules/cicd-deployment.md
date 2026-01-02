@@ -220,7 +220,7 @@ Options:
 
 6. Add Caddy route to `deployment/vm/Caddyfile`
 
-7. Update `instruction/skills/cli-caddy/SKILL.md` with the new endpoint
+7. Update `instruction/skills/cli/References/caddy/REFERENCE.md` with the new endpoint
 
 ## Deployment Commands
 
@@ -292,4 +292,4 @@ yourworker:
 
 ### Skills
 - [Worker Requirements](../skills/worker-requirements/SKILL.md) - Adding workers to CI/CD pipeline
-- [CLI GitHub Skill](../skills/cli-github/SKILL.md) - Working with GitHub Actions
+- [CLI GitHub Skill](../skills/cli/References/github/REFERENCE.md) - Working with GitHub Actions

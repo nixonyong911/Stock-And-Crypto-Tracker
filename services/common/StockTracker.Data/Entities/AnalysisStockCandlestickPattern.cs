@@ -51,3 +51,5 @@ public class AnalysisStockCandlestickPattern
     public StockTicker StockTicker { get; set; } = null!;
 }
 
+
+

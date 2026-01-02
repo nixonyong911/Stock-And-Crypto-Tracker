@@ -18,7 +18,7 @@ instruction/
 │   ├── skill-creator/     # Create new skills
 │   ├── rules-keeper/      # Maintain project rules
 │   ├── worker-requirements/  # Worker standard (create & review)
-│   └── cli-*/             # CLI skills by tech stack (docker, caddy, grafana, etc.)
+│   └── cli/               # Unified CLI skill with References/
 ├── rules/              # Project-wide LAWS (always applied)
 │   ├── core-context.md    # Project overview & structure
 │   ├── cicd-deployment.md # CI/CD pipeline law
@@ -55,7 +55,7 @@ Self-contained instructions following the [Agent Skills spec](https://agentskill
 - [worker-requirements](skills/worker-requirements/SKILL.md) - Worker standard (create & review)
 
 **CLI Skills:**
-- [cli-docker](skills/cli-docker/SKILL.md), [cli-caddy](skills/cli-caddy/SKILL.md), [cli-grafana](skills/cli-grafana/SKILL.md), etc.
+- [cli](skills/cli/SKILL.md) - Unified CLI skill with references for docker, caddy, grafana, etc.
 
 ### Rules (Project Laws)
 
@@ -115,15 +115,17 @@ Project-wide constraints that ALL agents must follow:
 - [worker-requirements](skills/worker-requirements/SKILL.md) - Worker standard (create & review)
 
 ### Skills (CLI)
-- [cli-docker](skills/cli-docker/SKILL.md) - Docker/compose commands
-- [cli-caddy](skills/cli-caddy/SKILL.md) - Worker endpoints & proxy
-- [cli-grafana](skills/cli-grafana/SKILL.md) - Grafana dashboard management
-- [cli-infisical](skills/cli-infisical/SKILL.md) - Secrets management CLI
-- [cli-powershell](skills/cli-powershell/SKILL.md) - Custom shell functions
-- [cli-github](skills/cli-github/SKILL.md) - GitHub Actions CLI
-- [cli-vercel](skills/cli-vercel/SKILL.md) - Frontend deployment
-- [cli-oracle](skills/cli-oracle/SKILL.md) - Oracle Cloud CLI
-- [cli-ai](skills/cli-ai/SKILL.md) - AI coding agents
+- [cli](skills/cli/SKILL.md) - Unified CLI skill
+  - [docker](skills/cli/References/docker/REFERENCE.md) - Docker/compose commands
+  - [caddy](skills/cli/References/caddy/REFERENCE.md) - Worker endpoints & proxy
+  - [grafana](skills/cli/References/grafana/REFERENCE.md) - Grafana dashboard management
+  - [infisical](skills/cli/References/infisical/REFERENCE.md) - Secrets management CLI
+  - [powershell](skills/cli/References/powershell/REFERENCE.md) - Custom shell functions
+  - [github](skills/cli/References/github/REFERENCE.md) - GitHub Actions CLI
+  - [vercel](skills/cli/References/vercel/REFERENCE.md) - Frontend deployment
+  - [oracle](skills/cli/References/oracle/REFERENCE.md) - Oracle Cloud CLI
+  - [ai](skills/cli/References/ai/REFERENCE.md) - AI coding agents
+  - [vm](skills/cli/References/vm/REFERENCE.md) - Azure VM operations
 
 ## Workflow
 

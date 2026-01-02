@@ -38,4 +38,4 @@ SELECT COUNT(*), MAX(created_at) FROM your_table;
 2. Query: `{job="stocktracker-metrics"} |= "yourworker"`
 
 ## Related
-- [CLI VM Skill](../../../cli-vm/SKILL.md)
+- [CLI VM Skill](../../../cli/References/vm/REFERENCE.md)

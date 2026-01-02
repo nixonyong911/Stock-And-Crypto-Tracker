@@ -71,16 +71,17 @@
 
 | Skill | Triggers | Use When |
 |-------|----------|----------|
-| [cli-vm](skills/cli-vm/SKILL.md) | "check vm", "ssh azure" | VM connection and service management |
-| [cli-docker](skills/cli-docker/SKILL.md) | "docker commands" | Managing containers |
-| [cli-caddy](skills/cli-caddy/SKILL.md) | "worker endpoints", "caddy routes" | Service URLs, proxy config |
-| [cli-grafana](skills/cli-grafana/SKILL.md) | "grafana cli", "export dashboard" | Managing Grafana dashboards |
-| [cli-infisical](skills/cli-infisical/SKILL.md) | "infisical cli", "run with secrets" | Secrets management |
-| [cli-powershell](skills/cli-powershell/SKILL.md) | "ssh-azure", "powershell functions" | Custom shell functions |
-| [cli-vercel](skills/cli-vercel/SKILL.md) | "vercel deploy" | Frontend deployment |
-| [cli-github](skills/cli-github/SKILL.md) | "gh workflow", "trigger deployment" | GitHub Actions management |
-| [cli-oracle](skills/cli-oracle/SKILL.md) | "oracle cli", "oci commands" | Oracle Cloud management |
-| [cli-ai](skills/cli-ai/SKILL.md) | "claude cli", "cursor agent cli" | AI coding agents |
+| [cli](skills/cli/SKILL.md) | "docker commands", "infisical cli", "gh workflow", etc. | Unified CLI skill - see References/ for specific tools |
+| [vm](skills/cli/References/vm/REFERENCE.md) | "check vm", "ssh azure" | VM connection and service management |
+| [docker](skills/cli/References/docker/REFERENCE.md) | "docker commands" | Managing containers |
+| [caddy](skills/cli/References/caddy/REFERENCE.md) | "worker endpoints", "caddy routes" | Service URLs, proxy config |
+| [grafana](skills/cli/References/grafana/REFERENCE.md) | "grafana cli", "export dashboard" | Managing Grafana dashboards |
+| [infisical](skills/cli/References/infisical/REFERENCE.md) | "infisical cli", "run with secrets" | Secrets management |
+| [powershell](skills/cli/References/powershell/REFERENCE.md) | "ssh-azure", "powershell functions" | Custom shell functions |
+| [vercel](skills/cli/References/vercel/REFERENCE.md) | "vercel deploy" | Frontend deployment |
+| [github](skills/cli/References/github/REFERENCE.md) | "gh workflow", "trigger deployment" | GitHub Actions management |
+| [oracle](skills/cli/References/oracle/REFERENCE.md) | "oracle cli", "oci commands" | Oracle Cloud management |
+| [ai](skills/cli/References/ai/REFERENCE.md) | "claude cli", "cursor agent cli" | AI coding agents |
 
 ---
 

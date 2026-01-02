@@ -111,3 +111,5 @@ public class AnalysisStockCandlestickPatternConfiguration : IEntityTypeConfigura
     }
 }
 
+
+

@@ -563,7 +563,7 @@ handle_path /api/yourworker/* {
 }
 ```
 
-3. **Update documentation** in `instruction/skills/cli-caddy/SKILL.md`
+3. **Update documentation** in `instruction/skills/cli/References/caddy/REFERENCE.md`
 
 ---
 

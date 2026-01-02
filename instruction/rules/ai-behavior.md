@@ -155,7 +155,7 @@ Update documentation when:
 
 | Change Type | Affected Docs |
 |-------------|---------------|
-| New API endpoint | `skills/cli-caddy/SKILL.md`, Swagger docs |
+| New API endpoint | `skills/cli/References/caddy/REFERENCE.md`, Swagger docs |
 | New service/worker | `data-fetcher-patterns.md`, `infrastructure-config.md` |
 | CI/CD pipeline change | `cicd-deployment.md` |
 | New convention/pattern | `conventions/` folder |

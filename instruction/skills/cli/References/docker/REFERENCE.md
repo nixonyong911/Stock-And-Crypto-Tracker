@@ -1,14 +1,3 @@
----
-name: cli-docker
-description: Docker and Docker Compose CLI commands for local development and VM deployment. Use when managing containers, viewing logs, or rebuilding services.
-triggers:
-  - "docker commands"
-  - "docker compose"
-  - "start containers"
-  - "view docker logs"
-  - "rebuild container"
----
-
 # Docker CLI Skill
 
 ## Overview
@@ -102,8 +91,6 @@ docker stats
 
 ## Related
 
-- [vm-operations](../../rules/vm-operations.md) - VM Docker commands
-- [cicd-deployment](../../rules/cicd-deployment.md) - CI/CD pipeline
-
-
+- [vm-operations](../../../rules/vm-operations.md) - VM Docker commands
+- [cicd-deployment](../../../rules/cicd-deployment.md) - CI/CD pipeline
 

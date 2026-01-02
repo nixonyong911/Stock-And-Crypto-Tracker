@@ -1,21 +1,10 @@
----
-name: cli-vm
-description: Azure VM connection, Docker commands, service health checks, and AI Hub management. Use when checking VM status or managing services.
-triggers:
-  - "check vm"
-  - "connect to vm"
-  - "vm status"
-  - "ssh azure"
-  - "check services"
----
-
 # Azure VM Operations
 
 ## Overview
 
 Commands and references for managing the Azure VM that hosts backend services.
 
-> **Infrastructure Reference**: See [Infrastructure Configuration](../../reference/infrastructure-config.md) for comprehensive VM details, ports, and service endpoints.
+> **Infrastructure Reference**: See [Infrastructure Configuration](../../../reference/infrastructure-config.md) for comprehensive VM details, ports, and service endpoints.
 
 ---
 
@@ -30,7 +19,7 @@ Commands and references for managing the Azure VM that hosts backend services.
 | Deploy Path | `/opt/stocktracker` |
 | Services | Caddy, n8n, TwelveData, Metrics, Back-office, Alloy, AI Hub |
 
-> **Note**: These values are centralized in [Infrastructure Configuration](../../reference/infrastructure-config.md). If infrastructure changes, update that file first.
+> **Note**: These values are centralized in [Infrastructure Configuration](../../../reference/infrastructure-config.md). If infrastructure changes, update that file first.
 
 ---
 
@@ -118,7 +107,7 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 
 ## Related
 
-- [Infrastructure Configuration](../../reference/infrastructure-config.md) - Full VM details
-- [cli-docker](../cli-docker/SKILL.md) - Docker commands
-- [cli-powershell](../cli-powershell/SKILL.md) - PowerShell functions including ssh-azure
+- [Infrastructure Configuration](../../../reference/infrastructure-config.md) - Full VM details
+- [docker](../docker/REFERENCE.md) - Docker commands
+- [powershell](../powershell/REFERENCE.md) - PowerShell functions including ssh-azure
 

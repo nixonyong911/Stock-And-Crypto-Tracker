@@ -1,14 +1,3 @@
----
-name: cli-grafana
-description: Grafana Cloud CLI (grafanactl) for managing dashboards and resources. Use when exporting, deploying, or managing Grafana dashboards.
-triggers:
-  - "grafana cli"
-  - "grafanactl"
-  - "export dashboard"
-  - "deploy dashboard"
-  - "grafana commands"
----
-
 # Grafana CLI Skill
 
 ## Overview
@@ -132,8 +121,6 @@ To create a new token:
 
 ## Related
 
-- [observability-guide](../../reference/observability-guide.md) - Metrics and monitoring
-- [metrics-specification](../../reference/metrics-specification.md) - Metrics format
-
-
+- [observability-guide](../../../reference/observability-guide.md) - Metrics and monitoring
+- [metrics-specification](../../../reference/metrics-specification.md) - Metrics format
 

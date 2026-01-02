@@ -506,7 +506,7 @@ Before deploying to production, verify:
 
 ### Skills
 - [Worker Requirements](../skills/worker-requirements/SKILL.md) - Worker creation with security best practices
-- [CLI Infisical Skill](../skills/cli-infisical/SKILL.md) - Managing secrets via CLI
+- [CLI Infisical Skill](../skills/cli/References/infisical/REFERENCE.md) - Managing secrets via CLI
 
 ---
 

@@ -1,13 +1,3 @@
----
-name: cli-infisical
-description: Infisical CLI for secrets management and local development. Use when running services with secrets or viewing secret values.
-triggers:
-  - "infisical cli"
-  - "run with secrets"
-  - "view secrets"
-  - "infisical commands"
----
-
 # Infisical CLI Skill
 
 ## Overview
@@ -103,8 +93,6 @@ The script automatically:
 
 ## Related
 
-- [secrets-infisical](../../rules/secrets-infisical.md) - Secrets management law
-- [cli-docker](../cli-docker/SKILL.md) - Docker commands
-
-
+- [secrets-infisical](../../../rules/secrets-infisical.md) - Secrets management law
+- [docker](../docker/REFERENCE.md) - Docker commands
 

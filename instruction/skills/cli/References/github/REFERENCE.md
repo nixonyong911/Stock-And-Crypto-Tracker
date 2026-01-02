@@ -1,13 +1,3 @@
----
-name: cli-github
-description: GitHub CLI (gh) for managing workflows and actions. Use when triggering deployments or checking workflow status.
-triggers:
-  - "github cli"
-  - "gh workflow"
-  - "trigger deployment"
-  - "check workflow"
----
-
 # GitHub CLI Skill
 
 ## Overview
@@ -78,8 +68,6 @@ gh run cancel <run-id>
 
 ## Related
 
-- [cicd-deployment](../../rules/cicd-deployment.md) - CI/CD pipeline law
-- [vm-operations](../../rules/vm-operations.md) - VM operations
-
-
+- [cicd-deployment](../../../rules/cicd-deployment.md) - CI/CD pipeline law
+- [vm-operations](../../../rules/vm-operations.md) - VM operations
 

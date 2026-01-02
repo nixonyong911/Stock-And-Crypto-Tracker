@@ -1,13 +1,3 @@
----
-name: cli-ai
-description: AI coding agent CLIs (Claude Code and Cursor Agent). Use when running AI agents from command line for code review, generation, or automation.
-triggers:
-  - "claude cli"
-  - "cursor agent cli"
-  - "ai cli"
-  - "code agent"
----
-
 # AI CLI Skill
 
 ## Overview
@@ -156,7 +146,5 @@ cursor-agent -p --output-format text \
 
 ## Related
 
-- [cli-powershell](../cli-powershell/SKILL.md) - PowerShell cursor-agent function
-
-
+- [powershell](../powershell/REFERENCE.md) - PowerShell cursor-agent function
 

@@ -320,7 +320,7 @@ After worker is deployed and verified, update:
 | `deployment/vm/Caddyfile` | Add reverse proxy route |
 | `.github/workflows/deploy-vm.yml` | Add CI/CD triggers |
 | `instruction/KNOWLEDGE.md` | **Add service URL to Quick Reference** |
-| `instruction/skills/cli-caddy/SKILL.md` | Add route reference |
+| `instruction/skills/cli/References/caddy/REFERENCE.md` | Add route reference |
 
 ---
 

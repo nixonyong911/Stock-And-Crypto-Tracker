@@ -1,21 +1,10 @@
----
-name: cli-caddy
-description: Caddy reverse proxy configuration and worker endpoint reference. Use when checking service URLs, adding new routes, or debugging proxy issues.
-triggers:
-  - "caddy endpoints"
-  - "worker urls"
-  - "service endpoints"
-  - "add caddy route"
-  - "reverse proxy"
----
-
 # Caddy CLI Skill
 
 ## Overview
 
 Caddy reverse proxy configuration and all worker/service endpoints for the Stock Tracker platform.
 
-> **📚 Infrastructure Reference**: See [Infrastructure Configuration](../../reference/infrastructure-config.md) for all VM details, ports, and service configuration.
+> **📚 Infrastructure Reference**: See [Infrastructure Configuration](../../../reference/infrastructure-config.md) for all VM details, ports, and service configuration.
 
 ---
 
@@ -117,8 +106,6 @@ docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 
 ## Related
 
-- [vm-operations](../../rules/vm-operations.md) - VM access commands
-- [data-fetcher](../data-fetcher/SKILL.md) - Adding new workers
-
-
+- [vm-operations](../../../rules/vm-operations.md) - VM access commands
+- [data-fetcher](../../worker/SKILL.md) - Adding new workers
 

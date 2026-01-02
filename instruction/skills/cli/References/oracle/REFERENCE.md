@@ -1,13 +1,3 @@
----
-name: cli-oracle
-description: Oracle Cloud CLI (oci) for managing OCI resources. Use when creating VMs or managing Oracle Cloud infrastructure.
-triggers:
-  - "oracle cli"
-  - "oci commands"
-  - "create oracle vm"
-  - "oracle cloud"
----
-
 # Oracle Cloud CLI Skill
 
 ## Overview
@@ -96,7 +86,5 @@ oci compute instance terminate --instance-id <INSTANCE_OCID> --force
 
 ## Related
 
-- [vm-operations](../../rules/vm-operations.md) - VM operations reference
-
-
+- [vm-operations](../../../rules/vm-operations.md) - VM operations reference
 

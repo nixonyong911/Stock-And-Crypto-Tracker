@@ -1,12 +1,3 @@
----
-name: cli-vercel
-description: Vercel CLI for frontend deployment. Use when deploying the Next.js frontend to Vercel.
-triggers:
-  - "vercel deploy"
-  - "deploy frontend"
-  - "vercel cli"
----
-
 # Vercel CLI Skill
 
 ## Overview
@@ -61,8 +52,6 @@ These are automatically synced via Infisical integration.
 
 ## Related
 
-- [vercel-frontend-deployment](../../architecture/vercel-frontend-deployment.md) - Deployment architecture
-- [secrets-infisical](../../rules/secrets-infisical.md) - Environment variable sync
-
-
+- [vercel-frontend-deployment](../../../architecture/vercel-frontend-deployment.md) - Deployment architecture
+- [secrets-infisical](../../../rules/secrets-infisical.md) - Environment variable sync
 

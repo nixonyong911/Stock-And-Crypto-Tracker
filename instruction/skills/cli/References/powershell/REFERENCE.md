@@ -1,13 +1,3 @@
----
-name: cli-powershell
-description: Custom PowerShell profile functions for the Stock Tracker project. Use for SSH to Azure VM and running cursor-agent.
-triggers:
-  - "powershell functions"
-  - "ssh azure"
-  - "ssh-azure"
-  - "profile functions"
----
-
 # PowerShell CLI Skill
 
 ## Overview
@@ -41,7 +31,7 @@ ssh-azure
 | User | azureuser |
 | Key | `~\.ssh\nx-linux-server-azure_key (1).pem` |
 
-> **📚 Infrastructure Reference**: See [Infrastructure Configuration](../../reference/infrastructure-config.md) for comprehensive VM and service configuration.
+> **📚 Infrastructure Reference**: See [Infrastructure Configuration](../../../reference/infrastructure-config.md) for comprehensive VM and service configuration.
 
 ---
 
@@ -78,8 +68,6 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "doc
 
 ## Related
 
-- [vm-operations](../../rules/vm-operations.md) - VM operations reference
-- [cli-docker](../cli-docker/SKILL.md) - Docker commands
-
-
+- [vm-operations](../../../rules/vm-operations.md) - VM operations reference
+- [docker](../docker/REFERENCE.md) - Docker commands
 

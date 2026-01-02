@@ -45,7 +45,7 @@
 | Document | Location |
 |----------|----------|
 | VM Architecture | `instruction/architecture/vm-deployment-architecture.md` |
-| Worker Endpoints | `instruction/skills/cli-caddy/SKILL.md` |
+| Worker Endpoints | `instruction/skills/cli/References/caddy/REFERENCE.md` |
 | Updated .cursorrules | `.cursorrules` |
 
 ## Files Created
