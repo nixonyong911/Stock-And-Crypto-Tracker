@@ -181,53 +181,43 @@ Add worker to `.github/workflows/deploy-vm.yml`:
 
 ## Step 7: Schedule Configuration
 
+Workers use **database-driven scheduling**: the worker polls `fetch_schedules` table for its schedule time, calculates delay until that time, then executes.
+
+### How It Works
+
+1. Worker starts as `BackgroundService`
+2. Queries DB for schedule by data source name
+3. Calculates delay until `schedule_time_utc`
+4. Sleeps until scheduled time, then executes
+5. Loops back to step 2
+
 ### 10-Minute Offset Rule
 
-Workers of the same type should be scheduled 10 minutes apart to avoid:
-- API rate limit conflicts
-- Database connection spikes
-- Resource contention
+Schedule workers 10 minutes apart to avoid rate limits and resource contention:
 
-**Pattern:**
 ```
-data-fetcher-1: 22:00 UTC (e.g., TwelveData)
-data-fetcher-2: 22:10 UTC (new worker)
-data-fetcher-3: 22:20 UTC (future worker)
-
-analysis-1:     22:30 UTC (e.g., CandlestickAnalysis)
-analysis-2:     22:40 UTC (new analysis worker)
+data-fetcher-1: 22:00 UTC    analysis-1: 22:30 UTC
+data-fetcher-2: 22:10 UTC    analysis-2: 22:40 UTC
 ```
 
-**Find next available slot:**
+### Database Registration (via Supabase MCP)
 
 ```sql
-SELECT name, schedule_time_utc 
-FROM fetch_schedules 
-WHERE is_enabled = true 
-ORDER BY schedule_time_utc;
-```
+-- 1. Insert data source
+INSERT INTO data_sources (name, base_url, description, is_active)
+VALUES ('YourWorker', 'https://api.example.com', 'Description', true);
 
-**Register new schedule via Supabase MCP:**
-
-```sql
--- First, insert data source
-INSERT INTO data_sources (name, api_url, description)
-VALUES ('YourWorker', 'https://api.example.com', 'Description');
-
--- Then, insert schedule
+-- 2. Insert schedule (find next slot first)
 INSERT INTO fetch_schedules (
-    data_source_id, name, description, 
-    schedule_time_utc, is_enabled, fetch_config
-)
-VALUES (
+    data_source_id, name, schedule_time_utc, is_enabled, fetch_config
+) VALUES (
     (SELECT id FROM data_sources WHERE name = 'YourWorker'),
-    'YourWorker Daily',
-    'Daily fetch at market close',
-    '22:10:00',  -- 10 min after previous worker
-    true,
-    '{"interval": "15min", "outputSize": 30}'::jsonb
+    'YourWorker Daily', '22:10:00', true,
+    '{"interval": "15min", "output_size": 30}'::jsonb
 );
 ```
+
+**Technical details:** [Scheduling Reference](references/scheduling/REFERENCE.md)
 
 ---
 
@@ -332,6 +322,7 @@ After worker is deployed and verified, update:
 - [Metrics Integration](references/metrics-integration/REFERENCE.md)
 - [Grafana Dashboard](references/grafana-dashboard/REFERENCE.md)
 - [CI/CD Pipeline](references/cicd-pipeline/REFERENCE.md)
+- [Scheduling](references/scheduling/REFERENCE.md)
 - [Verification](references/verification/REFERENCE.md)
 - [Coding Standards](references/coding-standards/REFERENCE.md)
 - [Troubleshooting](references/troubleshooting/REFERENCE.md)
