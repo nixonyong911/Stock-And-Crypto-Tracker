@@ -115,7 +115,9 @@ public class AnalysisRepository : IAnalysisRepository
 
         using var connection = (DbConnection)_connectionFactory.CreateConnection();
         await connection.OpenAsync();  // Explicitly open before query for Supavisor compatibility
-        var rows = await connection.QueryAsync<dynamic>(sql, new
+        
+        // Use strongly-typed query instead of dynamic to avoid Npgsql 8.0 property name issues
+        var rows = await connection.QueryAsync<AnalysisDbRow>(sql, new
         {
             Symbol = symbol,
             StartDate = startDate,
@@ -125,11 +127,9 @@ public class AnalysisRepository : IAnalysisRepository
 
         return rowList.Select(row => new AnalysisResult
         {
-            StockTickerId = (int)(row.StockTickerId ?? 0),
-            Symbol = (string)(row.Symbol ?? string.Empty),
-            AnalysisDate = row.AnalysisDate != null 
-                ? DateOnly.FromDateTime((DateTime)row.AnalysisDate) 
-                : DateOnly.MinValue,
+            StockTickerId = row.StockTickerId,
+            Symbol = row.Symbol,
+            AnalysisDate = DateOnly.FromDateTime(row.AnalysisDate),
             DailyOpen = row.DailyOpen,
             DailyHigh = row.DailyHigh,
             DailyLow = row.DailyLow,
@@ -140,11 +140,11 @@ public class AnalysisRepository : IAnalysisRepository
             UpperWick = row.UpperWick,
             LowerWick = row.LowerWick,
             IsBullish = row.IsBullish,
-            DetectedPatterns = string.IsNullOrEmpty((string?)row.DetectedPatternsJson)
+            DetectedPatterns = string.IsNullOrEmpty(row.DetectedPatternsJson)
                 ? new List<CandlestickPattern>()
-                : JsonSerializer.Deserialize<List<CandlestickPattern>>((string)row.DetectedPatternsJson) ?? new(),
-            CandlesAggregated = (int)(row.CandlesAggregated ?? 0),
-            AnalysisVersion = (string)(row.AnalysisVersion ?? "1.0.0")
+                : JsonSerializer.Deserialize<List<CandlestickPattern>>(row.DetectedPatternsJson) ?? new(),
+            CandlesAggregated = row.CandlesAggregated,
+            AnalysisVersion = row.AnalysisVersion
         });
     }
 
