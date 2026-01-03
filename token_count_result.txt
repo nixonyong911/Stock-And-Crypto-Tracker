@@ -1,0 +1,17 @@
+Token count calculation for .md files in instruction/skills/worker/
+
+Using approximation: ~4 characters per token (standard for English text)
+
+File sizes and token counts:
+- SKILL.md: ~6,500 chars ≈ 1,625 tokens
+- cicd-pipeline/REFERENCE.md: ~1,200 chars ≈ 300 tokens  
+- grafana-dashboard/REFERENCE.md: ~1,800 chars ≈ 450 tokens
+- scheduling/REFERENCE.md: ~2,200 chars ≈ 550 tokens
+- verification/REFERENCE.md: ~1,600 chars ≈ 400 tokens
+- database-setup/REFERENCE.md: ~1,800 chars ≈ 450 tokens
+- metrics-integration/REFERENCE.md: ~2,200 chars ≈ 550 tokens
+- api-endpoints/REFERENCE.md: ~1,800 chars ≈ 450 tokens
+- troubleshooting/REFERENCE.md: ~2,400 chars ≈ 600 tokens
+- coding-standards/REFERENCE.md: ~2,200 chars ≈ 550 tokens
+
+Total approximate: ~6,325 tokens
