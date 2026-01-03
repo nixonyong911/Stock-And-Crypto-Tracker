@@ -34,7 +34,8 @@ public class StockPriceRepository : IStockPriceRepository
             ORDER BY symbol";
 
         using var connection = _connectionFactory.CreateConnection();
-        return await connection.QueryAsync<StockTicker>(sql);
+        await connection.OpenAsync().ConfigureAwait(false);
+        return await connection.QueryAsync<StockTicker>(sql).ConfigureAwait(false);
     }
 
     public async Task<IEnumerable<StockPrice>> GetPricesForDateAsync(int stockTickerId, DateOnly date)
@@ -63,12 +64,13 @@ public class StockPriceRepository : IStockPriceRepository
             ORDER BY price_time ASC";
 
         using var connection = _connectionFactory.CreateConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
         var prices = await connection.QueryAsync<StockPrice>(sql, new 
         { 
             StockTickerId = stockTickerId, 
             StartOfDay = startOfDay,
             EndOfDay = endOfDay
-        });
+        }).ConfigureAwait(false);
 
         _logger.LogDebug("Found {Count} candles for ticker {TickerId} on {Date}", 
             prices.Count(), stockTickerId, date);
