@@ -154,12 +154,9 @@ Use `IMetricsClient` from `StockTracker.Common` to emit standard metrics:
 
 ## Step 5: Grafana Dashboard
 
-Create `grafana/dashboards/yourworker-details.json` with panels:
-
-- Worker Status (up/down)
-- Operations Rate
-- Error Rate Percentage
-- Records Processed Over Time
+1. Create `grafana/dashboards/yourworker-details.json` (copy from existing)
+2. Upload to Grafana Cloud via API
+3. Verify dashboard accessible
 
 **Technical details:** [Grafana Dashboard Reference](references/grafana-dashboard/REFERENCE.md)
 
@@ -266,7 +263,7 @@ Use this checklist when reviewing or auditing existing workers for compliance:
 | Health endpoints | `/health/live` and `/health/ready` respond 200 | `Controllers/` |
 | Swagger docs | UI accessible at `/api/{worker}/swagger` | `Program.cs` |
 | Metrics emission | Uses `IMetricsClient` from `StockTracker.Common` | `Services/` |
-| Grafana dashboard | JSON exists in `grafana/dashboards/` | Dashboard file |
+| Grafana dashboard | JSON exists AND uploaded to Grafana Cloud | Dashboard file + API |
 | CI/CD integration | Paths in `deploy-vm.yml` triggers | Workflow file |
 | Database registration | Entry in `data_sources` table | Supabase |
 | Schedule registration | Entry in `fetch_schedules` table | Supabase |

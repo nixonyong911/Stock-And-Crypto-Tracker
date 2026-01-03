@@ -24,14 +24,22 @@ Analyzes daily candlestick patterns for stock tickers by aggregating 15-minute c
 
 ## API Endpoints
 
+All API endpoints are prefixed with PATH_BASE (`/api/analysis` in production).
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health/live` | GET | Liveness probe |
 | `/health/ready` | GET | Readiness check (DB connected) |
-| `/api/status` | GET | Worker status and config |
-| `/api/analyze/trigger/{symbol}` | POST | Analyze single symbol |
-| `/api/analyze/trigger/all` | POST | Analyze all active stocks |
-| `/api/patterns/{symbol}` | GET | Get patterns for a symbol |
+| `/status` | GET | Worker status and config |
+| `/trigger/{symbol}` | POST | Analyze single symbol |
+| `/trigger/all` | POST | Analyze all active stocks |
+| `/patterns/{symbol}` | GET | Get patterns for a symbol |
+
+**Production URLs** (via Caddy reverse proxy):
+- `https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/status`
+- `https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/trigger/{symbol}`
+- `https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/trigger/all`
+- `https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/patterns/{symbol}`
 
 ## Configuration
 

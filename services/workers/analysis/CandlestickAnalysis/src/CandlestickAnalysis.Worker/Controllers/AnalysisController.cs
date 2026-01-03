@@ -7,9 +7,10 @@ namespace CandlestickAnalysis.Worker.Controllers;
 
 /// <summary>
 /// API controller for candlestick pattern analysis.
+/// Routes are relative to PATH_BASE (/api/analysis).
 /// </summary>
 [ApiController]
-[Route("api")]
+[Route("")]
 public class AnalysisController : ControllerBase
 {
     private readonly ICandlestickAnalysisService _analysisService;
@@ -68,7 +69,7 @@ public class AnalysisController : ControllerBase
     /// <summary>
     /// Manually trigger analysis for a single symbol.
     /// </summary>
-    [HttpPost("analyze/trigger/{symbol}")]
+    [HttpPost("trigger/{symbol}")]
     public async Task<IActionResult> TriggerAnalysis(string symbol, [FromQuery] string? date = null)
     {
         try
@@ -135,7 +136,7 @@ public class AnalysisController : ControllerBase
     /// <summary>
     /// Manually trigger analysis for all active stocks.
     /// </summary>
-    [HttpPost("analyze/trigger/all")]
+    [HttpPost("trigger/all")]
     public async Task<IActionResult> TriggerBatchAnalysis([FromQuery] string? date = null)
     {
         try
