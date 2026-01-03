@@ -1,18 +1,10 @@
 ---
 name: worker-requirements
-description: Comprehensive guide for workers (/services/workers). For: (1) Creating new workers (2) Reviewing existing workers for project compliance, (3) Troubleshooting worker deployment or configuration issues, or (4) Adding new workers 
-  - "create new worker"
-  - "add new worker"
-  - "new data fetcher"
-  - "new analysis worker"
+description: Guide for creating/reviewing workers in /services/workers
+triggers:
+  - "create worker"
   - "review worker"
-  - "worker requirements"
   - "worker compliance"
-  - "check worker"
-  - "worker standard"
-  - "lets add a new worker"
-  - "lets create a new data-fetcher"
-  - "lets create a new analsis" 
 ---
 
 # Worker Requirements
@@ -178,40 +170,14 @@ Add worker to `.github/workflows/deploy-vm.yml`:
 
 ## Step 7: Schedule Configuration
 
-Workers use **database-driven scheduling**: the worker polls `fetch_schedules` table for its schedule time, calculates delay until that time, then executes.
-
-### How It Works
-
-1. Worker starts as `BackgroundService`
-2. Queries DB for schedule by data source name
-3. Calculates delay until `schedule_time_utc`
-4. Sleeps until scheduled time, then executes
-5. Loops back to step 2
-
-### 10-Minute Offset Rule
-
-Schedule workers 10 minutes apart to avoid rate limits and resource contention:
-
-```
-data-fetcher-1: 22:00 UTC    analysis-1: 22:30 UTC
-data-fetcher-2: 22:10 UTC    analysis-2: 22:40 UTC
-```
-
-### Database Registration (via Supabase MCP)
+Database-driven scheduling via `fetch_schedules` table. **10-minute offset rule:** Schedule workers 10min apart.
 
 ```sql
--- 1. Insert data source
 INSERT INTO data_sources (name, base_url, description, is_active)
 VALUES ('YourWorker', 'https://api.example.com', 'Description', true);
 
--- 2. Insert schedule (find next slot first)
-INSERT INTO fetch_schedules (
-    data_source_id, name, schedule_time_utc, is_enabled, fetch_config
-) VALUES (
-    (SELECT id FROM data_sources WHERE name = 'YourWorker'),
-    'YourWorker Daily', '22:10:00', true,
-    '{"interval": "15min", "output_size": 30}'::jsonb
-);
+INSERT INTO fetch_schedules (data_source_id, name, schedule_time_utc, is_enabled)
+VALUES ((SELECT id FROM data_sources WHERE name = 'YourWorker'), 'YourWorker Daily', '22:10:00', true);
 ```
 
 **Technical details:** [Scheduling Reference](references/scheduling/REFERENCE.md)
@@ -271,63 +237,16 @@ Use this checklist when reviewing or auditing existing workers for compliance:
 | Docker health check | `HEALTHCHECK` in Dockerfile | `Dockerfile` |
 | PATH_BASE configured | Environment variable set | `docker-compose.yml` |
 
-### Common Compliance Issues
-
-| Issue | How to Detect | Fix |
-|-------|---------------|-----|
-| Missing metrics | No `IMetricsClient` injection | Add DI registration |
-| Hardcoded secrets | Search for API keys in code | Move to Infisical |
-| No health checks | 404 on `/health/live` | Add health endpoints |
-| Missing dashboard | No file in `grafana/dashboards/` | Create dashboard JSON |
-| CI/CD not triggered | Changes don't trigger deploy | Add path to workflow |
-
----
-
-## Common Pitfalls
-
-| Problem | Cause | Solution |
-|---------|-------|----------|
-| 404 errors in Docker | Missing PATH_BASE | Add `PATH_BASE=/api/yourworker` env var |
-| Metrics not appearing | Missing MetricsService URL | Set `MetricsService__BaseUrl=http://metrics:8080` |
-| Health checks failing | Wrong Caddy directive | Use `handle_path` not `handle` in Caddyfile |
-| DB connection timeout | Async deadlock | Use `ConfigureAwait(false)` in library code |
-| Back-office not discovering | Missing worker_registry | Execute worker_registry SQL |
-
-**Technical details:** [Troubleshooting Reference](references/troubleshooting/REFERENCE.md)
+**Common Issues:** See [Troubleshooting Reference](references/troubleshooting/REFERENCE.md)
 
 ---
 
 ## Step 9: Documentation Updates
 
-After worker is deployed and verified, update:
-
-| File | Update |
-|------|--------|
-| `deployment/vm/docker-compose.yml` | Add service definition |
-| `deployment/vm/Caddyfile` | Add reverse proxy route |
-| `.github/workflows/deploy-vm.yml` | Add CI/CD triggers |
-| `instruction/KNOWLEDGE.md` | **Add service URL to Quick Reference** |
-| `instruction/skills/cli/References/caddy/REFERENCE.md` | Add route reference |
+Update: `docker-compose.yml`, `Caddyfile`, `deploy-vm.yml`, `KNOWLEDGE.md`
 
 ---
 
-## Related Documentation
+## Related
 
-### Reference Files
-- [API Endpoints](references/api-endpoints/REFERENCE.md)
-- [Database Setup](references/database-setup/REFERENCE.md)
-- [Metrics Integration](references/metrics-integration/REFERENCE.md)
-- [Grafana Dashboard](references/grafana-dashboard/REFERENCE.md)
-- [CI/CD Pipeline](references/cicd-pipeline/REFERENCE.md)
-- [Scheduling](references/scheduling/REFERENCE.md)
-- [Verification](references/verification/REFERENCE.md)
-- [Coding Standards](references/coding-standards/REFERENCE.md)
-- [Troubleshooting](references/troubleshooting/REFERENCE.md)
-
-### Architecture & Rules
-- [Data-Fetcher Architecture](../../architecture/data-fetcher-backoffice-integration.md)
-- [Metrics Architecture](../../architecture/metrics-architecture.md)
-- [Security Rules](../../rules/security.md)
-- [C# Conventions](../../rules/conventions/csharp.md)
-- [Docker Conventions](../../rules/conventions/docker.md)
-- [CI/CD Deployment](../../rules/cicd-deployment.md)
+All technical details in `references/` folder. Architecture docs in `instruction/architecture/`.
