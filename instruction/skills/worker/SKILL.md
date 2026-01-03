@@ -62,6 +62,12 @@ Before starting, ensure access to:
 
 ---
 
+## Database Access
+
+Use Supabase MCP tools for any database queries, verification, or migrations.
+
+---
+
 ## High-Level Workflow
 
 ```
