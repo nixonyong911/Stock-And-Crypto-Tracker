@@ -40,13 +40,20 @@ ssh-azure
 Run cursor-agent via WSL Ubuntu.
 
 ```powershell
-function cursor-agent { wsl -d Ubuntu -- bash -lc '~/.local/bin/cursor-agent $args' }
+function cursor-agent { wsl -d Ubuntu -- ~/.local/bin/cursor-agent @args }
 ```
+
+> **Note:** Uses `@args` (splatting) to properly pass all arguments to WSL. Using `$args` or wrapping in `bash -lc '...'` breaks argument passing.
 
 **Usage:**
 
 ```powershell
+# Interactive mode
 cursor-agent
+
+# Non-interactive (print mode)
+cursor-agent -p "your prompt here"
+cursor-agent -p --output-format text "your prompt here"
 ```
 
 ---
