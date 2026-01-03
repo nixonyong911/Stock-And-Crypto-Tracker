@@ -1,11 +1,17 @@
+using Dapper;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Npgsql;
 using Serilog;
 using StockTracker.Common.Metrics;
 using CandlestickAnalysis.Worker.Configuration;
+using CandlestickAnalysis.Worker.Infrastructure;
 using CandlestickAnalysis.Worker.Repositories;
 using CandlestickAnalysis.Worker.Services;
 using CandlestickAnalysis.Worker.Workers;
+
+// Register Dapper type handlers for DateOnly (not natively supported by Dapper)
+SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
+SqlMapper.AddTypeHandler(new NullableDateOnlyTypeHandler());
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
