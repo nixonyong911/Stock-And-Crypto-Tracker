@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Npgsql;
 using Serilog;
 using StockTracker.Common.Metrics;
 using CandlestickAnalysis.Worker.Configuration;
@@ -68,12 +69,20 @@ try
         });
     });
 
-    // Add health checks
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    // Add health checks - use same connection settings as DbConnectionFactory
+    var baseConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
         ?? "Host=localhost;Port=5432;Database=stocktracker;Username=postgres;Password=postgres";
+    
+    var healthCheckConnectionString = new NpgsqlConnectionStringBuilder(baseConnectionString)
+    {
+        CommandTimeout = 30,
+        Timeout = 15,
+        SslMode = SslMode.Require,
+        Pooling = false
+    }.ConnectionString;
 
     builder.Services.AddHealthChecks()
-        .AddNpgSql(connectionString, name: "postgresql", tags: ["db", "ready"]);
+        .AddNpgSql(healthCheckConnectionString, name: "postgresql", tags: ["db", "ready"]);
 
     var app = builder.Build();
 
