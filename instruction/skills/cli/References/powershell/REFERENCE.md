@@ -40,10 +40,17 @@ ssh-azure
 Run cursor-agent via WSL Ubuntu.
 
 ```powershell
-function cursor-agent { wsl -d Ubuntu -- ~/.local/bin/cursor-agent @args }
+function cursor-agent {
+    $cmd = "~/.local/bin/cursor-agent"
+    foreach ($arg in $args) {
+        $escaped = $arg -replace "'", "'\''"
+        $cmd += " '$escaped'"
+    }
+    wsl -d Ubuntu -- bash -c $cmd
+}
 ```
 
-> **Note:** Uses `@args` (splatting) to properly pass all arguments to WSL. Using `$args` or wrapping in `bash -lc '...'` breaks argument passing.
+> **Note:** Uses `bash -c` wrapper with proper escaping. Direct WSL execution (`wsl -- command @args`) breaks `-p` flag parsing.
 
 **Usage:**
 

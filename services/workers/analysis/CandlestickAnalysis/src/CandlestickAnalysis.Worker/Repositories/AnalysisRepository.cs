@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Text.Json;
 using Dapper;
 using Microsoft.Extensions.Logging;
@@ -112,15 +113,17 @@ public class AnalysisRepository : IAnalysisRepository
 
         sql += " ORDER BY a.analysis_date DESC";
 
-        using var connection = _connectionFactory.CreateConnection();
+        using var connection = (DbConnection)_connectionFactory.CreateConnection();
+        await connection.OpenAsync();  // Explicitly open before query for Supavisor compatibility
         var rows = await connection.QueryAsync<dynamic>(sql, new
         {
             Symbol = symbol,
             StartDate = startDate,
             EndDate = endDate
         });
+        var rowList = rows.AsList();  // Force immediate materialization
 
-        return rows.Select(row => new AnalysisResult
+        return rowList.Select(row => new AnalysisResult
         {
             StockTickerId = (int)row.StockTickerId,
             Symbol = (string)row.Symbol,
