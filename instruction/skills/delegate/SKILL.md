@@ -63,6 +63,14 @@ instruction/delegate/
 - Final task with nothing else to do (just execute directly)
 - Destructive operations without review
 
+## Execution Rules
+
+**Critical:** After delegating a task:
+1. Continue working on other tasks immediately — do not wait
+2. Before any dependent step, **always read** `instruction/delegate/<task-name>/output.md`
+3. Use the output to inform decisions (e.g., if validation fails, act on it)
+4. Clean up delegate folders after consuming results
+
 ## Sub-Agent Instructions
 
 Background agents have no prior context. Include:
