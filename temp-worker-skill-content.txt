@@ -1,0 +1,704 @@
+﻿---
+name: worker-requirements
+description: Guide for creating/reviewing workers in /services/workers
+triggers:
+  - "create worker"
+  - "review worker"
+  - "worker compliance"
+---
+
+# Worker Requirements
+
+## Overview
+
+This skill defines the **project standard** for all workers in the project. Use this for:
+- **Creating new workers** - Follow the step-by-step guide
+- **Reviewing existing workers** - Use the compliance checklist
+- **Maintaining workers** - Reference requirements during updates
+
+**Worker Location:** `services/workers/{type}/{name}/`
+
+**Worker Types:**
+- `data-fetcher` - Fetches external API data (e.g., TwelveData, CoinGecko)
+  - Location: `services/workers/data-fetcher/{name}/`
+- `analysis` - Processes existing data (e.g., CandlestickAnalysis)
+  - Location: `services/workers/analysis/{name}/`
+
+---
+
+## Worker Type Confirmation
+
+**If user doesn't specify worker type, prompt with:**
+
+```
+What type of worker would you like to create/review?
+1. data-fetcher worker - Fetches external API data (e.g., TwelveData, CoinGecko)
+2. analysis worker - Processes existing data (e.g., CandlestickAnalysis)
+3. New type of worker - Define a new worker category
+```
+
+---
+
+## Required Components
+
+**Every worker MUST include:**
+- Health endpoints (`/health/live`, `/health/ready`)
+- Swagger documentation
+- Metrics emission
+- Grafana dashboard
+- CI/CD pipeline integration
+- Database registration
+
+---
+
+## Prerequisites
+
+Before starting, ensure access to:
+- [ ] Supabase project (database)
+- [ ] Infisical (secrets management)
+- [ ] Azure VM (deployment target)
+- [ ] Grafana Cloud (dashboards)
+- [ ] Understanding of the external API being integrated
+
+---
+
+## Database Access
+
+Use Supabase MCP tools for any database queries, verification, or migrations.
+
+---
+
+## High-Level Workflow
+
+```
+1. API Endpoints     â†’ Implement required REST endpoints + Swagger
+2. Database Setup    â†’ Entity, DbContext, migration via Supabase MCP
+3. Secrets Config    â†’ Add env vars to docker-compose.yml
+4. Metrics           â†’ Emit standard Prometheus metrics
+5. Grafana Dashboard â†’ Create worker-specific dashboard
+6. CI/CD Pipeline    â†’ Add build/deploy triggers
+7. Schedule Config   â†’ Register in fetch_schedules (10min offset)
+8. Verification      â†’ Pre/post deployment checks
+```
+
+---
+
+## Step 1: API Endpoints
+
+Every worker MUST implement:
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/health/live` | GET | Liveness probe (200 if running) |
+| `/health/ready` | GET | Readiness check (200 if DB connected) |
+| `/api/{worker}/status` | GET | Worker config and status |
+| `/api/{worker}/trigger/{id}` | POST | Manual single-item trigger |
+| `/api/{worker}/trigger/all` | POST | Manual batch trigger |
+
+**Technical details:** [API Endpoints Reference](references/api-endpoints/REFERENCE.md)
+
+---
+
+## Step 2: Database Setup
+
+If worker requires new tables:
+
+1. Create entity class in `services/common/StockTracker.Data/Entities/`
+2. Add `DbSet<>` to `StockTrackerDbContext.cs`
+3. Create configuration in `Configurations/` folder
+4. Apply migration via Supabase MCP `apply_migration`
+
+**Technical details:** [Database Setup Reference](references/database-setup/REFERENCE.md)
+
+---
+
+## Step 3: Secrets Configuration
+
+Secrets are injected at runtime via docker-compose environment variables.
+
+**Add to `deployment/vm/docker-compose.yml`:**
+
+```yaml
+yourworker:
+  environment:
+    - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+    - YourWorker__ApiKey=${YOUR_WORKER_API_KEY}
+    - MetricsService__BaseUrl=http://metrics:8080
+    - PATH_BASE=/api/yourworker
+```
+
+**Add secrets to Infisical** `prod` environment:
+- `YOUR_WORKER_API_KEY`
+- Any other API credentials
+
+---
+
+## Step 4: Metrics Implementation
+
+Use `IMetricsClient` from `StockTracker.Common` to emit standard metrics:
+
+| Metric | Type | Purpose |
+|--------|------|---------|
+| `worker_up` | gauge | Health indicator (1=up) |
+| `worker_info` | gauge | Version metadata |
+| `fetch_operations_total` | counter | Operation attempts |
+| `fetch_errors_total` | counter | Error counts by type |
+| `fetch_duration_seconds` | histogram | API latency |
+| `records_inserted_total` | counter | Data volume |
+
+**Technical details:** [Metrics Integration Reference](references/metrics-integration/REFERENCE.md)
+
+---
+
+## Step 5: Grafana Dashboard
+
+1. Create `grafana/dashboards/yourworker-details.json` (copy from existing)
+2. Upload to Grafana Cloud via API
+3. Verify dashboard accessible
+
+**Technical details:** [Grafana Dashboard Reference](references/grafana-dashboard/REFERENCE.md)
+
+---
+
+## Step 6: CI/CD Pipeline Integration
+
+Add worker to `.github/workflows/deploy-vm.yml`:
+
+1. Add trigger path
+2. Add change detection filter
+3. Add build step with caching
+4. Add compression block
+5. Add to image loading list
+
+**Technical details:** [CI/CD Pipeline Reference](references/cicd-pipeline/REFERENCE.md)
+
+---
+
+## Step 7: Schedule Configuration
+
+Database-driven scheduling via `fetch_schedules` table. **10-minute offset rule:** Schedule workers 10min apart.
+
+```sql
+INSERT INTO data_sources (name, base_url, description, is_active)
+VALUES ('YourWorker', 'https://api.example.com', 'Description', true);
+
+INSERT INTO fetch_schedules (data_source_id, name, schedule_time_utc, is_enabled)
+VALUES ((SELECT id FROM data_sources WHERE name = 'YourWorker'), 'YourWorker Daily', '22:10:00', true);
+```
+
+**Technical details:** [Scheduling Reference](references/scheduling/REFERENCE.md)
+
+---
+
+## Step 8: Verification
+
+### Pre-Deployment Checklist
+
+- [ ] Worker builds successfully (`dotnet build`)
+- [ ] Health endpoints respond (200 OK)
+- [ ] Swagger UI accessible at `/api/yourworker/swagger`
+- [ ] Metrics emitted to Metrics service
+- [ ] Database entries created (data_sources, fetch_schedules)
+- [ ] Grafana dashboard JSON created
+
+### Post-Deployment Verification
+
+- [ ] Container running (`docker ps | grep yourworker`)
+- [ ] Health endpoint accessible via public URL
+- [ ] Trigger endpoints work
+- [ ] Metrics visible in Grafana
+
+**Technical details:** [Verification Reference](references/verification/REFERENCE.md)
+
+---
+
+## Coding Standards
+
+Workers MUST follow:
+
+- **Security**: No secrets in code, parameterized queries, input validation
+- **Fault Tolerance**: Retry with exponential backoff, timeouts, graceful degradation
+- **Conventions**: C# naming, structured logging, async patterns
+
+**Technical details:** [Coding Standards Reference](references/coding-standards/REFERENCE.md)
+
+---
+
+## Reviewing Existing Workers
+
+Use this checklist when reviewing or auditing existing workers for compliance:
+
+### Compliance Checklist
+
+| Requirement | Check | Location |
+|-------------|-------|----------|
+| Health endpoints | `/health/live` and `/health/ready` respond 200 | `Controllers/` |
+| Swagger docs | UI accessible at `/api/{worker}/swagger` | `Program.cs` |
+| Metrics emission | Uses `IMetricsClient` from `StockTracker.Common` | `Services/` |
+| Grafana dashboard | JSON exists AND uploaded to Grafana Cloud | Dashboard file + API |
+| CI/CD integration | Paths in `deploy-vm.yml` triggers | Workflow file |
+| Database registration | Entry in `data_sources` table | Supabase |
+| Schedule registration | Entry in `fetch_schedules` table | Supabase |
+| Secrets via Infisical | No hardcoded secrets | `appsettings.json` |
+| Docker health check | `HEALTHCHECK` in Dockerfile | `Dockerfile` |
+| PATH_BASE configured | Environment variable set | `docker-compose.yml` |
+
+**Common Issues:** See [Troubleshooting Reference](references/troubleshooting/REFERENCE.md)
+
+---
+
+## Step 9: Documentation Updates
+
+Update: `docker-compose.yml`, `Caddyfile`, `deploy-vm.yml`, `KNOWLEDGE.md`
+
+---
+
+## Related
+
+All technical details in `references/` folder. Architecture docs in `instruction/architecture/`.
+
+# API Endpoints Reference
+
+## Required Endpoints
+
+| Endpoint | Method | Response |
+|----------|--------|----------|
+| `/health/live` | GET | `200 OK` if running |
+| `/health/ready` | GET | `200 OK` if DB connected |
+| `/api/{worker}/status` | GET | Worker config JSON |
+| `/api/{worker}/trigger/{id}` | POST | Single operation result |
+| `/api/{worker}/trigger/all` | POST | Batch operation result |
+
+## Response DTOs
+
+```json
+// Status Response
+{ "service": "YourWorker", "status": "Running", "config": { "interval": "15min" } }
+
+// Trigger Response
+{ "success": true, "message": "Processed 26 records", "recordsProcessed": 26 }
+```
+
+## Swagger Configuration
+
+```csharp
+// Program.cs
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c => {
+    c.SwaggerDoc("v1", new() { Title = "YourWorker API", Version = "v1" });
+});
+
+app.UseSwagger();
+app.UseSwaggerUI(c => {
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "YourWorker v1");
+    c.RoutePrefix = "swagger";
+});
+```
+
+## PATH_BASE for Reverse Proxy
+
+```yaml
+environment:
+  - PATH_BASE=/api/yourworker
+```
+
+## Related
+- [Verification Reference](../verification/REFERENCE.md)
+
+# CI/CD Pipeline Reference
+
+File: `.github/workflows/deploy-vm.yml`
+
+## Steps
+
+1. **Trigger path:** `services/workers/{type}/YourWorker/**`
+2. **Change detection:** Add `yourworker` filter
+3. **Build step:** `docker/build-push-action@v5` with cache
+4. **Compression:** `gzip -1 < /tmp/yourworker.tar > /tmp/images/yourworker.tar.gz`
+5. **Image loading:** Add to load loop
+
+## Build Step Template
+
+```yaml
+- name: Build YourWorker
+  if: needs.detect-changes.outputs.yourworker == 'true'
+  uses: docker/build-push-action@v5
+  with:
+    context: services/
+    file: services/workers/{type}/YourWorker/Dockerfile
+    tags: yourworker:latest
+    outputs: type=docker,dest=/tmp/yourworker.tar
+```
+
+## Related
+- [CI/CD Rules](../../../../rules/cicd-deployment.md)
+
+# Coding Standards Reference
+
+## Security Requirements
+
+| Rule | Implementation |
+|------|----------------|
+| No secrets in code | Use `IConfiguration`, env vars |
+| Parameterized queries | Dapper `@Parameter` syntax |
+| Input validation | Validate at controller entry |
+| Mask secrets in logs | Never log API keys, passwords |
+
+## Fault Tolerance
+
+### Retry Pattern (Polly)
+```csharp
+services.AddHttpClient<IApiClient, ApiClient>()
+    .AddTransientHttpErrorPolicy(p => p
+        .WaitAndRetryAsync(3, attempt => 
+            TimeSpan.FromSeconds(Math.Pow(2, attempt))));
+```
+
+### Timeout Configuration
+```csharp
+var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+```
+
+### Graceful Degradation
+```csharp
+try {
+    return await FetchFromApi();
+} catch (HttpRequestException) {
+    _logger.LogWarning("API unavailable, using cached data");
+    return await GetCachedData();
+}
+```
+
+## C# Conventions Summary
+
+- **Naming**: PascalCase classes/methods, _camelCase private fields
+- **Async**: Use `async/await`, pass `CancellationToken`
+- **Logging**: Structured logging with `ILogger<T>`
+- **DI**: Constructor injection, validate null args
+
+## Related Rules (Full Details)
+
+- [Security Best Practices](../../../../rules/security.md)
+- [C# Conventions](../../../../rules/conventions/csharp.md)
+- [Docker Conventions](../../../../rules/conventions/docker.md)
+
+
+# Database Setup Reference
+
+## 1. Create Entity (if needed)
+
+`services/common/StockTracker.Data/Entities/YourEntity.cs`:
+```csharp
+public class YourEntity
+{
+    public Guid Id { get; set; }
+    public string Symbol { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+```
+
+Register in `StockTrackerDbContext.cs`:
+```csharp
+public DbSet<YourEntity> YourEntities => Set<YourEntity>();
+```
+
+## 2. Apply Migration via Supabase MCP
+
+Use `apply_migration` (NOT EF Core):
+```sql
+CREATE TABLE your_entities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    symbol VARCHAR(10) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+## 3. Register Worker (for Back-Office Discovery)
+
+```sql
+INSERT INTO worker_registry (name, display_name, description, service_type,
+    health_endpoint, status_endpoint, config_schema)
+VALUES (
+    'yourworker', 'YourWorker Service', 'Description', 'data-fetcher',
+    '/api/yourworker/health/live', '/api/yourworker/api/fetch/status',
+    '{"schedule": {"properties": {"schedule_time_utc": {"type": "time"}}}}'::jsonb
+);
+```
+
+## Related
+- [Database Schema](../../../../database/schema.md)
+- [Troubleshooting](../troubleshooting/REFERENCE.md) - Back-office discovery issues
+
+# Grafana Dashboard Reference
+
+## 1. Create Dashboard JSON
+
+Location: `grafana/dashboards/yourworker-details.json`
+
+| Panel | Type | PromQL |
+|-------|------|--------|
+| Worker Status | Stat | `yourworker_worker_up` |
+| Operations Rate | Timeseries | `rate(yourworker_fetch_operations_total[5m])` |
+| Error Rate | Gauge | `rate(errors[5m]) / rate(operations[5m]) * 100` |
+
+Template: Copy from `grafana/dashboards/twelvedata-details.json`
+
+## 2. Upload to Grafana Cloud (API)
+
+```powershell
+$json = Get-Content "grafana/dashboards/yourworker-details.json" -Raw | ConvertFrom-Json
+$body = @{ dashboard = $json; overwrite = $true } | ConvertTo-Json -Depth 100
+$headers = @{ "Authorization" = "Bearer $env:GRAFANA_TOKEN"; "Content-Type" = "application/json" }
+Invoke-RestMethod -Uri "https://stockandcryptotracker.grafana.net/api/dashboards/db" -Method Post -Headers $headers -Body $body
+```
+
+Token: `GRAFANA_SERVICE_ACCOUNT_TOKEN` from Infisical
+
+## 3. Verify Upload
+
+```powershell
+$headers = @{ "Authorization" = "Bearer $env:GRAFANA_TOKEN" }
+Invoke-RestMethod -Uri "https://stockandcryptotracker.grafana.net/api/search?query=yourworker" -Headers $headers | Select uid, title
+```
+
+## Related
+- [Grafana CLI Skill](../../../cli/References/grafana/REFERENCE.md)
+
+
+# Metrics Integration Reference
+
+## 1. Add Project Reference
+
+```xml
+<ProjectReference Include="..\..\common\StockTracker.Common\StockTracker.Common.csproj" />
+```
+
+## 2. Register IMetricsClient
+
+```csharp
+builder.Services.AddMetricsClient(options => {
+    options.MetricsServiceUrl = builder.Configuration["MetricsService:BaseUrl"];
+    options.WorkerName = "yourworker";
+});
+```
+
+## 3. Standard Metrics
+
+| Metric | Type | When |
+|--------|------|------|
+| `worker_up` | gauge | Startup (1) |
+| `fetch_operations_total` | counter | After operation |
+| `fetch_errors_total` | counter | On error |
+| `fetch_duration_seconds` | histogram | After operation |
+| `records_inserted_total` | counter | After DB insert |
+
+## 4. Usage
+
+```csharp
+await _metrics.SetGaugeAsync("worker_up", 1);
+
+var sw = Stopwatch.StartNew();
+try {
+    await DoWork();
+    await _metrics.IncrementCounterAsync("fetch_operations_total", 
+        labels: new { status = "success" });
+} catch (Exception ex) {
+    await _metrics.IncrementCounterAsync("fetch_errors_total",
+        labels: new { error_type = ex.GetType().Name });
+} finally {
+    await _metrics.RecordHistogramAsync("fetch_duration_seconds", sw.Elapsed.TotalSeconds);
+}
+```
+
+## Related
+- [Metrics Specification](../../../../reference/metrics-specification.md)
+
+# Scheduling Implementation Reference
+
+Workers use database-driven scheduling via `BackgroundService`. Polls `fetch_schedules`, calculates delay, executes at scheduled time.
+
+**Reference:** `services/workers/data-fetcher/TwelveData/src/TwelveData.Worker/`
+
+## Required Components
+
+| Component | Location |
+|-----------|----------|
+| `FetchSchedule` model | `Models/` - maps to `fetch_schedules` table |
+| `IFetchScheduleRepository` | `Repositories/` - queries schedule from DB |
+| `{Worker}Worker` | `Workers/` - BackgroundService with loop |
+
+## Worker Loop Pattern
+
+```csharp
+public class YourWorker : BackgroundService
+{
+    private const string DataSourceName = "YourWorkerName";
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var schedule = await _scheduleRepo.GetScheduleByDataSourceNameAsync(DataSourceName);
+            if (schedule == null || !schedule.IsEnabled) { await Task.Delay(TimeSpan.FromHours(1), stoppingToken); continue; }
+            var delay = CalculateDelay(schedule.ScheduleTimeUtc);
+            await Task.Delay(delay, stoppingToken);
+            await ExecuteWorkAsync(schedule, stoppingToken);
+        }
+    }
+
+    private static TimeSpan CalculateDelay(TimeSpan scheduleTimeUtc)
+    {
+        var now = DateTime.UtcNow;
+        var scheduled = now.Date.Add(scheduleTimeUtc);
+        return now >= scheduled ? scheduled.AddDays(1) - now : scheduled - now;
+    }
+}
+```
+
+## Registration
+```csharp
+builder.Services.AddScoped<IFetchScheduleRepository, FetchScheduleRepository>();
+builder.Services.AddHostedService<YourWorker>();
+```
+
+**Behaviors:** No schedule/disabled â†’ wait 1hr retry | Time passed â†’ calculate tomorrow
+
+# Troubleshooting Reference
+
+## PATH_BASE 404 Errors
+
+**Symptom:** Worker returns 404 for all routes in Docker
+**Cause:** Swagger/API paths not prefixed correctly behind reverse proxy
+**Solution:**
+```yaml
+environment:
+  - PATH_BASE=/api/yourworker
+```
+
+## Metrics Not Appearing
+
+**Symptom:** Worker runs but no metrics in Grafana
+**Cause:** Worker not pushing to Metrics service
+**Solution:**
+```yaml
+environment:
+  - MetricsService__BaseUrl=http://metrics:8080
+  - MetricsService__WorkerName=yourworker
+  - MetricsService__Enabled=true
+```
+
+## Health Checks Failing
+
+**Symptom:** Caddy returns 502 or health check fails
+**Cause:** Using `handle` instead of `handle_path` (path not stripped)
+**Solution:**
+```
+# Wrong
+handle /api/yourworker/* {
+    reverse_proxy yourworker:8080
+}
+
+# Correct
+handle_path /api/yourworker/* {
+    reverse_proxy yourworker:8080
+}
+```
+
+## Database Connection Timeout
+
+**Symptom:** Intermittent DB timeouts in async code
+**Cause:** Deadlock from missing ConfigureAwait
+**Solution:**
+```csharp
+// In library/shared code
+await connection.QueryAsync(sql).ConfigureAwait(false);
+```
+
+## Supavisor Stream Error (Npgsql 8.0)
+
+**Symptom:** `"Exception while reading from stream"` on multi-row queries
+**Cause:** Npgsql 8.0 multiplexing incompatible with Supabase Supavisor pooler
+**Solution:** In `DbConnectionFactory.cs`:
+```csharp
+var builder = new NpgsqlConnectionStringBuilder(baseConnectionString)
+{
+    Multiplexing = false,    // Required for Supavisor
+    Pooling = false,         // Supabase has its own pooler
+    NoResetOnClose = true    // Pooler compatibility
+};
+```
+
+## Dapper DateOnly Parameter Error
+
+**Symptom:** `"The member X of type System.DateOnly cannot be used as a parameter value"`
+**Cause:** Dapper doesn't natively support .NET 6+ DateOnly type
+**Solution:** Register type handler in `Program.cs`:
+```csharp
+SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
+// See: CandlestickAnalysis.Worker/Infrastructure/DateOnlyTypeHandler.cs
+```
+
+## Dynamic Query Returns Nulls
+
+**Symptom:** `QueryAsync<dynamic>` returns null properties despite data existing
+**Cause:** Npgsql 8.0 property name mapping differs from column aliases
+**Solution:** Use strongly-typed model instead of dynamic:
+```csharp
+// Instead of: QueryAsync<dynamic>(sql)
+// Use: QueryAsync<YourDbRowModel>(sql)
+```
+
+## Back-Office Not Discovering Worker
+
+**Symptom:** Worker runs but doesn't appear in back-office UI
+**Cause:** Missing `worker_registry` database entry
+**Solution:** Execute worker_registry SQL (see database-setup/REFERENCE.md)
+
+## Related
+- [Database Setup](../database-setup/REFERENCE.md) - worker_registry SQL
+- [Verification](../verification/REFERENCE.md) - Debug commands
+
+
+# Verification Reference
+
+## Pre-Deployment Checklist
+
+- [ ] `dotnet build` succeeds
+- [ ] `curl http://localhost:8080/health/live` returns 200
+- [ ] Swagger UI loads at `/swagger`
+- [ ] Metrics visible at `/api/metrics/workers`
+- [ ] Database entries exist (data_sources, fetch_schedules)
+
+## Post-Deployment Commands
+
+```bash
+# Check container
+ssh-azure "docker ps | grep yourworker"
+
+# Health check
+curl https://nxserver.malaysiawest.cloudapp.azure.com/api/yourworker/health/live
+
+# Test trigger
+curl -X POST .../api/yourworker/api/trigger/TEST
+
+# Check logs
+ssh-azure "docker logs yourworker --tail 50"
+```
+
+## Database Verification
+
+```sql
+SELECT * FROM data_sources WHERE name = 'YourWorker';
+SELECT name, schedule_time_utc FROM fetch_schedules WHERE name LIKE '%YourWorker%';
+SELECT COUNT(*), MAX(created_at) FROM your_table;
+```
+
+## Grafana Verification
+
+1. Open Grafana Cloud
+2. Query: `{job="stocktracker-metrics"} |= "yourworker"`
+
+## Related
+- [CLI VM Skill](../../../cli/References/vm/REFERENCE.md)
+
+

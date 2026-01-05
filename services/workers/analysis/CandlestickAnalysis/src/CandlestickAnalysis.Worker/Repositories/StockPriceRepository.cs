@@ -1,4 +1,3 @@
-using System.Data.Common;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using CandlestickAnalysis.Worker.Models;
@@ -34,10 +33,8 @@ public class StockPriceRepository : IStockPriceRepository
             WHERE is_active = true
             ORDER BY symbol";
 
-        using var connection = (DbConnection)_connectionFactory.CreateConnection();
-        await connection.OpenAsync();  // Explicitly open before query for Supavisor compatibility
-        var results = await connection.QueryAsync<StockTicker>(sql);
-        return results.AsList();  // Force immediate materialization
+        using var connection = _connectionFactory.CreateConnection();
+        return await connection.QueryAsync<StockTicker>(sql);
     }
 
     public async Task<IEnumerable<StockPrice>> GetPricesForDateAsync(int stockTickerId, DateOnly date)
@@ -65,20 +62,18 @@ public class StockPriceRepository : IStockPriceRepository
               AND price_time < @EndOfDay
             ORDER BY price_time ASC";
 
-        using var connection = (DbConnection)_connectionFactory.CreateConnection();
-        await connection.OpenAsync();  // Explicitly open before query for Supavisor compatibility
+        using var connection = _connectionFactory.CreateConnection();
         var prices = await connection.QueryAsync<StockPrice>(sql, new 
         { 
             StockTickerId = stockTickerId, 
             StartOfDay = startOfDay,
             EndOfDay = endOfDay
         });
-        var priceList = prices.AsList();  // Force immediate materialization
 
         _logger.LogDebug("Found {Count} candles for ticker {TickerId} on {Date}", 
-            priceList.Count, stockTickerId, date);
+            prices.Count(), stockTickerId, date);
 
-        return priceList;
+        return prices;
     }
 
     public async Task<AnalysisSchedule?> GetScheduleByDataSourceNameAsync(string dataSourceName)

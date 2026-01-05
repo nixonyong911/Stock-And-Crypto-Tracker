@@ -49,6 +49,40 @@ handle_path /api/yourworker/* {
 await connection.QueryAsync(sql).ConfigureAwait(false);
 ```
 
+## Supavisor Stream Error (Npgsql 8.0)
+
+**Symptom:** `"Exception while reading from stream"` on multi-row queries
+**Cause:** Npgsql 8.0 multiplexing incompatible with Supabase Supavisor pooler
+**Solution:** In `DbConnectionFactory.cs`:
+```csharp
+var builder = new NpgsqlConnectionStringBuilder(baseConnectionString)
+{
+    Multiplexing = false,    // Required for Supavisor
+    Pooling = false,         // Supabase has its own pooler
+    NoResetOnClose = true    // Pooler compatibility
+};
+```
+
+## Dapper DateOnly Parameter Error
+
+**Symptom:** `"The member X of type System.DateOnly cannot be used as a parameter value"`
+**Cause:** Dapper doesn't natively support .NET 6+ DateOnly type
+**Solution:** Register type handler in `Program.cs`:
+```csharp
+SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
+// See: CandlestickAnalysis.Worker/Infrastructure/DateOnlyTypeHandler.cs
+```
+
+## Dynamic Query Returns Nulls
+
+**Symptom:** `QueryAsync<dynamic>` returns null properties despite data existing
+**Cause:** Npgsql 8.0 property name mapping differs from column aliases
+**Solution:** Use strongly-typed model instead of dynamic:
+```csharp
+// Instead of: QueryAsync<dynamic>(sql)
+// Use: QueryAsync<YourDbRowModel>(sql)
+```
+
 ## Back-Office Not Discovering Worker
 
 **Symptom:** Worker runs but doesn't appear in back-office UI
