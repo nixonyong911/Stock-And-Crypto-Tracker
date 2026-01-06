@@ -8,13 +8,15 @@ that can query financial data (stocks, crypto, candlestick patterns).
 
 import logging
 import asyncio
-from contextlib import asynccontextmanager
+import signal
+import sys
+from threading import Thread
 
 from telegram.ext import Application
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 import uvicorn
 
-from config import TELEGRAM_BOT_TOKEN, BOT_PORT, WEBHOOK_URL
+from config import TELEGRAM_BOT_TOKEN, BOT_PORT
 from services import SessionService, OTPService, AIHubClient
 from handlers import setup_command_handlers, setup_message_handlers
 
@@ -34,12 +36,50 @@ ai_client = AIHubClient()
 telegram_app: Application = None
 
 
-async def setup_telegram_app():
-    """Initialize the Telegram bot application."""
+# FastAPI for health checks only
+api = FastAPI(title="Telegram Bot Health API")
+
+
+@api.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    bot_running = telegram_app is not None
+    return {
+        "status": "healthy" if bot_running else "starting",
+        "service": "telegram-bot",
+        "bot_running": bot_running
+    }
+
+
+@api.get("/")
+async def root():
+    """Root endpoint."""
+    return {
+        "name": "Telegram Financial AI Bot",
+        "version": "1.0.0",
+        "status": "running"
+    }
+
+
+def run_health_server():
+    """Run FastAPI health server in a separate thread."""
+    uvicorn.run(api, host="0.0.0.0", port=BOT_PORT, log_level="warning")
+
+
+async def main():
+    """Main entry point - run the Telegram bot."""
     global telegram_app
     
+    logger.info("=" * 50)
+    logger.info("Starting Telegram Financial AI Bot")
+    logger.info("=" * 50)
+    
+    # Validate token
     if not TELEGRAM_BOT_TOKEN:
-        raise ValueError("TELEGRAM_BOT_TOKEN is not set")
+        logger.error("TELEGRAM_BOT_TOKEN is not set!")
+        sys.exit(1)
+    
+    logger.info(f"Token found: {TELEGRAM_BOT_TOKEN[:10]}...")
     
     # Build the application
     telegram_app = (
@@ -54,99 +94,40 @@ async def setup_telegram_app():
     telegram_app.bot_data["ai_client"] = ai_client
     
     # Setup handlers
+    logger.info("Setting up command handlers...")
     setup_command_handlers(telegram_app)
     setup_message_handlers(telegram_app)
+    logger.info("Handlers registered: /start, /help, /login, /verify, /logout, /status")
     
-    # Initialize the application
-    await telegram_app.initialize()
+    # Start health server in background thread
+    logger.info(f"Starting health server on port {BOT_PORT}...")
+    health_thread = Thread(target=run_health_server, daemon=True)
+    health_thread.start()
     
-    return telegram_app
-
-
-async def shutdown_services():
-    """Clean up services on shutdown."""
-    await session_service.close()
-    await otp_service.close()
-    if telegram_app:
-        await telegram_app.shutdown()
-
-
-# FastAPI app for webhook mode and health checks
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """FastAPI lifespan handler."""
-    logger.info("Starting Telegram bot...")
-    await setup_telegram_app()
+    # Run the bot with polling
+    logger.info("Starting bot polling...")
+    logger.info("Bot is now running! Send /start to test.")
     
-    if WEBHOOK_URL:
-        # Webhook mode
-        logger.info(f"Setting webhook to {WEBHOOK_URL}")
-        await telegram_app.bot.set_webhook(url=WEBHOOK_URL)
-        await telegram_app.start()
-    else:
-        # Polling mode
-        logger.info("Starting in polling mode...")
-        await telegram_app.start()
-        asyncio.create_task(telegram_app.updater.start_polling())
-    
-    yield
-    
-    logger.info("Shutting down...")
-    if WEBHOOK_URL:
-        await telegram_app.bot.delete_webhook()
-    else:
-        await telegram_app.updater.stop()
-    await telegram_app.stop()
-    await shutdown_services()
-
-
-api = FastAPI(title="Telegram Bot API", lifespan=lifespan)
-
-
-@api.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "service": "telegram-bot",
-        "ai_hub_connected": await ai_client.health_check()
-    }
-
-
-@api.post("/webhook")
-async def webhook(request: Request):
-    """Handle Telegram webhook updates."""
-    if telegram_app:
-        data = await request.json()
-        update = telegram_app.update_queue.put_nowait(data)
-        return Response(status_code=200)
-    return Response(status_code=503)
-
-
-@api.get("/")
-async def root():
-    """Root endpoint."""
-    return {
-        "name": "Telegram Financial AI Bot",
-        "version": "1.0.0",
-        "status": "running",
-        "endpoints": {
-            "health": "/health",
-            "webhook": "/webhook"
-        }
-    }
-
-
-def main():
-    """Run the bot in polling mode (for local development)."""
-    uvicorn.run(
-        "main:api",
-        host="0.0.0.0",
-        port=BOT_PORT,
-        reload=False
-    )
+    try:
+        # This blocks and runs the polling loop
+        await telegram_app.run_polling(
+            drop_pending_updates=True,  # Ignore old messages
+            allowed_updates=["message", "callback_query"],
+            close_loop=False
+        )
+    except Exception as e:
+        logger.error(f"Bot polling error: {e}", exc_info=True)
+    finally:
+        logger.info("Bot stopped.")
+        await session_service.close()
+        await otp_service.close()
 
 
 if __name__ == "__main__":
-    main()
-
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}", exc_info=True)
+        sys.exit(1)
