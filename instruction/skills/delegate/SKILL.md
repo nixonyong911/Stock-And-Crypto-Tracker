@@ -79,21 +79,6 @@ Background agents have no prior context. Include:
 - Clear success criteria
 - Output path: `instruction/delegate/<task-name>/output.md`
 
-## Plan Format
-
-```markdown
-- [ ] Task A: CI/CD setup
-      → Delegate: `cursor-agent -p "Follow instruction/skills/cli/References/github/REFERENCE.md to add workflow. Write results to instruction/delegate/cicd-setup/output.md"`
-      → Output: instruction/delegate/cicd-setup/output.md
-- [ ] Task B: Database migration  
-      → Delegate: `cursor-agent -p "Apply migration per instruction/database/schema.md. Write results to instruction/delegate/db-migration/output.md"`
-      → Output: instruction/delegate/db-migration/output.md
-- [ ] Task C: Grafana dashboard
-      → Master agent (while A & B run)
-- [ ] Check A & B results (read instruction/delegate/*/output.md)
-- [ ] Task D: Integration (depends on A, B, C)
-```
-
 ## Examples
 
 See [references/examples.md](references/examples.md) for detailed delegation plan examples.

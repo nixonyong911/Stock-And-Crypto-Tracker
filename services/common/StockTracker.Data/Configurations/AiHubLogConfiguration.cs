@@ -105,3 +105,5 @@ public class AiHubLogConfiguration : IEntityTypeConfiguration<AiHubLog>
 
 
 
+
+
