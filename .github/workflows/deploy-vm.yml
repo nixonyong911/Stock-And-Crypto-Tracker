@@ -28,6 +28,7 @@ on:
       - 'services/metrics/**'
       - 'services/ai/ai-hub/**'
       - 'services/back-office/**'
+      - 'services/mcp/**'
       - 'services/common/**'
       - 'deployment/vm/**'
       - '.github/workflows/deploy-vm.yml'
@@ -51,9 +52,10 @@ jobs:
       analysis: ${{ steps.filter.outputs.analysis }}
       metrics: ${{ steps.filter.outputs.metrics }}
       backoffice: ${{ steps.filter.outputs.backoffice }}
+      mcp: ${{ steps.filter.outputs.mcp }}
       aihub: ${{ steps.filter.outputs.aihub }}
       config: ${{ steps.filter.outputs.config }}
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -74,6 +76,8 @@ jobs:
               - 'services/common/**'
             backoffice:
               - 'services/back-office/**'
+            mcp:
+              - 'services/mcp/**'
             aihub:
               - 'services/ai/ai-hub/**'
             config:
@@ -89,6 +93,7 @@ jobs:
           echo "Analysis: ${{ steps.filter.outputs.analysis }}"
           echo "Metrics: ${{ steps.filter.outputs.metrics }}"
           echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
+          echo "MCP Analysis: ${{ steps.filter.outputs.mcp }}"
           echo "AI Hub: ${{ steps.filter.outputs.aihub }}"
           echo "Config: ${{ steps.filter.outputs.config }}"
           echo "Force Build: ${{ github.event.inputs.force_build }}"
@@ -102,6 +107,7 @@ jobs:
           echo "| Analysis | ${{ steps.filter.outputs.analysis }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Metrics | ${{ steps.filter.outputs.metrics }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| MCP Analysis | ${{ steps.filter.outputs.mcp }} |" >> $GITHUB_STEP_SUMMARY
           echo "| AI Hub | ${{ steps.filter.outputs.aihub }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Config | ${{ steps.filter.outputs.config }} |" >> $GITHUB_STEP_SUMMARY
 
@@ -180,6 +186,20 @@ jobs:
           cache-to: type=gha,mode=max,scope=backoffice
           outputs: type=docker,dest=/tmp/back-office.tar
 
+      # Build MCP Analysis Server (only if changed or forced)
+      - name: Build MCP Analysis image
+        id: build-mcp
+        if: needs.detect-changes.outputs.mcp == 'true' || github.event.inputs.force_build == 'true'
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/mcp/
+          file: services/mcp/Dockerfile
+          tags: mcp-analysis:latest
+          cache-from: type=gha,scope=mcp
+          cache-to: type=gha,mode=max,scope=mcp
+          outputs: type=docker,dest=/tmp/mcp-analysis.tar
+
       # Compress built images
       - name: Compress Docker images
         id: compress
@@ -217,6 +237,14 @@ jobs:
             echo "✅ Back Office compressed"
           else
             echo "⏭️ Back Office skipped (unchanged)"
+          fi
+          
+          if [ -f /tmp/mcp-analysis.tar ]; then
+            gzip -1 < /tmp/mcp-analysis.tar > /tmp/images/mcp-analysis.tar.gz
+            BUILT="${BUILT}mcp,"
+            echo "✅ MCP Analysis compressed"
+          else
+            echo "⏭️ MCP Analysis skipped (unchanged)"
           fi
           
           echo "built=$BUILT" >> $GITHUB_OUTPUT
@@ -261,7 +289,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
             
-            for service in twelvedata candlestick-analysis metrics back-office; do
+            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -327,7 +355,7 @@ jobs:
           echo "📥 Loading Docker images..."
           
           # Only load our specific service images (not other .tar.gz files in /tmp)
-          for NAME in twelvedata candlestick-analysis metrics back-office; do
+          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -522,6 +550,9 @@ jobs:
           ssh azureuser@20.17.176.1 'curl -sf http://localhost:8084/health/live' > /dev/null && echo "✅ AI Hub: OK" || echo "⚠️ AI Hub: Check systemd logs"
           
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ > /dev/null && echo "✅ Back Office: OK" || echo "⚠️ Back Office: Starting..."
+          
+          # MCP Analysis runs on internal port 8085 - check via SSH
+          ssh azureuser@20.17.176.1 'curl -sf http://localhost:8085/health' > /dev/null && echo "✅ MCP Analysis: OK" || echo "⚠️ MCP Analysis: Check Docker logs"
           
           ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "⚠️ Alloy: Check logs"
           

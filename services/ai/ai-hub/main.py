@@ -492,6 +492,14 @@ def get_cli_endpoints():
             "agent": "cursor",
             "mode": "opus-4.5",
             "description": "Stock Tracker analysis with Cursor Opus 4.5"
+        },
+        {
+            "path": "/cli/telegram-agent/cursor/sonnet-4.5",
+            "instruction_folder": "telegram-agent",
+            "context_path": context_path,
+            "agent": "cursor",
+            "mode": "sonnet-4.5",
+            "description": "Telegram AI Chat Agent - Financial/Stock/Crypto queries only"
         }
     ]
 
@@ -554,6 +562,88 @@ async def cli_stock_tracker_cursor_opus45(request: CLIMessageRequest):
         raise
     except Exception as e:
         logger.error("Cursor endpoint error", error=str(e))
+        raise HTTPException(500, detail=str(e))
+
+
+# ===========================================
+# Telegram AI Agent - Governed Chat Endpoint
+# ===========================================
+# This endpoint is specifically designed for Telegram bot interactions.
+# The agent is strictly governed to ONLY respond to:
+# - Financial questions (stocks, crypto, market analysis)
+# - Candlestick pattern analysis queries
+# - Portfolio-related inquiries
+#
+# The agent will reply "I don't know" or decline for:
+# - CLI/system commands
+# - Codebase questions
+# - Non-financial topics
+# ===========================================
+
+TELEGRAM_AGENT_SYSTEM_PROMPT = """You are a financial analysis assistant for a Telegram bot. Your role is STRICTLY LIMITED to:
+
+1. ALLOWED TOPICS (respond helpfully):
+   - Stock market analysis and patterns
+   - Cryptocurrency information and trends
+   - Candlestick pattern interpretation
+   - Financial data queries from the analysis database
+   - Market terminology explanations
+   - General investment concepts (not advice)
+
+2. STRICTLY FORBIDDEN (always decline):
+   - Running any CLI commands or system operations
+   - Accessing or discussing codebases
+   - Executing code or scripts
+   - Any non-financial topics
+   - Personal advice, medical, legal topics
+   - Creating applications or agents
+   - Any request involving "spawn", "create", "build", "write code"
+
+3. RESPONSE RULES:
+   - For allowed topics: Provide helpful, concise responses
+   - For forbidden topics: Reply with "I can only help with financial and market-related questions. For other topics, please consult appropriate resources."
+   - Never pretend to execute commands
+   - Never discuss system architecture or codebase
+   - Keep responses concise and focused
+
+You have access to candlestick pattern analysis data. When users ask about stock patterns, you can query this data to provide insights."""
+
+
+@app.post("/cli/telegram-agent/cursor/sonnet-4.5")
+async def cli_telegram_agent_cursor_sonnet45(request: CLIMessageRequest):
+    """
+    Telegram AI Chat Agent - Governed financial assistant.
+    
+    Uses Cursor Agent with Sonnet 4.5 model.
+    Strictly limited to financial/stock/crypto queries.
+    """
+    config = get_config()
+    executor = get_cli_executor()
+    
+    # Prepend system prompt to govern the agent's behavior
+    governed_message = f"""SYSTEM INSTRUCTIONS (MUST FOLLOW):
+{TELEGRAM_AGENT_SYSTEM_PROMPT}
+
+USER MESSAGE:
+{request.message}"""
+    
+    try:
+        result = await executor.execute(
+            cli="cursor-agent",
+            message=governed_message,
+            context_path=config.settings.ai_hub_default_context_path,
+            model="sonnet-4.5"
+        )
+        if result.success:
+            return result.output
+        # Include both error and output for debugging
+        error_detail = result.error or result.output or "Unknown CLI error"
+        logger.error("Telegram Agent CLI failed", error=error_detail, exit_code=result.exit_code)
+        raise HTTPException(500, detail=error_detail)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Telegram Agent endpoint error", error=str(e))
         raise HTTPException(500, detail=str(e))
 
 
