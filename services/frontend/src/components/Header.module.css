@@ -39,6 +39,36 @@
   color: var(--text-muted);
 }
 
+.rightSection {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.registerButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.registerButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -5px rgba(6, 182, 212, 0.4);
+}
+
+.registerIcon {
+  font-size: 1.1rem;
+}
+
 .timestamp {
   display: flex;
   flex-direction: column;
@@ -59,11 +89,30 @@
   color: var(--text-secondary);
 }
 
+@media (max-width: 768px) {
+  .rightSection {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1rem;
+  }
+}
+
 @media (max-width: 640px) {
   .header {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+  }
+  
+  .rightSection {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .registerButton {
+    width: 100%;
+    justify-content: center;
   }
   
   .timestamp {
