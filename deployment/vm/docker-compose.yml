@@ -203,6 +203,38 @@ services:
       start_period: 10s
 
   # ===========================================
+  # Telegram Bot - Financial AI Assistant
+  # Port: 8087 (internal, polling mode)
+  # ===========================================
+  telegram-bot:
+    build:
+      context: ./repo/services/social-media/telegram
+      dockerfile: Dockerfile
+    container_name: telegram-bot
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_OTP_BOT_TOKEN=${TELEGRAM_OTP_BOT_TOKEN}
+      - DATABASE_URL=${DATABASE_CONNECTION_STRING}
+      - AI_HUB_URL=http://host.docker.internal:8084
+      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
+      - BOT_PORT=8087
+    ports:
+      - "8087:8087"
+    networks:
+      - stocktracker
+    depends_on:
+      - mcp-analysis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8087/health')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  # ===========================================
   # AI Hub - Runs on HOST (not Docker)
   # ===========================================
   # AI Hub runs as a systemd service directly on the VM host

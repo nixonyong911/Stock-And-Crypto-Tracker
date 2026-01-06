@@ -1,0 +1,16 @@
+# Telegram Bot
+python-telegram-bot==21.7
+
+# Web Framework (for webhook + health)
+fastapi==0.115.6
+uvicorn==0.34.0
+
+# HTTP Client
+httpx==0.28.1
+
+# Database
+asyncpg==0.30.0
+
+# Utilities
+python-dotenv==1.0.1
+

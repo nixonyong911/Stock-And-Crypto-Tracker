@@ -29,6 +29,7 @@ on:
       - 'services/ai/ai-hub/**'
       - 'services/back-office/**'
       - 'services/mcp/**'
+      - 'services/social-media/telegram/**'
       - 'services/common/**'
       - 'deployment/vm/**'
       - '.github/workflows/deploy-vm.yml'
@@ -53,9 +54,10 @@ jobs:
       metrics: ${{ steps.filter.outputs.metrics }}
       backoffice: ${{ steps.filter.outputs.backoffice }}
       mcp: ${{ steps.filter.outputs.mcp }}
+      telegram: ${{ steps.filter.outputs.telegram }}
       aihub: ${{ steps.filter.outputs.aihub }}
       config: ${{ steps.filter.outputs.config }}
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram == 'true' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -78,6 +80,8 @@ jobs:
               - 'services/back-office/**'
             mcp:
               - 'services/mcp/**'
+            telegram:
+              - 'services/social-media/telegram/**'
             aihub:
               - 'services/ai/ai-hub/**'
             config:
@@ -94,6 +98,7 @@ jobs:
           echo "Metrics: ${{ steps.filter.outputs.metrics }}"
           echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
           echo "MCP Analysis: ${{ steps.filter.outputs.mcp }}"
+          echo "Telegram Bot: ${{ steps.filter.outputs.telegram }}"
           echo "AI Hub: ${{ steps.filter.outputs.aihub }}"
           echo "Config: ${{ steps.filter.outputs.config }}"
           echo "Force Build: ${{ github.event.inputs.force_build }}"
@@ -108,6 +113,7 @@ jobs:
           echo "| Metrics | ${{ steps.filter.outputs.metrics }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
           echo "| MCP Analysis | ${{ steps.filter.outputs.mcp }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Telegram Bot | ${{ steps.filter.outputs.telegram }} |" >> $GITHUB_STEP_SUMMARY
           echo "| AI Hub | ${{ steps.filter.outputs.aihub }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Config | ${{ steps.filter.outputs.config }} |" >> $GITHUB_STEP_SUMMARY
 
@@ -200,6 +206,20 @@ jobs:
           cache-to: type=gha,mode=max,scope=mcp
           outputs: type=docker,dest=/tmp/mcp-analysis.tar
 
+      # Build Telegram Bot (only if changed or forced)
+      - name: Build Telegram Bot image
+        id: build-telegram
+        if: needs.detect-changes.outputs.telegram == 'true' || github.event.inputs.force_build == 'true'
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/social-media/telegram/
+          file: services/social-media/telegram/Dockerfile
+          tags: telegram-bot:latest
+          cache-from: type=gha,scope=telegram
+          cache-to: type=gha,mode=max,scope=telegram
+          outputs: type=docker,dest=/tmp/telegram-bot.tar
+
       # Compress built images
       - name: Compress Docker images
         id: compress
@@ -247,6 +267,14 @@ jobs:
             echo "⏭️ MCP Analysis skipped (unchanged)"
           fi
           
+          if [ -f /tmp/telegram-bot.tar ]; then
+            gzip -1 < /tmp/telegram-bot.tar > /tmp/images/telegram-bot.tar.gz
+            BUILT="${BUILT}telegram,"
+            echo "✅ Telegram Bot compressed"
+          else
+            echo "⏭️ Telegram Bot skipped (unchanged)"
+          fi
+          
           echo "built=$BUILT" >> $GITHUB_OUTPUT
           ls -lh /tmp/images/ 2>/dev/null || echo "No images to transfer"
 
@@ -289,7 +317,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
             
-            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis; do
+            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -355,7 +383,7 @@ jobs:
           echo "📥 Loading Docker images..."
           
           # Only load our specific service images (not other .tar.gz files in /tmp)
-          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis; do
+          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -553,6 +581,9 @@ jobs:
           
           # MCP Analysis runs on internal port 8085 - check via SSH
           ssh azureuser@20.17.176.1 'curl -sf http://localhost:8085/health' > /dev/null && echo "✅ MCP Analysis: OK" || echo "⚠️ MCP Analysis: Check Docker logs"
+          
+          # Telegram Bot runs on internal port 8087 - check via SSH
+          ssh azureuser@20.17.176.1 'curl -sf http://localhost:8087/health' > /dev/null && echo "✅ Telegram Bot: OK" || echo "⚠️ Telegram Bot: Check Docker logs"
           
           ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "⚠️ Alloy: Check logs"
           
