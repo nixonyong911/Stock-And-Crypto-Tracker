@@ -1,16 +1,11 @@
-# Worker Scheduling Skill
-
-**Category**: Operations / Worker Management  
-**Last Updated**: 2026-01-09  
-**Purpose**: Guide for managing timezone-aware worker schedules via database
-
+---
+name: worker-scheduling
+description: Manage timezone-aware worker schedules via database. Use when updating TwelveData or CandlestickAnalysis run times, changing schedule timezone, enabling/disabling schedules, or troubleshooting worker scheduling issues.
 ---
 
-## Overview
+# Worker Scheduling
 
-Workers (TwelveData, CandlestickAnalysis) use **timezone-aware scheduling** stored in the `fetch_schedules` database table. Schedules can be modified via SQL without code changes.
-
----
+Manage worker schedules (TwelveData, CandlestickAnalysis) by updating the `fetch_schedules` database table.
 
 ## Database Schema
 
@@ -18,196 +13,91 @@ Workers (TwelveData, CandlestickAnalysis) use **timezone-aware scheduling** stor
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `schedule_time` | `time` | Time of day to run (in `schedule_timezone`) |
+| `schedule_time` | `time` | Time of day (in `schedule_timezone`) |
 | `schedule_timezone` | `varchar(50)` | IANA timezone (e.g., `America/New_York`) |
-| `is_enabled` | `boolean` | Enable/disable the schedule |
+| `is_enabled` | `boolean` | Enable/disable schedule |
 | `fetch_config` | `jsonb` | Job-specific configuration |
 
----
+## Workflow: Change Schedule
 
-## Current Schedules
+### 1. Update Database
 
-| Worker | Schedule Name | Time | Timezone | Purpose |
-|--------|--------------|------|----------|---------|
-| TwelveData | TwelveData Daily Stocks | 16:30 | America/New_York | 30 min after NYSE close |
-| CandlestickAnalysis | Daily Candlestick Analysis | 18:30 | America/New_York | 2 hours after TwelveData |
-
----
-
-## How to Change Schedule
-
-### Step 1: Update Database
+Run in Supabase SQL Editor. See [references/sql-examples.md](references/sql-examples.md) for full examples.
 
 ```sql
--- View current schedules
-SELECT name, schedule_time, schedule_timezone, is_enabled 
-FROM fetch_schedules;
-
--- Update TwelveData schedule (example: change to 5:00 PM ET)
+-- Update schedule time
 UPDATE fetch_schedules 
 SET schedule_time = '17:00:00',
     updated_at = CURRENT_TIMESTAMP
 WHERE name = 'TwelveData Daily Stocks';
-
--- Update CandlestickAnalysis schedule (example: change to 7:00 PM ET)
-UPDATE fetch_schedules 
-SET schedule_time = '19:00:00',
-    updated_at = CURRENT_TIMESTAMP
-WHERE name = 'Daily Candlestick Analysis';
-
--- Change timezone (example: use UTC instead)
-UPDATE fetch_schedules 
-SET schedule_timezone = 'UTC',
-    updated_at = CURRENT_TIMESTAMP
-WHERE name = 'TwelveData Daily Stocks';
-
--- Disable a schedule
-UPDATE fetch_schedules 
-SET is_enabled = false,
-    updated_at = CURRENT_TIMESTAMP
-WHERE name = 'Daily Candlestick Analysis';
 ```
 
-### Step 2: Apply Changes
+### 2. Apply Changes
 
-**Workers only read the schedule when they loop back after completing a job.**
+Workers read schedule on each loop. To apply immediately, restart containers.
 
-To apply immediately, restart the containers:
+**From Windows (local):**
+```powershell
+.\scripts\apply-schedule-changes.ps1
+```
 
+**From VM (SSH):**
 ```bash
-# SSH to VM
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1
-
-# Restart specific worker
-docker restart twelvedata
-docker restart candlestick-analysis
-
-# Or restart both
-cd /opt/stocktracker && docker compose restart twelvedata candlestick-analysis
+./scripts/apply-schedule-changes.sh
 ```
 
-### Step 3: Verify New Schedule
+### 3. Verify
 
-```bash
-# Check TwelveData
-docker logs twelvedata 2>&1 | grep "Schedule.*loaded" | tail -1
-
-# Check CandlestickAnalysis  
-docker logs candlestick-analysis 2>&1 | grep "Schedule.*loaded" | tail -1
-```
-
-Expected output format:
+Scripts output new schedule automatically. Expected format:
 ```
 Schedule 'TwelveData Daily Stocks' loaded. Next run at 17:00:00 America/New_York (22:00 UTC, in Xh Xm)
 ```
 
----
+## Current Schedules
+
+| Worker | Time | Timezone | Purpose |
+|--------|------|----------|---------|
+| TwelveData | 16:30 | America/New_York | 30 min after NYSE close |
+| CandlestickAnalysis | 18:30 | America/New_York | 2 hours after TwelveData |
 
 ## Common Timezones
 
 | Timezone ID | Description |
 |-------------|-------------|
-| `America/New_York` | US Eastern (handles EST/EDT automatically) |
+| `America/New_York` | US Eastern (EST/EDT) |
 | `America/Chicago` | US Central |
 | `America/Los_Angeles` | US Pacific |
-| `Europe/London` | UK (handles GMT/BST) |
-| `Asia/Singapore` | Singapore |
 | `UTC` | Coordinated Universal Time |
 
----
-
-## How Scheduling Works Internally
+## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Worker Loop                                                 │
-├─────────────────────────────────────────────────────────────┤
-│  1. Load schedule from DB (schedule_time, schedule_timezone) │
-│  2. Convert schedule_time from timezone to UTC               │
-│  3. Calculate delay = scheduledUtc - now                     │
-│  4. await Task.Delay(delay)  ← Worker sleeps here            │
-│  5. Execute job                                              │
-│  6. Loop back to step 1                                      │
-└─────────────────────────────────────────────────────────────┘
+Worker Loop:
+  1. Load schedule from DB (schedule_time, schedule_timezone)
+  2. Convert to UTC using TimeZoneInfo (handles DST)
+  3. Calculate delay and wait
+  4. Execute job
+  5. Loop back to step 1
 ```
 
-**Key points:**
-- DST handled automatically by `TimeZoneInfo`
 - Server timezone doesn't matter (always converts to UTC)
-- DB changes picked up after current job completes (or on restart)
-
----
+- DST handled automatically
+- Changes picked up after current job completes (or on restart)
 
 ## Troubleshooting
 
-### Schedule not updating after DB change
-**Cause**: Worker is sleeping, waiting for current scheduled time  
-**Fix**: Restart the container
+See [references/sql-examples.md](references/sql-examples.md) for diagnostic queries.
 
-### Wrong timezone conversion
-**Cause**: Invalid timezone ID  
-**Fix**: Use valid IANA timezone from list above
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Schedule not updating | Worker sleeping | Restart container |
+| "No enabled schedule found" | `is_enabled = false` | Check DB values |
+| Wrong time conversion | Invalid timezone | Use valid IANA timezone |
 
-### Worker shows "No enabled schedule found"
-**Cause**: `is_enabled = false` or data_source not active  
-**Fix**: 
-```sql
-SELECT fs.*, ds.name as data_source, ds.is_active 
-FROM fetch_schedules fs 
-JOIN data_sources ds ON fs.data_source_id = ds.id;
-```
+## Bundled Resources
 
----
-
-## Quick Reference Script
-
-Run this after changing schedule in database:
-
-```bash
-# From local machine (PowerShell)
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "
-  echo '=== Restarting workers ===' &&
-  cd /opt/stocktracker &&
-  docker compose restart twelvedata candlestick-analysis &&
-  sleep 15 &&
-  echo '' &&
-  echo '=== TwelveData Schedule ===' &&
-  docker logs twelvedata 2>&1 | grep 'Schedule.*loaded' | tail -1 &&
-  echo '' &&
-  echo '=== CandlestickAnalysis Schedule ===' &&
-  docker logs candlestick-analysis 2>&1 | grep 'Schedule.*loaded' | tail -1
-"
-```
-
----
-
-## Scripts in This Folder
-
-| Script | Purpose | Run From |
-|--------|---------|----------|
-| `apply-schedule-changes.ps1` | Restart workers & verify schedules | Local Windows machine |
-| `apply-schedule-changes.sh` | Restart workers & verify schedules | VM (SSH session) |
-| `view-schedules.sql` | View/update schedules in database | Supabase SQL Editor |
-
-### Usage
-
-**From local Windows machine:**
-```powershell
-cd instruction/skills/worker-scheduling
-.\apply-schedule-changes.ps1
-```
-
-**From VM (after SSH):**
-```bash
-cd /opt/stocktracker/repo/instruction/skills/worker-scheduling
-chmod +x apply-schedule-changes.sh
-./apply-schedule-changes.sh
-```
-
----
-
-## Related Files
-
-- **TwelveData Worker**: `services/workers/data-fetcher/TwelveData/src/TwelveData.Worker/Workers/StockFetchWorker.cs`
-- **CandlestickAnalysis Worker**: `services/workers/analysis/CandlestickAnalysis/src/CandlestickAnalysis.Worker/Workers/CandlestickAnalysisWorker.cs`
-- **Database Migration**: `add_schedule_timezone_column` (applied 2026-01-09)
+| Path | Purpose |
+|------|---------|
+| `scripts/apply-schedule-changes.ps1` | Restart & verify (Windows) |
+| `scripts/apply-schedule-changes.sh` | Restart & verify (VM) |
+| `references/sql-examples.md` | SQL queries for view/update/troubleshoot |
