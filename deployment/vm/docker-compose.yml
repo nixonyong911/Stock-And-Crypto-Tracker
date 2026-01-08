@@ -207,6 +207,7 @@ services:
   # Port: 8087 (internal, polling mode)
   # ===========================================
   telegram-bot:
+    image: telegram-bot:latest
     build:
       context: ./repo/services/social-media/telegram
       dockerfile: Dockerfile
