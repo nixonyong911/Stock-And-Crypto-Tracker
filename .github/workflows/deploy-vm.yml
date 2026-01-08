@@ -188,6 +188,9 @@ jobs:
           context: services/back-office/
           file: services/back-office/Dockerfile
           tags: back-office:latest
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
           cache-from: type=gha,scope=backoffice
           cache-to: type=gha,mode=max,scope=backoffice
           outputs: type=docker,dest=/tmp/back-office.tar
