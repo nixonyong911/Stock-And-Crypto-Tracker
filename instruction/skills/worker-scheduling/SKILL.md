@@ -181,6 +181,31 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "
 
 ---
 
+## Scripts in This Folder
+
+| Script | Purpose | Run From |
+|--------|---------|----------|
+| `apply-schedule-changes.ps1` | Restart workers & verify schedules | Local Windows machine |
+| `apply-schedule-changes.sh` | Restart workers & verify schedules | VM (SSH session) |
+| `view-schedules.sql` | View/update schedules in database | Supabase SQL Editor |
+
+### Usage
+
+**From local Windows machine:**
+```powershell
+cd instruction/skills/worker-scheduling
+.\apply-schedule-changes.ps1
+```
+
+**From VM (after SSH):**
+```bash
+cd /opt/stocktracker/repo/instruction/skills/worker-scheduling
+chmod +x apply-schedule-changes.sh
+./apply-schedule-changes.sh
+```
+
+---
+
 ## Related Files
 
 - **TwelveData Worker**: `services/workers/data-fetcher/TwelveData/src/TwelveData.Worker/Workers/StockFetchWorker.cs`
