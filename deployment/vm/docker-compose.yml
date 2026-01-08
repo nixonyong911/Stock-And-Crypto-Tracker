@@ -60,6 +60,7 @@ services:
   # Swagger at: /api/twelvedata/swagger
   # ===========================================
   twelvedata:
+    image: stocktracker-twelvedata:latest
     build:
       context: ./repo/services
       dockerfile: workers/data-fetcher/TwelveData/Dockerfile
@@ -93,6 +94,7 @@ services:
   # Swagger at: /api/analysis/swagger
   # ===========================================
   candlestick-analysis:
+    image: stocktracker-candlestick-analysis:latest
     build:
       context: ./repo/services
       dockerfile: workers/analysis/CandlestickAnalysis/Dockerfile
@@ -128,6 +130,7 @@ services:
   # Prometheus metrics at: /metrics
   # ===========================================
   metrics:
+    image: stocktracker-metrics:latest
     build:
       context: ./repo/services
       dockerfile: metrics/StockTracker.Metrics/Dockerfile
@@ -183,6 +186,7 @@ services:
   # Port: 8085 (internal, accessed by n8n)
   # ===========================================
   mcp-analysis:
+    image: stocktracker-mcp-analysis:latest
     build:
       context: ./repo/services/mcp
       dockerfile: Dockerfile
@@ -207,7 +211,7 @@ services:
   # Port: 8087 (internal, polling mode)
   # ===========================================
   telegram-bot:
-    image: telegram-bot:latest
+    image: stocktracker-telegram-bot:latest
     build:
       context: ./repo/services/social-media/telegram
       dockerfile: Dockerfile
@@ -251,6 +255,7 @@ services:
   # Access at: /back-office
   # ===========================================
   back-office:
+    image: stocktracker-back-office:latest
     build:
       context: ./repo/services/back-office
       dockerfile: Dockerfile

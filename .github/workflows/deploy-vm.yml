@@ -145,7 +145,9 @@ jobs:
         with:
           context: services/
           file: services/workers/data-fetcher/TwelveData/Dockerfile
-          tags: twelvedata:latest
+          tags: |
+            stocktracker-twelvedata:latest
+            stocktracker-twelvedata:${{ github.sha }}
           cache-from: type=gha,scope=twelvedata
           cache-to: type=gha,mode=max,scope=twelvedata
           outputs: type=docker,dest=/tmp/twelvedata.tar
@@ -159,7 +161,9 @@ jobs:
         with:
           context: services/
           file: services/workers/analysis/CandlestickAnalysis/Dockerfile
-          tags: candlestick-analysis:latest
+          tags: |
+            stocktracker-candlestick-analysis:latest
+            stocktracker-candlestick-analysis:${{ github.sha }}
           cache-from: type=gha,scope=analysis
           cache-to: type=gha,mode=max,scope=analysis
           outputs: type=docker,dest=/tmp/candlestick-analysis.tar
@@ -173,7 +177,9 @@ jobs:
         with:
           context: services/
           file: services/metrics/StockTracker.Metrics/Dockerfile
-          tags: metrics:latest
+          tags: |
+            stocktracker-metrics:latest
+            stocktracker-metrics:${{ github.sha }}
           cache-from: type=gha,scope=metrics
           cache-to: type=gha,mode=max,scope=metrics
           outputs: type=docker,dest=/tmp/metrics.tar
@@ -187,7 +193,9 @@ jobs:
         with:
           context: services/back-office/
           file: services/back-office/Dockerfile
-          tags: back-office:latest
+          tags: |
+            stocktracker-back-office:latest
+            stocktracker-back-office:${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
@@ -204,7 +212,9 @@ jobs:
         with:
           context: services/mcp/
           file: services/mcp/Dockerfile
-          tags: mcp-analysis:latest
+          tags: |
+            stocktracker-mcp-analysis:latest
+            stocktracker-mcp-analysis:${{ github.sha }}
           cache-from: type=gha,scope=mcp
           cache-to: type=gha,mode=max,scope=mcp
           outputs: type=docker,dest=/tmp/mcp-analysis.tar
@@ -218,7 +228,9 @@ jobs:
         with:
           context: services/social-media/telegram/
           file: services/social-media/telegram/Dockerfile
-          tags: telegram-bot:latest
+          tags: |
+            stocktracker-telegram-bot:latest
+            stocktracker-telegram-bot:${{ github.sha }}
           cache-from: type=gha,scope=telegram
           cache-to: type=gha,mode=max,scope=telegram
           outputs: type=docker,dest=/tmp/telegram-bot.tar
@@ -422,7 +434,7 @@ jobs:
           cd $DEPLOY_PATH
           
           echo "📦 Building Docker services on VM (fallback mode)..."
-          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office
+          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot
           
           echo "✅ VM build complete"
           EOF
@@ -456,11 +468,14 @@ jobs:
           echo "=== Starting services ==="
           echo "=========================================="
           cd $DEPLOY_PATH
-          # Force recreate to pick up newly loaded images (same tag but new content)
-          ./scripts/start-services.sh up -d --force-recreate
+          # Docker Compose detects image changes and only recreates affected containers
+          ./scripts/start-services.sh up -d
           
           echo "=== Reloading Caddy config ==="
           docker exec caddy caddy reload --config /etc/caddy/Caddyfile || docker restart caddy
+          
+          echo "=== Reloading Alloy config ==="
+          docker exec alloy wget -qO- http://localhost:12345/-/reload 2>/dev/null || docker restart alloy
           
           echo "=== Cleanup old images ==="
           docker image prune -f
