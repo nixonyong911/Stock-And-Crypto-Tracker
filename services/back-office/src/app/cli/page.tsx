@@ -15,9 +15,9 @@ export default function CliTestingPage() {
   const [message, setMessage] = useState("");
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [activeAgent, setActiveAgent] = useState<"claude" | "cursor" | null>(null);
+  const [activeAgent, setActiveAgent] = useState<"claude" | "cursor" | "telegram-agent" | null>(null);
 
-  const sendToAgent = async (agent: "claude" | "cursor") => {
+  const sendToAgent = async (agent: "claude" | "cursor" | "telegram-agent") => {
     if (!message.trim()) return;
 
     setIsLoading(true);
@@ -68,7 +68,7 @@ export default function CliTestingPage() {
           <CardHeader>
             <CardTitle className="text-slate-100">Send Message</CardTitle>
             <CardDescription className="text-slate-400">
-              Enter your message to send to Claude or Cursor AI agents
+              Enter your message to send to Claude, Cursor, or Telegram AI agents
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -105,6 +105,20 @@ export default function CliTestingPage() {
                   </span>
                 ) : (
                   "Send to Cursor (Opus 4.5)"
+                )}
+              </Button>
+              <Button
+                onClick={() => sendToAgent("telegram-agent")}
+                disabled={isLoading || !message.trim()}
+                className="flex-1 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-semibold"
+              >
+                {isLoading && activeAgent === "telegram-agent" ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Processing...
+                  </span>
+                ) : (
+                  "Send to Telegram Agent (Sonnet 4.5)"
                 )}
               </Button>
             </div>
@@ -157,6 +171,15 @@ export default function CliTestingPage() {
                 <span className="text-slate-300">/back-office/api/cursor</span>
                 <span className="text-slate-500">
                   → /cli/stock-tracker/cursor/opus-4.5
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-violet-500/20 px-2 py-0.5 text-violet-400">
+                  POST
+                </span>
+                <span className="text-slate-300">/back-office/api/telegram-agent</span>
+                <span className="text-slate-500">
+                  → /cli/telegram-agent/cursor/sonnet-4.5
                 </span>
               </div>
             </div>
