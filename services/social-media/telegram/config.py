@@ -10,8 +10,8 @@ AI_HUB_URL = os.environ.get("AI_HUB_URL", "http://host.docker.internal:8084")
 AI_HUB_API_KEY = os.environ.get("AI_HUB_API_KEY", "")
 AI_HUB_ENDPOINT = "/cli/telegram-agent/cursor/sonnet-4.5"
 
-# Database (Supabase)
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+# Database (Supabase) - Use DATABASE_URL_PYTHON for asyncpg DSN format
+DATABASE_URL = os.environ.get("DATABASE_URL_PYTHON", os.environ.get("DATABASE_URL", ""))
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
