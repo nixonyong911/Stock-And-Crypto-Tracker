@@ -1,6 +1,6 @@
 ---
 name: telegram-bot
-description: Guide for setting up, configuring, and extending the Telegram AI Financial Assistant bot. Use when working with Telegram bot features, user authentication, or n8n workflow modifications.
+description: Guide for the Telegram AI Financial Assistant bot. Use when working with Telegram bot registration, authentication, session management, rate limiting, or extending bot capabilities. The bot uses Yes/No registration via /start, single-session policy (new login invalidates other devices), and rate limiting for security.
 ---
 
 # Telegram Bot Skill
@@ -13,7 +13,9 @@ The Telegram AI Financial Assistant is a multi-component system that allows auth
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| Frontend Registration | `services/frontend/src/app/register/` | User sign-up form |
+| Telegram Bot Service | `services/social-media/telegram/` | Bot handlers and services |
+| Session Service | `services/social-media/telegram/services/session.py` | Auth, rate limiting |
+| Command Handlers | `services/social-media/telegram/handlers/commands.py` | /start, /login, etc. |
 | AI Hub Endpoint | `services/ai/ai-hub/main.py` | Governed AI endpoint |
 | MCP Server | `services/mcp/` | Read-only DB queries |
 | Architecture Doc | `instruction/architecture/telegram-bot-architecture.md` | System overview |
@@ -22,55 +24,61 @@ The Telegram AI Financial Assistant is a multi-component system that allows auth
 
 ### Prerequisites
 
-1. **Telegram Bots** (created via @BotFather)
+1. **Telegram Bot** (created via @BotFather)
    - Main bot for user interaction
-   - OTP bot for verification codes
 
 2. **Environment Variables in Infisical**
    - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_OTP_BOT_TOKEN`
+   - `AI_HUB_URL`
+   - `AI_HUB_API_KEY`
+   - `DATABASE_URL`
 
 3. **Database Tables** (already applied)
-   - `telegram_users`
-   - `telegram_sessions`
-   - `telegram_otp`
-
-### n8n Workflow Setup
-
-1. Open n8n at `https://nxserver.malaysiawest.cloudapp.azure.com/`
-2. Create new workflow "Telegram AI Financial Assistant"
-3. Add nodes:
-   - Telegram Trigger (message updates)
-   - Switch (route commands)
-   - Code nodes (login/logout/session handlers)
-   - HTTP Request (AI Hub call)
-   - Telegram (send responses)
-4. Configure credentials for Telegram bots
-5. Set environment variable `AI_HUB_API_KEY` in n8n
+   - `telegram_users` - Registered users
+   - `telegram_sessions` - Active sessions with device_info
+   - `telegram_rate_limits` - Rate limiting
 
 ### Testing
 
 ```bash
-# 1. Register at frontend
-open https://your-frontend.vercel.app/register
+# 1. Click "Register for Telegram Bot" on frontend
+# Opens Telegram with /start command
 
-# 2. Test login in Telegram
-/login +60123456789
+# 2. Reply "Yes" to registration prompt
+# Auto-logged in after registration
 
-# 3. Enter OTP from second bot
-
-# 4. Ask financial questions
+# 3. Ask financial questions
 "What are the bullish stocks today?"
 "Show me AAPL candlestick patterns for last week"
+
+# 4. Test single-session policy
+# Login from another device → first device session invalidated
 ```
+
+### Rate Limits
+
+| Action | Limit | Window |
+|--------|-------|--------|
+| Registration | 3 attempts | 60 minutes |
+| Login | 5 attempts | 15 minutes |
 
 ## Extending the Bot
 
 ### Adding New Commands
 
-1. Add case in n8n Switch node
-2. Create handler Code node
-3. Connect to response node
+1. Add handler function in `handlers/commands.py`
+2. Register in `setup_command_handlers()` at bottom of file
+3. Import any needed services
+
+Example:
+```python
+async def mycommand_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /mycommand."""
+    await update.message.reply_text("Response here")
+
+# In setup_command_handlers():
+application.add_handler(CommandHandler("mycommand", mycommand_command))
+```
 
 ### Adding AI Capabilities
 
@@ -81,6 +89,16 @@ TELEGRAM_AGENT_SYSTEM_PROMPT = """..."""
 ```
 
 **Warning:** Be careful not to allow code execution or system commands.
+
+### Modifying Rate Limits
+
+Update `RATE_LIMITS` in `services/session.py`:
+```python
+RATE_LIMITS = {
+    "register": {"max_attempts": 3, "window_minutes": 60},
+    "login": {"max_attempts": 5, "window_minutes": 15},
+}
+```
 
 ### Adding MCP Tools
 
@@ -107,21 +125,27 @@ async def analysis_new_tool(params: InputModel) -> str:
 
 ### Bot Not Responding
 
-1. Check n8n workflow is active
-2. Verify Telegram credentials
-3. Check n8n logs for errors
+1. Check Docker container: `docker logs telegram-bot`
+2. Verify `TELEGRAM_BOT_TOKEN` is set
+3. Check health endpoint: `curl http://localhost:8087/health`
 
 ### AI Hub Errors
 
 1. Check systemd status: `sudo systemctl status ai-hub`
 2. View logs: `journalctl -u ai-hub -f`
-3. Verify API key is set
+3. Verify `AI_HUB_API_KEY` is set
+
+### Rate Limit Issues
+
+1. Check `telegram_rate_limits` table
+2. Reset limits: `DELETE FROM telegram_rate_limits WHERE telegram_user_id = X`
+3. Adjust limits in `services/session.py` if needed
 
 ### Session Issues
 
 1. Check `telegram_sessions` table for expired sessions
-2. Verify session token in workflow
-3. Clear and re-login
+2. Single-session policy: only one active session per user
+3. Clear and re-login with /login
 
 ### MCP Server Issues
 

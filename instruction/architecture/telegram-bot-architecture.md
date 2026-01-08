@@ -2,7 +2,7 @@
 
 ## Overview
 
-A Telegram bot that allows authenticated users to interact with an AI financial assistant. The system includes user registration, OTP-based authentication, and governed AI responses for financial/stock/crypto queries.
+A Telegram bot that allows authenticated users to interact with an AI financial assistant. The system includes user registration with Yes/No confirmation, session-based authentication with single-device policy, rate limiting, and governed AI responses for financial/stock/crypto queries.
 
 ## Architecture Diagram
 
@@ -80,32 +80,35 @@ A Telegram bot that allows authenticated users to interact with an AI financial 
 
 ## Components
 
-### 1. Frontend Registration (`services/frontend/src/app/register/`)
+### 1. Frontend Registration Button (`services/frontend/src/components/Header.tsx`)
 
-Simple web form for users to register their phone number before using the Telegram bot.
+A button in the frontend header that links to Telegram via deep link for registration.
 
-**Fields:**
-- Phone number (with country code)
-- Display name
-- Telegram username (optional)
+**Flow:**
+- Button links to `https://t.me/BotName?start=register`
+- Opens Telegram and triggers /start command
+- Bot prompts Yes/No registration confirmation
 
-**Files:**
-- `page.tsx` - React component
-- `page.module.css` - Styling
-- `actions.ts` - Server action for Supabase insert
+### 2. Telegram Bot Service (`services/social-media/telegram/`)
 
-### 2. n8n Workflow
+Python-based Telegram bot service that handles user interactions directly.
 
-Orchestrates Telegram message handling, authentication, and AI integration.
+**Key Files:**
+- `main.py` - Application entry point, FastAPI health server
+- `config.py` - Environment configuration
+- `handlers/commands.py` - /start, /login, /logout, /status, /help
+- `handlers/messages.py` - AI query handling, registration flow
+- `services/session.py` - Session management, rate limiting
+- `services/ai_hub.py` - AI Hub API client
 
-**Nodes:**
-1. **Telegram Trigger** - Receives messages from bot
-2. **Switch (Router)** - Routes `/login`, `/logout`, or regular messages
-3. **Login Handler** - Generates OTP, stores in DB, triggers OTP bot
-4. **Logout Handler** - Clears session
-5. **Session Check** - Validates user session before AI call
-6. **HTTP Request** - Calls AI Hub endpoint
-7. **Send Response** - Returns AI response to user
+**Commands:**
+| Command | Description |
+|---------|-------------|
+| /start | Welcome + registration prompt for new users |
+| /login | Create session (invalidates other devices) |
+| /logout | End current session |
+| /status | Check login status |
+| /help | Show available commands |
 
 ### 3. AI Hub Endpoint (`services/ai/ai-hub/`)
 
@@ -132,29 +135,41 @@ Read-only MCP server for database queries.
 
 **telegram_users** - Registered users
 ```sql
-- id, phone_number, telegram_username, display_name, max_devices
+- id, telegram_user_id, display_name, telegram_username, created_at
 ```
 
 **telegram_sessions** - Active login sessions (7-day expiry)
 ```sql
-- id, user_id, telegram_user_id, telegram_chat_id, session_token, expires_at
+- id, user_id, telegram_user_id, telegram_chat_id, expires_at, 
+  device_info (JSONB), session_token (UUID), last_active_at
 ```
 
-**telegram_otp** - Pending OTP verifications (5-min expiry)
+**telegram_rate_limits** - Rate limiting for registration/login
 ```sql
-- id, phone_number, otp_code, telegram_user_id, expires_at, verified
+- id, telegram_user_id, action_type, attempt_count, window_start
 ```
 
 ## Authentication Flow
 
 ```
-1. User registers phone at /register → telegram_users
-2. User opens Telegram, types /login +60123456789
-3. n8n generates OTP → telegram_otp table
-4. OTP Bot sends code to user
-5. User enters OTP → verified, session created
-6. Subsequent messages check session before AI call
-7. /logout clears session
+Registration (New User):
+1. User clicks "Register for Telegram Bot" button on frontend
+2. Deep link opens Telegram with /start command
+3. Bot detects new user, prompts "Register? Yes/No"
+4. User replies Yes → telegram_users record created
+5. Auto-login: session created with device info
+6. User can now ask financial questions
+
+Returning User:
+1. User sends /start
+2. Bot detects existing user, shows welcome message
+3. User sends /login to start session
+4. Session created (invalidates any other active sessions)
+
+Session Rules:
+- Sessions expire after 7 days
+- Single-session policy: new login invalidates all other devices
+- Rate limits: 3 registration attempts/hour, 5 login attempts/15 min
 ```
 
 ## Environment Variables
@@ -175,13 +190,26 @@ Read-only MCP server for database queries.
 | Frontend | Vercel | Auto-deploy on push |
 | AI Hub | VM (systemd) | GitHub Actions |
 | MCP Server | VM (Docker) | GitHub Actions |
-| n8n Workflow | n8n instance | Manual/MCP |
+| Telegram Bot | VM (Docker) | GitHub Actions |
 
 ## Security Considerations
 
 1. **Session tokens** - UUID-based, 7-day expiry
-2. **OTP** - 6-digit code, 5-minute expiry, single use
-3. **AI governance** - Strict system prompt prevents code execution
-4. **API authentication** - X-API-Key header required
-5. **Read-only DB** - MCP server only has SELECT permissions
+2. **Single-session policy** - New login invalidates all other active sessions
+3. **Rate limiting** - Registration: 3/hour, Login: 5/15min per user
+4. **Device tracking** - Sessions store language_code, chat_type for audit
+5. **AI governance** - Strict system prompt prevents code execution
+6. **API authentication** - X-API-Key header required
+7. **Read-only DB** - MCP server only has SELECT permissions
+8. **Telegram ID immutability** - User identity tied to telegram_user_id (cannot be spoofed)
+
+## Security Threats & Mitigations
+
+| Threat | Risk | Mitigation |
+|--------|------|------------|
+| DDoS via /start spam | High | Rate limit: 3 reg/hour, 5 login/15min |
+| Session hijacking | Medium | Sessions tied to immutable telegram_user_id |
+| Impersonation | Low | Telegram API guarantees user.id authenticity |
+| Session persistence attack | Medium | Single-session policy; victim's login kills attacker's session |
+| Bot token leak | High | Store in Infisical; rotate if suspected leak |
 

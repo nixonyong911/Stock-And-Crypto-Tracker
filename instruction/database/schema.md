@@ -250,7 +250,7 @@ CREATE POLICY "Service role access" ON telegram_users FOR ALL USING (true);
 
 ### telegram_sessions
 
-Stores active user sessions. Sessions expire after 7 days.
+Stores active user sessions. Sessions expire after 7 days. Single-session policy: new login invalidates all other sessions.
 
 ```sql
 CREATE TABLE telegram_sessions (
@@ -260,7 +260,9 @@ CREATE TABLE telegram_sessions (
     telegram_chat_id BIGINT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    last_active_at TIMESTAMPTZ DEFAULT NOW()
+    last_active_at TIMESTAMPTZ DEFAULT NOW(),
+    device_info JSONB DEFAULT '{}',           -- Device tracking info
+    session_token UUID DEFAULT gen_random_uuid()  -- For future API auth
 );
 ALTER TABLE telegram_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Service role access" ON telegram_sessions FOR ALL USING (true);
@@ -269,11 +271,49 @@ CREATE POLICY "Service role access" ON telegram_sessions FOR ALL USING (true);
 CREATE INDEX idx_sessions_tg_user ON telegram_sessions(telegram_user_id);
 ```
 
+#### `device_info` JSON Structure
+
+```json
+{
+  "language_code": "en",
+  "chat_type": "private",
+  "is_bot": false
+}
+```
+
+### telegram_rate_limits
+
+Rate limiting for registration and login attempts.
+
+```sql
+CREATE TABLE telegram_rate_limits (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    telegram_user_id BIGINT NOT NULL,
+    action_type VARCHAR(20) NOT NULL,  -- 'register', 'login'
+    attempt_count INT DEFAULT 1,
+    window_start TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(telegram_user_id, action_type)
+);
+ALTER TABLE telegram_rate_limits ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role access" ON telegram_rate_limits FOR ALL USING (true);
+
+-- Indexes
+CREATE INDEX idx_rate_limits_user_action ON telegram_rate_limits(telegram_user_id, action_type);
+```
+
+#### Rate Limit Configuration
+
+| Action | Max Attempts | Window |
+|--------|-------------|--------|
+| register | 3 | 60 minutes |
+| login | 5 | 15 minutes |
+
 ## Data Retention
 
 - **Intraday data (10-min candles)**: 90 days
 - **Cleanup job**: Deletes records older than 90 days
 - **Telegram sessions**: 7 days (expires_at)
+- **Telegram rate limits**: Auto-reset after window expires (no cleanup needed)
 
 ## Column Naming Convention
 

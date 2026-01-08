@@ -4,9 +4,20 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters
 
-from services import SessionService, AIHubClient
+from services import SessionService, AIHubClient, RateLimitExceeded
 
 logger = logging.getLogger(__name__)
+
+
+def get_device_info(update: Update) -> dict:
+    """Extract device info from Telegram update."""
+    user = update.effective_user
+    chat = update.effective_chat
+    return {
+        "language_code": user.language_code if user else None,
+        "chat_type": chat.type if chat else None,
+        "is_bot": user.is_bot if user else None,
+    }
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -23,7 +34,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text_lower = message_text.lower().strip()
         
         if text_lower in ["yes", "y"]:
-            # Create user and session
+            # Create user and session (includes rate limit check)
             try:
                 user = await session_service.create_user(
                     telegram_user_id=telegram_user_id,
@@ -31,11 +42,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     telegram_username=update.effective_user.username
                 )
                 
-                # Auto-login after registration
+                # Auto-login after registration with device info
+                device_info = get_device_info(update)
                 await session_service.create_session(
                     user["id"],
                     telegram_user_id,
-                    telegram_chat_id
+                    telegram_chat_id,
+                    device_info
                 )
                 
                 context.user_data.pop("pending_register", None)
@@ -48,6 +61,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "• \"What are today's bullish stocks?\"\n"
                     "• \"Show me pattern statistics for the week\"\n\n"
                     "Your session is valid for 7 days.",
+                    parse_mode="Markdown"
+                )
+                return
+            
+            except RateLimitExceeded as e:
+                context.user_data.pop("pending_register", None)
+                await update.message.reply_text(
+                    f"⚠️ Too many registration attempts.\n\n"
+                    f"Please try again in {e.retry_after_minutes} minute(s).",
                     parse_mode="Markdown"
                 )
                 return
@@ -64,7 +86,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop("pending_register", None)
             await update.message.reply_text(
                 "👋 Registration cancelled.\n\n"
-                "Feel free to register anytime by clicking the button on our website!"
+                "Feel free to register anytime by sending /start!"
             )
             return
         
