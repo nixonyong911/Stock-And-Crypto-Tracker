@@ -10,6 +10,7 @@ import {
   Database,
   Activity,
   Home,
+  BarChart3,
 } from "lucide-react";
 import { getSupabase, WorkerRegistry } from "@/lib/supabase";
 
@@ -22,10 +23,12 @@ export function Sidebar({ className }: SidebarProps) {
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     cli: false,
+    analysis: true,
     dataFetchers: true,
   });
   
-  const [workers, setWorkers] = useState<WorkerRegistry[]>([]);
+  const [dataFetchers, setDataFetchers] = useState<WorkerRegistry[]>([]);
+  const [analysisWorkers, setAnalysisWorkers] = useState<WorkerRegistry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,15 +40,27 @@ export function Sidebar({ className }: SidebarProps) {
       }
       
       try {
-        const { data, error } = await supabase
-          .from('worker_registry')
-          .select('*')
-          .eq('service_type', 'data-fetcher')
-          .eq('is_active', true)
-          .order('display_name');
+        // Load both data-fetcher and analysis workers
+        const [fetchersResult, analysisResult] = await Promise.all([
+          supabase
+            .from('worker_registry')
+            .select('*')
+            .eq('service_type', 'data-fetcher')
+            .eq('is_active', true)
+            .order('display_name'),
+          supabase
+            .from('worker_registry')
+            .select('*')
+            .eq('service_type', 'analysis')
+            .eq('is_active', true)
+            .order('display_name')
+        ]);
         
-        if (error) throw error;
-        setWorkers(data || []);
+        if (fetchersResult.error) throw fetchersResult.error;
+        if (analysisResult.error) throw analysisResult.error;
+        
+        setDataFetchers(fetchersResult.data || []);
+        setAnalysisWorkers(analysisResult.data || []);
       } catch (err) {
         console.error('Failed to load workers:', err);
       } finally {
@@ -131,6 +146,55 @@ export function Sidebar({ className }: SidebarProps) {
           )}
         </div>
 
+        {/* Analysis Section */}
+        <div>
+          <button
+            onClick={() => toggleSection('analysis')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+              isActive("/analysis")
+                ? 'bg-violet-500/20 text-violet-400'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analysis
+            </div>
+            {expandedSections.analysis ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </button>
+          
+          {expandedSections.analysis && (
+            <div className="ml-4 mt-1 space-y-1">
+              {loading ? (
+                <div className="px-3 py-1.5 text-xs text-slate-600">Loading...</div>
+              ) : analysisWorkers.length === 0 ? (
+                <div className="px-3 py-1.5 text-xs text-slate-600">No workers found</div>
+              ) : (
+                analysisWorkers.map((worker) => (
+                  <Link
+                    key={worker.id}
+                    href={`/analysis/${worker.name}`}
+                    className={`flex items-center justify-between px-3 py-1.5 rounded text-xs ${
+                      pathname === `/back-office/analysis/${worker.name}`
+                        ? 'text-violet-400 bg-violet-500/10'
+                        : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <span>{worker.display_name}</span>
+                    {worker.is_active && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+                    )}
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Data Fetchers Section */}
         <div>
           <button
@@ -156,10 +220,10 @@ export function Sidebar({ className }: SidebarProps) {
             <div className="ml-4 mt-1 space-y-1">
               {loading ? (
                 <div className="px-3 py-1.5 text-xs text-slate-600">Loading...</div>
-              ) : workers.length === 0 ? (
+              ) : dataFetchers.length === 0 ? (
                 <div className="px-3 py-1.5 text-xs text-slate-600">No workers found</div>
               ) : (
-                workers.map((worker) => (
+                dataFetchers.map((worker) => (
                   <Link
                     key={worker.id}
                     href={`/data-fetchers/${worker.name}`}
