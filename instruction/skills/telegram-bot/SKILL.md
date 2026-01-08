@@ -33,19 +33,6 @@ The Telegram AI Financial Assistant is a multi-component system that allows auth
    - `AI_HUB_URL` - AI Hub endpoint (default: `http://host.docker.internal:8084`)
    - `AI_HUB_API_KEY` - AI Hub authentication key
 
-### Database Connection (DATABASE_URL_PYTHON)
-
-Python's `asyncpg` requires PostgreSQL DSN format. Use Supabase **Session Pooler** for IPv4 compatibility:
-
-```
-postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:5432/postgres
-```
-
-**Example:**
-```
-postgresql://postgres.dseyuaoarfrkihzujutz:MyPass%2A123@aws-1-us-east-2.pooler.supabase.com:5432/postgres
-```
-
 **Important:**
 - Use Session Pooler (port 5432), NOT direct connection (IPv6 only)
 - URL-encode special characters in password (`*` → `%2A`, `@` → `%40`)

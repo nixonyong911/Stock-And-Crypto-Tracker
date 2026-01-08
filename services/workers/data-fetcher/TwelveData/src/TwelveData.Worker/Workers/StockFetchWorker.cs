@@ -70,13 +70,15 @@ public class StockFetchWorker : BackgroundService
                     // Parse fetch config
                     var config = JsonSerializer.Deserialize<FetchConfig>(schedule.FetchConfig) ?? new FetchConfig();
                     
-                    // Calculate delay until next scheduled run
-                    var delay = CalculateDelayUntilScheduledTime(schedule.ScheduleTimeUtc);
+                    // Calculate delay until next scheduled run (timezone-aware)
+                    var (delay, nextRunUtc) = CalculateDelayUntilScheduledTime(schedule.ScheduleTime, schedule.ScheduleTimezone);
                     
                     _logger.LogInformation(
-                        "Schedule '{ScheduleName}' loaded. Next run at {ScheduleTime} UTC (in {Hours}h {Minutes}m)", 
+                        "Schedule '{ScheduleName}' loaded. Next run at {ScheduleTime} {Timezone} ({NextRunUtc} UTC, in {Hours}h {Minutes}m)", 
                         schedule.Name, 
-                        schedule.ScheduleTimeUtc,
+                        schedule.ScheduleTime,
+                        schedule.ScheduleTimezone,
+                        nextRunUtc.ToString("HH:mm"),
                         (int)delay.TotalHours,
                         delay.Minutes);
 
@@ -189,19 +191,46 @@ public class StockFetchWorker : BackgroundService
     }
 
     /// <summary>
-    /// Calculate delay until the next occurrence of the scheduled time
+    /// Calculate delay until the next occurrence of the scheduled time.
+    /// Converts from the specified timezone to UTC, handling DST automatically.
     /// </summary>
-    private static TimeSpan CalculateDelayUntilScheduledTime(TimeSpan scheduleTimeUtc)
+    /// <param name="scheduleTime">Time of day in the target timezone</param>
+    /// <param name="scheduleTimezone">IANA timezone name (e.g., "America/New_York")</param>
+    /// <returns>Tuple of (delay until next run, next run time in UTC)</returns>
+    private static (TimeSpan delay, DateTime nextRunUtc) CalculateDelayUntilScheduledTime(TimeSpan scheduleTime, string scheduleTimezone)
     {
         var now = DateTime.UtcNow;
-        var todayScheduled = now.Date.Add(scheduleTimeUtc);
         
-        // If the scheduled time has already passed today, schedule for tomorrow
-        if (now >= todayScheduled)
+        // Get the timezone info
+        TimeZoneInfo tz;
+        try
         {
-            todayScheduled = todayScheduled.AddDays(1);
+            tz = TimeZoneInfo.FindSystemTimeZoneById(scheduleTimezone);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            // Fallback to UTC if timezone not found
+            tz = TimeZoneInfo.Utc;
         }
         
-        return todayScheduled - now;
+        // Get current time in the target timezone
+        var nowInTz = TimeZoneInfo.ConvertTimeFromUtc(now, tz);
+        
+        // Calculate today's scheduled time in target timezone
+        var todayScheduledInTz = nowInTz.Date.Add(scheduleTime);
+        
+        // If scheduled time has passed today, schedule for tomorrow
+        if (nowInTz >= todayScheduledInTz)
+        {
+            todayScheduledInTz = todayScheduledInTz.AddDays(1);
+        }
+        
+        // Convert scheduled time back to UTC
+        var scheduledUtc = TimeZoneInfo.ConvertTimeToUtc(todayScheduledInTz, tz);
+        
+        // Calculate delay
+        var delay = scheduledUtc - now;
+        
+        return (delay, scheduledUtc);
     }
 }

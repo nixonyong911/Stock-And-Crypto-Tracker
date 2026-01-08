@@ -9,15 +9,12 @@ All operations are READ-ONLY (SELECT queries only).
 """
 
 import json
-from contextlib import asynccontextmanager
 from datetime import date
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from config import get_pool, close_pool, MCP_PORT
 from tools.analysis import (
@@ -236,49 +233,6 @@ async def analysis_get_statistics(params: StatisticsInput) -> str:
     return await get_pattern_statistics(days=params.days)
 
 
-# ===========================================
-# FastAPI Health Endpoint (separate from MCP)
-# ===========================================
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan - initialize DB pool."""
-    await get_pool()
-    yield
-    await close_pool()
-
-
-# Create a simple FastAPI app for health checks
-fastapi_app = FastAPI(title="MCP Analysis Server", lifespan=lifespan)
-
-
-@fastapi_app.get("/health")
-async def health():
-    """Health check endpoint."""
-    try:
-        pool = await get_pool()
-        async with pool.acquire() as conn:
-            await conn.fetchval("SELECT 1")
-        return {"status": "healthy", "database": "connected"}
-    except Exception as e:
-        return JSONResponse(
-            status_code=503,
-            content={"status": "unhealthy", "error": str(e)}
-        )
-
-
 if __name__ == "__main__":
-    import uvicorn
-    import asyncio
-    import threading
-    
-    # Run FastAPI health server in a separate thread
-    def run_health_server():
-        uvicorn.run(fastapi_app, host="0.0.0.0", port=MCP_PORT, log_level="warning")
-    
-    health_thread = threading.Thread(target=run_health_server, daemon=True)
-    health_thread.start()
-    
-    # Run MCP server (stdio transport for local, or streamable HTTP for remote)
-    # For Docker deployment with n8n, we use streamable HTTP
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=MCP_PORT + 1)
+    # Run MCP server with HTTP transport for Docker deployment
+    mcp.run(transport="http", host="0.0.0.0", port=MCP_PORT)
