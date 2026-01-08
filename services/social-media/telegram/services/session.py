@@ -1,6 +1,5 @@
 """Session management service for Telegram bot authentication."""
 
-import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 
@@ -10,7 +9,7 @@ from config import DATABASE_URL, SESSION_EXPIRY_DAYS
 
 
 class SessionService:
-    """Manages user sessions for Telegram bot authentication."""
+    """Manages user registration and sessions for Telegram bot authentication."""
     
     def __init__(self):
         self._pool: Optional[asyncpg.Pool] = None
@@ -27,15 +26,36 @@ class SessionService:
             await self._pool.close()
             self._pool = None
     
-    async def get_user_by_phone(self, phone_number: str) -> Optional[Dict[str, Any]]:
-        """Get user by phone number."""
+    async def get_user_by_telegram_id(self, telegram_user_id: int) -> Optional[Dict[str, Any]]:
+        """Get user by Telegram user ID."""
         pool = await self.get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT * FROM telegram_users WHERE phone_number = $1",
-                phone_number
+                "SELECT * FROM telegram_users WHERE telegram_user_id = $1",
+                telegram_user_id
             )
             return dict(row) if row else None
+    
+    async def create_user(
+        self,
+        telegram_user_id: int,
+        display_name: str,
+        telegram_username: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create a new user. Returns the created user."""
+        pool = await self.get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO telegram_users (telegram_user_id, display_name, telegram_username)
+                VALUES ($1, $2, $3)
+                RETURNING *
+                """,
+                telegram_user_id,
+                display_name,
+                telegram_username
+            )
+            return dict(row)
     
     async def get_active_session(
         self, 
@@ -47,7 +67,7 @@ class SessionService:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT s.*, u.display_name, u.phone_number
+                SELECT s.*, u.display_name, u.telegram_username
                 FROM telegram_sessions s
                 JOIN telegram_users u ON s.user_id = u.id
                 WHERE s.telegram_user_id = $1 
@@ -63,44 +83,14 @@ class SessionService:
         self,
         user_id: int,
         telegram_user_id: int,
-        telegram_chat_id: int,
-        device_name: Optional[str] = None
-    ) -> str:
-        """Create a new session for a user. Returns session token."""
+        telegram_chat_id: int
+    ) -> None:
+        """Create a new session for a user."""
         pool = await self.get_pool()
-        session_token = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)
         
         async with pool.acquire() as conn:
-            # Check max devices
-            user = await conn.fetchrow(
-                "SELECT max_devices FROM telegram_users WHERE id = $1",
-                user_id
-            )
-            max_devices = user["max_devices"] if user else 1
-            
-            # Count existing sessions
-            count = await conn.fetchval(
-                "SELECT COUNT(*) FROM telegram_sessions WHERE user_id = $1 AND expires_at > NOW()",
-                user_id
-            )
-            
-            if count >= max_devices:
-                # Delete oldest session to make room
-                await conn.execute(
-                    """
-                    DELETE FROM telegram_sessions 
-                    WHERE id = (
-                        SELECT id FROM telegram_sessions 
-                        WHERE user_id = $1 
-                        ORDER BY created_at ASC 
-                        LIMIT 1
-                    )
-                    """,
-                    user_id
-                )
-            
-            # Delete existing session for this telegram user if exists
+            # Delete existing session for this telegram user/chat if exists
             await conn.execute(
                 """
                 DELETE FROM telegram_sessions 
@@ -114,18 +104,14 @@ class SessionService:
             await conn.execute(
                 """
                 INSERT INTO telegram_sessions 
-                (user_id, telegram_user_id, telegram_chat_id, device_name, session_token, expires_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                (user_id, telegram_user_id, telegram_chat_id, expires_at)
+                VALUES ($1, $2, $3, $4)
                 """,
                 user_id,
                 telegram_user_id,
                 telegram_chat_id,
-                device_name,
-                session_token,
                 expires_at
             )
-        
-        return session_token
     
     async def delete_session(self, telegram_user_id: int, telegram_chat_id: int) -> bool:
         """Delete a session (logout)."""
@@ -154,4 +140,3 @@ class SessionService:
                 telegram_user_id,
                 telegram_chat_id
             )
-

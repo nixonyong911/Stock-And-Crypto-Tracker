@@ -234,18 +234,23 @@ CREATE INDEX idx_analysis_candlestick_bullish ON analysis_stock_candlestick_patt
 
 ### telegram_users
 
+Stores registered Telegram bot users. Users register via Telegram deep link with one-click Yes/No confirmation.
+
 ```sql
 CREATE TABLE telegram_users (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    phone_number VARCHAR(20) NOT NULL UNIQUE,
-    telegram_username VARCHAR(100),
-    display_name VARCHAR(255),
-    max_devices INT DEFAULT 1,
+    telegram_user_id BIGINT NOT NULL UNIQUE,  -- From Telegram API
+    display_name VARCHAR(255) NOT NULL,       -- User's first_name from Telegram
+    telegram_username VARCHAR(32),            -- Optional @username if set
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE telegram_users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role access" ON telegram_users FOR ALL USING (true);
 ```
 
 ### telegram_sessions
+
+Stores active user sessions. Sessions expire after 7 days.
 
 ```sql
 CREATE TABLE telegram_sessions (
@@ -253,35 +258,15 @@ CREATE TABLE telegram_sessions (
     user_id BIGINT NOT NULL REFERENCES telegram_users(id) ON DELETE CASCADE,
     telegram_user_id BIGINT NOT NULL,
     telegram_chat_id BIGINT NOT NULL,
-    device_name VARCHAR(255),
-    session_token VARCHAR(255) UNIQUE,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    last_active_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, telegram_user_id)
+    last_active_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE telegram_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role access" ON telegram_sessions FOR ALL USING (true);
 
 -- Indexes
-CREATE INDEX idx_telegram_sessions_user ON telegram_sessions(user_id);
-CREATE INDEX idx_telegram_sessions_token ON telegram_sessions(session_token);
-```
-
-### telegram_otp
-
-```sql
-CREATE TABLE telegram_otp (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    phone_number VARCHAR(20) NOT NULL,
-    otp_code VARCHAR(6) NOT NULL,
-    telegram_user_id BIGINT NOT NULL,
-    telegram_chat_id BIGINT NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Indexes
-CREATE INDEX idx_telegram_otp_phone ON telegram_otp(phone_number, verified);
+CREATE INDEX idx_sessions_tg_user ON telegram_sessions(telegram_user_id);
 ```
 
 ## Data Retention
@@ -289,7 +274,6 @@ CREATE INDEX idx_telegram_otp_phone ON telegram_otp(phone_number, verified);
 - **Intraday data (10-min candles)**: 90 days
 - **Cleanup job**: Deletes records older than 90 days
 - **Telegram sessions**: 7 days (expires_at)
-- **Telegram OTP**: 5 minutes (expires_at)
 
 ## Column Naming Convention
 

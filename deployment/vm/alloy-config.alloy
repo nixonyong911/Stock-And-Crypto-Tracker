@@ -108,4 +108,3 @@ loki.write "grafana_cloud" {
     project     = "stocktracker",
   }
 }
-

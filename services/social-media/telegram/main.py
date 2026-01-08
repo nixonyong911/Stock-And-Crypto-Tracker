@@ -17,7 +17,7 @@ from fastapi import FastAPI
 import uvicorn
 
 from config import TELEGRAM_BOT_TOKEN, BOT_PORT
-from services import SessionService, OTPService, AIHubClient
+from services import SessionService, AIHubClient
 from handlers import setup_command_handlers, setup_message_handlers
 
 
@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 # Global services
 session_service = SessionService()
-otp_service = OTPService()
 ai_client = AIHubClient()
 telegram_app: Application = None
 
@@ -90,14 +89,13 @@ async def main():
     
     # Store services in bot_data for handler access
     telegram_app.bot_data["session_service"] = session_service
-    telegram_app.bot_data["otp_service"] = otp_service
     telegram_app.bot_data["ai_client"] = ai_client
     
     # Setup handlers
     logger.info("Setting up command handlers...")
     setup_command_handlers(telegram_app)
     setup_message_handlers(telegram_app)
-    logger.info("Handlers registered: /start, /help, /login, /verify, /logout, /status")
+    logger.info("Handlers registered: /start, /help, /login, /logout, /status")
     
     # Start health server in background thread
     logger.info(f"Starting health server on port {BOT_PORT}...")
@@ -120,7 +118,6 @@ async def main():
     finally:
         logger.info("Bot stopped.")
         await session_service.close()
-        await otp_service.close()
 
 
 if __name__ == "__main__":
