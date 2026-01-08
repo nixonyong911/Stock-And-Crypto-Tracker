@@ -1,6 +1,6 @@
 import styles from './Header.module.css';
 
-const TELEGRAM_BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'StockTrackerBot';
+const TELEGRAM_BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'StockAndCryptoAdvisorBot';
 
 export function Header() {
   const telegramDeepLink = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=register`;
