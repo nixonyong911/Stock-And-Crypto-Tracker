@@ -10,7 +10,6 @@ import {
   Database,
   Activity,
   Home,
-  Settings,
 } from "lucide-react";
 import { getSupabase, WorkerRegistry } from "@/lib/supabase";
 
@@ -20,9 +19,6 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
-  // Next.js basePath in next.config.ts handles the /back-office prefix automatically
-  // So we use empty string here to avoid double-prefixing
-  const basePath = "";
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     cli: false,
@@ -67,13 +63,17 @@ export function Sidebar({ className }: SidebarProps) {
     }));
   };
 
-  const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
+  // pathname from usePathname() includes the basePath (e.g., "/back-office/cli")
+  const isActive = (path: string) => {
+    const fullPath = `/back-office${path}`;
+    return pathname === fullPath || pathname.startsWith(fullPath + '/');
+  };
 
   return (
     <aside className={`w-64 bg-slate-900 border-r border-slate-800 flex flex-col ${className}`}>
       {/* Logo/Title */}
       <div className="p-4 border-b border-slate-800">
-        <Link href={basePath} className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <Activity className="w-6 h-6 text-cyan-400" />
           <span className="font-semibold text-slate-100">Back Office</span>
         </Link>
@@ -83,9 +83,9 @@ export function Sidebar({ className }: SidebarProps) {
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {/* Home */}
         <Link
-          href={basePath}
+          href="/"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-            pathname === basePath
+            pathname === "/back-office"
               ? 'bg-cyan-500/20 text-cyan-400'
               : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
           }`}
@@ -99,7 +99,7 @@ export function Sidebar({ className }: SidebarProps) {
           <button
             onClick={() => toggleSection('cli')}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-              isActive(`${basePath}/cli`)
+              isActive("/cli")
                 ? 'bg-orange-500/20 text-orange-400'
                 : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
@@ -118,9 +118,9 @@ export function Sidebar({ className }: SidebarProps) {
           {expandedSections.cli && (
             <div className="ml-4 mt-1 space-y-1">
               <Link
-                href={`${basePath}/cli`}
+                href="/cli"
                 className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs ${
-                  pathname === `${basePath}/cli`
+                  pathname === "/back-office/cli"
                     ? 'text-orange-400'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
@@ -136,7 +136,7 @@ export function Sidebar({ className }: SidebarProps) {
           <button
             onClick={() => toggleSection('dataFetchers')}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-              isActive(`${basePath}/data-fetchers`)
+              isActive("/data-fetchers")
                 ? 'bg-emerald-500/20 text-emerald-400'
                 : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
@@ -162,9 +162,9 @@ export function Sidebar({ className }: SidebarProps) {
                 workers.map((worker) => (
                   <Link
                     key={worker.id}
-                    href={`${basePath}/data-fetchers/${worker.name}`}
+                    href={`/data-fetchers/${worker.name}`}
                     className={`flex items-center justify-between px-3 py-1.5 rounded text-xs ${
-                      pathname === `${basePath}/data-fetchers/${worker.name}`
+                      pathname === `/back-office/data-fetchers/${worker.name}`
                         ? 'text-emerald-400 bg-emerald-500/10'
                         : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
                     }`}
