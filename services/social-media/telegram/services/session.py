@@ -3,10 +3,43 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import json
+import re
+from urllib.parse import quote_plus
 
 import asyncpg
 
 from config import DATABASE_URL, SESSION_EXPIRY_DAYS
+
+
+def convert_connection_string_to_dsn(conn_str: str) -> str:
+    """Convert .NET/ADO.NET connection string to PostgreSQL DSN format.
+    
+    Input:  User Id=user;Password=pass;Server=host;Port=5432;Database=db
+    Output: postgresql://user:pass@host:5432/db
+    """
+    # If already a DSN, return as-is
+    if conn_str.startswith(('postgresql://', 'postgres://')):
+        return conn_str
+    
+    # Parse .NET connection string
+    params = {}
+    for part in conn_str.split(';'):
+        if '=' in part:
+            key, value = part.split('=', 1)
+            params[key.strip().lower()] = value.strip()
+    
+    # Map .NET keys to DSN components
+    user = params.get('user id', params.get('userid', params.get('user', '')))
+    password = quote_plus(params.get('password', ''))
+    host = params.get('server', params.get('host', 'localhost'))
+    port = params.get('port', '5432')
+    database = params.get('database', 'postgres')
+    
+    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+
+
+# Convert connection string to DSN format
+DATABASE_DSN = convert_connection_string_to_dsn(DATABASE_URL) if DATABASE_URL else ""
 
 
 # Rate limit configuration
@@ -33,7 +66,7 @@ class SessionService:
     async def get_pool(self) -> asyncpg.Pool:
         """Get or create database connection pool."""
         if self._pool is None:
-            self._pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+            self._pool = await asyncpg.create_pool(DATABASE_DSN, min_size=2, max_size=10)
         return self._pool
     
     async def close(self):
