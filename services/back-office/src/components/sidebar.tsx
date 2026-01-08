@@ -73,7 +73,7 @@ export function Sidebar({ className }: SidebarProps) {
     <aside className={`w-64 bg-slate-900 border-r border-slate-800 flex flex-col ${className}`}>
       {/* Logo/Title */}
       <div className="p-4 border-b border-slate-800">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
           <Activity className="w-6 h-6 text-cyan-400" />
           <span className="font-semibold text-slate-100">Back Office</span>
         </Link>
@@ -84,7 +84,7 @@ export function Sidebar({ className }: SidebarProps) {
         {/* Home */}
         <Link
           href="/"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
             pathname === "/back-office"
               ? 'bg-cyan-500/20 text-cyan-400'
               : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
