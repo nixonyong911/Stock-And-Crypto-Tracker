@@ -102,22 +102,41 @@ async def main():
     health_thread = Thread(target=run_health_server, daemon=True)
     health_thread.start()
     
-    # Run the bot with polling
+    # Initialize and start bot (async-friendly approach)
     logger.info("Starting bot polling...")
-    logger.info("Bot is now running! Send /start to test.")
     
     try:
-        # This blocks and runs the polling loop
-        await telegram_app.run_polling(
-            drop_pending_updates=True,  # Ignore old messages
-            allowed_updates=["message", "callback_query"],
-            close_loop=False
+        # Initialize the application
+        await telegram_app.initialize()
+        
+        # Start the updater (polling)
+        await telegram_app.updater.start_polling(
+            drop_pending_updates=True,
+            allowed_updates=["message", "callback_query"]
         )
+        
+        # Start the application
+        await telegram_app.start()
+        
+        logger.info("Bot is now running! Send /start to test.")
+        
+        # Keep running until interrupted
+        stop_event = asyncio.Event()
+        await stop_event.wait()
+        
+    except asyncio.CancelledError:
+        logger.info("Bot received shutdown signal")
     except Exception as e:
         logger.error(f"Bot polling error: {e}", exc_info=True)
     finally:
-        logger.info("Bot stopped.")
+        logger.info("Shutting down bot...")
+        if telegram_app.updater.running:
+            await telegram_app.updater.stop()
+        if telegram_app.running:
+            await telegram_app.stop()
+        await telegram_app.shutdown()
         await session_service.close()
+        logger.info("Bot stopped.")
 
 
 if __name__ == "__main__":
