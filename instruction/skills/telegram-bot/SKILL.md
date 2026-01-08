@@ -28,10 +28,28 @@ The Telegram AI Financial Assistant is a multi-component system that allows auth
    - Main bot for user interaction
 
 2. **Environment Variables in Infisical**
-   - `TELEGRAM_BOT_TOKEN`
-   - `AI_HUB_URL`
-   - `AI_HUB_API_KEY`
-   - `DATABASE_URL`
+   - `TELEGRAM_BOT_TOKEN` - Bot token from @BotFather
+   - `DATABASE_URL_PYTHON` - PostgreSQL DSN for asyncpg (see format below)
+   - `AI_HUB_URL` - AI Hub endpoint (default: `http://host.docker.internal:8084`)
+   - `AI_HUB_API_KEY` - AI Hub authentication key
+
+### Database Connection (DATABASE_URL_PYTHON)
+
+Python's `asyncpg` requires PostgreSQL DSN format. Use Supabase **Session Pooler** for IPv4 compatibility:
+
+```
+postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:5432/postgres
+```
+
+**Example:**
+```
+postgresql://postgres.dseyuaoarfrkihzujutz:MyPass%2A123@aws-1-us-east-2.pooler.supabase.com:5432/postgres
+```
+
+**Important:**
+- Use Session Pooler (port 5432), NOT direct connection (IPv6 only)
+- URL-encode special characters in password (`*` → `%2A`, `@` → `%40`)
+- User format: `postgres.<project-ref>` (not just `postgres`)
 
 3. **Database Tables** (already applied)
    - `telegram_users` - Registered users
@@ -128,6 +146,15 @@ async def analysis_new_tool(params: InputModel) -> str:
 1. Check Docker container: `docker logs telegram-bot`
 2. Verify `TELEGRAM_BOT_TOKEN` is set
 3. Check health endpoint: `curl http://localhost:8087/health`
+
+### Database Connection Errors
+
+Common error: `invalid DSN: scheme is expected to be either "postgresql" or "postgres"`
+
+1. Check `DATABASE_URL_PYTHON` is set: `docker exec telegram-bot env | grep DATABASE`
+2. Verify format starts with `postgresql://` (not `.NET` connection string)
+3. Use Session Pooler host (`pooler.supabase.com:5432`), not direct (`db.xxx.supabase.co`)
+4. URL-encode special characters in password
 
 ### AI Hub Errors
 

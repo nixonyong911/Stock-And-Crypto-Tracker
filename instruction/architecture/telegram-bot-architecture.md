@@ -174,14 +174,28 @@ Session Rules:
 
 ## Environment Variables
 
-**n8n:**
-- `TELEGRAM_BOT_TOKEN` - Main bot token
-- `TELEGRAM_OTP_BOT_TOKEN` - OTP bot token
+**Telegram Bot Service:**
+- `TELEGRAM_BOT_TOKEN` - Main bot token from @BotFather
+- `DATABASE_URL_PYTHON` - PostgreSQL DSN for asyncpg (Session Pooler format)
+- `AI_HUB_URL` - AI Hub endpoint (default: `http://host.docker.internal:8084`)
 - `AI_HUB_API_KEY` - AI Hub authentication
 
 **MCP Server:**
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - PostgreSQL connection string (.NET format)
 - `MCP_PORT` - Health check port (default: 8085)
+
+### Database Connection Formats
+
+| Service | Format | Example |
+|---------|--------|---------|
+| .NET Workers | ADO.NET | `User Id=postgres.xxx;Password=...;Server=pooler.supabase.com;Port=6543` |
+| Python (asyncpg) | PostgreSQL DSN | `postgresql://postgres.xxx:pass@pooler.supabase.com:5432/postgres` |
+
+**Supabase Pooler Options:**
+- **Session Pooler** (port 5432) - For persistent connections, IPv4 compatible
+- **Transaction Pooler** (port 6543) - For serverless/stateless apps
+
+**Note:** URL-encode special characters in passwords (`*` → `%2A`)
 
 ## Deployment
 
