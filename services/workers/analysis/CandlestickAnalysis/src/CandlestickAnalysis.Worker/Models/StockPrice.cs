@@ -38,7 +38,14 @@ public class AnalysisSchedule
     public int DataSourceId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public TimeSpan ScheduleTimeUtc { get; set; }
+    /// <summary>
+    /// Time of day to run (in ScheduleTimezone)
+    /// </summary>
+    public TimeSpan ScheduleTime { get; set; }
+    /// <summary>
+    /// IANA timezone for ScheduleTime (e.g., "America/New_York")
+    /// </summary>
+    public string ScheduleTimezone { get; set; } = "America/New_York";
     public bool IsEnabled { get; set; }
     public string FetchConfig { get; set; } = "{}";
     public DateTime? LastRunAt { get; set; }

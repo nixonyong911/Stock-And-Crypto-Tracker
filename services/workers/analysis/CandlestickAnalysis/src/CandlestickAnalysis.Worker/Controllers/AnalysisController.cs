@@ -46,7 +46,8 @@ public class AnalysisController : ControllerBase
             schedule = schedule != null ? new
             {
                 name = schedule.Name,
-                scheduleTimeUtc = schedule.ScheduleTimeUtc.ToString(),
+                scheduleTime = schedule.ScheduleTime.ToString(),
+                scheduleTimezone = schedule.ScheduleTimezone,
                 isEnabled = schedule.IsEnabled,
                 lastRunAt = schedule.LastRunAt,
                 lastRunStatus = schedule.LastRunStatus,
