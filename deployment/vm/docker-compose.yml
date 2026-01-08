@@ -200,7 +200,7 @@ services:
     networks:
       - stocktracker
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8085/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8085/mcp')"]
       interval: 30s
       timeout: 3s
       retries: 3
