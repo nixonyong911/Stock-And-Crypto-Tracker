@@ -34,7 +34,7 @@
 
   <!-- Reference to shared common library -->
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\common\StockTracker.Common\StockTracker.Common.csproj" />
+    <ProjectReference Include="..\..\..\..\..\common\StockTracker.Common\StockTracker.Common.csproj" />
   </ItemGroup>
 
 </Project>
