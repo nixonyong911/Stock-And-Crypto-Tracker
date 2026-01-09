@@ -455,6 +455,11 @@ jobs:
           git fetch origin main
           git reset --hard origin/main
           
+          echo "=== Syncing agent-context to stock-tracker ==="
+          rsync -av --delete \
+            $DEPLOY_PATH/repo/services/ai/ai-hub/agent-context/stock-tracker/ \
+            /home/azureuser/stock-tracker/
+          
           echo "=== Copying config files ==="
           cp $DEPLOY_PATH/repo/deployment/vm/docker-compose.yml $DEPLOY_PATH/
           cp $DEPLOY_PATH/repo/deployment/vm/Caddyfile $DEPLOY_PATH/
