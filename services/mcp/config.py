@@ -19,7 +19,7 @@ async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
         if not DATABASE_URL:
-            raise ValueError("DATABASE_URL environment variable is required")
+            raise ValueError("DATABASE_URL_PYTHON environment variable is required")
         _pool = await asyncpg.create_pool(
             DATABASE_URL,
             min_size=2,

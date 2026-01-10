@@ -193,7 +193,7 @@ services:
     container_name: mcp-analysis
     restart: unless-stopped
     environment:
-      - DATABASE_URL=${DATABASE_URL_PYTHON}
+      - DATABASE_URL_PYTHON=${DATABASE_URL_PYTHON}
       - MCP_PORT=8085
     ports:
       - "8085:8085"
