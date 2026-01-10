@@ -143,11 +143,18 @@ class CLIExecutor:
             raise ValueError(f"Unknown CLI: {cli}. Supported: claude, cursor-agent")
     
     async def _execute_command(self, command: str) -> CLIResult:
-        """Execute a shell command."""
+        """Execute a shell command.
+        
+        Uses start_new_session=True to prevent orphaned child processes
+        (like cursor-agent's worker-server) from blocking communicate().
+        """
+        import os
+        
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=PIPE,
-            stderr=PIPE
+            stderr=PIPE,
+            start_new_session=True  # Prevent orphan processes from blocking
         )
         
         try:
@@ -159,7 +166,7 @@ class CLIExecutor:
             output = stdout.decode('utf-8', errors='replace').strip()
             error = stderr.decode('utf-8', errors='replace').strip()
             
-            # Filter out common SSH warnings from stderr
+            # Filter out common SSH warnings and ANSI escape codes from stderr
             if error:
                 error_lines = [
                     line for line in error.split('\n')
@@ -169,6 +176,10 @@ class CLIExecutor:
                 ]
                 error = '\n'.join(error_lines).strip()
             
+            # Clean ANSI escape codes from output (cursor-agent may emit them)
+            import re
+            output = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+            
             return CLIResult(
                 success=process.returncode == 0,
                 output=output,
@@ -176,7 +187,11 @@ class CLIExecutor:
                 exit_code=process.returncode or 0
             )
         except asyncio.TimeoutError:
-            process.kill()
+            # Kill the entire process group
+            try:
+                os.killpg(process.pid, 9)
+            except (OSError, ProcessLookupError):
+                process.kill()
             raise
     
     async def check_cli_available(self, cli: str) -> bool:
