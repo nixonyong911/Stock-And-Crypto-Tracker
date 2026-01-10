@@ -234,5 +234,10 @@ async def analysis_get_statistics(params: StatisticsInput) -> str:
 
 
 if __name__ == "__main__":
-    # Run MCP server with HTTP transport for Docker deployment
-    mcp.run(transport="http", host="0.0.0.0", port=MCP_PORT)
+    import sys
+    if "--stdio" in sys.argv:
+        # Run with stdio transport for local Cursor MCP testing
+        mcp.run(transport="stdio")
+    else:
+        # Run MCP server with HTTP transport for Docker deployment
+        mcp.run(transport="http", host="0.0.0.0", port=MCP_PORT)

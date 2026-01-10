@@ -7,7 +7,7 @@ from typing import Optional
 import asyncpg
 
 # Configuration from environment
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+DATABASE_URL = os.environ.get("DATABASE_URL_PYTHON", "")
 MCP_PORT = int(os.environ.get("MCP_PORT", "8085"))
 
 # Global connection pool
