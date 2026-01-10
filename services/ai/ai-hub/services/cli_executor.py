@@ -37,9 +37,9 @@ class CLIExecutor:
     
     Example:
         prefix = "ssh -i key.pem user@host"
-        command = 'cd /home/azureuser/stock-tracker && claude -p "hello"'
+        command = 'cd /home/azureuser/stock-tracker && echo "hello" | cursor-agent --print'
         
-        Final: ssh -i key.pem user@host 'cd /home/azureuser/stock-tracker && claude -p "hello"'
+        Final: ssh -i key.pem user@host 'cd /home/azureuser/stock-tracker && echo "hello" | cursor-agent --print'
     """
     
     def __init__(self):
@@ -119,24 +119,26 @@ class CLIExecutor:
         model: Optional[str] = None
     ) -> str:
         """
-        Build the CLI command string.
+        Build the CLI command string with piped input for non-interactive mode.
         
-        Note: Claude Code CLI does NOT support --model flag.
-        The model is determined by account settings.
-        cursor-agent may support --model but verify before using.
+        Both claude and cursor-agent use --print flag for headless/script mode,
+        with the prompt piped via stdin (not as positional argument).
+        
+        cursor-agent flags:
+        - --print: non-interactive mode (required for scripts)
+        - --approve-mcps: auto-approve MCP servers in headless mode
+        - --force: allow tool execution without explicit confirmation
         """
-        # Escape quotes in message for shell
-        escaped_message = message.replace('\\', '\\\\').replace('"', '\\"')
+        # Escape for shell: backslash, double quotes, and dollar signs
+        escaped_message = message.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$')
         
         if cli == "claude":
-            # Claude Code CLI doesn't support --model flag
-            # Model is determined by account/subscription (Pro = Opus, Free = Sonnet)
-            return f'claude -p "{escaped_message}" --output-format {output_format}'
+            # Claude Code CLI: pipe message to stdin with --print for non-interactive
+            return f'echo "{escaped_message}" | claude --print --output-format {output_format}'
         elif cli == "cursor-agent":
-            # cursor-agent may support model flag - test and update as needed
-            if model:
-                return f'cursor-agent --model {model} -p "{escaped_message}"'
-            return f'cursor-agent -p "{escaped_message}"'
+            # cursor-agent: pipe message to stdin with --print --approve-mcps --force
+            model_flag = f"--model {model}" if model else ""
+            return f'echo "{escaped_message}" | cursor-agent {model_flag} --print --approve-mcps --force'
         else:
             raise ValueError(f"Unknown CLI: {cli}. Supported: claude, cursor-agent")
     
