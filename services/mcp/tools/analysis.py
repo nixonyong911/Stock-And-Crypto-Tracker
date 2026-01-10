@@ -47,8 +47,12 @@ async def get_stock_analysis(
         ORDER BY a.analysis_date DESC
     """
     
+    # Convert string dates to date objects for asyncpg
+    start_date_obj = date.fromisoformat(start_date)
+    end_date_obj = date.fromisoformat(end_date)
+    
     async with get_connection() as conn:
-        rows = await conn.fetch(query, symbol, start_date, end_date)
+        rows = await conn.fetch(query, symbol, start_date_obj, end_date_obj)
     
     if not rows:
         return json.dumps({
@@ -78,7 +82,7 @@ async def get_stock_analysis(
                 "lower_wick": float(row["lower_wick"]) if row["lower_wick"] else None,
                 "is_bullish": row["is_bullish"],
             },
-            "detected_patterns": row["detected_patterns"] or [],
+            "detected_patterns": json.loads(row["detected_patterns"]) if row["detected_patterns"] else [],
             "candles_aggregated": row["candles_aggregated"],
         })
     
@@ -118,12 +122,15 @@ async def list_detected_patterns(
         ORDER BY st.symbol
     """
     
+    # Convert string date to date object for asyncpg
+    analysis_date_obj = date.fromisoformat(analysis_date)
+    
     async with get_connection() as conn:
-        rows = await conn.fetch(query, analysis_date)
+        rows = await conn.fetch(query, analysis_date_obj)
     
     results = []
     for row in rows:
-        patterns = row["detected_patterns"] or []
+        patterns = json.loads(row["detected_patterns"]) if row["detected_patterns"] else []
         
         # Filter by pattern type if specified
         if pattern_type:
@@ -169,13 +176,17 @@ async def get_bullish_stocks(analysis_date: str) -> str:
         ORDER BY a.body_size DESC NULLS LAST
     """
     
+    # Convert string date to date object for asyncpg
+    analysis_date_obj = date.fromisoformat(analysis_date)
+    
     async with get_connection() as conn:
-        rows = await conn.fetch(query, analysis_date)
+        rows = await conn.fetch(query, analysis_date_obj)
     
     results = []
     for row in rows:
+        patterns = json.loads(row["detected_patterns"]) if row["detected_patterns"] else []
         bullish_patterns = [
-            p for p in (row["detected_patterns"] or [])
+            p for p in patterns
             if p.get("signal", "").startswith("bullish") or p.get("signal") == "strong_bullish"
         ]
         
@@ -185,7 +196,7 @@ async def get_bullish_stocks(analysis_date: str) -> str:
             "close_price": float(row["daily_close"]) if row["daily_close"] else None,
             "body_size": float(row["body_size"]) if row["body_size"] else None,
             "bullish_patterns": bullish_patterns,
-            "all_patterns": row["detected_patterns"] or []
+            "all_patterns": patterns
         })
     
     return json.dumps({
@@ -220,13 +231,17 @@ async def get_bearish_stocks(analysis_date: str) -> str:
         ORDER BY a.body_size DESC NULLS LAST
     """
     
+    # Convert string date to date object for asyncpg
+    analysis_date_obj = date.fromisoformat(analysis_date)
+    
     async with get_connection() as conn:
-        rows = await conn.fetch(query, analysis_date)
+        rows = await conn.fetch(query, analysis_date_obj)
     
     results = []
     for row in rows:
+        patterns = json.loads(row["detected_patterns"]) if row["detected_patterns"] else []
         bearish_patterns = [
-            p for p in (row["detected_patterns"] or [])
+            p for p in patterns
             if p.get("signal", "").startswith("bearish") or p.get("signal") == "strong_bearish"
         ]
         
@@ -236,7 +251,7 @@ async def get_bearish_stocks(analysis_date: str) -> str:
             "close_price": float(row["daily_close"]) if row["daily_close"] else None,
             "body_size": float(row["body_size"]) if row["body_size"] else None,
             "bearish_patterns": bearish_patterns,
-            "all_patterns": row["detected_patterns"] or []
+            "all_patterns": patterns
         })
     
     return json.dumps({
@@ -288,8 +303,8 @@ async def get_pattern_statistics(days: int = 7) -> str:
     """
     
     async with get_connection() as conn:
-        daily_stats = await conn.fetch(query, str(start_date), str(end_date))
-        pattern_stats = await conn.fetch(pattern_query, str(start_date), str(end_date))
+        daily_stats = await conn.fetch(query, start_date, end_date)
+        pattern_stats = await conn.fetch(pattern_query, start_date, end_date)
     
     daily_results = []
     total_bullish = 0
