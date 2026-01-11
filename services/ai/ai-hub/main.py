@@ -589,14 +589,14 @@ async def cli_telegram_agent_cursor_sonnet45(request: CLIMessageRequest):
     Uses Cursor Agent with Sonnet 4.5 model.
     Reads instructions from context folder: /home/azureuser/stock-tracker/
     
-    Version: Uses telegram_agent_v1 (change to v2 when ready to promote)
+    Version: Uses telegram_agent_v2
     """
     config = get_config()
     executor = get_cli_executor()
     
     try:
         # Production uses v1 - change to telegram_agent_v2 when ready to promote
-        result = await telegram_agent_v1(request.message, config, executor)
+        result = await telegram_agent_v2(request.message, config, executor)
         if result.success:
             return result.output
         # Include both error and output for debugging
