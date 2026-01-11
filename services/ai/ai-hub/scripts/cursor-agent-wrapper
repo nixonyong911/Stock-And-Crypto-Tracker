@@ -14,8 +14,8 @@ set -e
 # Set HOME for cursor-agent to find auth configs
 export HOME=/root
 
-# Find the latest version directory
-VERSION_DIR=$(ls -1 /opt/cursor-agent/versions 2>/dev/null | head -1)
+# Find the latest version directory (sort reverse to get newest first)
+VERSION_DIR=$(ls -1 /opt/cursor-agent/versions 2>/dev/null | sort -r | head -1)
 
 if [ -z "$VERSION_DIR" ]; then
     echo "Error: No cursor-agent version found in /opt/cursor-agent/versions/" >&2
