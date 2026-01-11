@@ -11,16 +11,37 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+type AgentType = "claude" | "cursor" | "telegram-agent" | "telegram-agent-test";
+
+interface HistoryEntry {
+  id: number;
+  agent: AgentType;
+  duration: number;
+  timestamp: Date;
+}
+
+const AGENT_DISPLAY_NAMES: Record<AgentType, string> = {
+  "claude": "Claude (Opus 4.5)",
+  "cursor": "Cursor (Opus 4.5)",
+  "telegram-agent": "Telegram Agent (Sonnet 4.5)",
+  "telegram-agent-test": "Telegram Agent Test (Sonnet 4.5)",
+};
+
 export default function CliTestingPage() {
   const [message, setMessage] = useState("");
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [activeAgent, setActiveAgent] = useState<"claude" | "cursor" | "telegram-agent" | "telegram-agent-test" | null>(null);
+  const [activeAgent, setActiveAgent] = useState<AgentType | null>(null);
+  const [lastUsedAgent, setLastUsedAgent] = useState<AgentType | null>(null);
   
   // Stopwatch state
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // History state
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const historyIdRef = useRef(0);
 
   // Timer effect - automatically tracks any request
   useEffect(() => {
@@ -48,12 +69,14 @@ export default function CliTestingPage() {
     return `${seconds}.${milliseconds}s`;
   };
 
-  const sendToAgent = async (agent: "claude" | "cursor" | "telegram-agent" | "telegram-agent-test") => {
+  const sendToAgent = async (agent: AgentType) => {
     if (!message.trim()) return;
 
     setIsLoading(true);
     setActiveAgent(agent);
+    setLastUsedAgent(agent);
     setResponse("");
+    const startTime = Date.now();
 
     try {
       // Use relative path - browser will use correct base URL
@@ -78,8 +101,18 @@ export default function CliTestingPage() {
     } catch (error) {
       setResponse(`Connection error: ${error}`);
     } finally {
+      const duration = Date.now() - startTime;
       setIsLoading(false);
       setActiveAgent(null);
+      
+      // Add to history
+      historyIdRef.current += 1;
+      setHistory(prev => [{
+        id: historyIdRef.current,
+        agent,
+        duration,
+        timestamp: new Date(),
+      }, ...prev]);
     }
   };
 
@@ -188,9 +221,10 @@ export default function CliTestingPage() {
                   Raw response from the AI agent
                 </CardDescription>
               </div>
-              {finalTime !== null && !isLoading && (
+              {finalTime !== null && !isLoading && lastUsedAgent && (
                 <div className="flex items-center gap-2 py-1 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                  <span className="text-emerald-400 text-sm">Completed in</span>
+                  <span className="text-emerald-400 text-sm">{AGENT_DISPLAY_NAMES[lastUsedAgent]}</span>
+                  <span className="text-emerald-500/50">•</span>
                   <span className="text-emerald-400 font-mono font-semibold">{formatTime(finalTime)}</span>
                 </div>
               )}
@@ -208,6 +242,44 @@ export default function CliTestingPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* History Table */}
+        {history.length > 0 && (
+          <Card className="border-slate-800 bg-slate-900/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-slate-100">Request History</CardTitle>
+              <CardDescription className="text-slate-400">
+                Recent requests (resets on page refresh)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700">
+                      <th className="text-left py-2 px-3 text-slate-400 font-medium">#</th>
+                      <th className="text-left py-2 px-3 text-slate-400 font-medium">Endpoint</th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Duration</th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((entry, index) => (
+                      <tr key={entry.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
+                        <td className="py-2 px-3 text-slate-500 font-mono">{history.length - index}</td>
+                        <td className="py-2 px-3 text-slate-100">{AGENT_DISPLAY_NAMES[entry.agent]}</td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-400">{formatTime(entry.duration)}</td>
+                        <td className="py-2 px-3 text-right text-slate-400 font-mono">
+                          {entry.timestamp.toLocaleTimeString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Endpoints Info */}
         <Card className="border-slate-800 bg-slate-900/30">
