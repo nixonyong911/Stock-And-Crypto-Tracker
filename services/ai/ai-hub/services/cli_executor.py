@@ -10,11 +10,16 @@ The prefix is configured via AI_HUB_CLI_PREFIX environment variable.
 
 import asyncio
 import shlex
+import time
 from dataclasses import dataclass
 from typing import Optional
 from asyncio.subprocess import PIPE
 
+import structlog
+
 from config import get_config
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass
@@ -70,8 +75,16 @@ class CLIExecutor:
         Returns:
             CLIResult with output or error
         """
-        import time
         start_time = time.time()
+        
+        # Log CLI start
+        logger.info(
+            "cli_start",
+            cli=cli,
+            model=model,
+            timeout_seconds=self.timeout,
+            message_length=len(message)
+        )
         
         path = context_path or self.default_context_path
         
@@ -90,25 +103,55 @@ class CLIExecutor:
             full_command = command
         
         try:
-            result = await self._execute_command(full_command)
+            result = await self._execute_command(full_command, start_time)
             result.execution_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Log CLI complete
+            logger.info(
+                "cli_complete",
+                cli=cli,
+                model=model,
+                success=result.success,
+                exit_code=result.exit_code,
+                output_length=len(result.output),
+                total_ms=result.execution_time_ms
+            )
             return result
             
         except asyncio.TimeoutError:
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            # Log CLI timeout
+            logger.error(
+                "cli_timeout",
+                cli=cli,
+                model=model,
+                timeout_seconds=self.timeout,
+                elapsed_ms=elapsed_ms,
+                stage="waiting_output"
+            )
             return CLIResult(
                 success=False,
                 output="",
                 error=f"CLI execution timed out after {self.timeout} seconds",
                 exit_code=-1,
-                execution_time_ms=int((time.time() - start_time) * 1000)
+                execution_time_ms=elapsed_ms
             )
         except Exception as e:
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            # Log CLI error
+            logger.error(
+                "cli_error",
+                cli=cli,
+                model=model,
+                error=str(e),
+                elapsed_ms=elapsed_ms
+            )
             return CLIResult(
                 success=False,
                 output="",
                 error=str(e),
                 exit_code=-1,
-                execution_time_ms=int((time.time() - start_time) * 1000)
+                execution_time_ms=elapsed_ms
             )
     
     def _build_cli_command(
@@ -142,13 +185,14 @@ class CLIExecutor:
         else:
             raise ValueError(f"Unknown CLI: {cli}. Supported: claude, cursor-agent")
     
-    async def _execute_command(self, command: str) -> CLIResult:
+    async def _execute_command(self, command: str, start_time: float) -> CLIResult:
         """Execute a shell command.
         
         Uses start_new_session=True to prevent orphaned child processes
         (like cursor-agent's worker-server) from blocking communicate().
         """
         import os
+        import re
         
         process = await asyncio.create_subprocess_shell(
             command,
@@ -157,10 +201,38 @@ class CLIExecutor:
             start_new_session=True  # Prevent orphan processes from blocking
         )
         
+        # Log process spawned
+        spawn_elapsed_ms = int((time.time() - start_time) * 1000)
+        logger.info(
+            "cli_process_spawned",
+            pid=process.pid,
+            elapsed_ms=spawn_elapsed_ms,
+            command_length=len(command)
+        )
+        
         try:
+            # Log waiting for output
+            logger.info(
+                "cli_waiting_output",
+                pid=process.pid,
+                elapsed_ms=int((time.time() - start_time) * 1000),
+                timeout_seconds=self.timeout
+            )
+            
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(),
                 timeout=self.timeout
+            )
+            
+            # Log output received
+            output_elapsed_ms = int((time.time() - start_time) * 1000)
+            logger.info(
+                "cli_output_received",
+                pid=process.pid,
+                elapsed_ms=output_elapsed_ms,
+                exit_code=process.returncode,
+                stdout_length=len(stdout),
+                stderr_length=len(stderr)
             )
             
             output = stdout.decode('utf-8', errors='replace').strip()
@@ -177,7 +249,6 @@ class CLIExecutor:
                 error = '\n'.join(error_lines).strip()
             
             # Clean ANSI escape codes from output (cursor-agent may emit them)
-            import re
             output = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
             
             return CLIResult(
