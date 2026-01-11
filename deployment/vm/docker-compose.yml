@@ -47,7 +47,7 @@ services:
       - N8N_PROTOCOL=https
       - N8N_EDITOR_BASE_URL=https://nxserver.malaysiawest.cloudapp.azure.com
       - TZ=Asia/Singapore
-      # AI Hub access (Docker internal - faster than host.docker.internal)
+      # AI Hub access (Docker internal)
       - AI_HUB_URL=http://ai-hub-docker:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     volumes:
@@ -79,11 +79,13 @@ services:
       - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
       - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
       - TwelveData__BaseUrl=https://api.twelvedata.com
-      # AI Hub access (for future AI analysis features)
-      - AI_HUB_URL=http://host.docker.internal:8084
+      # AI Hub access (Docker internal)
+      - AI_HUB_URL=http://ai-hub-docker:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
+    depends_on:
+      - ai-hub-docker
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
       interval: 30s
@@ -144,11 +146,13 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - PATH_BASE=/api/metrics
-      # AI Hub access (for future AI analysis features)
-      - AI_HUB_URL=http://host.docker.internal:8084
+      # AI Hub access (Docker internal)
+      - AI_HUB_URL=http://ai-hub-docker:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
+    depends_on:
+      - ai-hub-docker
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
       interval: 30s
@@ -159,7 +163,6 @@ services:
   # ===========================================
   # Grafana Alloy - Metrics & Logs Forwarder
   # Scrapes local services and forwards to Grafana Cloud
-  # Also collects ai-hub logs from systemd journal
   # ===========================================
   alloy:
     image: grafana/alloy:latest
@@ -167,10 +170,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
-      # Host logs: journal (ai-hub) + weekly cleanup script logs
+      # Host logs for weekly cleanup script
       - /var/log:/var/log:ro
-      - /run/log/journal:/run/log/journal:ro
-      - /etc/machine-id:/etc/machine-id:ro
     command: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
     environment:
       - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
@@ -225,7 +226,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_OTP_BOT_TOKEN=${TELEGRAM_OTP_BOT_TOKEN}
       - DATABASE_URL_PYTHON=${DATABASE_URL_PYTHON}
-      # Use Docker internal ai-hub (faster than host.docker.internal)
+      # AI Hub access (Docker internal)
       - AI_HUB_URL=http://ai-hub-docker:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
       - BOT_PORT=8087
@@ -247,10 +248,8 @@ services:
   # AI Hub Docker - Centralized CLI Access for Containers
   # Port: 8080 (internal Docker network)
   # ===========================================
-  # Primary AI gateway for Docker containers. Has direct CLI access
+  # AI gateway for all Docker containers. Has direct CLI access
   # via volume mounts from the VM host.
-  # 
-  # Backup: Systemd ai-hub still runs on host:8084 as fallback
   # ===========================================
   ai-hub-docker:
     image: stocktracker-ai-hub:latest
@@ -285,15 +284,6 @@ services:
       start_period: 15s
 
   # ===========================================
-  # AI Hub Systemd - Backup (runs on HOST)
-  # ===========================================
-  # AI Hub also runs as a systemd service directly on the VM host
-  # as a backup. Access via host.docker.internal:8084
-  # 
-  # Service: /etc/systemd/system/ai-hub.service
-  # ===========================================
-
-  # ===========================================
   # Back Office - Admin & Testing UI
   # Access at: /back-office
   # ===========================================
@@ -311,7 +301,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      # AI Hub access (Docker internal - faster than host.docker.internal)
+      # AI Hub access (Docker internal)
       - AI_HUB_URL=http://ai-hub-docker:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
@@ -332,4 +322,3 @@ networks:
 volumes:
   caddy-data:
   caddy-config:
-

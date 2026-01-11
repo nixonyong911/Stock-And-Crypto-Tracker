@@ -177,7 +177,7 @@ Session Rules:
 **Telegram Bot Service:**
 - `TELEGRAM_BOT_TOKEN` - Main bot token from @BotFather
 - `DATABASE_URL_PYTHON` - PostgreSQL DSN for asyncpg (Session Pooler format)
-- `AI_HUB_URL` - AI Hub endpoint (default: `http://host.docker.internal:8084`)
+- `AI_HUB_URL` - AI Hub endpoint (default: `http://ai-hub-docker:8080`)
 - `AI_HUB_API_KEY` - AI Hub authentication
 
 **MCP Server:**

@@ -171,10 +171,10 @@ async def cli_new_feature_claude_sonnet4(request: CLIMessageRequest):
 
 ### 3. Deploy
 
-Push changes to trigger CI/CD, or restart ai-hub service on VM:
+Push changes to trigger CI/CD, or restart ai-hub container on VM:
 
 ```bash
-sudo systemctl restart ai-hub
+docker restart ai-hub-docker
 ```
 
 ---
@@ -225,16 +225,16 @@ journalctl -u ai-hub -f
 ## Testing
 
 ```bash
-# Discovery endpoint
-curl http://localhost:8084/cli
+# Discovery endpoint (run from inside ai-hub-docker container)
+docker exec ai-hub-docker curl http://localhost:8080/cli
 
 # Test Claude endpoint
-curl -X POST http://localhost:8084/cli/stock-tracker/claude/opus-4.5 \
+docker exec ai-hub-docker curl -X POST http://localhost:8080/cli/stock-tracker/claude/opus-4.5 \
   -H "Content-Type: application/json" \
   -d '{"message": "Hello, test"}'
 
 # Test Cursor endpoint
-curl -X POST http://localhost:8084/cli/stock-tracker/cursor/opus-4.5 \
+docker exec ai-hub-docker curl -X POST http://localhost:8080/cli/stock-tracker/cursor/opus-4.5 \
   -H "Content-Type: application/json" \
   -d '{"message": "Hello, test"}'
 ```

@@ -103,8 +103,8 @@ wait_healthy() {
 wait_healthy ".../api/twelvedata/health/live" "TwelveData"
 wait_healthy ".../api/metrics/health/live" "Metrics"
 
-# AI Hub: Internal only (not exposed via Caddy) - check via SSH
-ssh azureuser@VM 'curl -sf http://localhost:8084/health/live'
+# AI Hub: Docker container - check via docker exec
+ssh azureuser@VM 'docker exec ai-hub-docker curl -sf http://localhost:8080/health/live'
 
 # Back Office: Check public URL
 curl -sf .../back-office/

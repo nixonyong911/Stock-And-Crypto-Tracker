@@ -2,7 +2,7 @@
 # Deploy Backend Services to Azure VM
 # ===========================================
 # ALL OPTIMIZATIONS APPLIED:
-# Phase 1: Smart health polling, AI Hub venv caching, combined SSH
+# Phase 1: Smart health polling, combined SSH
 # Phase 2: GHA builds, BuildKit caching, compressed transfer, auto-fallback
 # Phase 3: Selective builds (paths-filter), parallel matrix builds
 #
@@ -10,8 +10,8 @@
 # TARGET (Phase 3): ~3-5 min (60-70% faster)
 # BEST CASE (config-only): ~1-2 min (skip all builds)
 # ===========================================
-# Services: n8n, Caddy, TwelveData, Metrics, Candlestick Analysis, Alloy
-# AI Hub: Runs directly on host (systemd), not Docker
+# Services: n8n, Caddy, TwelveData, Metrics, Candlestick Analysis, AI Hub, Alloy
+# AI Hub: Docker container (ai-hub-docker)
 # Monitoring: Grafana Cloud (via Alloy)
 # Secrets: Injected at runtime via Infisical CLI (Machine Identity)
 # Infrastructure Config: instruction/reference/infrastructure-config.md
@@ -57,7 +57,7 @@ jobs:
       telegram: ${{ steps.filter.outputs.telegram }}
       aihub: ${{ steps.filter.outputs.aihub }}
       config: ${{ steps.filter.outputs.config }}
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram == 'true' || steps.filter.outputs.aihub == 'true' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -235,6 +235,22 @@ jobs:
           cache-to: type=gha,mode=max,scope=telegram
           outputs: type=docker,dest=/tmp/telegram-bot.tar
 
+      # Build AI Hub Docker (only if changed or forced)
+      - name: Build AI Hub image
+        id: build-aihub
+        if: needs.detect-changes.outputs.aihub == 'true' || github.event.inputs.force_build == 'true'
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/ai/ai-hub/
+          file: services/ai/ai-hub/Dockerfile
+          tags: |
+            stocktracker-ai-hub:latest
+            stocktracker-ai-hub:${{ github.sha }}
+          cache-from: type=gha,scope=aihub
+          cache-to: type=gha,mode=max,scope=aihub
+          outputs: type=docker,dest=/tmp/ai-hub.tar
+
       # Compress built images
       - name: Compress Docker images
         id: compress
@@ -290,6 +306,14 @@ jobs:
             echo "⏭️ Telegram Bot skipped (unchanged)"
           fi
           
+          if [ -f /tmp/ai-hub.tar ]; then
+            gzip -1 < /tmp/ai-hub.tar > /tmp/images/ai-hub.tar.gz
+            BUILT="${BUILT}aihub,"
+            echo "✅ AI Hub compressed"
+          else
+            echo "⏭️ AI Hub skipped (unchanged)"
+          fi
+          
           echo "built=$BUILT" >> $GITHUB_OUTPUT
           ls -lh /tmp/images/ 2>/dev/null || echo "No images to transfer"
 
@@ -332,7 +356,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
             
-            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot; do
+            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot ai-hub; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -398,7 +422,7 @@ jobs:
           echo "📥 Loading Docker images..."
           
           # Only load our specific service images (not other .tar.gz files in /tmp)
-          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot; do
+          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot ai-hub; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -434,7 +458,7 @@ jobs:
           cd $DEPLOY_PATH
           
           echo "📦 Building Docker services on VM (fallback mode)..."
-          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot
+          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot ai-hub-docker
           
           echo "✅ VM build complete"
           EOF
@@ -465,7 +489,6 @@ jobs:
           cp $DEPLOY_PATH/repo/deployment/vm/Caddyfile $DEPLOY_PATH/
           cp $DEPLOY_PATH/repo/deployment/vm/alloy-config.alloy $DEPLOY_PATH/
           sudo cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.sh $DEPLOY_PATH/scripts/
-          sudo cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.service $DEPLOY_PATH/scripts/ 2>/dev/null || true
           sudo chmod +x $DEPLOY_PATH/scripts/*.sh
           sudo chown azureuser:azureuser $DEPLOY_PATH/scripts/*
           
@@ -488,79 +511,6 @@ jobs:
           echo "=== Running containers ==="
           docker ps
           EOF
-
-      # ===========================================
-      # AI Hub deployment (only if changed)
-      # ===========================================
-      - name: Deploy AI Hub (with venv caching)
-        if: needs.detect-changes.outputs.aihub == 'true' || needs.detect-changes.outputs.config == 'true' || github.event.inputs.force_build == 'true'
-        run: |
-          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
-          set -e
-          DEPLOY_PATH="/opt/stocktracker"
-          AI_HUB_DIR="$DEPLOY_PATH/repo/services/ai/ai-hub"
-          AI_HUB_VENV="$DEPLOY_PATH/ai-hub-venv"
-          REQS_FILE="$AI_HUB_DIR/requirements.txt"
-          HASH_FILE="$AI_HUB_VENV/.requirements_hash"
-          
-          echo "=========================================="
-          echo "=== AI Hub Deployment with Venv Caching ==="
-          echo "=========================================="
-          
-          # Ensure python3-venv is installed (required for venv creation)
-          if ! python3 -c "import ensurepip" 2>/dev/null; then
-              echo "📦 Installing python3-venv package..."
-              sudo apt-get update -qq
-              sudo apt-get install -y -qq python3-venv
-              echo "✅ python3-venv installed"
-          fi
-          
-          # Calculate hash of requirements.txt
-          REQS_HASH=$(sha256sum "$REQS_FILE" | cut -d' ' -f1)
-          echo "Requirements hash: $REQS_HASH"
-          
-          # Check if venv exists and hash matches
-          if [ -d "$AI_HUB_VENV" ] && [ -f "$HASH_FILE" ]; then
-              CACHED_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "")
-              if [ "$REQS_HASH" = "$CACHED_HASH" ]; then
-                  echo "✅ Requirements unchanged - skipping pip install (cached)"
-              else
-                  echo "📦 Requirements changed - reinstalling dependencies..."
-                  rm -rf "$AI_HUB_VENV"
-                  python3 -m venv "$AI_HUB_VENV"
-                  "$AI_HUB_VENV/bin/pip" install --upgrade pip -q
-                  "$AI_HUB_VENV/bin/pip" install -q -r "$REQS_FILE"
-                  echo "$REQS_HASH" > "$HASH_FILE"
-                  echo "✅ Dependencies installed and cached"
-              fi
-          else
-              echo "📦 Creating new venv and installing dependencies..."
-              rm -rf "$AI_HUB_VENV"
-              python3 -m venv "$AI_HUB_VENV"
-              "$AI_HUB_VENV/bin/pip" install --upgrade pip -q
-              "$AI_HUB_VENV/bin/pip" install -q -r "$REQS_FILE"
-              echo "$REQS_HASH" > "$HASH_FILE"
-              echo "✅ Venv created and dependencies installed"
-          fi
-          
-          echo "=== Installing/updating systemd service ==="
-          sudo cp "$DEPLOY_PATH/scripts/ai-hub.service" /etc/systemd/system/ai-hub.service
-          sudo systemctl daemon-reload
-          sudo systemctl enable ai-hub
-          
-          echo "=== Restarting AI Hub service ==="
-          sudo systemctl restart ai-hub
-          sleep 3
-          sudo systemctl status ai-hub --no-pager || true
-          
-          echo "✅ AI Hub deployment complete"
-          EOF
-
-      - name: Skip AI Hub (unchanged)
-        if: needs.detect-changes.outputs.aihub != 'true' && needs.detect-changes.outputs.config != 'true' && github.event.inputs.force_build != 'true'
-        run: |
-          echo "⏭️ AI Hub unchanged - skipping deployment"
-          echo "   (service continues running with existing code)"
 
       # ===========================================
       # Smart health polling
@@ -598,10 +548,10 @@ jobs:
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/health/live" "Candlestick Analysis"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live" "Metrics"
           
-          # AI Hub runs on host (not exposed via Caddy) - check via SSH
-          ssh azureuser@20.17.176.1 'curl -sf http://localhost:8084/health/live' > /dev/null && echo "✅ AI Hub: OK" || echo "⚠️ AI Hub: Check systemd logs"
-          
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ > /dev/null && echo "✅ Back Office: OK" || echo "⚠️ Back Office: Starting..."
+          
+          # AI Hub Docker container - check via SSH
+          ssh azureuser@20.17.176.1 'docker exec ai-hub-docker curl -sf http://localhost:8080/health/live' > /dev/null && echo "✅ AI Hub: OK" || echo "⚠️ AI Hub: Check Docker logs"
           
           # MCP Analysis runs on internal port 8085 - check via SSH
           ssh azureuser@20.17.176.1 'curl -sf http://localhost:8085/health' > /dev/null && echo "✅ MCP Analysis: OK" || echo "⚠️ MCP Analysis: Check Docker logs"
@@ -632,7 +582,7 @@ jobs:
           echo "- [Candlestick Analysis Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
-          echo "- AI Hub: Internal only (localhost:8084 via SSH)" >> $GITHUB_STEP_SUMMARY
+          echo "- AI Hub: Docker container (ai-hub-docker:8080)" >> $GITHUB_STEP_SUMMARY
           
           echo ""
           echo "=========================================="

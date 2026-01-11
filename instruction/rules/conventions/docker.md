@@ -529,7 +529,7 @@ your-service:
     - PATH_BASE=/api/yourworker
     - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
     - YourWorker__ApiKey=${YOUR_API_KEY}
-    - AI_HUB_URL=http://host.docker.internal:8084
+    - AI_HUB_URL=http://ai-hub-docker:8080
     - AI_HUB_API_KEY=${AI_HUB_API_KEY}
   healthcheck:
     test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]

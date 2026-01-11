@@ -52,14 +52,14 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 
 ---
 
-## AI Hub Commands (systemd service)
+## AI Hub Commands (Docker container)
 
 | Command | Purpose |
 |---------|---------|
-| `sudo systemctl status ai-hub` | Check AI Hub status |
-| `sudo systemctl restart ai-hub` | Restart AI Hub |
-| `journalctl -u ai-hub -f` | Follow AI Hub logs |
-| `journalctl -u ai-hub --since "10 min ago"` | Recent logs |
+| `docker ps --filter name=ai-hub-docker` | Check AI Hub status |
+| `docker restart ai-hub-docker` | Restart AI Hub |
+| `docker logs ai-hub-docker -f` | Follow AI Hub logs |
+| `docker logs ai-hub-docker --since "10m"` | Recent logs |
 
 ---
 
@@ -73,7 +73,7 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 | Metrics Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger |
 | Metrics Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live |
 | Back Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ |
-| AI Hub Health | localhost:8084/health/live (via SSH only) |
+| AI Hub Health | ai-hub-docker:8080/health/live (Docker network) |
 
 ---
 

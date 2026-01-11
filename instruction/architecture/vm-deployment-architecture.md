@@ -1,10 +1,10 @@
 # VM Deployment Architecture
 
-**Last Updated**: December 31, 2025
+**Last Updated**: January 11, 2026
 
 ## Overview
 
-All backend services run on a single Azure VM using Docker Compose, with Caddy as the reverse proxy providing automatic HTTPS. AI Hub runs directly on the host as a systemd service (not in Docker) to access CLIs installed on the host.
+All backend services run on a single Azure VM using Docker Compose, with Caddy as the reverse proxy providing automatic HTTPS. AI Hub runs as a Docker container with volume mounts to access CLIs installed on the host.
 
 ## Architecture Diagram
 
@@ -39,7 +39,7 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │   │      ├── /api/metrics/*       → metrics:8080                     │    │  │
 │   │   │      └── /back-office*        → back-office:3000                 │    │  │
 │   │   │                                                                  │    │  │
-│   │   │      NOTE: AI Hub NOT exposed (internal only at :8084)           │    │  │
+│   │   │      NOTE: AI Hub NOT exposed (internal Docker network only)    │    │  │
 │   │   └─────────────────────────────────────────────────────────────────┘    │  │
 │   │                                         │                                 │  │
 │   │   ┌─────────────────────────────────────┼───────────────────────────┐    │  │
@@ -48,15 +48,11 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │   │     n8n      │  TwelveData  │   Metrics    │  Back-office │Alloy│    │  │
 │   │   │   :5678      │    :8080     │    :8080     │    :3000     │     │    │  │
 │   │   │  Workflows   │  Stock Data  │  Aggregates  │   Admin UI   │Logs │    │  │
-│   │   └──────────────┴──────────────┴──────────────┴──────────────┴─────┘    │  │
-│   │              │              │              │              │               │  │
-│   │              └──────────────┴──────────────┴──────────────┘               │  │
-│   │                          host.docker.internal:8084                        │  │
-│   │                                    │                                      │  │
-│   │   ┌────────────────────────────────▼────────────────────────────────┐    │  │
-│   │   │              AI HUB (systemd service on HOST)                    │    │  │
-│   │   │              Port 8084 - Internal only                           │    │  │
-│   │   │              FastAPI + Claude CLI + Cursor-agent CLI             │    │  │
+│   │   ├──────────────┴──────────────┴──────────────┴──────────────┴─────┤    │  │
+│   │   │                        AI HUB (Docker)                          │    │  │
+│   │   │                        ai-hub-docker:8080                       │    │  │
+│   │   │              FastAPI + Claude CLI + Cursor-agent CLI            │    │  │
+│   │   │              (CLIs mounted via Docker volumes)                  │    │  │
 │   │   └─────────────────────────────────────────────────────────────────┘    │  │
 │   │                                                                           │  │
 │   └───────────────────────────────────────────────────────────────────────────┘  │
@@ -82,8 +78,8 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │  git push    │─────▶│              │──SSH─▶│  1. git pull                 │  │
 │   │              │      │  Build on    │      │  2. docker load (pre-built)  │  │
 │   │              │      │  GHA runners │      │  3. docker compose up -d     │  │
-│   │              │      │  (parallel)  │      │  4. AI Hub: systemd restart  │  │
-│   │              │      │              │      │  5. Health checks            │  │
+│   │              │      │  (parallel)  │      │  4. Health checks            │  │
+│   │              │      │              │      │                              │  │
 │   └──────────────┘      └──────────────┘      └──────────────────────────────┘  │
 │                                                                                  │
 │   Trigger Paths:                                                                 │
@@ -162,14 +158,9 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 | Metrics | 8080 | `/api/metrics/*` | Metrics aggregation |
 | Back-office | 3000 | `/back-office*` | Admin UI |
 | Alloy | 12345 | — (internal) | Metrics/logs forwarder to Grafana Cloud |
+| AI Hub | 8080 | — (internal) | AI CLI gateway (claude, cursor-agent) |
 
-### Host Service (systemd)
-
-| Service | Port | Access | Description |
-|---------|------|--------|-------------|
-| AI Hub | 8084 | Internal only | AI CLI gateway (claude, cursor-agent) |
-
-**Why AI Hub runs on host**: Needs direct access to CLIs (claude, cursor-agent) installed on the VM. Docker containers access it via `host.docker.internal:8084` with `X-API-Key` header.
+**AI Hub Docker Container**: Accesses CLIs (claude, cursor-agent) installed on the VM host via volume mounts. Other containers access it via `ai-hub-docker:8080` with `X-API-Key` header.
 
 ## File Structure on VM
 
@@ -178,15 +169,12 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 ├── docker-compose.yml      # Synced from repo
 ├── Caddyfile               # Synced from repo
 ├── alloy-config.alloy      # Synced from repo (Grafana Alloy config)
-├── ai-hub-venv/            # Python venv for AI Hub (cached by requirements hash)
 ├── config/                 # Infisical auth config (Machine Identity)
 ├── n8n-data/               # n8n persistent data
 ├── logs/                   # Job logs
 ├── scripts/
 │   ├── setup.sh            # Initial VM setup
 │   ├── start-services.sh   # Docker compose with Infisical injection
-│   ├── start-ai-hub.sh     # AI Hub startup script
-│   ├── ai-hub.service      # Systemd unit file
 │   ├── run-twelvedata.sh   # Cron job script (if needed)
 │   └── weekly-cleanup.sh   # Old data cleanup
 └── repo/                   # Git clone of repository
@@ -219,7 +207,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
 }
 
 # NOTE: AI Hub is NOT exposed via Caddy
-# Internal access only: host.docker.internal:8084
+# Internal access only via Docker network: ai-hub-docker:8080
 ```
 
 ## Public URLs
@@ -232,14 +220,11 @@ nxserver.malaysiawest.cloudapp.azure.com {
 | Metrics Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger | API docs |
 | Metrics Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live | Health check |
 | Back Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ | Admin UI |
-| AI Hub | localhost:8084 (via SSH) | Internal only |
+| AI Hub | ai-hub-docker:8080 (Docker network) | Internal only |
 
 ## Health Check Commands
 
 ```bash
-# From local machine (via SSH)
-ssh azureuser@20.17.176.1 "curl -sf http://localhost:8084/health/live"  # AI Hub
-
 # Public endpoints
 curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live
 curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live
@@ -248,8 +233,8 @@ curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/
 # Docker container status
 ssh azureuser@20.17.176.1 "docker ps"
 
-# AI Hub systemd status
-ssh azureuser@20.17.176.1 "sudo systemctl status ai-hub"
+# AI Hub health (via Docker)
+ssh azureuser@20.17.176.1 "docker exec ai-hub-docker curl -sf http://localhost:8080/health/live"
 ```
 
 ## Related Documents

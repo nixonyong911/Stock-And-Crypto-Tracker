@@ -41,23 +41,8 @@ prometheus.remote_write "grafana_cloud" {
 // ===========================================
 // Log Collection - Forward to Grafana Cloud Loki
 // ===========================================
-
-// Collect logs from ai-hub systemd service (runs on host)
-loki.source.journal "ai_hub" {
-  path = "/var/log/journal"
-  
-  // Filter to only ai-hub service
-  matches = "_SYSTEMD_UNIT=ai-hub.service"
-  
-  // Add labels for querying
-  labels = {
-    job     = "ai-hub",
-    service = "ai-hub",
-    host    = "azure-vm",
-  }
-  
-  forward_to = [loki.write.grafana_cloud.receiver]
-}
+// NOTE: AI Hub logs now come from Docker container (collected via Docker logging driver)
+// Only collecting VM-level logs here (cleanup scripts, etc.)
 
 // ===========================================
 // Weekly Cleanup Script Logs

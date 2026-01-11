@@ -43,11 +43,11 @@
 
 ```bash
 # Check AI Hub status
-sudo systemctl status ai-hub
-sudo journalctl -u ai-hub --since "10 min ago"
+docker ps --filter name=ai-hub-docker
+docker logs ai-hub-docker --since "10m"
 
 # Test from container
-docker exec back-office wget -qO- http://172.17.0.1:8084/health/live
+docker exec ai-hub-docker curl -sf http://localhost:8080/health/live
 ```
 
 ## Lessons Learned

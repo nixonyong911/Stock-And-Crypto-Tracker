@@ -6,7 +6,7 @@ import os
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
 # AI Hub Configuration
-AI_HUB_URL = os.environ.get("AI_HUB_URL", "http://host.docker.internal:8084")
+AI_HUB_URL = os.environ.get("AI_HUB_URL", "http://ai-hub-docker:8080")
 AI_HUB_API_KEY = os.environ.get("AI_HUB_API_KEY", "")
 AI_HUB_ENDPOINT = "/cli/telegram-agent/cursor/sonnet-4.5"
 

@@ -44,7 +44,6 @@ This document centralizes all infrastructure configuration values to prevent har
 | **Scripts** | `/opt/stocktracker/scripts/` |
 | **n8n Data** | `/opt/stocktracker/n8n-data/` |
 | **Repository Clone** | `/opt/stocktracker/repo/` |
-| **AI Hub Service** | `/etc/systemd/system/ai-hub.service` |
 | **AI Hub Code** | `/opt/stocktracker/repo/services/ai/ai-hub/` |
 
 ---
@@ -66,7 +65,7 @@ This document centralizes all infrastructure configuration values to prevent har
 | **TwelveData** | 8080 | HTTP | Caddy reverse proxy at `/api/twelvedata` |
 | **Metrics** | 8080 | HTTP | Caddy reverse proxy at `/api/metrics` |
 | **Back-office** | 3000 | HTTP | Caddy reverse proxy at `/back-office` |
-| **AI Hub** | 8084 | HTTP | Host only (not exposed) - `host.docker.internal:8084` |
+| **AI Hub** | 8080 | HTTP | Docker internal only - `ai-hub-docker:8080` |
 | **Alloy** | 12345 | HTTP | Internal monitoring only |
 | **Caddy Admin API** | 2019 | HTTP | localhost only (via SSH) |
 
@@ -81,7 +80,7 @@ This document centralizes all infrastructure configuration values to prevent har
 | **Metrics Prometheus** | https://nxserver.malaysiawest.cloudapp.azure.com/metrics | Prometheus metrics (scraped by Alloy) |
 | **Metrics Health** | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live | Health check endpoint |
 | **Back-office UI** | https://nxserver.malaysiawest.cloudapp.azure.com/back-office | Admin dashboard |
-| **AI Hub Health** | http://localhost:8084/health/live | Health check (SSH only) |
+| **AI Hub Health** | http://ai-hub-docker:8080/health/live | Health check (Docker network) |
 
 ---
 
@@ -159,7 +158,7 @@ This document centralizes all infrastructure configuration values to prevent har
 
 | Variable | Source | Purpose |
 |----------|--------|---------|
-| `AI_HUB_URL` | Docker Compose | `http://host.docker.internal:8084` |
+| `AI_HUB_URL` | Docker Compose | `http://ai-hub-docker:8080` |
 | `AI_HUB_API_KEY` | Infisical | Authentication for AI Hub |
 | `ASPNETCORE_ENVIRONMENT` | Docker Compose | `Production` for .NET services |
 
@@ -197,15 +196,15 @@ This document centralizes all infrastructure configuration values to prevent har
 | **Metrics** | `curl -f http://localhost:8080/health/live` | 30s | 3s |
 | **Back-office** | `wget -qO- http://127.0.0.1:3000/back-office` | 30s | 3s |
 
-### Systemd Service (AI Hub)
+### AI Hub Docker Container
 
 | Property | Value |
 |----------|-------|
-| **Service Name** | `ai-hub.service` |
-| **Status Command** | `sudo systemctl status ai-hub` |
-| **Restart Command** | `sudo systemctl restart ai-hub` |
-| **Logs Command** | `journalctl -u ai-hub -f` |
-| **Health Endpoint** | `http://localhost:8084/health/live` |
+| **Container Name** | `ai-hub-docker` |
+| **Status Command** | `docker ps --filter name=ai-hub-docker` |
+| **Restart Command** | `docker restart ai-hub-docker` |
+| **Logs Command** | `docker logs ai-hub-docker -f` |
+| **Health Endpoint** | `http://localhost:8080/health/live` (inside container) |
 
 ---
 
@@ -251,8 +250,8 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "doc
 # All services
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd /opt/stocktracker && docker compose logs -f"
 
-# AI Hub (systemd)
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "journalctl -u ai-hub --since '10 min ago'"
+# AI Hub (Docker)
+ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker logs ai-hub-docker --tail 50"
 ```
 
 ### Restart Services
@@ -264,7 +263,7 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd /opt/stocktracker && docker compose restart"
 
 # AI Hub
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "sudo systemctl restart ai-hub"
+ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker restart ai-hub-docker"
 ```
 
 ---

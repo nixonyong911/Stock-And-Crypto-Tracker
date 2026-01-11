@@ -173,24 +173,15 @@ public class YourWorker : BackgroundService
 
 ## Adding Logs to Grafana Loki
 
-Logs are forwarded via Grafana Alloy. There are two methods:
+Logs are forwarded via Grafana Alloy. For Docker containers, logs are collected via Docker's logging driver. For VM scripts/cron jobs, use the log file method.
 
-### Method 1: systemd Journal (Recommended for Services)
+### Method 1: Docker Containers (Recommended for Services)
 
-If your service runs via systemd (like ai-hub):
+All Docker containers (including ai-hub-docker) have logs collected automatically via Docker's logging driver. View logs with:
 
-```alloy
-// In alloy-config.alloy
-loki.source.journal "your_service" {
-  path = "/var/log/journal"
-  matches = "_SYSTEMD_UNIT=your-service.service"
-  labels = {
-    job     = "your-service",
-    service = "your-service",
-    host    = "azure-vm",
-  }
-  forward_to = [loki.write.grafana_cloud.receiver]
-}
+```bash
+docker logs <container-name> -f
+docker logs ai-hub-docker --tail 100
 ```
 
 ### Method 2: Log Files (For Scripts/Cron Jobs)
