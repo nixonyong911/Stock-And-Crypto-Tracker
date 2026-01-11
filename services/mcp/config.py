@@ -16,7 +16,12 @@ def _parse_libpq_to_url(dsn: str) -> str:
     
     Input:  user=xxx password=xxx host=xxx port=xxx dbname=xxx
     Output: postgresql://user:password@host:port/dbname
+    
+    Note: Password in libpq format may already be URL-encoded (e.g., %2A for *).
+    We decode it first, then re-encode for the URL format.
     """
+    from urllib.parse import unquote
+    
     if dsn.startswith("postgresql://") or dsn.startswith("postgres://"):
         return dsn  # Already URL format
     
@@ -33,8 +38,9 @@ def _parse_libpq_to_url(dsn: str) -> str:
     port = parts.get('port', '5432')
     dbname = parts.get('dbname', 'postgres')
     
-    # URL encode password for special characters
-    encoded_password = quote_plus(password)
+    # Decode password first (in case it's already URL-encoded), then re-encode
+    decoded_password = unquote(password)
+    encoded_password = quote_plus(decoded_password)
     
     return f"postgresql://{user}:{encoded_password}@{host}:{port}/{dbname}"
 
