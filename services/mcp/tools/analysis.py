@@ -5,8 +5,62 @@ import json
 from datetime import date, timedelta
 from typing import Optional
 
+import asyncpg
+
 # Query timeout in seconds (fail fast)
 QUERY_TIMEOUT = 10.0
+
+
+async def _safe_fetch(conn, query: str, *args, timeout: float = QUERY_TIMEOUT) -> list:
+    """
+    Execute a query with PostgreSQL-level timeout for clean cancellation.
+    
+    Uses SET LOCAL statement_timeout which:
+    1. Cleanly cancels the query on the server side
+    2. Doesn't leave the connection in undefined state
+    3. Only affects the current transaction
+    
+    Args:
+        conn: Database connection
+        query: SQL query string
+        *args: Query parameters
+        timeout: Timeout in seconds
+    
+    Returns:
+        List of result rows
+    
+    Raises:
+        asyncio.TimeoutError: If query exceeds timeout
+    """
+    timeout_ms = int(timeout * 1000)
+    try:
+        # Set statement timeout for this query (LOCAL = current transaction only)
+        await conn.execute(f"SET LOCAL statement_timeout = '{timeout_ms}'")
+        return await conn.fetch(query, *args)
+    except asyncpg.QueryCanceledError as e:
+        # PostgreSQL cancelled the query due to statement_timeout
+        raise asyncio.TimeoutError(f"Query timed out after {timeout}s") from e
+
+
+async def _safe_gather(conn, queries_with_args: list, timeout: float = QUERY_TIMEOUT) -> list:
+    """
+    Execute multiple queries in parallel with PostgreSQL-level timeout.
+    
+    Args:
+        conn: Database connection
+        queries_with_args: List of (query, *args) tuples
+        timeout: Timeout in seconds (applies to all queries combined)
+    
+    Returns:
+        List of results for each query
+    """
+    timeout_ms = int(timeout * 1000)
+    try:
+        await conn.execute(f"SET LOCAL statement_timeout = '{timeout_ms}'")
+        tasks = [conn.fetch(query, *args) for query, *args in queries_with_args]
+        return await asyncio.gather(*tasks)
+    except asyncpg.QueryCanceledError as e:
+        raise asyncio.TimeoutError(f"Query timed out after {timeout}s") from e
 
 
 async def get_stock_analysis(
@@ -56,10 +110,7 @@ async def get_stock_analysis(
     end_date_obj = date.fromisoformat(end_date)
     
     try:
-        rows = await asyncio.wait_for(
-            conn.fetch(query, symbol, start_date_obj, end_date_obj),
-            timeout=QUERY_TIMEOUT
-        )
+        rows = await _safe_fetch(conn, query, symbol, start_date_obj, end_date_obj)
     except asyncio.TimeoutError:
         return json.dumps({
             "error": "Query timeout",
@@ -145,10 +196,7 @@ async def list_detected_patterns(
     analysis_date_obj = date.fromisoformat(analysis_date)
     
     try:
-        rows = await asyncio.wait_for(
-            conn.fetch(query, analysis_date_obj, pattern_type),
-            timeout=QUERY_TIMEOUT
-        )
+        rows = await _safe_fetch(conn, query, analysis_date_obj, pattern_type)
     except asyncio.TimeoutError:
         return json.dumps({
             "error": "Query timeout",
@@ -207,10 +255,7 @@ async def get_bullish_stocks(conn, analysis_date: str) -> str:
     analysis_date_obj = date.fromisoformat(analysis_date)
     
     try:
-        rows = await asyncio.wait_for(
-            conn.fetch(query, analysis_date_obj),
-            timeout=QUERY_TIMEOUT
-        )
+        rows = await _safe_fetch(conn, query, analysis_date_obj)
     except asyncio.TimeoutError:
         return json.dumps({
             "error": "Query timeout",
@@ -272,10 +317,7 @@ async def get_bearish_stocks(conn, analysis_date: str) -> str:
     analysis_date_obj = date.fromisoformat(analysis_date)
     
     try:
-        rows = await asyncio.wait_for(
-            conn.fetch(query, analysis_date_obj),
-            timeout=QUERY_TIMEOUT
-        )
+        rows = await _safe_fetch(conn, query, analysis_date_obj)
     except asyncio.TimeoutError:
         return json.dumps({
             "error": "Query timeout",
@@ -350,12 +392,13 @@ async def get_pattern_statistics(conn, days: int = 7) -> str:
     """
     
     try:
-        # Run both queries in parallel using asyncio.gather
-        daily_stats, pattern_stats = await asyncio.wait_for(
-            asyncio.gather(
-                conn.fetch(daily_query, start_date, end_date),
-                conn.fetch(pattern_query, start_date, end_date)
-            ),
+        # Run both queries in parallel with PostgreSQL-level timeout
+        daily_stats, pattern_stats = await _safe_gather(
+            conn,
+            [
+                (daily_query, start_date, end_date),
+                (pattern_query, start_date, end_date),
+            ],
             timeout=QUERY_TIMEOUT
         )
     except asyncio.TimeoutError:

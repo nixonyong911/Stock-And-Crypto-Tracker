@@ -10,10 +10,13 @@ All operations are READ-ONLY (SELECT queries only).
 Features:
 - Redis caching with 24-hour TTL (daily data)
 - Rate limiting (100 requests/minute)
-- Connection pooling with eager initialization
+- Connection pooling with eager initialization and health checks
 - Retry logic for transient failures
+- Graceful shutdown handling (SIGTERM/SIGINT)
+- Connection leak prevention
 """
 
+import asyncio
 import sys
 from contextlib import asynccontextmanager
 from datetime import date
@@ -28,6 +31,8 @@ from config import (
     init_pool,
     close_pool,
     get_db,
+    setup_signal_handlers,
+    get_shutdown_event,
     MCP_PORT,
     REDIS_HOST,
     REDIS_PORT,
@@ -42,21 +47,45 @@ from tools.analysis import (
 
 
 # ===========================================
-# Lifespan Management
+# Lifespan Management with Graceful Shutdown
 # ===========================================
 
 @asynccontextmanager
 async def app_lifespan(app):
-    """Manage database pool lifecycle - verified FastMCP pattern."""
-    print("Starting up: initializing database pool...")
+    """
+    Manage database pool lifecycle with graceful shutdown handling.
+    
+    Features:
+    - Eager pool initialization on startup
+    - Signal handlers for SIGTERM/SIGINT (docker stop, Ctrl+C)
+    - Graceful connection pool closure with timeout
+    - Proper resource cleanup on shutdown
+    """
+    print("=" * 50)
+    print("MCP Analysis Server Starting Up")
+    print("=" * 50)
+    
+    # Setup signal handlers for graceful shutdown
+    setup_signal_handlers()
+    print("Signal handlers registered (SIGTERM, SIGINT)")
+    
+    # Initialize database pool
+    print("Initializing database connection pool...")
     await init_pool()
-    print("Database pool initialized successfully.")
+    print("Database pool initialized successfully")
+    
     try:
         yield
     finally:
-        print("Shutting down: closing database pool...")
-        await close_pool()
-        print("Database pool closed.")
+        print("=" * 50)
+        print("MCP Analysis Server Shutting Down")
+        print("=" * 50)
+        
+        # Close database pool with timeout
+        print("Closing database connection pool...")
+        await close_pool(timeout=10.0)
+        
+        print("Shutdown complete")
 
 
 # ===========================================
