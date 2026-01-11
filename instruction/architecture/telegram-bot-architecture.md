@@ -44,7 +44,7 @@ A Telegram bot that allows authenticated users to interact with an AI financial 
 │                                                                              │
 │   ┌─────────────────────┐              ┌─────────────────────────────┐      │
 │   │      AI Hub         │              │       MCP Analysis          │      │
-│   │  (Host, Port 8084)  │◀────────────▶│    (Docker, Port 8085)      │      │
+│   │ (Docker, Port 8080) │◀────────────▶│    (Docker, Port 8085)      │      │
 │   │                     │              │                             │      │
 │   │  /cli/telegram-     │              │  - get_stock_analysis       │      │
 │   │   agent/cursor/     │              │  - list_detected_patterns   │      │
@@ -202,7 +202,7 @@ Session Rules:
 | Component | Location | Method |
 |-----------|----------|--------|
 | Frontend | Vercel | Auto-deploy on push |
-| AI Hub | VM (systemd) | GitHub Actions |
+| AI Hub | VM (Docker) | GitHub Actions |
 | MCP Server | VM (Docker) | GitHub Actions |
 | Telegram Bot | VM (Docker) | GitHub Actions |
 

@@ -113,11 +113,11 @@ cd /home/azureuser/stock-tracker && cursor-agent --model opus-4.5 -p "<message>"
 
 ## How Workers Call AI Hub
 
-Workers in Docker containers call AI Hub at `http://172.17.0.1:8084`:
+Workers in Docker containers call AI Hub at `http://ai-hub-docker:8080`:
 
 ```typescript
 // From a worker in Docker container
-const AI_HUB_URL = "http://172.17.0.1:8084";
+const AI_HUB_URL = "http://ai-hub-docker:8080";
 
 const response = await fetch(`${AI_HUB_URL}/cli/stock-tracker/claude/opus-4.5`, {
   method: "POST",
@@ -185,16 +185,16 @@ docker restart ai-hub-docker
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Worker (Docker Container)                                           │
 │                                                                     │
-│   POST http://172.17.0.1:8084/cli/stock-tracker/claude/opus-4.5     │
+│   POST http://ai-hub-docker:8080/cli/stock-tracker/claude/opus-4.5  │
 │   Body: { "message": "..." }                                        │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ AI Hub (host:8084, systemd service)                                 │
+│ AI Hub (Docker container, port 8080)                                │
 │                                                                     │
 │ Pre-configured:                                                     │
-│   - context_path: /home/azureuser/stock-tracker                                │
+│   - context_path: /home/azureuser/stock-tracker                     │
 │   - cli: claude                                                     │
 │   - model: opus-4.5                                                 │
 │                                                                     │
@@ -217,7 +217,7 @@ docker restart ai-hub-docker
 
 **Check logs:**
 ```bash
-journalctl -u ai-hub -f
+docker logs -f ai-hub-docker
 ```
 
 ---

@@ -96,7 +96,7 @@ services:
       - AI_HUB_MAX_RETRIES=${AI_HUB_MAX_RETRIES:-3}
       - AI_HUB_TIMEOUT_SECONDS=${AI_HUB_TIMEOUT_SECONDS:-30}
     ports:
-      - "${AI_HUB_PORT:-8084}:8080"
+      - "${AI_HUB_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
       interval: 30s

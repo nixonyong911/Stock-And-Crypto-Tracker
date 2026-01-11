@@ -25,7 +25,7 @@ A Telegram bot that allows authenticated users to chat with an AI agent for fina
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   Telegram  │────▶│  This Bot   │────▶│   AI Hub    │
-│     User    │◀────│  (8087)     │◀────│   (8084)    │
+│     User    │◀────│  (8087)     │◀────│   (8080)    │
 └─────────────┘     └─────────────┘     └─────────────┘
                            │
                            ▼
