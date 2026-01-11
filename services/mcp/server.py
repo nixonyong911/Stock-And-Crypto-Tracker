@@ -6,17 +6,32 @@ This server provides tools for AI agents to query candlestick pattern analysis
 data from the Stock and Crypto Tracker database.
 
 All operations are READ-ONLY (SELECT queries only).
+
+Features:
+- Redis caching with 24-hour TTL (daily data)
+- Rate limiting (100 requests/minute)
+- Connection pooling with eager initialization
+- Retry logic for transient failures
 """
 
-import json
+import sys
+from contextlib import asynccontextmanager
 from datetime import date
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
 from fastmcp import FastMCP
+from fastmcp.dependencies import Depends
 
-from config import get_pool, close_pool, MCP_PORT
+from config import (
+    init_pool,
+    close_pool,
+    get_db,
+    MCP_PORT,
+    REDIS_HOST,
+    REDIS_PORT,
+)
 from tools.analysis import (
     get_stock_analysis,
     list_detected_patterns,
@@ -26,8 +41,80 @@ from tools.analysis import (
 )
 
 
-# Initialize the MCP server
-mcp = FastMCP("analysis_mcp")
+# ===========================================
+# Lifespan Management
+# ===========================================
+
+@asynccontextmanager
+async def app_lifespan(app):
+    """Manage database pool lifecycle - verified FastMCP pattern."""
+    print("Starting up: initializing database pool...")
+    await init_pool()
+    print("Database pool initialized successfully.")
+    try:
+        yield
+    finally:
+        print("Shutting down: closing database pool...")
+        await close_pool()
+        print("Database pool closed.")
+
+
+# ===========================================
+# Initialize the MCP server with lifespan
+# ===========================================
+
+mcp = FastMCP("analysis_mcp", lifespan=app_lifespan)
+
+
+# ===========================================
+# Middleware Setup (order matters!)
+# ===========================================
+
+def setup_middleware():
+    """Setup caching and rate limiting middleware."""
+    try:
+        from fastmcp.server.middleware.rate_limiting import SlidingWindowRateLimitingMiddleware
+        from fastmcp.server.middleware.caching import (
+            ResponseCachingMiddleware,
+            CallToolSettings,
+            ListToolsSettings,
+        )
+        from key_value.aio.stores.redis import RedisStore
+        from key_value.aio.wrappers.prefix_collections import PrefixCollectionsWrapper
+
+        # 1. Rate limiting first (reject excess requests early)
+        mcp.add_middleware(SlidingWindowRateLimitingMiddleware(
+            max_requests=100,
+            window_minutes=1
+        ))
+        print(f"Rate limiting enabled: 100 requests/minute")
+
+        # 2. Redis caching with namespacing
+        redis_store = RedisStore(host=REDIS_HOST, port=REDIS_PORT)
+        namespaced_store = PrefixCollectionsWrapper(
+            key_value=redis_store,
+            prefix="mcp-analysis"
+        )
+
+        mcp.add_middleware(ResponseCachingMiddleware(
+            cache_storage=namespaced_store,
+            call_tool_settings=CallToolSettings(
+                ttl=86400,  # 24 hours in seconds (daily data)
+            ),
+            list_tools_settings=ListToolsSettings(
+                ttl=3600,  # 1 hour for tool list (rarely changes)
+            ),
+        ))
+        print(f"Redis caching enabled: {REDIS_HOST}:{REDIS_PORT} (TTL: 24h)")
+
+    except ImportError as e:
+        print(f"Warning: Middleware not available ({e}). Running without caching/rate limiting.")
+    except Exception as e:
+        print(f"Warning: Failed to setup middleware ({e}). Running without caching/rate limiting.")
+
+
+# Setup middleware on module load
+setup_middleware()
 
 
 # ===========================================
@@ -98,7 +185,7 @@ class StatisticsInput(BaseModel):
         "openWorldHint": False
     }
 )
-async def analysis_get_stock(params: StockAnalysisInput) -> str:
+async def analysis_get_stock(params: StockAnalysisInput, conn=Depends(get_db)) -> str:
     """
     Query candlestick analysis data for a specific stock symbol within a date range.
     
@@ -114,6 +201,7 @@ async def analysis_get_stock(params: StockAnalysisInput) -> str:
         JSON with analysis results for the stock
     """
     return await get_stock_analysis(
+        conn=conn,
         symbol=params.symbol,
         start_date=params.start_date,
         end_date=params.end_date
@@ -130,7 +218,7 @@ async def analysis_get_stock(params: StockAnalysisInput) -> str:
         "openWorldHint": False
     }
 )
-async def analysis_list_patterns(params: PatternListInput) -> str:
+async def analysis_list_patterns(params: PatternListInput, conn=Depends(get_db)) -> str:
     """
     List all detected candlestick patterns for a specific date.
     
@@ -148,6 +236,7 @@ async def analysis_list_patterns(params: PatternListInput) -> str:
         JSON with list of stocks and their detected patterns
     """
     return await list_detected_patterns(
+        conn=conn,
         analysis_date=params.analysis_date,
         pattern_type=params.pattern_type
     )
@@ -163,7 +252,7 @@ async def analysis_list_patterns(params: PatternListInput) -> str:
         "openWorldHint": False
     }
 )
-async def analysis_get_bullish(params: DateInput) -> str:
+async def analysis_get_bullish(params: DateInput, conn=Depends(get_db)) -> str:
     """
     Get all stocks showing bullish patterns for a specific date.
     
@@ -176,7 +265,7 @@ async def analysis_get_bullish(params: DateInput) -> str:
     Returns:
         JSON with bullish stocks and their patterns
     """
-    return await get_bullish_stocks(analysis_date=params.analysis_date)
+    return await get_bullish_stocks(conn=conn, analysis_date=params.analysis_date)
 
 
 @mcp.tool(
@@ -189,7 +278,7 @@ async def analysis_get_bullish(params: DateInput) -> str:
         "openWorldHint": False
     }
 )
-async def analysis_get_bearish(params: DateInput) -> str:
+async def analysis_get_bearish(params: DateInput, conn=Depends(get_db)) -> str:
     """
     Get all stocks showing bearish patterns for a specific date.
     
@@ -202,7 +291,7 @@ async def analysis_get_bearish(params: DateInput) -> str:
     Returns:
         JSON with bearish stocks and their patterns
     """
-    return await get_bearish_stocks(analysis_date=params.analysis_date)
+    return await get_bearish_stocks(conn=conn, analysis_date=params.analysis_date)
 
 
 @mcp.tool(
@@ -215,7 +304,7 @@ async def analysis_get_bearish(params: DateInput) -> str:
         "openWorldHint": False
     }
 )
-async def analysis_get_statistics(params: StatisticsInput) -> str:
+async def analysis_get_statistics(params: StatisticsInput, conn=Depends(get_db)) -> str:
     """
     Get aggregate statistics for candlestick patterns over the last N days.
     
@@ -230,11 +319,10 @@ async def analysis_get_statistics(params: StatisticsInput) -> str:
     Returns:
         JSON with pattern statistics and trends
     """
-    return await get_pattern_statistics(days=params.days)
+    return await get_pattern_statistics(conn=conn, days=params.days)
 
 
 if __name__ == "__main__":
-    import sys
     if "--stdio" in sys.argv:
         # Run with stdio transport for local Cursor MCP testing
         mcp.run(transport="stdio")

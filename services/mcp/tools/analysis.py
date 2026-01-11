@@ -1,13 +1,16 @@
 """Analysis tools for querying candlestick pattern data."""
 
+import asyncio
 import json
 from datetime import date, timedelta
-from typing import Optional, List, Dict, Any
+from typing import Optional
 
-from config import get_connection
+# Query timeout in seconds (fail fast)
+QUERY_TIMEOUT = 10.0
 
 
 async def get_stock_analysis(
+    conn,
     symbol: str,
     start_date: str,
     end_date: str
@@ -16,6 +19,7 @@ async def get_stock_analysis(
     Query candlestick analysis for a stock symbol within a date range.
     
     Args:
+        conn: Database connection (injected via Depends)
         symbol: Stock ticker symbol (e.g., 'AAPL', 'MSFT')
         start_date: Start date in YYYY-MM-DD format
         end_date: End date in YYYY-MM-DD format
@@ -51,8 +55,17 @@ async def get_stock_analysis(
     start_date_obj = date.fromisoformat(start_date)
     end_date_obj = date.fromisoformat(end_date)
     
-    async with get_connection() as conn:
-        rows = await conn.fetch(query, symbol, start_date_obj, end_date_obj)
+    try:
+        rows = await asyncio.wait_for(
+            conn.fetch(query, symbol, start_date_obj, end_date_obj),
+            timeout=QUERY_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        return json.dumps({
+            "error": "Query timeout",
+            "symbol": symbol.upper(),
+            "message": f"Query took longer than {QUERY_TIMEOUT}s"
+        })
     
     if not rows:
         return json.dumps({
@@ -61,7 +74,7 @@ async def get_stock_analysis(
             "end_date": end_date,
             "message": f"No analysis data found for {symbol.upper()} in the specified date range",
             "results": []
-        }, indent=2)
+        })
     
     results = []
     for row in rows:
@@ -92,10 +105,11 @@ async def get_stock_analysis(
         "end_date": end_date,
         "total_results": len(results),
         "results": results
-    }, indent=2)
+    })
 
 
 async def list_detected_patterns(
+    conn,
     analysis_date: str,
     pattern_type: Optional[str] = None
 ) -> str:
@@ -103,12 +117,14 @@ async def list_detected_patterns(
     List all detected patterns for a specific date.
     
     Args:
+        conn: Database connection (injected via Depends)
         analysis_date: Date in YYYY-MM-DD format
         pattern_type: Optional filter by pattern type (e.g., 'doji', 'hammer')
     
     Returns:
         JSON string with pattern list
     """
+    # Filter in SQL for better performance
     query = """
         SELECT 
             st.symbol,
@@ -119,24 +135,34 @@ async def list_detected_patterns(
         JOIN stock_tickers st ON a.stock_ticker_id = st.id
         WHERE a.analysis_date = $1::date
           AND jsonb_array_length(a.detected_patterns) > 0
+          AND ($2::text IS NULL OR 
+               EXISTS(SELECT 1 FROM jsonb_array_elements(a.detected_patterns) p 
+                      WHERE LOWER(p->>'pattern') = LOWER($2)))
         ORDER BY st.symbol
     """
     
     # Convert string date to date object for asyncpg
     analysis_date_obj = date.fromisoformat(analysis_date)
     
-    async with get_connection() as conn:
-        rows = await conn.fetch(query, analysis_date_obj)
+    try:
+        rows = await asyncio.wait_for(
+            conn.fetch(query, analysis_date_obj, pattern_type),
+            timeout=QUERY_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        return json.dumps({
+            "error": "Query timeout",
+            "date": analysis_date,
+            "message": f"Query took longer than {QUERY_TIMEOUT}s"
+        })
     
     results = []
     for row in rows:
         patterns = json.loads(row["detected_patterns"]) if row["detected_patterns"] else []
         
-        # Filter by pattern type if specified
+        # If pattern_type specified, filter the patterns list (SQL already filtered rows)
         if pattern_type:
             patterns = [p for p in patterns if p.get("pattern", "").lower() == pattern_type.lower()]
-            if not patterns:
-                continue
         
         results.append({
             "symbol": row["symbol"],
@@ -149,14 +175,15 @@ async def list_detected_patterns(
         "pattern_filter": pattern_type,
         "stocks_with_patterns": len(results),
         "results": results
-    }, indent=2)
+    })
 
 
-async def get_bullish_stocks(analysis_date: str) -> str:
+async def get_bullish_stocks(conn, analysis_date: str) -> str:
     """
     Get stocks with bullish patterns for a specific date.
     
     Args:
+        conn: Database connection (injected via Depends)
         analysis_date: Date in YYYY-MM-DD format
     
     Returns:
@@ -179,8 +206,17 @@ async def get_bullish_stocks(analysis_date: str) -> str:
     # Convert string date to date object for asyncpg
     analysis_date_obj = date.fromisoformat(analysis_date)
     
-    async with get_connection() as conn:
-        rows = await conn.fetch(query, analysis_date_obj)
+    try:
+        rows = await asyncio.wait_for(
+            conn.fetch(query, analysis_date_obj),
+            timeout=QUERY_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        return json.dumps({
+            "error": "Query timeout",
+            "date": analysis_date,
+            "message": f"Query took longer than {QUERY_TIMEOUT}s"
+        })
     
     results = []
     for row in rows:
@@ -204,14 +240,15 @@ async def get_bullish_stocks(analysis_date: str) -> str:
         "signal": "bullish",
         "total_bullish_stocks": len(results),
         "results": results
-    }, indent=2)
+    })
 
 
-async def get_bearish_stocks(analysis_date: str) -> str:
+async def get_bearish_stocks(conn, analysis_date: str) -> str:
     """
     Get stocks with bearish patterns for a specific date.
     
     Args:
+        conn: Database connection (injected via Depends)
         analysis_date: Date in YYYY-MM-DD format
     
     Returns:
@@ -234,8 +271,17 @@ async def get_bearish_stocks(analysis_date: str) -> str:
     # Convert string date to date object for asyncpg
     analysis_date_obj = date.fromisoformat(analysis_date)
     
-    async with get_connection() as conn:
-        rows = await conn.fetch(query, analysis_date_obj)
+    try:
+        rows = await asyncio.wait_for(
+            conn.fetch(query, analysis_date_obj),
+            timeout=QUERY_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        return json.dumps({
+            "error": "Query timeout",
+            "date": analysis_date,
+            "message": f"Query took longer than {QUERY_TIMEOUT}s"
+        })
     
     results = []
     for row in rows:
@@ -259,14 +305,15 @@ async def get_bearish_stocks(analysis_date: str) -> str:
         "signal": "bearish",
         "total_bearish_stocks": len(results),
         "results": results
-    }, indent=2)
+    })
 
 
-async def get_pattern_statistics(days: int = 7) -> str:
+async def get_pattern_statistics(conn, days: int = 7) -> str:
     """
     Get aggregate statistics for candlestick patterns over the last N days.
     
     Args:
+        conn: Database connection (injected via Depends)
         days: Number of days to analyze (default: 7)
     
     Returns:
@@ -275,7 +322,7 @@ async def get_pattern_statistics(days: int = 7) -> str:
     end_date = date.today()
     start_date = end_date - timedelta(days=days)
     
-    query = """
+    daily_query = """
         SELECT 
             a.analysis_date,
             COUNT(*) as total_stocks,
@@ -302,9 +349,21 @@ async def get_pattern_statistics(days: int = 7) -> str:
         LIMIT 10
     """
     
-    async with get_connection() as conn:
-        daily_stats = await conn.fetch(query, start_date, end_date)
-        pattern_stats = await conn.fetch(pattern_query, start_date, end_date)
+    try:
+        # Run both queries in parallel using asyncio.gather
+        daily_stats, pattern_stats = await asyncio.wait_for(
+            asyncio.gather(
+                conn.fetch(daily_query, start_date, end_date),
+                conn.fetch(pattern_query, start_date, end_date)
+            ),
+            timeout=QUERY_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        return json.dumps({
+            "error": "Query timeout",
+            "days": days,
+            "message": f"Query took longer than {QUERY_TIMEOUT}s"
+        })
     
     daily_results = []
     total_bullish = 0
@@ -344,4 +403,4 @@ async def get_pattern_statistics(days: int = 7) -> str:
         },
         "most_common_patterns": pattern_results,
         "daily_breakdown": daily_results
-    }, indent=2)
+    })

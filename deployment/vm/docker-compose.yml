@@ -187,6 +187,24 @@ services:
       - candlestick-analysis
 
   # ===========================================
+  # Redis - Caching for MCP Server
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - stocktracker
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ===========================================
   # MCP Analysis Server - Read-only DB Queries for AI
   # Port: 8085 (internal, accessed by n8n)
   # ===========================================
@@ -200,10 +218,14 @@ services:
     environment:
       - DATABASE_URL_PYTHON=${DATABASE_URL_PYTHON}
       - MCP_PORT=8085
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     ports:
       - "8085:8085"
     networks:
       - stocktracker
+    depends_on:
+      - redis
     healthcheck:
       test: [ "CMD", "python", "-c", "import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',8085)); s.close()" ]
       interval: 30s
