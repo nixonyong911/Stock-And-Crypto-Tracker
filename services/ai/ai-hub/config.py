@@ -77,7 +77,8 @@ class Settings(BaseSettings):
     ai_hub_default_context_path: str = "/home/azureuser/stock-tracker"
     
     # CLI timeout (CLI calls can take longer than API calls)
-    ai_hub_cli_timeout_seconds: int = 120
+    # Increased to 300s as safety buffer for complex MCP queries
+    ai_hub_cli_timeout_seconds: int = 300
     
     # ===========================================
     # API Key Authentication

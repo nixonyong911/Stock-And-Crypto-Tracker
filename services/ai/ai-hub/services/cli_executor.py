@@ -136,9 +136,9 @@ class CLIExecutor:
             # Claude Code CLI: pipe message to stdin with --print for non-interactive
             return f'echo "{escaped_message}" | claude --print --output-format {output_format}'
         elif cli == "cursor-agent":
-            # cursor-agent: pipe message to stdin with --print --approve-mcps --force
+            # cursor-agent: use -p flag for prompt (cleaner than echo pipe)
             model_flag = f"--model {model}" if model else ""
-            return f'echo "{escaped_message}" | cursor-agent {model_flag} --print --approve-mcps --force'
+            return f'cursor-agent -p "{escaped_message}" {model_flag} --approve-mcps --force'
         else:
             raise ValueError(f"Unknown CLI: {cli}. Supported: claude, cursor-agent")
     
