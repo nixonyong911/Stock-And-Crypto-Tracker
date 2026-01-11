@@ -15,9 +15,9 @@ export default function CliTestingPage() {
   const [message, setMessage] = useState("");
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [activeAgent, setActiveAgent] = useState<"claude" | "cursor" | "telegram-agent" | null>(null);
+  const [activeAgent, setActiveAgent] = useState<"claude" | "cursor" | "telegram-agent" | "telegram-agent-test" | null>(null);
 
-  const sendToAgent = async (agent: "claude" | "cursor" | "telegram-agent") => {
+  const sendToAgent = async (agent: "claude" | "cursor" | "telegram-agent" | "telegram-agent-test") => {
     if (!message.trim()) return;
 
     setIsLoading(true);
@@ -121,6 +121,20 @@ export default function CliTestingPage() {
                   "Send to Telegram Agent (Sonnet 4.5)"
                 )}
               </Button>
+              <Button
+                onClick={() => sendToAgent("telegram-agent-test")}
+                disabled={isLoading || !message.trim()}
+                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold"
+              >
+                {isLoading && activeAgent === "telegram-agent-test" ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Processing...
+                  </span>
+                ) : (
+                  "Send to Telegram Agent Test (Sonnet 4.5)"
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -180,6 +194,15 @@ export default function CliTestingPage() {
                 <span className="text-slate-300">/back-office/api/telegram-agent</span>
                 <span className="text-slate-500">
                   → /cli/telegram-agent/cursor/sonnet-4.5
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-pink-500/20 px-2 py-0.5 text-pink-400">
+                  POST
+                </span>
+                <span className="text-slate-300">/back-office/api/telegram-agent-test</span>
+                <span className="text-slate-500">
+                  → /cli/telegram-agent-test/cursor/sonnet-4.5
                 </span>
               </div>
             </div>

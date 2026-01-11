@@ -500,6 +500,14 @@ def get_cli_endpoints():
             "agent": "cursor",
             "mode": "sonnet-4.5",
             "description": "Telegram AI Chat Agent - Stock analysis with MCP tools"
+        },
+        {
+            "path": "/cli/telegram-agent-test/cursor/sonnet-4.5",
+            "instruction_folder": "stock-tracker",
+            "context_path": context_path,
+            "agent": "cursor",
+            "mode": "sonnet-4.5",
+            "description": "Telegram AI Chat Agent TEST - For testing without affecting production"
         }
     ]
 
@@ -600,6 +608,37 @@ async def cli_telegram_agent_cursor_sonnet45(request: CLIMessageRequest):
         raise
     except Exception as e:
         logger.error("Telegram Agent endpoint error", error=str(e))
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/cli/telegram-agent-test/cursor/sonnet-4.5")
+async def cli_telegram_agent_test_cursor_sonnet45(request: CLIMessageRequest):
+    """
+    Telegram AI Chat Agent TEST - For testing without affecting production.
+    
+    Uses Cursor Agent with Sonnet 4.5 model.
+    Reads instructions from context folder: /home/azureuser/stock-tracker/
+    """
+    config = get_config()
+    executor = get_cli_executor()
+    
+    try:
+        result = await executor.execute(
+            cli="cursor-agent",
+            message=request.message,
+            context_path=config.settings.ai_hub_default_context_path,
+            model="sonnet-4.5"
+        )
+        if result.success:
+            return result.output
+        # Include both error and output for debugging
+        error_detail = result.error or result.output or "Unknown CLI error"
+        logger.error("Telegram Agent Test CLI failed", error=error_detail, exit_code=result.exit_code)
+        raise HTTPException(500, detail=error_detail)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Telegram Agent Test endpoint error", error=str(e))
         raise HTTPException(500, detail=str(e))
 
 
