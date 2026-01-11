@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -16,6 +16,37 @@ export default function CliTestingPage() {
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgent, setActiveAgent] = useState<"claude" | "cursor" | "telegram-agent" | "telegram-agent-test" | null>(null);
+  
+  // Stopwatch state
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [finalTime, setFinalTime] = useState<number | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Timer effect - automatically tracks any request
+  useEffect(() => {
+    if (isLoading) {
+      setElapsedTime(0);
+      setFinalTime(null);
+      const start = Date.now();
+      timerRef.current = setInterval(() => {
+        setElapsedTime(Date.now() - start);
+      }, 100);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+      setFinalTime(elapsedTime);
+      timerRef.current = null;
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isLoading]);
+
+  // Format time helper
+  const formatTime = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    const milliseconds = Math.floor((ms % 1000) / 100);
+    return `${seconds}.${milliseconds}s`;
+  };
 
   const sendToAgent = async (agent: "claude" | "cursor" | "telegram-agent" | "telegram-agent-test") => {
     if (!message.trim()) return;
@@ -78,11 +109,19 @@ export default function CliTestingPage() {
               onChange={(e) => setMessage(e.target.value)}
               className="min-h-[150px] resize-none border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500/20"
             />
-            <div className="flex gap-4">
+            {/* Stopwatch display */}
+            {isLoading && (
+              <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-cyan-500/10 border border-cyan-500/30">
+                <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span className="text-cyan-400 font-mono text-lg">{formatTime(elapsedTime)}</span>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Button
                 onClick={() => sendToAgent("claude")}
                 disabled={isLoading || !message.trim()}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold"
+                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold"
               >
                 {isLoading && activeAgent === "claude" ? (
                   <span className="flex items-center gap-2">
@@ -96,7 +135,7 @@ export default function CliTestingPage() {
               <Button
                 onClick={() => sendToAgent("cursor")}
                 disabled={isLoading || !message.trim()}
-                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold"
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold"
               >
                 {isLoading && activeAgent === "cursor" ? (
                   <span className="flex items-center gap-2">
@@ -110,7 +149,7 @@ export default function CliTestingPage() {
               <Button
                 onClick={() => sendToAgent("telegram-agent")}
                 disabled={isLoading || !message.trim()}
-                className="flex-1 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-semibold"
+                className="bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-semibold"
               >
                 {isLoading && activeAgent === "telegram-agent" ? (
                   <span className="flex items-center gap-2">
@@ -124,7 +163,7 @@ export default function CliTestingPage() {
               <Button
                 onClick={() => sendToAgent("telegram-agent-test")}
                 disabled={isLoading || !message.trim()}
-                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold"
+                className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold"
               >
                 {isLoading && activeAgent === "telegram-agent-test" ? (
                   <span className="flex items-center gap-2">
@@ -142,10 +181,20 @@ export default function CliTestingPage() {
         {/* Response Card */}
         <Card className="border-slate-800 bg-slate-900/50 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-slate-100">Response</CardTitle>
-            <CardDescription className="text-slate-400">
-              Raw response from the AI agent
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-slate-100">Response</CardTitle>
+                <CardDescription className="text-slate-400">
+                  Raw response from the AI agent
+                </CardDescription>
+              </div>
+              {finalTime !== null && !isLoading && (
+                <div className="flex items-center gap-2 py-1 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                  <span className="text-emerald-400 text-sm">Completed in</span>
+                  <span className="text-emerald-400 font-mono font-semibold">{formatTime(finalTime)}</span>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {response ? (
