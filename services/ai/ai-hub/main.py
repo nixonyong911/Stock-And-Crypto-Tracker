@@ -40,6 +40,10 @@ from services.logger import AIHubLogger
 from services.cli_executor import get_cli_executor
 from services.telegram_versions import telegram_agent_v1, telegram_agent_v2
 
+# Configure stdlib logging level (required for structlog.stdlib.filter_by_level)
+import logging
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+
 # Configure structured logging
 structlog.configure(
     processors=[
