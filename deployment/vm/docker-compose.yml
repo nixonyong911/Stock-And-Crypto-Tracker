@@ -296,6 +296,7 @@ services:
       # Note: Using docker-specific configs for correct MCP URLs (mcp-analysis vs localhost)
       - /home/azureuser/.claude-docker:/root/.claude
       - /home/azureuser/.claude-docker/.claude.json:/root/.claude.json
+      - /home/azureuser/.claude-mcp.json:/root/.claude-mcp.json:ro
       - /home/azureuser/.cursor-docker:/root/.cursor
       - /home/azureuser/.config/cursor:/root/.config/cursor
       # Instruction/context folder (read-only)

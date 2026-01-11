@@ -290,7 +290,9 @@ class CLIExecutor:
         
         if cli == "claude":
             # Claude Code CLI: pipe message to stdin with --print for non-interactive
-            return f'echo "{escaped_message}" | claude --print --output-format {output_format}'
+            # --mcp-config loads MCP servers in headless mode (required for --print)
+            mcp_config = '/root/.claude-mcp.json'
+            return f'echo "{escaped_message}" | claude --print --output-format {output_format} --mcp-config {mcp_config}'
         elif cli == "cursor-agent":
             # cursor-agent: use -p flag for prompt (cleaner than echo pipe)
             model_flag = f"--model {model}" if model else ""
