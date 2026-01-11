@@ -264,7 +264,7 @@ services:
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
       - AI_HUB_CLI_PREFIX=
       - AI_HUB_DEFAULT_CONTEXT_PATH=/home/azureuser/stock-tracker
-      - AI_HUB_CLI_TIMEOUT_SECONDS=300
+      - AI_HUB_CLI_TIMEOUT_SECONDS=120
       - DATABASE_URL=${DATABASE_URL_PYTHON}
     volumes:
       # CLI binaries (read-only)
