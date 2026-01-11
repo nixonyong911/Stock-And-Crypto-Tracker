@@ -38,6 +38,7 @@ from services.rate_limiter import RateLimiter
 from services.retry_handler import RetryHandler, RetryResult
 from services.logger import AIHubLogger
 from services.cli_executor import get_cli_executor
+from services.telegram_versions import telegram_agent_v1, telegram_agent_v2
 
 # Configure structured logging
 structlog.configure(
@@ -583,21 +584,19 @@ async def cli_stock_tracker_cursor_opus45(request: CLIMessageRequest):
 @app.post("/cli/telegram-agent/cursor/sonnet-4.5")
 async def cli_telegram_agent_cursor_sonnet45(request: CLIMessageRequest):
     """
-    Telegram AI Chat Agent - Stock analysis assistant.
+    Telegram AI Chat Agent - Stock analysis assistant (PRODUCTION).
     
     Uses Cursor Agent with Sonnet 4.5 model.
     Reads instructions from context folder: /home/azureuser/stock-tracker/
+    
+    Version: Uses telegram_agent_v1 (change to v2 when ready to promote)
     """
     config = get_config()
     executor = get_cli_executor()
     
     try:
-        result = await executor.execute(
-            cli="cursor-agent",
-            message=request.message,
-            context_path=config.settings.ai_hub_default_context_path,
-            model="sonnet-4.5"
-        )
+        # Production uses v1 - change to telegram_agent_v2 when ready to promote
+        result = await telegram_agent_v1(request.message, config, executor)
         if result.success:
             return result.output
         # Include both error and output for debugging
@@ -618,17 +617,15 @@ async def cli_telegram_agent_test_cursor_sonnet45(request: CLIMessageRequest):
     
     Uses Cursor Agent with Sonnet 4.5 model.
     Reads instructions from context folder: /home/azureuser/stock-tracker/
+    
+    Version: Uses telegram_agent_v2 (latest development version)
     """
     config = get_config()
     executor = get_cli_executor()
     
     try:
-        result = await executor.execute(
-            cli="cursor-agent",
-            message=request.message,
-            context_path=config.settings.ai_hub_default_context_path,
-            model="sonnet-4.5"
-        )
+        # Test uses v2 - always the latest development version
+        result = await telegram_agent_v2(request.message, config, executor)
         if result.success:
             return result.output
         # Include both error and output for debugging
