@@ -294,7 +294,7 @@ services:
       - /home/azureuser/.local/share/cursor-agent:/opt/cursor-agent:ro
       # CLI auth configs (read-write for debug logs)
       - /home/azureuser/.claude:/root/.claude
-      - /home/azureuser/.cursor:/root/.cursor
+      - /home/azureuser/.cursor-docker:/root/.cursor
       - /home/azureuser/.config/cursor:/root/.config/cursor
       # Instruction/context folder (read-only)
       - /home/azureuser/stock-tracker:/home/azureuser/stock-tracker:ro
