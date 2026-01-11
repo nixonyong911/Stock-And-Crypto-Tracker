@@ -5,11 +5,43 @@ import os
 import signal
 from contextlib import asynccontextmanager
 from typing import Optional, Callable, Any
+from urllib.parse import quote_plus
 
 import asyncpg
 
+
+def _parse_libpq_to_url(dsn: str) -> str:
+    """
+    Convert libpq connection string format to URL format for asyncpg.
+    
+    Input:  user=xxx password=xxx host=xxx port=xxx dbname=xxx
+    Output: postgresql://user:password@host:port/dbname
+    """
+    if dsn.startswith("postgresql://") or dsn.startswith("postgres://"):
+        return dsn  # Already URL format
+    
+    # Parse key=value pairs
+    parts = {}
+    for part in dsn.split():
+        if '=' in part:
+            key, value = part.split('=', 1)
+            parts[key] = value
+    
+    user = parts.get('user', 'postgres')
+    password = parts.get('password', '')
+    host = parts.get('host', 'localhost')
+    port = parts.get('port', '5432')
+    dbname = parts.get('dbname', 'postgres')
+    
+    # URL encode password for special characters
+    encoded_password = quote_plus(password)
+    
+    return f"postgresql://{user}:{encoded_password}@{host}:{port}/{dbname}"
+
+
 # Configuration from environment
-DATABASE_URL = os.environ.get("DATABASE_URL_PYTHON", "")
+_raw_database_url = os.environ.get("DATABASE_URL_PYTHON", "")
+DATABASE_URL = _parse_libpq_to_url(_raw_database_url) if _raw_database_url else ""
 MCP_PORT = int(os.environ.get("MCP_PORT", "8085"))
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))

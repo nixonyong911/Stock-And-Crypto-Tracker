@@ -13,6 +13,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, TypeVar, Callable, Awaitable
+from urllib.parse import quote_plus
 
 import asyncpg
 from asyncpg import Pool, Connection
@@ -20,6 +21,39 @@ from asyncpg import Pool, Connection
 from config import DATABASE_URL, SESSION_EXPIRY_DAYS
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_libpq_to_url(dsn: str) -> str:
+    """
+    Convert libpq connection string format to URL format for asyncpg.
+    
+    Input:  user=xxx password=xxx host=xxx port=xxx dbname=xxx
+    Output: postgresql://user:password@host:port/dbname
+    """
+    if dsn.startswith("postgresql://") or dsn.startswith("postgres://"):
+        return dsn  # Already URL format
+    
+    # Parse key=value pairs
+    parts = {}
+    for part in dsn.split():
+        if '=' in part:
+            key, value = part.split('=', 1)
+            parts[key] = value
+    
+    user = parts.get('user', 'postgres')
+    password = parts.get('password', '')
+    host = parts.get('host', 'localhost')
+    port = parts.get('port', '5432')
+    dbname = parts.get('dbname', 'postgres')
+    
+    # URL encode password for special characters
+    encoded_password = quote_plus(password)
+    
+    return f"postgresql://{user}:{encoded_password}@{host}:{port}/{dbname}"
+
+
+# Convert DATABASE_URL to asyncpg-compatible format
+_DATABASE_URL_PARSED = _parse_libpq_to_url(DATABASE_URL) if DATABASE_URL else ""
 
 T = TypeVar('T')
 
@@ -102,12 +136,12 @@ class SessionService:
         if self._pool is None:
             async with self._lock:
                 if self._pool is None:
-                    if not DATABASE_URL:
+                    if not _DATABASE_URL_PARSED:
                         raise DatabaseConnectionError("DATABASE_URL_PYTHON environment variable is required")
                     
                     async def create_pool():
                         return await asyncpg.create_pool(
-                            DATABASE_URL,
+                            _DATABASE_URL_PARSED,
                             min_size=2,
                             max_size=10,
                             command_timeout=30,
