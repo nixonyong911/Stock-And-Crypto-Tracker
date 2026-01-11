@@ -1,4 +1,5 @@
-const AI_HUB_URL = process.env.AI_HUB_URL || "http://172.17.0.1:8084";
+const AI_HUB_URL = process.env.AI_HUB_URL || "http://host.docker.internal:8084";
+const AI_HUB_API_KEY = process.env.AI_HUB_API_KEY || "";
 
 export async function POST(req: Request) {
   try {
@@ -11,11 +12,20 @@ export async function POST(req: Request) {
       });
     }
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    
+    // Add API key if configured
+    if (AI_HUB_API_KEY) {
+      headers["X-API-Key"] = AI_HUB_API_KEY;
+    }
+
     const response = await fetch(
       `${AI_HUB_URL}/cli/stock-tracker/cursor/opus-4.5`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ message }),
       }
     );
