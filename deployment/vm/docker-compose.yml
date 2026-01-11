@@ -346,3 +346,4 @@ networks:
 volumes:
   caddy-data:
   caddy-config:
+  redis-data:
