@@ -1,8 +1,11 @@
 """Message handlers for Telegram bot."""
 
 import logging
+import socket
 from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters
+
+import asyncpg
 
 from services import SessionService, AIHubClient, RateLimitExceeded
 
@@ -98,8 +101,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
     
-    # Check for active session
-    session = await session_service.get_active_session(telegram_user_id, telegram_chat_id)
+    # Check for active session (with error handling for DB connection issues)
+    try:
+        session = await session_service.get_active_session(telegram_user_id, telegram_chat_id)
+    except (socket.gaierror, asyncpg.InterfaceError, asyncpg.InternalClientError, OSError) as e:
+        # DNS resolution or connection error - transient issue
+        logger.error(f"Database connection error for user {telegram_user_id}: {e}")
+        await update.message.reply_text(
+            "⚠️ **Service temporarily unavailable**\n\n"
+            "Unable to verify your session. Please try again in a moment.\n\n"
+            "If this persists, contact support.",
+            parse_mode="Markdown"
+        )
+        return
+    except Exception as e:
+        # Unexpected error during session check
+        logger.error(f"Unexpected error checking session for user {telegram_user_id}: {e}", exc_info=True)
+        await update.message.reply_text(
+            "⚠️ **Something went wrong**\n\n"
+            "Please try again. If the problem persists, contact support.",
+            parse_mode="Markdown"
+        )
+        return
     
     if not session:
         await update.message.reply_text(

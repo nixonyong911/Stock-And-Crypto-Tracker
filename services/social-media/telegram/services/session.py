@@ -1,5 +1,8 @@
 """Session management service for Telegram bot authentication."""
 
+import asyncio
+import logging
+import socket
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import json
@@ -7,6 +10,8 @@ import json
 import asyncpg
 
 from config import DATABASE_URL, SESSION_EXPIRY_DAYS
+
+logger = logging.getLogger(__name__)
 
 
 # Rate limit configuration
@@ -27,14 +32,45 @@ class RateLimitExceeded(Exception):
 class SessionService:
     """Manages user registration and sessions for Telegram bot authentication."""
     
+    # Connection retry settings
+    MAX_RETRIES = 3
+    RETRY_DELAY_SECONDS = 1
+    
     def __init__(self):
         self._pool: Optional[asyncpg.Pool] = None
     
     async def get_pool(self) -> asyncpg.Pool:
-        """Get or create database connection pool."""
-        if self._pool is None:
-            self._pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
-        return self._pool
+        """Get or create database connection pool with retry logic for transient errors."""
+        if self._pool is not None and not self._pool._closed:
+            return self._pool
+        
+        last_error = None
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                self._pool = await asyncpg.create_pool(
+                    DATABASE_URL, 
+                    min_size=2, 
+                    max_size=10,
+                    command_timeout=10,  # 10 second timeout for queries
+                )
+                logger.info("Database connection pool created successfully")
+                return self._pool
+            except (socket.gaierror, OSError) as e:
+                # DNS or network error - retry
+                last_error = e
+                logger.warning(
+                    f"Database connection attempt {attempt + 1}/{self.MAX_RETRIES} failed (DNS/network): {e}"
+                )
+                if attempt < self.MAX_RETRIES - 1:
+                    await asyncio.sleep(self.RETRY_DELAY_SECONDS * (attempt + 1))
+            except Exception as e:
+                # Other errors - don't retry
+                logger.error(f"Database connection failed (non-retryable): {e}")
+                raise
+        
+        # All retries exhausted
+        logger.error(f"Database connection failed after {self.MAX_RETRIES} attempts")
+        raise last_error
     
     async def close(self):
         """Close the connection pool."""
