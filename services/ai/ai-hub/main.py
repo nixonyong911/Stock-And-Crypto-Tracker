@@ -37,7 +37,7 @@ from schemas import (
 from services.rate_limiter import RateLimiter
 from services.retry_handler import RetryHandler, RetryResult
 from services.logger import AIHubLogger
-from services.cli_executor import get_cli_executor
+from services.cli_executor import get_cli_executor, kill_orphaned_cursor_agents
 from services.telegram_versions import telegram_agent_v1, telegram_agent_v2
 
 # Configure stdlib logging level (required for structlog.stdlib.filter_by_level)
@@ -82,6 +82,32 @@ async def cleanup_task():
             logger.error("Cleanup task error", error=str(e))
 
 
+async def orphan_cleanup_task():
+    """
+    Background task to kill orphaned cursor-agent processes.
+    
+    Runs every 60 seconds to detect and kill cursor-agent processes
+    that have been running for more than 5 minutes (likely stuck).
+    This prevents zombie processes from blocking new requests.
+    """
+    # Wait 30 seconds before first run to let startup complete
+    await asyncio.sleep(30)
+    
+    while True:
+        try:
+            # Kill cursor-agent processes older than 5 minutes
+            killed = await kill_orphaned_cursor_agents(max_age_seconds=300)
+            if killed > 0:
+                logger.info("orphan_cleanup_completed", killed_count=killed)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error("Orphan cleanup task error", error=str(e))
+        
+        # Run every 60 seconds
+        await asyncio.sleep(60)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
@@ -99,8 +125,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Database connection failed (CLI endpoints will still work)", error=str(e))
     
-    # Start cleanup task
+    # Start background tasks
     cleanup = asyncio.create_task(cleanup_task())
+    orphan_cleanup = asyncio.create_task(orphan_cleanup_task())
     
     # Initialize model registry
     registry = get_registry()
@@ -112,6 +139,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down AI Hub Service")
     cleanup.cancel()
+    orphan_cleanup.cancel()
     await DatabaseConnection.close()
 
 

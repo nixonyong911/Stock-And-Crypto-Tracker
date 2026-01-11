@@ -6,13 +6,21 @@ Executes AI CLI tools (claude, cursor-agent) using a prefix pattern:
 - Local dev (prefix = SSH cmd): Execute via SSH to VM
 
 The prefix is configured via AI_HUB_CLI_PREFIX environment variable.
+
+Process Management:
+- Uses aggressive process tree killing on timeout
+- Includes background cleanup of orphaned cursor-agent processes
+- Prevents zombie processes from blocking new requests
 """
 
 import asyncio
+import os
+import re
 import shlex
+import signal
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List, Set
 from asyncio.subprocess import PIPE
 
 import structlog
@@ -20,6 +28,111 @@ import structlog
 from config import get_config
 
 logger = structlog.get_logger(__name__)
+
+
+def _get_child_pids(parent_pid: int) -> List[int]:
+    """Get all child PIDs of a process recursively using /proc filesystem."""
+    children = []
+    try:
+        # Read /proc to find children (Linux-specific)
+        for entry in os.listdir('/proc'):
+            if not entry.isdigit():
+                continue
+            try:
+                with open(f'/proc/{entry}/stat', 'r') as f:
+                    stat = f.read().split()
+                    # stat[3] is the parent PID
+                    if len(stat) > 3 and int(stat[3]) == parent_pid:
+                        child_pid = int(entry)
+                        children.append(child_pid)
+                        # Recursively get grandchildren
+                        children.extend(_get_child_pids(child_pid))
+            except (FileNotFoundError, PermissionError, ValueError, IndexError):
+                continue
+    except FileNotFoundError:
+        # /proc doesn't exist (non-Linux)
+        pass
+    return children
+
+
+def _kill_process_tree(pid: int) -> int:
+    """
+    Kill a process and all its descendants.
+    
+    Returns the number of processes killed.
+    """
+    killed_count = 0
+    
+    # First, get all child PIDs before killing (they might disappear after parent dies)
+    all_pids = _get_child_pids(pid)
+    all_pids.append(pid)  # Include the parent
+    
+    # Kill all processes, starting with children (bottom-up is safer)
+    for target_pid in reversed(all_pids):
+        try:
+            os.kill(target_pid, signal.SIGKILL)
+            killed_count += 1
+            logger.debug("cli_process_killed", pid=target_pid)
+        except (OSError, ProcessLookupError):
+            # Process already dead
+            pass
+    
+    return killed_count
+
+
+async def kill_orphaned_cursor_agents(max_age_seconds: int = 300) -> int:
+    """
+    Kill any orphaned cursor-agent processes that have been running too long.
+    
+    This is a safety net for processes that escape normal cleanup.
+    
+    Args:
+        max_age_seconds: Kill processes older than this (default: 5 minutes)
+        
+    Returns:
+        Number of processes killed
+    """
+    killed_count = 0
+    current_time = time.time()
+    
+    try:
+        for entry in os.listdir('/proc'):
+            if not entry.isdigit():
+                continue
+            
+            pid = int(entry)
+            
+            try:
+                # Read command line
+                with open(f'/proc/{pid}/cmdline', 'r') as f:
+                    cmdline = f.read().replace('\0', ' ')
+                
+                # Check if it's a cursor-agent process (but not worker-server, which is needed)
+                if 'cursor-agent' in cmdline and 'worker-server' not in cmdline:
+                    # Check process age
+                    stat = os.stat(f'/proc/{pid}')
+                    process_age = current_time - stat.st_ctime
+                    
+                    if process_age > max_age_seconds:
+                        logger.warning(
+                            "cli_killing_orphan",
+                            pid=pid,
+                            age_seconds=int(process_age),
+                            cmdline=cmdline[:100]
+                        )
+                        killed_count += _kill_process_tree(pid)
+                        
+            except (FileNotFoundError, PermissionError, ValueError):
+                continue
+                
+    except FileNotFoundError:
+        # /proc doesn't exist (non-Linux)
+        logger.debug("cli_orphan_cleanup_skipped", reason="not_linux")
+        
+    if killed_count > 0:
+        logger.info("cli_orphans_cleaned", killed_count=killed_count)
+        
+    return killed_count
 
 
 @dataclass
@@ -188,17 +301,14 @@ class CLIExecutor:
     async def _execute_command(self, command: str, start_time: float) -> CLIResult:
         """Execute a shell command.
         
-        Uses start_new_session=True to prevent orphaned child processes
-        (like cursor-agent's worker-server) from blocking communicate().
+        Uses start_new_session=True to create a new process group.
+        On timeout, kills entire process tree aggressively.
         """
-        import os
-        import re
-        
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=PIPE,
             stderr=PIPE,
-            start_new_session=True  # Prevent orphan processes from blocking
+            start_new_session=True  # Create new process group for easier cleanup
         )
         
         # Log process spawned
@@ -258,11 +368,27 @@ class CLIExecutor:
                 exit_code=process.returncode or 0
             )
         except asyncio.TimeoutError:
-            # Kill the entire process group
+            # Aggressively kill entire process tree
+            killed_count = _kill_process_tree(process.pid)
+            
+            # Also try killing the process group as backup
             try:
-                os.killpg(process.pid, 9)
+                os.killpg(process.pid, signal.SIGKILL)
             except (OSError, ProcessLookupError):
+                pass
+            
+            # Final fallback: direct kill
+            try:
                 process.kill()
+            except ProcessLookupError:
+                pass
+            
+            logger.warning(
+                "cli_timeout_cleanup",
+                pid=process.pid,
+                killed_count=killed_count
+            )
+            
             raise
     
     async def check_cli_available(self, cli: str) -> bool:
