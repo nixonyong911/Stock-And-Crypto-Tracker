@@ -13,7 +13,7 @@ class AIHubClient:
         self.base_url = AI_HUB_URL
         self.api_key = AI_HUB_API_KEY
         self.endpoint = AI_HUB_ENDPOINT
-        self.timeout = 120.0  # 2 minutes timeout for AI responses
+        self.timeout = 300.0  # 5 minutes timeout for AI responses (matches AI Hub CLI timeout)
     
     async def chat(self, message: str) -> str:
         """
