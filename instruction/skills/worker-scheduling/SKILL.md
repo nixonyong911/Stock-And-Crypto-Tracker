@@ -1,11 +1,11 @@
 ---
 name: worker-scheduling
-description: Manage timezone-aware worker schedules via database. Use when updating TwelveData or CandlestickAnalysis run times, changing schedule timezone, enabling/disabling schedules, or troubleshooting worker scheduling issues.
+description: Manage timezone-aware worker schedules via database. Use when updating worker run times, changing schedule timezone, enabling/disabling schedules, or troubleshooting worker scheduling issues.
 ---
 
 # Worker Scheduling
 
-Manage worker schedules (TwelveData, CandlestickAnalysis) by updating the `fetch_schedules` database table.
+Manage worker schedules by updating the `fetch_schedules` database table.
 
 ## Database Schema
 
