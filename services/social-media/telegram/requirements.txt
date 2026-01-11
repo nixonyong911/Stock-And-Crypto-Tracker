@@ -5,12 +5,11 @@ python-telegram-bot==21.7
 fastapi==0.115.6
 uvicorn==0.34.0
 
-# HTTP Client (version managed by python-telegram-bot and supabase)
+# HTTP Client (version managed by python-telegram-bot)
 httpx>=0.26,<0.28
 
-# Database (Supabase REST API)
-supabase==2.10.0
+# Database (asyncpg for Supavisor transaction mode)
+asyncpg>=0.29.0
 
 # Utilities
 python-dotenv==1.0.1
-

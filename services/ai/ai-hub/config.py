@@ -34,9 +34,12 @@ class Settings(BaseSettings):
             
             user = parts.get('User Id', 'postgres')
             password = parts.get('Password', '')
-            server = parts.get('Server', 'localhost')
-            port = parts.get('Port', '5432')
+            server = parts.get('Server', '')
+            port = parts.get('Port', '')
             database = parts.get('Database', 'postgres')
+            
+            if not server or not port:
+                raise ValueError("DATABASE_CONNECTION_STRING must include Server and Port")
             
             # URL encode password for special characters
             from urllib.parse import quote_plus
@@ -44,7 +47,7 @@ class Settings(BaseSettings):
             
             return f"postgresql://{user}:{encoded_password}@{server}:{port}/{database}"
         
-        return "postgresql://postgres:postgres@localhost:5432/postgres"
+        raise ValueError("DATABASE_URL or DATABASE_CONNECTION_STRING environment variable is required")
     
     # Google Cloud Project (for rate limit tracking - limits are per project)
     google_cloud_project_id: str = "default-project"

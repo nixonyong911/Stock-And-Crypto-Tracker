@@ -69,6 +69,7 @@ async def init_pool() -> asyncpg.Pool:
             max_size=10,
             max_inactive_connection_lifetime=300,  # Close idle connections after 5 min
             command_timeout=30,
+            statement_cache_size=0,  # Required for Supavisor transaction mode (port 6543)
             setup=_connection_setup,  # Health check on acquire
             init=_connection_init,    # Initialize new connections
         )

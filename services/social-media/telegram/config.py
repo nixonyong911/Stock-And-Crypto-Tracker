@@ -10,10 +10,9 @@ AI_HUB_URL = os.environ.get("AI_HUB_URL", "http://ai-hub-docker:8080")
 AI_HUB_API_KEY = os.environ.get("AI_HUB_API_KEY", "")
 AI_HUB_ENDPOINT = "/cli/telegram-agent/cursor/sonnet-4.5"
 
-# Database (Supabase) - Use DATABASE_URL_PYTHON for asyncpg DSN format
-DATABASE_URL = os.environ.get("DATABASE_URL_PYTHON", os.environ.get("DATABASE_URL", ""))
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+# Database - Uses asyncpg with Supavisor transaction mode (port 6543)
+# DSN format: user=xxx password=xxx host=xxx port=6543 dbname=postgres
+DATABASE_URL = os.environ.get("DATABASE_URL_PYTHON", "")
 
 # Session Configuration
 SESSION_EXPIRY_DAYS = 7
@@ -21,4 +20,3 @@ SESSION_EXPIRY_DAYS = 7
 # Server Configuration
 BOT_PORT = int(os.environ.get("BOT_PORT", "8087"))
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")  # Optional: for webhook mode
-

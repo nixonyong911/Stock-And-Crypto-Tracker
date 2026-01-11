@@ -1,10 +1,15 @@
 """
 Async PostgreSQL connection pool using asyncpg.
+
+Features:
+- Connection pooling with health checks
+- Retry logic with exponential backoff for transient failures
+- Supavisor transaction mode support (statement_cache_size=0)
 """
 
 import asyncio
 from contextlib import asynccontextmanager
-from typing import Optional, AsyncGenerator
+from typing import Optional, AsyncGenerator, TypeVar, Callable, Awaitable
 import asyncpg
 from asyncpg import Pool, Connection
 import structlog
@@ -13,9 +18,61 @@ from config import get_config
 
 logger = structlog.get_logger(__name__)
 
+T = TypeVar('T')
+
+
+async def execute_with_retry(
+    coro_func: Callable[[], Awaitable[T]],
+    max_retries: int = 3,
+    base_delay: float = 0.5
+) -> T:
+    """
+    Execute async operation with exponential backoff retry.
+    
+    Args:
+        coro_func: A callable that returns a coroutine (not the coroutine itself)
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay in seconds between retries (default: 0.5)
+    
+    Returns:
+        The result of the coroutine
+    
+    Raises:
+        The last exception if all retries fail
+    """
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            return await coro_func()
+        except (asyncpg.PostgresConnectionError, asyncpg.InterfaceError) as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    "Database connection error, retrying",
+                    attempt=attempt + 1,
+                    max_retries=max_retries,
+                    delay=delay,
+                    error=str(e)
+                )
+                await asyncio.sleep(delay)
+    raise last_error
+
+
+async def _connection_setup(conn: Connection) -> None:
+    """
+    Validate connection before returning from pool.
+    Called each time a connection is acquired from the pool.
+    Detects stale/dead connections early.
+    """
+    try:
+        await asyncio.wait_for(conn.fetchval("SELECT 1"), timeout=2.0)
+    except Exception:
+        raise asyncpg.InterfaceError("Connection health check failed")
+
 
 class DatabaseConnection:
-    """Manages async PostgreSQL connection pool."""
+    """Manages async PostgreSQL connection pool with retry logic."""
     
     _pool: Optional[Pool] = None
     _lock: asyncio.Lock = asyncio.Lock()
@@ -32,6 +89,8 @@ class DatabaseConnection:
                         min_size=2,
                         max_size=10,
                         command_timeout=30,
+                        statement_cache_size=0,  # Required for Supavisor transaction mode (port 6543)
+                        setup=_connection_setup,  # Health check on acquire
                     )
                     logger.info("Database connection pool created")
         return cls._pool

@@ -249,9 +249,8 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_OTP_BOT_TOKEN=${TELEGRAM_OTP_BOT_TOKEN}
-      # Supabase REST API (uses same secrets as back-office)
-      - SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - SUPABASE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
+      # Database (asyncpg with Supavisor transaction mode port 6543)
+      - DATABASE_URL_PYTHON=${DATABASE_URL_PYTHON}
       # Use Docker internal ai-hub (faster than host.docker.internal)
       - AI_HUB_URL=http://ai-hub-docker:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
