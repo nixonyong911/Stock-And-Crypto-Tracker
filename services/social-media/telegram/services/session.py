@@ -1,15 +1,16 @@
-"""Session management service for Telegram bot authentication."""
+"""Session management service for Telegram bot authentication.
 
-import asyncio
+Uses Supabase Python Client (REST API) instead of direct Postgres connection
+to avoid DNS resolution issues in Docker containers.
+"""
+
 import logging
-import socket
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
-import json
 
-import asyncpg
+from supabase import create_client, Client
 
-from config import DATABASE_URL, SESSION_EXPIRY_DAYS
+from config import SUPABASE_URL, SUPABASE_KEY, SESSION_EXPIRY_DAYS
 
 logger = logging.getLogger(__name__)
 
@@ -29,54 +30,39 @@ class RateLimitExceeded(Exception):
         super().__init__(f"Rate limit exceeded for {action}. Retry after {retry_after_minutes} minutes.")
 
 
+class DatabaseConnectionError(Exception):
+    """Raised when database connection fails."""
+    pass
+
+
 class SessionService:
-    """Manages user registration and sessions for Telegram bot authentication."""
+    """Manages user registration and sessions for Telegram bot authentication.
     
-    # Connection retry settings
-    MAX_RETRIES = 3
-    RETRY_DELAY_SECONDS = 1
+    Uses Supabase REST API for database operations, which is more resilient
+    than direct Postgres connections in containerized environments.
+    """
     
     def __init__(self):
-        self._pool: Optional[asyncpg.Pool] = None
+        self._client: Optional[Client] = None
     
-    async def get_pool(self) -> asyncpg.Pool:
-        """Get or create database connection pool with retry logic for transient errors."""
-        if self._pool is not None and not self._pool._closed:
-            return self._pool
-        
-        last_error = None
-        for attempt in range(self.MAX_RETRIES):
+    def _get_client(self) -> Client:
+        """Get or create Supabase client."""
+        if self._client is None:
+            if not SUPABASE_URL or not SUPABASE_KEY:
+                raise DatabaseConnectionError("SUPABASE_URL and SUPABASE_KEY must be configured")
+            
             try:
-                self._pool = await asyncpg.create_pool(
-                    DATABASE_URL, 
-                    min_size=2, 
-                    max_size=10,
-                    command_timeout=10,  # 10 second timeout for queries
-                )
-                logger.info("Database connection pool created successfully")
-                return self._pool
-            except (socket.gaierror, OSError) as e:
-                # DNS or network error - retry
-                last_error = e
-                logger.warning(
-                    f"Database connection attempt {attempt + 1}/{self.MAX_RETRIES} failed (DNS/network): {e}"
-                )
-                if attempt < self.MAX_RETRIES - 1:
-                    await asyncio.sleep(self.RETRY_DELAY_SECONDS * (attempt + 1))
+                self._client = create_client(SUPABASE_URL, SUPABASE_KEY)
+                logger.info("Supabase client created successfully")
             except Exception as e:
-                # Other errors - don't retry
-                logger.error(f"Database connection failed (non-retryable): {e}")
-                raise
+                logger.error(f"Failed to create Supabase client: {e}")
+                raise DatabaseConnectionError(f"Failed to create Supabase client: {e}")
         
-        # All retries exhausted
-        logger.error(f"Database connection failed after {self.MAX_RETRIES} attempts")
-        raise last_error
+        return self._client
     
     async def close(self):
-        """Close the connection pool."""
-        if self._pool:
-            await self._pool.close()
-            self._pool = None
+        """Close the client (no-op for REST client, kept for interface compatibility)."""
+        self._client = None
     
     # ==================== Rate Limiting ====================
     
@@ -89,67 +75,57 @@ class SessionService:
         max_attempts = config["max_attempts"]
         window_minutes = config["window_minutes"]
         
-        pool = await self.get_pool()
-        async with pool.acquire() as conn:
-            # Get current rate limit record
-            row = await conn.fetchrow(
-                """
-                SELECT attempt_count, window_start 
-                FROM telegram_rate_limits 
-                WHERE telegram_user_id = $1 AND action_type = $2
-                """,
-                telegram_user_id, action
-            )
+        client = self._get_client()
+        
+        # Get current rate limit record
+        result = client.table("telegram_rate_limits").select("*").eq(
+            "telegram_user_id", telegram_user_id
+        ).eq("action_type", action).execute()
+        
+        now = datetime.now(timezone.utc)
+        window_start = now - timedelta(minutes=window_minutes)
+        
+        if result.data and len(result.data) > 0:
+            row = result.data[0]
+            row_window_start = datetime.fromisoformat(row["window_start"].replace("Z", "+00:00"))
             
-            now = datetime.now(timezone.utc)
-            window_start = now - timedelta(minutes=window_minutes)
-            
-            if row:
-                # Check if window has expired
-                if row["window_start"] < window_start:
-                    # Reset the window
-                    await conn.execute(
-                        """
-                        UPDATE telegram_rate_limits 
-                        SET attempt_count = 1, window_start = $3
-                        WHERE telegram_user_id = $1 AND action_type = $2
-                        """,
-                        telegram_user_id, action, now
-                    )
-                elif row["attempt_count"] >= max_attempts:
-                    # Rate limit exceeded
-                    time_passed = now - row["window_start"]
-                    retry_after = window_minutes - int(time_passed.total_seconds() / 60)
-                    raise RateLimitExceeded(action, max(1, retry_after))
-                else:
-                    # Increment attempt count
-                    await conn.execute(
-                        """
-                        UPDATE telegram_rate_limits 
-                        SET attempt_count = attempt_count + 1
-                        WHERE telegram_user_id = $1 AND action_type = $2
-                        """,
-                        telegram_user_id, action
-                    )
+            # Check if window has expired
+            if row_window_start < window_start:
+                # Reset the window
+                client.table("telegram_rate_limits").update({
+                    "attempt_count": 1,
+                    "window_start": now.isoformat()
+                }).eq("telegram_user_id", telegram_user_id).eq("action_type", action).execute()
+            elif row["attempt_count"] >= max_attempts:
+                # Rate limit exceeded
+                time_passed = now - row_window_start
+                retry_after = window_minutes - int(time_passed.total_seconds() / 60)
+                raise RateLimitExceeded(action, max(1, retry_after))
             else:
-                # Create new rate limit record
-                await conn.execute(
-                    """
-                    INSERT INTO telegram_rate_limits (telegram_user_id, action_type, attempt_count, window_start)
-                    VALUES ($1, $2, 1, $3)
-                    """,
-                    telegram_user_id, action, now
-                )
+                # Increment attempt count
+                client.table("telegram_rate_limits").update({
+                    "attempt_count": row["attempt_count"] + 1
+                }).eq("telegram_user_id", telegram_user_id).eq("action_type", action).execute()
+        else:
+            # Create new rate limit record
+            client.table("telegram_rate_limits").insert({
+                "telegram_user_id": telegram_user_id,
+                "action_type": action,
+                "attempt_count": 1,
+                "window_start": now.isoformat()
+            }).execute()
     
     async def get_user_by_telegram_id(self, telegram_user_id: int) -> Optional[Dict[str, Any]]:
         """Get user by Telegram user ID."""
-        pool = await self.get_pool()
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM telegram_users WHERE telegram_user_id = $1",
-                telegram_user_id
-            )
-            return dict(row) if row else None
+        client = self._get_client()
+        
+        result = client.table("telegram_users").select("*").eq(
+            "telegram_user_id", telegram_user_id
+        ).execute()
+        
+        if result.data and len(result.data) > 0:
+            return result.data[0]
+        return None
     
     async def create_user(
         self,
@@ -161,19 +137,18 @@ class SessionService:
         # Check rate limit for registration
         await self.check_rate_limit(telegram_user_id, "register")
         
-        pool = await self.get_pool()
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                INSERT INTO telegram_users (telegram_user_id, display_name, telegram_username)
-                VALUES ($1, $2, $3)
-                RETURNING *
-                """,
-                telegram_user_id,
-                display_name,
-                telegram_username
-            )
-            return dict(row)
+        client = self._get_client()
+        
+        result = client.table("telegram_users").insert({
+            "telegram_user_id": telegram_user_id,
+            "display_name": display_name,
+            "telegram_username": telegram_username
+        }).execute()
+        
+        if result.data and len(result.data) > 0:
+            return result.data[0]
+        
+        raise Exception("Failed to create user")
     
     async def get_active_session(
         self, 
@@ -181,21 +156,31 @@ class SessionService:
         telegram_chat_id: int
     ) -> Optional[Dict[str, Any]]:
         """Get active session for a Telegram user."""
-        pool = await self.get_pool()
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT s.*, u.display_name, u.telegram_username
-                FROM telegram_sessions s
-                JOIN telegram_users u ON s.user_id = u.id
-                WHERE s.telegram_user_id = $1 
-                  AND s.telegram_chat_id = $2
-                  AND s.expires_at > NOW()
-                """,
-                telegram_user_id,
-                telegram_chat_id
-            )
-            return dict(row) if row else None
+        client = self._get_client()
+        
+        now = datetime.now(timezone.utc).isoformat()
+        
+        # Get session with user info using a join-like approach
+        # First get the session
+        session_result = client.table("telegram_sessions").select("*").eq(
+            "telegram_user_id", telegram_user_id
+        ).eq("telegram_chat_id", telegram_chat_id).gt("expires_at", now).execute()
+        
+        if not session_result.data or len(session_result.data) == 0:
+            return None
+        
+        session = session_result.data[0]
+        
+        # Then get the user info
+        user_result = client.table("telegram_users").select(
+            "display_name, telegram_username"
+        ).eq("id", session["user_id"]).execute()
+        
+        if user_result.data and len(user_result.data) > 0:
+            session["display_name"] = user_result.data[0]["display_name"]
+            session["telegram_username"] = user_result.data[0]["telegram_username"]
+        
+        return session
     
     async def create_session(
         self,
@@ -212,61 +197,40 @@ class SessionService:
         # Check rate limit for login
         await self.check_rate_limit(telegram_user_id, "login")
         
-        pool = await self.get_pool()
+        client = self._get_client()
         expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)
         
-        # Prepare device info JSON
-        device_json = json.dumps(device_info) if device_info else "{}"
+        # Single-session policy: Delete ALL existing sessions for this user
+        client.table("telegram_sessions").delete().eq(
+            "telegram_user_id", telegram_user_id
+        ).execute()
         
-        async with pool.acquire() as conn:
-            # Single-session policy: Delete ALL existing sessions for this user
-            # (not just the same chat - invalidates all devices)
-            await conn.execute(
-                """
-                DELETE FROM telegram_sessions 
-                WHERE telegram_user_id = $1
-                """,
-                telegram_user_id
-            )
-            
-            # Create new session with device info
-            await conn.execute(
-                """
-                INSERT INTO telegram_sessions 
-                (user_id, telegram_user_id, telegram_chat_id, expires_at, device_info)
-                VALUES ($1, $2, $3, $4, $5::jsonb)
-                """,
-                user_id,
-                telegram_user_id,
-                telegram_chat_id,
-                expires_at,
-                device_json
-            )
+        # Create new session with device info
+        client.table("telegram_sessions").insert({
+            "user_id": user_id,
+            "telegram_user_id": telegram_user_id,
+            "telegram_chat_id": telegram_chat_id,
+            "expires_at": expires_at.isoformat(),
+            "device_info": device_info or {}
+        }).execute()
     
     async def delete_session(self, telegram_user_id: int, telegram_chat_id: int) -> bool:
         """Delete a session (logout)."""
-        pool = await self.get_pool()
-        async with pool.acquire() as conn:
-            result = await conn.execute(
-                """
-                DELETE FROM telegram_sessions 
-                WHERE telegram_user_id = $1 AND telegram_chat_id = $2
-                """,
-                telegram_user_id,
-                telegram_chat_id
-            )
-            return "DELETE" in result
+        client = self._get_client()
+        
+        result = client.table("telegram_sessions").delete().eq(
+            "telegram_user_id", telegram_user_id
+        ).eq("telegram_chat_id", telegram_chat_id).execute()
+        
+        # Check if any rows were deleted
+        return result.data is not None and len(result.data) > 0
     
     async def update_last_active(self, telegram_user_id: int, telegram_chat_id: int):
         """Update last active timestamp for a session."""
-        pool = await self.get_pool()
-        async with pool.acquire() as conn:
-            await conn.execute(
-                """
-                UPDATE telegram_sessions 
-                SET last_active_at = NOW()
-                WHERE telegram_user_id = $1 AND telegram_chat_id = $2
-                """,
-                telegram_user_id,
-                telegram_chat_id
-            )
+        client = self._get_client()
+        
+        now = datetime.now(timezone.utc).isoformat()
+        
+        client.table("telegram_sessions").update({
+            "last_active_at": now
+        }).eq("telegram_user_id", telegram_user_id).eq("telegram_chat_id", telegram_chat_id).execute()

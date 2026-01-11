@@ -249,7 +249,9 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_OTP_BOT_TOKEN=${TELEGRAM_OTP_BOT_TOKEN}
-      - DATABASE_URL_PYTHON=${DATABASE_URL_PYTHON}
+      # Supabase REST API (no direct Postgres connection needed)
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
       # Use Docker internal ai-hub (faster than host.docker.internal)
       - AI_HUB_URL=http://ai-hub-docker:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
