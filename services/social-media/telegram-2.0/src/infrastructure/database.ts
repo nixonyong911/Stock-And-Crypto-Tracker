@@ -6,6 +6,21 @@ import { config } from '../config.js';
 dns.setDefaultResultOrder('ipv4first');
 
 /**
+ * Custom DNS lookup that forces IPv4 resolution.
+ * Docker networks often don't support IPv6, causing connection failures
+ * when the DNS resolver returns IPv6 addresses for Supabase.
+ */
+function ipv4Lookup(
+  hostname: string,
+  _options: dns.LookupOptions,
+  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void
+): void {
+  dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+    callback(err, address, family);
+  });
+}
+
+/**
  * Parse a Postgres connection string in key=value format (like asyncpg uses)
  * and convert it to pg Pool config.
  */
@@ -63,6 +78,9 @@ export class DatabaseContext {
       ssl: {
         rejectUnauthorized: false, // Supabase requires SSL
       },
+      // Force IPv4 to avoid Docker IPv6 connectivity issues
+      // @ts-expect-error - lookup is a valid pg option but not in types
+      lookup: ipv4Lookup,
     });
   }
 
