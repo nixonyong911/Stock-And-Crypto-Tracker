@@ -1,5 +1,9 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
+import dns from 'dns';
 import { config } from '../config.js';
+
+// Force IPv4 DNS resolution to avoid Docker IPv6 connectivity issues
+dns.setDefaultResultOrder('ipv4first');
 
 /**
  * Parse a Postgres connection string in key=value format (like asyncpg uses)
