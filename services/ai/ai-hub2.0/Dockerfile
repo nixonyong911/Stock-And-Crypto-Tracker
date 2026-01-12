@@ -27,21 +27,23 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     ./cmd/server
 
 # ===========================================
-# Runtime stage
+# Runtime stage - Use Debian for glibc compatibility with cursor-agent
 # ===========================================
-FROM alpine:3.19
+FROM debian:bookworm-slim
 
-# Install runtime dependencies
-RUN apk --no-cache add \
+# Install runtime dependencies including Node.js 20.x for Claude CLI
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     bash \
     curl \
     wget \
-    nodejs \
-    npm
-
-# Create non-root user (optional, comment out if CLI needs root)
-# RUN adduser -D -g '' appuser
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
