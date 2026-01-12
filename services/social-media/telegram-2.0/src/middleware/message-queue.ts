@@ -18,20 +18,15 @@ function getQueueKeys(chatId: number) {
 }
 
 /**
- * Check if message was already processed (deduplication)
+ * Check if message webhook was already handled (deduplication for Telegram retries)
+ * Uses SET NX to atomically check and mark in one operation
+ * Returns true if this is a NEW message (should be handled)
+ * Returns false if this is a DUPLICATE (should be ignored)
  */
-async function isMessageProcessed(redis: BotContext['redis'], messageId: number): Promise<boolean> {
-  const key = `msg:${messageId}:processed`;
-  const exists = await redis.get(key);
-  return exists !== null;
-}
-
-/**
- * Mark message as processed (prevents duplicates from Telegram retries)
- */
-async function markMessageProcessed(redis: BotContext['redis'], messageId: number): Promise<void> {
-  const key = `msg:${messageId}:processed`;
-  await redis.set(key, '1', 300); // 5 min TTL - enough to cover processing time
+async function tryClaimMessage(redis: BotContext['redis'], messageId: number): Promise<boolean> {
+  const key = `msg:${messageId}:seen`;
+  // SET NX returns true if key was set (new message), false if already exists (duplicate)
+  return await redis.setNx(key, '1', 600); // 10 min TTL
 }
 
 /**
@@ -66,18 +61,12 @@ export async function messageQueueMiddleware(
   const rabbitmq = getRabbitMQ();
 
   try {
-    // Deduplication: Check if this message was already processed (Telegram retry)
-    if (await isMessageProcessed(ctx.redis, messageId)) {
-      logger.debug({ message_id: messageId, chat_id: chatId }, 'Duplicate message ignored (Telegram retry)');
+    // Deduplication: Atomically claim this message (prevents Telegram retry duplicates)
+    const isNewMessage = await tryClaimMessage(ctx.redis, messageId);
+    if (!isNewMessage) {
+      logger.debug({ message_id: messageId, chat_id: chatId }, 'Duplicate webhook ignored (Telegram retry)');
       return; // Silently ignore duplicate
     }
-
-    // Mark message as being processed
-    await markMessageProcessed(ctx.redis, messageId);
-
-    // Check current queue depth for this chat
-    const pendingCount = await ctx.redis.get(keys.pending);
-    const queueDepth = pendingCount ? parseInt(pendingCount, 10) : 0;
 
     // Check if chat is currently processing
     const isProcessing = await ctx.redis.get(keys.lock);
@@ -100,14 +89,18 @@ export async function messageQueueMiddleware(
       // Lock was acquired by another request between check and setNx - fall through to queue
     }
 
-    // Chat is busy processing - check if we can queue
+    // Chat is busy processing - atomically reserve a queue slot
+    const queuePosition = await ctx.redis.incr(keys.pending);
 
-    if (queueDepth >= maxQueuedPerChat) {
-      // Queue full
+    if (queuePosition > maxQueuedPerChat) {
+      // Queue full - release the slot we just reserved
+      await ctx.redis.decr(keys.pending);
+      
       logger.info({
         chat_id: chatId,
         user_id: userId,
-        queue_depth: queueDepth,
+        queue_position: queuePosition,
+        max_allowed: maxQueuedPerChat,
       }, 'Message queue full for chat');
 
       await ctx.reply(
@@ -130,24 +123,21 @@ export async function messageQueueMiddleware(
     const published = await rabbitmq.publish(queueMessage);
 
     if (!published) {
-      // RabbitMQ down - fallback to direct processing
+      // RabbitMQ down - release slot and fallback to direct processing
+      await ctx.redis.decr(keys.pending);
       logger.warn({ chat_id: chatId }, 'RabbitMQ unavailable, processing directly');
       return next();
     }
 
-    // Increment pending counter
-    await ctx.redis.incr(keys.pending);
-
-    const newQueueDepth = queueDepth + 1;
     logger.info({
       chat_id: chatId,
       user_id: userId,
-      queue_position: newQueueDepth,
+      queue_position: queuePosition,
       message_id: queueMessage.id,
     }, 'Message published to queue');
 
     await ctx.reply(
-      `⏳ Your message is queued (position ${newQueueDepth}). Please wait...`
+      `⏳ Your message is queued (position ${queuePosition}). Please wait...`
     );
 
   } catch (error) {
