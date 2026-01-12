@@ -1,4 +1,4 @@
-import amqp, { Connection, Channel, ConsumeMessage } from 'amqplib';
+import amqp, { type Channel, type ChannelModel, type ConsumeMessage } from 'amqplib';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 
@@ -26,7 +26,7 @@ export type MessageHandler = (
  * RabbitMQ client for message queue operations
  */
 export class RabbitMQClient {
-  private connection: Connection | null = null;
+  private connection: ChannelModel | null = null;
   private channel: Channel | null = null;
   private consumerTags: string[] = [];
   private reconnecting = false;
