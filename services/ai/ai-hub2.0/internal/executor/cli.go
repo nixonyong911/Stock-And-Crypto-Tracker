@@ -55,12 +55,15 @@ func New(cfg *config.Config, logger zerolog.Logger) *CLIExecutor {
 func (e *CLIExecutor) Execute(ctx context.Context, params ExecuteParams) (*CLIResult, error) {
 	startTime := time.Now()
 
-	e.logger.Info().
+	logEvent := e.logger.Info().
 		Str("cli", params.CLI).
 		Str("model", params.Model).
 		Int("message_length", len(params.Message)).
-		Int("timeout_seconds", e.config.CLITimeoutSeconds).
-		Msg("CLI execution starting")
+		Int("timeout_seconds", e.config.CLITimeoutSeconds)
+	if params.SessionID != "" {
+		logEvent = logEvent.Str("session_id", params.SessionID)
+	}
+	logEvent.Msg("CLI execution starting")
 
 	// Acquire semaphore (blocks if max concurrent reached)
 	if err := e.semaphore.Acquire(ctx, 1); err != nil {
