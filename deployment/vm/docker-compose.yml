@@ -47,15 +47,15 @@ services:
       - N8N_PROTOCOL=https
       - N8N_EDITOR_BASE_URL=https://nxserver.malaysiawest.cloudapp.azure.com
       - TZ=Asia/Singapore
-      # AI Hub access (Docker internal - faster than host.docker.internal)
-      - AI_HUB_URL=http://ai-hub-docker:8080
+      # AI Hub 2.0 (Go) access (Docker internal - faster than host.docker.internal)
+      - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     volumes:
       - ./n8n-data:/home/node/.n8n
     networks:
       - stocktracker
     depends_on:
-      - ai-hub-docker
+      - ai-hub2
 
   # ===========================================
   # TwelveData Worker
@@ -79,13 +79,13 @@ services:
       - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
       - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
       - TwelveData__BaseUrl=https://api.twelvedata.com
-      # AI Hub access (Docker internal)
-      - AI_HUB_URL=http://ai-hub-docker:8080
+      # AI Hub 2.0 (Go) access (Docker internal)
+      - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
     depends_on:
-      - ai-hub-docker
+      - ai-hub2
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
       interval: 30s
@@ -146,13 +146,13 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - PATH_BASE=/api/metrics
-      # AI Hub access (Docker internal)
-      - AI_HUB_URL=http://ai-hub-docker:8080
+      # AI Hub 2.0 (Go) access (Docker internal)
+      - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
     depends_on:
-      - ai-hub-docker
+      - ai-hub2
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
       interval: 30s
@@ -251,8 +251,8 @@ services:
       - TELEGRAM_OTP_BOT_TOKEN=${TELEGRAM_OTP_BOT_TOKEN}
       # Database (asyncpg with Supavisor transaction mode port 6543)
       - DATABASE_URL_PYTHON=${DATABASE_URL_PYTHON}
-      # Use Docker internal ai-hub (faster than host.docker.internal)
-      - AI_HUB_URL=http://ai-hub-docker:8080
+      # AI Hub 2.0 (Go) access (Docker internal - faster than host.docker.internal)
+      - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
       - BOT_PORT=8087
     ports:
@@ -260,7 +260,7 @@ services:
     networks:
       - stocktracker
     depends_on:
-      - ai-hub-docker
+      - ai-hub2
       - mcp-analysis
     healthcheck:
       test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8087/health')" ]
@@ -270,55 +270,10 @@ services:
       start_period: 15s
 
   # ===========================================
-  # AI Hub Docker - Centralized CLI Access for Containers
-  # Port: 8080 (internal Docker network)
-  # ===========================================
-  # Primary AI gateway for Docker containers. Has direct CLI access
-  # via volume mounts from the VM host.
-  # ===========================================
-  ai-hub-docker:
-    image: stocktracker-ai-hub:latest
-    build:
-      context: ./repo/services/ai/ai-hub
-      dockerfile: Dockerfile
-    container_name: ai-hub-docker
-    restart: unless-stopped
-    environment:
-      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
-      - AI_HUB_CLI_PREFIX=
-      - AI_HUB_DEFAULT_CONTEXT_PATH=/home/azureuser/stock-tracker
-      - AI_HUB_CLI_TIMEOUT_SECONDS=120
-      - DATABASE_URL=${DATABASE_URL_PYTHON}
-      - REDIS_URL=redis://redis:6379
-    volumes:
-      # CLI binaries (read-only)
-      - /usr/lib/node_modules/@anthropic-ai:/usr/lib/node_modules/@anthropic-ai:ro
-      - /home/azureuser/.local/share/cursor-agent:/opt/cursor-agent:ro
-      # CLI auth configs (read-write for debug logs)
-      # Note: Using docker-specific configs for correct MCP URLs (mcp-analysis vs localhost)
-      - /home/azureuser/.claude-docker:/root/.claude
-      - /home/azureuser/.claude-docker/.claude.json:/root/.claude.json
-      - /home/azureuser/.claude-mcp.json:/root/.claude-mcp.json:ro
-      - /home/azureuser/.cursor-docker:/root/.cursor
-      - /home/azureuser/.config/cursor:/root/.config/cursor
-      # Instruction/context folder (read-only)
-      - /home/azureuser/stock-tracker:/home/azureuser/stock-tracker:ro
-    networks:
-      - stocktracker
-    depends_on:
-      - redis
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 15s
-
-  # ===========================================
   # AI Hub 2.0 (Go) - High-Performance CLI Gateway
-  # Port: 8081 (for testing alongside Python version)
+  # Port: 8081 (external), 8080 (internal)
   # ===========================================
-  # Go-based replacement for ai-hub-docker with better concurrency,
+  # Go-based AI gateway with high concurrency,
   # timeout handling, and resource management.
   # ===========================================
   ai-hub2:
@@ -338,7 +293,7 @@ services:
       - DATABASE_URL=${DATABASE_URL_GO}
       - REDIS_URL=redis://redis:6379
     volumes:
-      # CLI binaries (read-only) - same as ai-hub-docker
+      # CLI binaries (read-only)
       - /usr/lib/node_modules/@anthropic-ai:/usr/lib/node_modules/@anthropic-ai:ro
       - /home/azureuser/.local/share/cursor-agent:/opt/cursor-agent:ro
       # CLI auth configs
