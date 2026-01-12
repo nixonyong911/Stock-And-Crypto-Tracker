@@ -247,8 +247,8 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook
-      # Use Supavisor pooler - has IPv4 (direct DB is IPv6-only)
-      - DATABASE_URL=${DATABASE_URL_PYTHON}
+      # Direct DB connection via IPv6 (Docker network has IPv6 enabled)
+      - DATABASE_URL=${DATABASE_URL_GO}
       - REDIS_URL=redis://redis:6379
       - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
