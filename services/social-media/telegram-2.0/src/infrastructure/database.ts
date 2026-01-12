@@ -29,7 +29,8 @@ function parseConnectionString(connStr: string): {
   const regex = /(\w+)=([^\s]+)/g;
   let match;
   while ((match = regex.exec(connStr)) !== null) {
-    pairs[match[1]] = match[2];
+    // URL-decode the value (handles %2A -> * etc.)
+    pairs[match[1]] = decodeURIComponent(match[2]);
   }
   
   return {
