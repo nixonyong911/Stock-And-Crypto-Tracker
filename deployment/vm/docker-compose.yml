@@ -378,13 +378,13 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      # AI Hub access (Docker internal - faster than host.docker.internal)
-      - AI_HUB_URL=http://ai-hub-docker:8080
+      # AI Hub 2.0 (Go) access (Docker internal - faster than host.docker.internal)
+      - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
     depends_on:
-      - ai-hub-docker
+      - ai-hub2
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000/back-office" ]
       interval: 30s
