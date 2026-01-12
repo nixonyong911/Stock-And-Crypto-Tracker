@@ -161,5 +161,6 @@ func (h *CLIHandler) TelegramAgentCursorSonnet(w http.ResponseWriter, r *http.Re
 
 // TelegramAgentTestCursorSonnet handles POST /cli/telegram-agent-test/cursor/sonnet-4.5
 func (h *CLIHandler) TelegramAgentTestCursorSonnet(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(os.Stderr, "[DEBUG] TelegramAgentTestCursorSonnet handler entry\n")
 	h.executeCLI(w, r, "cursor-agent", "sonnet-4.5")
 }
