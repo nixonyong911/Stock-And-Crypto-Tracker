@@ -93,7 +93,7 @@ export class MessageConsumer {
       return;
     }
 
-    const { chatId, userId, messageId, text, sessionId, id: msgId } = payload;
+    const { chatId, userId, messageId, text, sessionId, id: msgId, notificationMessageId } = payload;
     const keys = getQueueKeys(chatId);
 
     logger.debug({
@@ -141,6 +141,13 @@ export class MessageConsumer {
       // Send response to user
       await this.sendResponse(chatId, messageId, response);
 
+      // Delete the "queued" notification message
+      if (notificationMessageId) {
+        await this.api.deleteMessage(chatId, notificationMessageId).catch((err) => {
+          logger.debug({ error: (err as Error).message, chat_id: chatId }, 'Failed to delete notification');
+        });
+      }
+
       // Success - acknowledge
       channel.ack(msg);
 
@@ -159,6 +166,11 @@ export class MessageConsumer {
         message_id: msgId,
         chat_id: chatId,
       }, 'Failed to process queued message');
+
+      // Delete the "queued" notification message
+      if (notificationMessageId) {
+        await this.api.deleteMessage(chatId, notificationMessageId).catch(() => {});
+      }
 
       // Notify user of failure
       try {

@@ -15,6 +15,8 @@ export interface QueueMessage {
   text: string;
   sessionId: string | null;
   timestamp: number;
+  /** Message ID of the "queued" notification to delete after processing */
+  notificationMessageId?: number;
 }
 
 export type MessageHandler = (

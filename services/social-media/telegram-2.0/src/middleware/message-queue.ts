@@ -109,7 +109,12 @@ export async function messageQueueMiddleware(
       return;
     }
 
-    // Publish to RabbitMQ
+    // Send queue notification first (so we can get its message ID)
+    const notification = await ctx.reply(
+      `⏳ Your message is queued (position ${queuePosition}). Please wait...`
+    );
+
+    // Publish to RabbitMQ with notification message ID for cleanup
     const queueMessage: QueueMessage = {
       id: uuidv4(),
       messageId: ctx.message.message_id,
@@ -118,13 +123,15 @@ export async function messageQueueMiddleware(
       text: ctx.message.text,
       sessionId: ctx.telegramSession?.cursor_chat_id ?? null,
       timestamp: Date.now(),
+      notificationMessageId: notification.message_id,
     };
 
     const published = await rabbitmq.publish(queueMessage);
 
     if (!published) {
-      // RabbitMQ down - release slot and fallback to direct processing
+      // RabbitMQ down - release slot, delete notification, and fallback to direct processing
       await ctx.redis.decr(keys.pending);
+      await ctx.api.deleteMessage(chatId, notification.message_id).catch(() => {});
       logger.warn({ chat_id: chatId }, 'RabbitMQ unavailable, processing directly');
       return next();
     }
@@ -135,10 +142,6 @@ export async function messageQueueMiddleware(
       queue_position: queuePosition,
       message_id: queueMessage.id,
     }, 'Message published to queue');
-
-    await ctx.reply(
-      `⏳ Your message is queued (position ${queuePosition}). Please wait...`
-    );
 
   } catch (error) {
     logger.error({
