@@ -28,9 +28,9 @@ export const config = {
   // RabbitMQ
   rabbitmq: {
     url: getEnvOrDefault('RABBITMQ_URL', 'amqp://stocktracker:password@localhost:5672'),
-    prefetch: 10,           // Each consumer grabs up to 10 messages
-    consumerCount: 5,       // 5 parallel consumers
-    requeueDelayMs: 500,    // ms before requeue if lock busy
+    prefetch: 1,            // FIFO: Each consumer handles 1 message at a time
+    consumerCount: 3,       // 3 parallel consumers (for different chats)
+    requeueDelayMs: 1000,   // ms to wait before retry if lock busy
   },
   
   // AI Hub 2.0

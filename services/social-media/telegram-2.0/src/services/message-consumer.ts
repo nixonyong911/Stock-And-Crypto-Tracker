@@ -102,14 +102,25 @@ export class MessageConsumer {
       user_id: userId,
     }, 'Processing queued message');
 
-    // Try to acquire lock for this chat
-    const acquired = await this.redis.setNx(keys.lock, 'consumer', lockTtlSeconds);
+    // Wait to acquire lock for this chat (FIFO: hold message, don't requeue)
+    let acquired = false;
+    let retries = 0;
+    const maxRetries = Math.ceil((lockTtlSeconds * 1000) / requeueDelayMs); // Wait up to lock TTL
+
+    while (!acquired && retries < maxRetries && this.running) {
+      acquired = await this.redis.setNx(keys.lock, 'consumer', lockTtlSeconds);
+      if (!acquired) {
+        retries++;
+        logger.debug({ chat_id: chatId, retry: retries }, 'Lock busy, waiting (FIFO)');
+        await sleep(requeueDelayMs);
+      }
+    }
 
     if (!acquired) {
-      // Chat is busy - requeue with small delay
-      logger.debug({ chat_id: chatId }, 'Lock busy, requeuing message');
-      await sleep(requeueDelayMs);
-      channel.nack(msg, false, true); // Requeue
+      // Exhausted retries - nack without requeue (will go to DLQ)
+      logger.warn({ chat_id: chatId, retries }, 'Failed to acquire lock after max retries');
+      channel.nack(msg, false, false);
+      await this.decrementPending(keys.pending);
       return;
     }
 
