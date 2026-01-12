@@ -10,8 +10,8 @@
 # TARGET (Phase 3): ~3-5 min (60-70% faster)
 # BEST CASE (config-only): ~1-2 min (skip all builds)
 # ===========================================
-# Services: n8n, Caddy, TwelveData, Metrics, Candlestick Analysis, AI Hub, Alloy
-# AI Hub: Docker container (ai-hub-docker)
+# Services: n8n, Caddy, TwelveData, Metrics, Candlestick Analysis, AI Hub 2.0, Alloy
+# AI Hub: Go-based ai-hub2 container
 # Monitoring: Grafana Cloud (via Alloy)
 # Secrets: Injected at runtime via Infisical CLI (Machine Identity)
 # Infrastructure Config: instruction/reference/infrastructure-config.md
@@ -26,10 +26,9 @@ on:
       - 'services/workers/data-fetcher/TwelveData/**'
       - 'services/workers/analysis/**'
       - 'services/metrics/**'
-      - 'services/ai/ai-hub/**'
+      - 'services/ai/ai-hub2.0/**'
       - 'services/back-office/**'
       - 'services/mcp/**'
-      - 'services/social-media/telegram/**'
       - 'services/social-media/telegram-2.0/**'
       - 'services/common/**'
       - 'deployment/vm/**'
@@ -55,11 +54,10 @@ jobs:
       metrics: ${{ steps.filter.outputs.metrics }}
       backoffice: ${{ steps.filter.outputs.backoffice }}
       mcp: ${{ steps.filter.outputs.mcp }}
-      telegram: ${{ steps.filter.outputs.telegram }}
       telegram2: ${{ steps.filter.outputs.telegram2 }}
-      aihub: ${{ steps.filter.outputs.aihub }}
+      aihub2: ${{ steps.filter.outputs.aihub2 }}
       config: ${{ steps.filter.outputs.config }}
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub2 == 'true' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -82,12 +80,10 @@ jobs:
               - 'services/back-office/**'
             mcp:
               - 'services/mcp/**'
-            telegram:
-              - 'services/social-media/telegram/**'
             telegram2:
               - 'services/social-media/telegram-2.0/**'
-            aihub:
-              - 'services/ai/ai-hub/**'
+            aihub2:
+              - 'services/ai/ai-hub2.0/**'
             config:
               - 'deployment/vm/**'
               - '.github/workflows/deploy-vm.yml'
@@ -102,9 +98,8 @@ jobs:
           echo "Metrics: ${{ steps.filter.outputs.metrics }}"
           echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
           echo "MCP Analysis: ${{ steps.filter.outputs.mcp }}"
-          echo "Telegram Bot: ${{ steps.filter.outputs.telegram }}"
           echo "Telegram Bot 2.0: ${{ steps.filter.outputs.telegram2 }}"
-          echo "AI Hub: ${{ steps.filter.outputs.aihub }}"
+          echo "AI Hub 2.0: ${{ steps.filter.outputs.aihub2 }}"
           echo "Config: ${{ steps.filter.outputs.config }}"
           echo "Force Build: ${{ github.event.inputs.force_build }}"
           
@@ -118,9 +113,8 @@ jobs:
           echo "| Metrics | ${{ steps.filter.outputs.metrics }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
           echo "| MCP Analysis | ${{ steps.filter.outputs.mcp }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Telegram Bot | ${{ steps.filter.outputs.telegram }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Telegram Bot 2.0 | ${{ steps.filter.outputs.telegram2 }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| AI Hub | ${{ steps.filter.outputs.aihub }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| AI Hub 2.0 | ${{ steps.filter.outputs.aihub2 }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Config | ${{ steps.filter.outputs.config }} |" >> $GITHUB_STEP_SUMMARY
 
   # ===========================================
@@ -225,22 +219,6 @@ jobs:
           cache-to: type=gha,mode=max,scope=mcp
           outputs: type=docker,dest=/tmp/mcp-analysis.tar
 
-      # Build Telegram Bot (only if changed or forced)
-      - name: Build Telegram Bot image
-        id: build-telegram
-        if: needs.detect-changes.outputs.telegram == 'true' || github.event.inputs.force_build == 'true'
-        continue-on-error: true
-        uses: docker/build-push-action@v5
-        with:
-          context: services/social-media/telegram/
-          file: services/social-media/telegram/Dockerfile
-          tags: |
-            stocktracker-telegram-bot:latest
-            stocktracker-telegram-bot:${{ github.sha }}
-          cache-from: type=gha,scope=telegram
-          cache-to: type=gha,mode=max,scope=telegram
-          outputs: type=docker,dest=/tmp/telegram-bot.tar
-
       # Build Telegram Bot 2.0 (only if changed or forced)
       - name: Build Telegram Bot 2.0 image
         id: build-telegram2
@@ -257,21 +235,21 @@ jobs:
           cache-to: type=gha,mode=max,scope=telegram2
           outputs: type=docker,dest=/tmp/telegram-bot-2.0.tar
 
-      # Build AI Hub Docker (only if changed or forced)
-      - name: Build AI Hub image
-        id: build-aihub
-        if: needs.detect-changes.outputs.aihub == 'true' || github.event.inputs.force_build == 'true'
+      # Build AI Hub 2.0 (Go) (only if changed or forced)
+      - name: Build AI Hub 2.0 image
+        id: build-aihub2
+        if: needs.detect-changes.outputs.aihub2 == 'true' || github.event.inputs.force_build == 'true'
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
-          context: services/ai/ai-hub/
-          file: services/ai/ai-hub/Dockerfile
+          context: services/ai/ai-hub2.0/
+          file: services/ai/ai-hub2.0/Dockerfile
           tags: |
-            stocktracker-ai-hub:latest
-            stocktracker-ai-hub:${{ github.sha }}
-          cache-from: type=gha,scope=aihub
-          cache-to: type=gha,mode=max,scope=aihub
-          outputs: type=docker,dest=/tmp/ai-hub.tar
+            stocktracker-ai-hub2:latest
+            stocktracker-ai-hub2:${{ github.sha }}
+          cache-from: type=gha,scope=aihub2
+          cache-to: type=gha,mode=max,scope=aihub2
+          outputs: type=docker,dest=/tmp/ai-hub2.tar
 
       # Compress built images
       - name: Compress Docker images
@@ -320,14 +298,6 @@ jobs:
             echo "⏭️ MCP Analysis skipped (unchanged)"
           fi
           
-          if [ -f /tmp/telegram-bot.tar ]; then
-            gzip -1 < /tmp/telegram-bot.tar > /tmp/images/telegram-bot.tar.gz
-            BUILT="${BUILT}telegram,"
-            echo "✅ Telegram Bot compressed"
-          else
-            echo "⏭️ Telegram Bot skipped (unchanged)"
-          fi
-          
           if [ -f /tmp/telegram-bot-2.0.tar ]; then
             gzip -1 < /tmp/telegram-bot-2.0.tar > /tmp/images/telegram-bot-2.0.tar.gz
             BUILT="${BUILT}telegram2,"
@@ -336,12 +306,12 @@ jobs:
             echo "⏭️ Telegram Bot 2.0 skipped (unchanged)"
           fi
           
-          if [ -f /tmp/ai-hub.tar ]; then
-            gzip -1 < /tmp/ai-hub.tar > /tmp/images/ai-hub.tar.gz
-            BUILT="${BUILT}aihub,"
-            echo "✅ AI Hub compressed"
+          if [ -f /tmp/ai-hub2.tar ]; then
+            gzip -1 < /tmp/ai-hub2.tar > /tmp/images/ai-hub2.tar.gz
+            BUILT="${BUILT}aihub2,"
+            echo "✅ AI Hub 2.0 compressed"
           else
-            echo "⏭️ AI Hub skipped (unchanged)"
+            echo "⏭️ AI Hub 2.0 skipped (unchanged)"
           fi
           
           echo "built=$BUILT" >> $GITHUB_OUTPUT
@@ -386,7 +356,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
             
-            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot telegram-bot-2.0 ai-hub; do
+            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -452,7 +422,7 @@ jobs:
           echo "📥 Loading Docker images..."
           
           # Only load our specific service images (not other .tar.gz files in /tmp)
-          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot telegram-bot-2.0 ai-hub; do
+          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -488,7 +458,7 @@ jobs:
           cd $DEPLOY_PATH
           
           echo "📦 Building Docker services on VM (fallback mode)..."
-          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot ai-hub-docker
+          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2
           
           echo "✅ VM build complete"
           EOF
@@ -511,7 +481,7 @@ jobs:
           
           echo "=== Syncing agent-context to stock-tracker ==="
           rsync -av --delete \
-            $DEPLOY_PATH/repo/services/ai/ai-hub/agent-context/stock-tracker/ \
+            $DEPLOY_PATH/repo/services/ai/ai-hub2.0/agent-context/stock-tracker/ \
             /home/azureuser/stock-tracker/
           
           echo "=== Copying config files ==="
@@ -580,14 +550,11 @@ jobs:
           
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ > /dev/null && echo "✅ Back Office: OK" || echo "⚠️ Back Office: Starting..."
           
-          # AI Hub Docker container - check via SSH
-          ssh azureuser@20.17.176.1 'docker exec ai-hub-docker curl -sf http://localhost:8080/health/live' > /dev/null && echo "✅ AI Hub: OK" || echo "⚠️ AI Hub: Check Docker logs"
+          # AI Hub 2.0 (Go) container - check via SSH
+          ssh azureuser@20.17.176.1 'docker exec ai-hub2 wget -qO- http://localhost:8080/health/live' > /dev/null && echo "✅ AI Hub 2.0: OK" || echo "⚠️ AI Hub 2.0: Check Docker logs"
           
           # MCP Analysis runs on internal port 8085 - check via SSH
           ssh azureuser@20.17.176.1 'curl -sf http://localhost:8085/health' > /dev/null && echo "✅ MCP Analysis: OK" || echo "⚠️ MCP Analysis: Check Docker logs"
-          
-          # Telegram Bot runs on internal port 8087 - check via SSH
-          ssh azureuser@20.17.176.1 'curl -sf http://localhost:8087/health' > /dev/null && echo "✅ Telegram Bot: OK" || echo "⚠️ Telegram Bot: Check Docker logs"
           
           # Telegram Bot 2.0 (webhook mode) - check via SSH
           ssh azureuser@20.17.176.1 'docker exec telegram-bot-2.0 wget -qO- http://localhost:8087/health' > /dev/null && echo "✅ Telegram Bot 2.0: OK" || echo "⚠️ Telegram Bot 2.0: Check Docker logs"
@@ -615,7 +582,7 @@ jobs:
           echo "- [Candlestick Analysis Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
-          echo "- AI Hub: Docker container (ai-hub-docker:8080)" >> $GITHUB_STEP_SUMMARY
+          echo "- AI Hub 2.0: Go container (ai-hub2:8080)" >> $GITHUB_STEP_SUMMARY
           
           echo ""
           echo "=========================================="
