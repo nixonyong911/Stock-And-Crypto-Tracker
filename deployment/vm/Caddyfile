@@ -44,7 +44,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
     # ===========================================
     # Telegram Bot 2.0 Webhook
     # ===========================================
-    handle_path /telegram/webhook {
+    handle_path /telegram/* {
         reverse_proxy telegram-bot-2.0:8087
     }
     
