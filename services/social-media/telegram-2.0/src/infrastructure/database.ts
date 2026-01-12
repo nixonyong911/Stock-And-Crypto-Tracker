@@ -1,9 +1,45 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
-import dns from 'dns';
 import { config } from '../config.js';
 
-// Force Node.js to prefer IPv4 over IPv6
-dns.setDefaultResultOrder('ipv4first');
+/**
+ * Parse a Postgres connection string in key=value format (like asyncpg uses)
+ * and convert it to pg Pool config.
+ */
+function parseConnectionString(connStr: string): {
+  user: string;
+  password: string;
+  host: string;
+  port: number;
+  database: string;
+} {
+  // If it's already a URL format, parse it differently
+  if (connStr.startsWith('postgresql://') || connStr.startsWith('postgres://')) {
+    const url = new URL(connStr);
+    return {
+      user: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+      host: url.hostname,
+      port: parseInt(url.port || '5432', 10),
+      database: url.pathname.slice(1), // Remove leading /
+    };
+  }
+  
+  // Parse key=value format (e.g., "user=x password=y host=z port=5432 dbname=postgres")
+  const pairs: Record<string, string> = {};
+  const regex = /(\w+)=([^\s]+)/g;
+  let match;
+  while ((match = regex.exec(connStr)) !== null) {
+    pairs[match[1]] = match[2];
+  }
+  
+  return {
+    user: pairs.user || 'postgres',
+    password: pairs.password || '',
+    host: pairs.host || 'localhost',
+    port: parseInt(pairs.port || '5432', 10),
+    database: pairs.dbname || 'postgres',
+  };
+}
 
 /**
  * Database context with connection pooling and transaction support.
@@ -12,11 +48,16 @@ export class DatabaseContext {
   private pool: Pool;
 
   constructor() {
+    const connConfig = parseConnectionString(config.databaseUrl);
+    
     this.pool = new Pool({
-      connectionString: config.databaseUrl,
+      ...connConfig,
       max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
+      ssl: {
+        rejectUnauthorized: false, // Supabase requires SSL
+      },
     });
   }
 
