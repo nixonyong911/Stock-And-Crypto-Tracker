@@ -1,34 +1,32 @@
 import type { NextFunction } from 'grammy';
+import { v4 as uuidv4 } from 'uuid';
 import type { BotContext } from '../types/context.js';
 import { config } from '../config.js';
 import { logger } from './logger.js';
+import { getRabbitMQ, type QueueMessage } from '../infrastructure/rabbitmq.js';
 
-const { maxQueuedMessages, processingLockTtlSeconds } = config.messageQueue;
+const { maxQueuedPerChat, lockTtlSeconds } = config.messageQueue;
 
 /**
- * Get Redis keys for a user's message queue
+ * Get Redis keys for a chat's message queue
  */
-function getQueueKeys(userId: number) {
+function getQueueKeys(chatId: number) {
   return {
-    processing: `user:${userId}:processing`,
-    queue: `user:${userId}:queue`,
+    lock: `chat:${chatId}:lock`,
+    pending: `chat:${chatId}:pending`,
   };
 }
 
-export interface QueuedMessage {
-  messageId: number;
-  chatId: number;
-  text: string;
-  timestamp: number;
-}
-
 /**
- * Message queue middleware - prevents concurrent message processing per user.
+ * Message queue middleware - Fair queuing per chat.
  * 
  * Behavior:
- * - If not processing: Set lock, continue to process
- * - If processing + queue < max: Add to queue, reply "queued"
- * - If processing + queue >= max: Reply "too many queued"
+ * - 1 chat = 1 AI Hub slot maximum
+ * - If not processing: Acquire lock, process directly (fast path)
+ * - If processing + queue < max: Publish to RabbitMQ, reply "queued"
+ * - If queue >= max: Reply "too many queued"
+ * 
+ * This prevents spammers from hogging all AI Hub resources.
  */
 export async function messageQueueMiddleware(
   ctx: BotContext,
@@ -39,46 +37,51 @@ export async function messageQueueMiddleware(
     return next();
   }
 
+  const chatId = ctx.chat?.id;
   const userId = ctx.from?.id;
-  if (!userId) {
+  
+  if (!chatId || !userId) {
     return next();
   }
 
-  const keys = getQueueKeys(userId);
+  const keys = getQueueKeys(chatId);
+  const rabbitmq = getRabbitMQ();
 
   try {
-    // Try to acquire processing lock
-    const acquired = await ctx.redis.setNx(
-      keys.processing,
-      '1',
-      processingLockTtlSeconds
-    );
+    // Check current queue depth for this chat
+    const pendingCount = await ctx.redis.get(keys.pending);
+    const queueDepth = pendingCount ? parseInt(pendingCount, 10) : 0;
 
-    if (acquired) {
-      // We got the lock - process immediately
-      logger.debug({ user_id: userId }, 'Acquired processing lock');
-      
-      try {
-        await next();
-      } finally {
-        // Release lock
-        await ctx.redis.del(keys.processing);
-        
-        // Process queued message if any
-        await processQueuedMessage(ctx, keys);
+    // Check if chat is currently processing
+    const isProcessing = await ctx.redis.get(keys.lock);
+
+    if (!isProcessing) {
+      // Lock is free - process directly (fast path)
+      const acquired = await ctx.redis.setNx(keys.lock, '1', lockTtlSeconds);
+
+      if (acquired) {
+        logger.debug({ chat_id: chatId }, 'Acquired processing lock - fast path');
+
+        try {
+          await next();
+        } finally {
+          // Release lock
+          await ctx.redis.del(keys.lock);
+        }
+        return;
       }
-      return;
+      // Lock was acquired by another request between check and setNx - fall through to queue
     }
 
-    // Lock not acquired - check queue length
-    const queueLength = await ctx.redis.llen(keys.queue);
+    // Chat is busy processing - check if we can queue
 
-    if (queueLength >= maxQueuedMessages) {
+    if (queueDepth >= maxQueuedPerChat) {
       // Queue full
       logger.info({
+        chat_id: chatId,
         user_id: userId,
-        queue_length: queueLength,
-      }, 'Message queue full');
+        queue_depth: queueDepth,
+      }, 'Message queue full for chat');
 
       await ctx.reply(
         '⏳ Too many messages queued. Please wait for your previous messages to be processed.'
@@ -86,73 +89,66 @@ export async function messageQueueMiddleware(
       return;
     }
 
-    // Add to queue
-    const queuedMessage: QueuedMessage = {
+    // Publish to RabbitMQ
+    const queueMessage: QueueMessage = {
+      id: uuidv4(),
       messageId: ctx.message.message_id,
-      chatId: ctx.chat!.id,
+      chatId,
+      userId,
       text: ctx.message.text,
+      sessionId: ctx.telegramSession?.cursor_chat_id ?? null,
       timestamp: Date.now(),
     };
 
-    await ctx.redis.rpush(keys.queue, JSON.stringify(queuedMessage));
-    await ctx.redis.expire(keys.queue, processingLockTtlSeconds * 2);
+    const published = await rabbitmq.publish(queueMessage);
 
-    const newQueueLength = queueLength + 1;
+    if (!published) {
+      // RabbitMQ down - fallback to direct processing
+      logger.warn({ chat_id: chatId }, 'RabbitMQ unavailable, processing directly');
+      return next();
+    }
+
+    // Increment pending counter
+    await ctx.redis.incr(keys.pending);
+
+    const newQueueDepth = queueDepth + 1;
     logger.info({
+      chat_id: chatId,
       user_id: userId,
-      queue_position: newQueueLength,
-    }, 'Message queued');
+      queue_position: newQueueDepth,
+      message_id: queueMessage.id,
+    }, 'Message published to queue');
 
     await ctx.reply(
-      `⏳ Your message is queued (${newQueueLength} message${newQueueLength > 1 ? 's' : ''} ahead). ` +
-      'Please wait...'
+      `⏳ Your message is queued (position ${newQueueDepth}). Please wait...`
     );
+
   } catch (error) {
     logger.error({
       error: (error as Error).message,
+      chat_id: chatId,
       user_id: userId,
     }, 'Message queue error');
-    
-    // On error, try to process anyway
+
+    // On error, try to process anyway (graceful degradation)
     return next();
   }
 }
 
 /**
- * Process next queued message after current one completes
+ * Check if chat has messages being processed
  */
-async function processQueuedMessage(
-  ctx: BotContext,
-  keys: { processing: string; queue: string }
-): Promise<void> {
-  try {
-    const queuedJson = await ctx.redis.lpop(keys.queue);
-    if (!queuedJson) {
-      return;
-    }
-
-    const queued = JSON.parse(queuedJson) as QueuedMessage;
-    
-    logger.info({
-      user_id: ctx.from?.id,
-      message_id: queued.messageId,
-    }, 'Processing queued message');
-
-    // Note: In a real implementation, you'd need to create a new context
-    // and process the queued message. For simplicity, we just log it here.
-    // The actual processing would be handled by the message handler.
-  } catch (error) {
-    logger.error({
-      error: (error as Error).message,
-    }, 'Failed to process queued message');
-  }
+export async function isProcessing(ctx: BotContext, chatId: number): Promise<boolean> {
+  const keys = getQueueKeys(chatId);
+  const value = await ctx.redis.get(keys.lock);
+  return value !== null;
 }
 
 /**
- * Check if user has messages being processed
+ * Get queue depth for a chat
  */
-export async function isProcessing(ctx: BotContext, userId: number): Promise<boolean> {
-  const keys = getQueueKeys(userId);
-  const value = await ctx.redis.get(keys.processing);
-  return value !== null;
+export async function getQueueDepth(ctx: BotContext, chatId: number): Promise<number> {
+  const keys = getQueueKeys(chatId);
+  const value = await ctx.redis.get(keys.pending);
+  return value ? parseInt(value, 10) : 0;
 }

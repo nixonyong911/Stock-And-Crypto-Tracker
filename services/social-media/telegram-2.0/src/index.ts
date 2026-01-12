@@ -5,6 +5,8 @@ import type { BotContext } from './types/context.js';
 import { config } from './config.js';
 import { getDatabase } from './infrastructure/database.js';
 import { getRedis } from './infrastructure/redis.js';
+import { getRabbitMQ } from './infrastructure/rabbitmq.js';
+import { getMessageConsumer } from './services/message-consumer.js';
 import { applyMiddleware, errorHandler, logger } from './middleware/index.js';
 
 // Import composers
@@ -47,6 +49,15 @@ async function main() {
     logger.warn({ error: (error as Error).message }, 'Redis connection failed, continuing without Redis');
   }
 
+  // Connect to RabbitMQ
+  const rabbitmq = getRabbitMQ();
+  try {
+    await rabbitmq.connect();
+    logger.info('RabbitMQ connected');
+  } catch (error) {
+    logger.warn({ error: (error as Error).message }, 'RabbitMQ connection failed, queue functionality disabled');
+  }
+
   // Create bot instance
   const bot = new Bot<BotContext>(config.botToken);
 
@@ -84,6 +95,7 @@ async function main() {
   app.get('/health', async (c) => {
     const dbHealthy = await db.healthCheck();
     const redisHealthy = await redis.healthCheck();
+    const rabbitmqHealthy = await rabbitmq.healthCheck();
 
     const status = dbHealthy ? 'healthy' : 'unhealthy';
     const statusCode = dbHealthy ? 200 : 503;
@@ -91,9 +103,10 @@ async function main() {
     return c.json({
       status,
       service: 'telegram-bot-2.0',
-      version: '2.0.0',
+      version: '2.1.0',
       database: dbHealthy ? 'connected' : 'disconnected',
       redis: redisHealthy ? 'connected' : 'disconnected',
+      rabbitmq: rabbitmqHealthy ? 'connected' : 'disconnected',
       timestamp: new Date().toISOString(),
     }, statusCode);
   });
@@ -117,6 +130,16 @@ async function main() {
     // Continue anyway - webhook might already be set
   }
 
+  // Start message consumer (processes queued messages)
+  const messageConsumer = getMessageConsumer();
+  messageConsumer.setApi(bot.api);
+  try {
+    await messageConsumer.start();
+    logger.info('Message consumer started');
+  } catch (error) {
+    logger.warn({ error: (error as Error).message }, 'Failed to start message consumer, queue processing disabled');
+  }
+
   // Start HTTP server
   const port = config.port;
   serve({
@@ -130,6 +153,9 @@ async function main() {
   const shutdown = async () => {
     logger.info('Shutting down...');
     
+    // Stop message consumer first
+    messageConsumer.stop();
+    
     try {
       await bot.api.deleteWebhook();
       logger.info('Webhook deleted');
@@ -137,6 +163,8 @@ async function main() {
       // Ignore webhook deletion errors
     }
 
+    // Close connections
+    await rabbitmq.close();
     await redis.close();
     await db.close();
     

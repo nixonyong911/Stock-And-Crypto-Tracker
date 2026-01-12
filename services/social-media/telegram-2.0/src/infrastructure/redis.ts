@@ -83,6 +83,27 @@ export class RedisClient {
   }
 
   /**
+   * Increment a counter
+   */
+  async incr(key: string): Promise<number> {
+    return this.client.incr(key);
+  }
+
+  /**
+   * Decrement a counter
+   */
+  async decr(key: string): Promise<number> {
+    return this.client.decr(key);
+  }
+
+  /**
+   * Set value with TTL (setex)
+   */
+  async setex(key: string, seconds: number, value: string): Promise<string> {
+    return this.client.setex(key, seconds, value);
+  }
+
+  /**
    * Health check
    */
   async healthCheck(): Promise<boolean> {

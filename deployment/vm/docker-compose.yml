@@ -187,7 +187,7 @@ services:
       - candlestick-analysis
 
   # ===========================================
-  # Redis - Caching for MCP Server
+  # Redis - Caching for MCP Server & Queue Locks
   # ===========================================
   redis:
     image: redis:7-alpine
@@ -203,6 +203,28 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+
+  # ===========================================
+  # RabbitMQ - Message Queue for Telegram Bot
+  # Management UI at: localhost:15672 (internal)
+  # ===========================================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_DEFAULT_USER=stocktracker
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - stocktracker
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ===========================================
   # MCP Analysis Server - Read-only DB Queries for AI
@@ -250,6 +272,7 @@ services:
       # Direct DB connection via IPv6 (Docker network has IPv6 enabled)
       - DATABASE_URL=${DATABASE_URL_GO}
       - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://stocktracker:${RABBITMQ_PASSWORD}@rabbitmq:5672
       - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
       - BOT_PORT=8087
@@ -258,6 +281,7 @@ services:
     depends_on:
       - ai-hub2
       - redis
+      - rabbitmq
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://localhost:8087/health" ]
       interval: 30s

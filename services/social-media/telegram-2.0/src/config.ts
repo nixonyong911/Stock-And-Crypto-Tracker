@@ -25,6 +25,14 @@ export const config = {
   // Redis
   redisUrl: getEnvOrDefault('REDIS_URL', 'redis://localhost:6379'),
   
+  // RabbitMQ
+  rabbitmq: {
+    url: getEnvOrDefault('RABBITMQ_URL', 'amqp://stocktracker:password@localhost:5672'),
+    prefetch: 10,           // Each consumer grabs up to 10 messages
+    consumerCount: 5,       // 5 parallel consumers
+    requeueDelayMs: 500,    // ms before requeue if lock busy
+  },
+  
   // AI Hub 2.0
   aiHubUrl: getEnvOrThrow('AI_HUB_URL'),
   aiHubApiKey: getEnvOrThrow('AI_HUB_API_KEY'),
@@ -45,8 +53,9 @@ export const config = {
   
   // Message Queue
   messageQueue: {
-    maxQueuedMessages: 2,
-    processingLockTtlSeconds: 180,
+    maxQueuedPerChat: 3,         // Max queued messages per chat
+    lockTtlSeconds: 300,         // 5 min lock TTL (AI Hub timeout + buffer)
+    lockExtendIntervalMs: 60000, // Extend lock every 60s while processing
   },
   
   // Circuit Breaker
