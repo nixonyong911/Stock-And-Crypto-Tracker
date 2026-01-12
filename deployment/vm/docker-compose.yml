@@ -289,6 +289,7 @@ services:
       - AI_HUB_DEFAULT_CONTEXT_PATH=/home/azureuser/stock-tracker
       - AI_HUB_CLI_TIMEOUT_SECONDS=120
       - DATABASE_URL=${DATABASE_URL_PYTHON}
+      - REDIS_URL=redis://redis:6379
     volumes:
       # CLI binaries (read-only)
       - /usr/lib/node_modules/@anthropic-ai:/usr/lib/node_modules/@anthropic-ai:ro
@@ -304,6 +305,8 @@ services:
       - /home/azureuser/stock-tracker:/home/azureuser/stock-tracker:ro
     networks:
       - stocktracker
+    depends_on:
+      - redis
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
       interval: 30s

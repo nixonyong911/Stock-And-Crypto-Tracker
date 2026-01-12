@@ -27,3 +27,6 @@ structlog==24.4.0
 # Health checks
 prometheus-client==0.21.1
 
+# Redis for async queue
+redis==5.2.1
+

@@ -35,6 +35,13 @@ from schemas import (
 from services.retry_handler import RetryHandler, RetryResult
 from services.cli_executor import get_cli_executor, kill_orphaned_cursor_agents
 from services.telegram_versions import telegram_agent_v1, telegram_agent_v2
+from services.redis_client import RedisClient
+from services.request_logger import (
+    push_log_event,
+    consume_log_events,
+    read_request_body,
+    read_response_body,
+)
 
 # Configure stdlib logging level (required for structlog.stdlib.filter_by_level)
 import logging
@@ -108,6 +115,7 @@ async def lifespan(app: FastAPI):
     
     # Start background tasks
     orphan_cleanup = asyncio.create_task(orphan_cleanup_task())
+    log_consumer = asyncio.create_task(consume_log_events())
     
     # Initialize model registry
     registry = get_registry()
@@ -119,6 +127,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down AI Hub Service")
     orphan_cleanup.cancel()
+    log_consumer.cancel()
+    await RedisClient.close()
     await DatabaseConnection.close()
 
 
@@ -185,6 +195,51 @@ async def verify_api_key(request: Request, call_next):
         )
     
     return await call_next(request)
+
+
+# ===========================================
+# Request/Response Logging Middleware
+# ===========================================
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """
+    Log all requests and responses to Supabase via Redis queue.
+    
+    - Captures: timestamp, endpoint, request body, response body, elapsed time, status code
+    - Uses Redis queue for non-blocking operation
+    - Skips health and documentation endpoints
+    """
+    # Skip logging for health/docs endpoints
+    if request.url.path.startswith(("/health", "/docs", "/redoc", "/openapi.json")):
+        return await call_next(request)
+    
+    start_time = time.perf_counter()
+    request_timestamp = datetime.utcnow()
+    endpoint = request.url.path
+    
+    # Read request body (cached for re-reading by endpoint)
+    request_body = await read_request_body(request)
+    
+    # Call the actual endpoint
+    response = await call_next(request)
+    
+    # Calculate elapsed time with 1 decimal precision
+    elapsed_sec = round(time.perf_counter() - start_time, 1)
+    
+    # Read response body (returns new response to avoid stream consumption issues)
+    response_body, new_response = await read_response_body(response)
+    
+    # Push to Redis queue (fire-and-forget, non-blocking)
+    asyncio.create_task(push_log_event({
+        "request_timestamp": request_timestamp.isoformat(),
+        "endpoint": endpoint,
+        "request_body": request_body,
+        "response_body": response_body,
+        "elapsed_time_sec": elapsed_sec,
+        "status_code": new_response.status_code
+    }))
+    
+    return new_response
 
 
 @app.get("/health", response_model=HealthResponse)
