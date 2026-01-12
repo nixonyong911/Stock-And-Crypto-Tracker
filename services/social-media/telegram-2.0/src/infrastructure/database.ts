@@ -1,21 +1,5 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
-import dns from 'dns/promises';
 import { config } from '../config.js';
-
-/**
- * Resolve hostname to IPv4 address.
- * Docker networks often don't support IPv6, so we must force IPv4.
- */
-async function resolveToIPv4(hostname: string): Promise<string> {
-  try {
-    const result = await dns.lookup(hostname, { family: 4 });
-    console.log(`Resolved ${hostname} to IPv4: ${result.address}`);
-    return result.address;
-  } catch (error) {
-    console.error(`Failed to resolve ${hostname} to IPv4:`, error);
-    throw error;
-  }
-}
 
 /**
  * Parse a Postgres connection string in key=value format (like asyncpg uses)
@@ -60,28 +44,17 @@ function parseConnectionString(connStr: string): {
 
 /**
  * Database context with connection pooling and transaction support.
+ * Uses Supavisor pooler which has IPv4 support for Docker containers.
  */
 export class DatabaseContext {
   private pool: Pool;
 
-  private constructor(pool: Pool) {
-    this.pool = pool;
-  }
-
-  /**
-   * Create a new DatabaseContext with IPv4-resolved host.
-   * This ensures Docker containers can connect to Supabase.
-   */
-  static async create(): Promise<DatabaseContext> {
+  constructor() {
     const connConfig = parseConnectionString(config.databaseUrl);
+    console.log(`Connecting to database at ${connConfig.host}:${connConfig.port}`);
     
-    // Resolve hostname to IPv4 to avoid Docker IPv6 issues
-    const ipv4Host = await resolveToIPv4(connConfig.host);
-    console.log(`Using IPv4 address for database: ${ipv4Host}`);
-    
-    const pool = new Pool({
+    this.pool = new Pool({
       ...connConfig,
-      host: ipv4Host, // Use resolved IPv4 address
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
@@ -89,8 +62,6 @@ export class DatabaseContext {
         rejectUnauthorized: false, // Supabase requires SSL
       },
     });
-    
-    return new DatabaseContext(pool);
   }
 
   /**
@@ -181,19 +152,10 @@ export class TransactionClient {
 
 // Singleton instance
 let dbInstance: DatabaseContext | null = null;
-let dbInitPromise: Promise<DatabaseContext> | null = null;
 
-export async function getDatabase(): Promise<DatabaseContext> {
-  if (dbInstance) {
-    return dbInstance;
+export function getDatabase(): DatabaseContext {
+  if (!dbInstance) {
+    dbInstance = new DatabaseContext();
   }
-  
-  if (!dbInitPromise) {
-    dbInitPromise = DatabaseContext.create().then((instance) => {
-      dbInstance = instance;
-      return instance;
-    });
-  }
-  
-  return dbInitPromise;
+  return dbInstance;
 }
