@@ -1,23 +1,20 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
-import dns from 'dns';
+import dns from 'dns/promises';
 import { config } from '../config.js';
 
-// Force IPv4 DNS resolution to avoid Docker IPv6 connectivity issues
-dns.setDefaultResultOrder('ipv4first');
-
 /**
- * Custom DNS lookup that forces IPv4 resolution.
- * Docker networks often don't support IPv6, causing connection failures
- * when the DNS resolver returns IPv6 addresses for Supabase.
+ * Resolve hostname to IPv4 address.
+ * Docker networks often don't support IPv6, so we must force IPv4.
  */
-function ipv4Lookup(
-  hostname: string,
-  _options: dns.LookupOptions,
-  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void
-): void {
-  dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-    callback(err, address, family);
-  });
+async function resolveToIPv4(hostname: string): Promise<string> {
+  try {
+    const result = await dns.lookup(hostname, { family: 4 });
+    console.log(`Resolved ${hostname} to IPv4: ${result.address}`);
+    return result.address;
+  } catch (error) {
+    console.error(`Failed to resolve ${hostname} to IPv4:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -67,21 +64,33 @@ function parseConnectionString(connStr: string): {
 export class DatabaseContext {
   private pool: Pool;
 
-  constructor() {
+  private constructor(pool: Pool) {
+    this.pool = pool;
+  }
+
+  /**
+   * Create a new DatabaseContext with IPv4-resolved host.
+   * This ensures Docker containers can connect to Supabase.
+   */
+  static async create(): Promise<DatabaseContext> {
     const connConfig = parseConnectionString(config.databaseUrl);
     
-    this.pool = new Pool({
+    // Resolve hostname to IPv4 to avoid Docker IPv6 issues
+    const ipv4Host = await resolveToIPv4(connConfig.host);
+    console.log(`Using IPv4 address for database: ${ipv4Host}`);
+    
+    const pool = new Pool({
       ...connConfig,
+      host: ipv4Host, // Use resolved IPv4 address
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
       ssl: {
         rejectUnauthorized: false, // Supabase requires SSL
       },
-      // Force IPv4 to avoid Docker IPv6 connectivity issues
-      // @ts-expect-error - lookup is a valid pg option but not in types
-      lookup: ipv4Lookup,
     });
+    
+    return new DatabaseContext(pool);
   }
 
   /**
@@ -172,10 +181,19 @@ export class TransactionClient {
 
 // Singleton instance
 let dbInstance: DatabaseContext | null = null;
+let dbInitPromise: Promise<DatabaseContext> | null = null;
 
-export function getDatabase(): DatabaseContext {
-  if (!dbInstance) {
-    dbInstance = new DatabaseContext();
+export async function getDatabase(): Promise<DatabaseContext> {
+  if (dbInstance) {
+    return dbInstance;
   }
-  return dbInstance;
+  
+  if (!dbInitPromise) {
+    dbInitPromise = DatabaseContext.create().then((instance) => {
+      dbInstance = instance;
+      return instance;
+    });
+  }
+  
+  return dbInitPromise;
 }

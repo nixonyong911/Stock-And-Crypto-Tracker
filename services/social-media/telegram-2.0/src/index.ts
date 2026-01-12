@@ -23,7 +23,7 @@ async function main() {
   logger.info('Starting Telegram Bot 2.0...');
 
   // Initialize infrastructure
-  const db = getDatabase();
+  const db = await getDatabase();
   const redis = getRedis();
 
   // Check database connection
