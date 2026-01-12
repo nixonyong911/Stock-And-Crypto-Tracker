@@ -289,6 +289,8 @@ services:
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
       - BOT_PORT=8087
       - NODE_OPTIONS=--dns-result-order=ipv4first
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
     networks:
       - stocktracker
     depends_on:
