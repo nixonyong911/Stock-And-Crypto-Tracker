@@ -77,6 +77,8 @@ func (h *CLIHandler) ListEndpoints(w http.ResponseWriter, r *http.Request) {
 
 // executeCLI is a helper that executes a CLI command and writes the response
 func (h *CLIHandler) executeCLI(w http.ResponseWriter, r *http.Request, cli, model string) {
+	h.logger.Info().Str("cli", cli).Str("model", model).Msg("Handler invoked")
+	
 	var req CLIMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Warn().Err(err).Msg("Invalid request body")
