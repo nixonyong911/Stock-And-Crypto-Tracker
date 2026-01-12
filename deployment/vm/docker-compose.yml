@@ -288,6 +288,7 @@ services:
       - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
       - BOT_PORT=8087
+      - NODE_OPTIONS=--dns-result-order=ipv4first
     networks:
       - stocktracker
     depends_on:
