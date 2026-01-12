@@ -315,6 +315,52 @@ services:
       start_period: 15s
 
   # ===========================================
+  # AI Hub 2.0 (Go) - High-Performance CLI Gateway
+  # Port: 8081 (for testing alongside Python version)
+  # ===========================================
+  # Go-based replacement for ai-hub-docker with better concurrency,
+  # timeout handling, and resource management.
+  # ===========================================
+  ai-hub2:
+    image: stocktracker-ai-hub2:latest
+    build:
+      context: ./repo/services/ai/ai-hub2.0
+      dockerfile: Dockerfile
+    container_name: ai-hub2
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
+      - AI_HUB_DEFAULT_CONTEXT_PATH=/home/azureuser/stock-tracker
+      - AI_HUB_CLI_TIMEOUT_SECONDS=120
+      - AI_HUB_MAX_CONCURRENT=3
+      - DATABASE_URL=${DATABASE_URL_PYTHON}
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      # CLI binaries (read-only) - same as ai-hub-docker
+      - /usr/lib/node_modules/@anthropic-ai:/usr/lib/node_modules/@anthropic-ai:ro
+      - /home/azureuser/.local/share/cursor-agent:/opt/cursor-agent:ro
+      # CLI auth configs
+      - /home/azureuser/.claude-docker:/root/.claude
+      - /home/azureuser/.claude-docker/.claude.json:/root/.claude.json
+      - /home/azureuser/.claude-mcp.json:/root/.claude-mcp.json:ro
+      - /home/azureuser/.cursor-docker:/root/.cursor
+      - /home/azureuser/.config/cursor:/root/.config/cursor
+      # Instruction/context folder (read-only)
+      - /home/azureuser/stock-tracker:/home/azureuser/stock-tracker:ro
+    networks:
+      - stocktracker
+    depends_on:
+      - redis
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://localhost:8080/health/live" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  # ===========================================
   # Back Office - Admin & Testing UI
   # Access at: /back-office
   # ===========================================
