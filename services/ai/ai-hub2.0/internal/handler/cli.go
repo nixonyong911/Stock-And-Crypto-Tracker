@@ -3,7 +3,9 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/rs/zerolog"
 
@@ -77,12 +79,19 @@ func (h *CLIHandler) ListEndpoints(w http.ResponseWriter, r *http.Request) {
 
 // executeCLI is a helper that executes a CLI command and writes the response
 func (h *CLIHandler) executeCLI(w http.ResponseWriter, r *http.Request, cli, model string) {
+	// Debug: direct stderr output
+	fmt.Fprintf(os.Stderr, "[DEBUG] Handler executeCLI called: cli=%s model=%s\n", cli, model)
+	
 	var req CLIMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fmt.Fprintf(os.Stderr, "[DEBUG] JSON decode error: %v\n", err)
 		h.logger.Warn().Err(err).Msg("Invalid request body")
 		http.Error(w, `{"error": "Invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	// Debug: print parsed values
+	fmt.Fprintf(os.Stderr, "[DEBUG] Parsed request: message=%q session_id=%q\n", req.Message, req.SessionID)
 
 	if req.Message == "" {
 		http.Error(w, `{"error": "Message is required"}`, http.StatusBadRequest)
