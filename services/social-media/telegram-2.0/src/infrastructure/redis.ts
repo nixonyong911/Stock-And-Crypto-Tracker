@@ -10,7 +10,6 @@ export class RedisClient {
   constructor() {
     this.client = new Redis(config.redisUrl, {
       maxRetriesPerRequest: 3,
-      retryDelayOnFailover: 100,
       lazyConnect: true,
     });
   }

@@ -23,12 +23,12 @@ export async function loggerMiddleware(
   const startTime = Date.now();
   const userId = ctx.from?.id;
   const chatId = ctx.chat?.id;
-  const updateType = ctx.updateType;
+  const hasMessage = !!ctx.message;
 
   logger.info({
     user_id: userId,
     chat_id: chatId,
-    update_type: updateType,
+    has_message: hasMessage,
     message_text: ctx.message?.text?.substring(0, 50),
   }, 'Incoming update');
 
@@ -39,7 +39,7 @@ export async function loggerMiddleware(
     logger.info({
       user_id: userId,
       chat_id: chatId,
-      update_type: updateType,
+      has_message: hasMessage,
       duration_ms: durationMs,
     }, 'Update processed');
   }

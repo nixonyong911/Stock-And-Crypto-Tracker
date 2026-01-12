@@ -101,12 +101,13 @@ export class AIHubClient {
         const contentType = response.headers.get('content-type') || '';
         
         if (contentType.includes('application/json')) {
-          const data = await response.json();
+          const data = await response.json() as Record<string, unknown>;
           // Handle various response formats
           if (typeof data === 'string') {
             return data;
           }
-          return data.response || data.output || data.data || JSON.stringify(data);
+          const result = (data.response || data.output || data.data || data) as unknown;
+          return typeof result === 'string' ? result : JSON.stringify(result);
         }
         
         return await response.text();

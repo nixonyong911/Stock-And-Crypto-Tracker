@@ -16,7 +16,7 @@ export async function errorHandler(
     stack: err.stack,
     user_id: userId,
     chat_id: chatId,
-    update_type: ctx.updateType,
+    has_message: !!ctx.message,
   }, 'Unhandled error in bot');
 
   try {
