@@ -151,72 +151,10 @@ async def get_db_connection() -> DatabaseConnection:
     return DatabaseConnection
 
 
-# Initialize tables if they don't exist (called on startup)
+# Placeholder for future table initialization if needed
 async def ensure_tables_exist() -> None:
-    """
-    Ensure the AI Hub tables exist.
-    Note: In production, use EF Core migrations. This is a fallback.
-    """
-    create_logs_table = """
-    CREATE TABLE IF NOT EXISTS ai_hub_logs (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        request_id UUID NOT NULL,
-        model_id VARCHAR(150) NOT NULL,
-        caller_service VARCHAR(100),
-        google_project_id VARCHAR(100),
-        message_preview TEXT,
-        response_preview TEXT,
-        tokens_input INT,
-        tokens_output INT,
-        duration_ms INT,
-        retry_count INT DEFAULT 0,
-        rate_limit_type VARCHAR(10),
-        status VARCHAR(20) NOT NULL,
-        http_status_code INT,
-        error_message TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        CONSTRAINT ai_hub_logs_status_check CHECK (status IN (
-            'success', 'rate_limited', 'server_error', 
-            'unavailable', 'client_error', 'timeout'
-        ))
-    );
-    """
-    
-    create_logs_indexes = """
-    CREATE INDEX IF NOT EXISTS idx_ai_hub_logs_created ON ai_hub_logs(created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_ai_hub_logs_model ON ai_hub_logs(model_id);
-    CREATE INDEX IF NOT EXISTS idx_ai_hub_logs_status ON ai_hub_logs(status);
-    CREATE INDEX IF NOT EXISTS idx_ai_hub_logs_project ON ai_hub_logs(google_project_id);
-    """
-    
-    create_rate_tracking_table = """
-    CREATE TABLE IF NOT EXISTS ai_hub_rate_tracking (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        google_project_id VARCHAR(100) NOT NULL,
-        model_family VARCHAR(50) NOT NULL,
-        minute_window TIMESTAMPTZ NOT NULL,
-        requests_count INT DEFAULT 0,
-        tokens_count INT DEFAULT 0,
-        pacific_date DATE NOT NULL,
-        daily_requests INT DEFAULT 0,
-        updated_at TIMESTAMPTZ DEFAULT NOW(),
-        UNIQUE(google_project_id, model_family, minute_window)
-    );
-    """
-    
-    create_rate_tracking_index = """
-    CREATE INDEX IF NOT EXISTS idx_rate_tracking_lookup 
-        ON ai_hub_rate_tracking(google_project_id, model_family, minute_window DESC);
-    """
-    
-    try:
-        await DatabaseConnection.execute(create_logs_table)
-        await DatabaseConnection.execute(create_logs_indexes)
-        await DatabaseConnection.execute(create_rate_tracking_table)
-        await DatabaseConnection.execute(create_rate_tracking_index)
-        logger.info("AI Hub database tables ensured")
-    except Exception as e:
-        logger.warning("Could not ensure tables (may already exist via EF Core)", error=str(e))
+    """No tables needed - logging and rate limiting removed."""
+    pass
 
 
 

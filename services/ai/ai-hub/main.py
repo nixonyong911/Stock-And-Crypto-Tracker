@@ -3,9 +3,7 @@ AI Hub Service - Main FastAPI Application
 
 A multi-model AI gateway that provides:
 - Google Gemini API access (with future support for other providers)
-- Rate limiting (RPM/TPM/RPD per Google project)
 - Automatic retry with exponential backoff
-- Request/response logging with 7-day retention
 """
 
 import asyncio
@@ -16,7 +14,7 @@ from typing import Union
 from uuid import uuid4
 
 import structlog
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -34,9 +32,7 @@ from schemas import (
     ErrorCodes,
     CLIMessageRequest,
 )
-from services.rate_limiter import RateLimiter
 from services.retry_handler import RetryHandler, RetryResult
-from services.logger import AIHubLogger
 from services.cli_executor import get_cli_executor, kill_orphaned_cursor_agents
 from services.telegram_versions import telegram_agent_v1, telegram_agent_v2
 
@@ -64,22 +60,7 @@ structlog.configure(
 logger = structlog.get_logger(__name__)
 
 # Global instances
-rate_limiter = RateLimiter()
 retry_handler = RetryHandler()
-ai_logger = AIHubLogger()
-
-
-async def cleanup_task():
-    """Background task to clean up old logs and rate tracking data."""
-    while True:
-        try:
-            await asyncio.sleep(3600)  # Run every hour
-            await ai_logger.cleanup_old_logs()
-            await rate_limiter.cleanup_old_tracking()
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.error("Cleanup task error", error=str(e))
 
 
 async def orphan_cleanup_task():
@@ -126,7 +107,6 @@ async def lifespan(app: FastAPI):
         logger.warning("Database connection failed (CLI endpoints will still work)", error=str(e))
     
     # Start background tasks
-    cleanup = asyncio.create_task(cleanup_task())
     orphan_cleanup = asyncio.create_task(orphan_cleanup_task())
     
     # Initialize model registry
@@ -138,7 +118,6 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down AI Hub Service")
-    cleanup.cancel()
     orphan_cleanup.cancel()
     await DatabaseConnection.close()
 
@@ -264,15 +243,13 @@ async def list_models():
         500: {"model": ChatErrorResponse},
     }
 )
-async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
+async def chat(request: ChatRequest):
     """
     Send a message to an AI model and get a response.
     
     This endpoint handles:
     - Model routing based on model_id
-    - Pre-request rate limit checking
     - Automatic retry on transient errors
-    - Request/response logging
     """
     request_id = uuid4()
     start_time = time.time()
@@ -308,65 +285,11 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
                 model_id=request.model_id,
             )
         
-        # Log the error
-        background_tasks.add_task(
-            ai_logger.log_error,
-            request_id=request_id,
-            model_id=request.model_id,
-            caller_service=request.caller_service,
-            google_project_id=config.settings.google_cloud_project_id,
-            message=request.message,
-            error_message=error_response.error,
-            status="client_error",
-            http_status_code=400,
-        )
-        
         raise HTTPException(status_code=400, detail=error_response.model_dump())
     
-    # Get model config for rate limiting
+    # Get model config
     model_config = config.get_model(request.model_id)
     model_family = model_config.model_name if model_config else "unknown"
-    project_id = config.settings.google_cloud_project_id
-    
-    # Estimate tokens for pre-check
-    estimated_tokens = client.estimate_tokens(request.message)
-    if request.system_prompt:
-        estimated_tokens += client.estimate_tokens(request.system_prompt)
-    
-    # Pre-request rate limit check
-    rate_status = await rate_limiter.check_rate_limit(
-        project_id=project_id,
-        model_family=model_family,
-        estimated_tokens=estimated_tokens
-    )
-    
-    if not rate_status.can_proceed:
-        duration_ms = int((time.time() - start_time) * 1000)
-        error_response = ChatErrorResponse(
-            request_id=request_id,
-            error=f"Rate limit exceeded ({rate_status.limit_type})",
-            error_code=ErrorCodes.RATE_LIMIT_PRE_CHECK,
-            model_id=request.model_id,
-            rate_limit_type=rate_status.limit_type,
-            retry_after_seconds=rate_status.wait_seconds,
-        )
-        
-        # Log the rate limit
-        background_tasks.add_task(
-            ai_logger.log_error,
-            request_id=request_id,
-            model_id=request.model_id,
-            caller_service=request.caller_service,
-            google_project_id=project_id,
-            message=request.message,
-            error_message=error_response.error,
-            status="rate_limited",
-            http_status_code=429,
-            rate_limit_type=rate_status.limit_type,
-            duration_ms=duration_ms,
-        )
-        
-        raise HTTPException(status_code=429, detail=error_response.model_dump())
     
     # Execute with retry
     async def make_request():
@@ -384,29 +307,7 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     
     if result.success:
         model_response = result.result
-        
-        # Record usage for rate limiting
         total_tokens = model_response.tokens_input + model_response.tokens_output
-        await rate_limiter.record_usage(
-            project_id=project_id,
-            model_family=model_family,
-            tokens_used=total_tokens
-        )
-        
-        # Log success
-        background_tasks.add_task(
-            ai_logger.log_success,
-            request_id=request_id,
-            model_id=request.model_id,
-            caller_service=request.caller_service,
-            google_project_id=project_id,
-            message=request.message,
-            response=model_response.text,
-            tokens_input=model_response.tokens_input,
-            tokens_output=model_response.tokens_output,
-            duration_ms=duration_ms,
-            retry_count=result.retry_count,
-        )
         
         logger.info(
             "Chat request successful",
@@ -455,22 +356,6 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             retry_after_seconds=result.retry_after,
         )
         
-        # Log the error
-        background_tasks.add_task(
-            ai_logger.log_error,
-            request_id=request_id,
-            model_id=request.model_id,
-            caller_service=request.caller_service,
-            google_project_id=project_id,
-            message=request.message,
-            error_message=error_msg,
-            status=status,
-            http_status_code=result.http_status,
-            rate_limit_type=error_response.rate_limit_type,
-            duration_ms=duration_ms,
-            retry_count=result.retry_count,
-        )
-        
         logger.error(
             "Chat request failed",
             request_id=str(request_id),
@@ -482,18 +367,6 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         
         status_code = result.http_status or 500
         raise HTTPException(status_code=status_code, detail=error_response.model_dump())
-
-
-@app.get("/api/stats")
-async def get_stats(hours: int = 24):
-    """Get usage statistics for the last N hours."""
-    return await ai_logger.get_stats(hours=hours)
-
-
-@app.get("/api/errors")
-async def get_recent_errors(model_id: str = None, limit: int = 50):
-    """Get recent error logs."""
-    return await ai_logger.get_recent_errors(model_id=model_id, limit=limit)
 
 
 # ===========================================
