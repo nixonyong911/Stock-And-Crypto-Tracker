@@ -350,7 +350,7 @@ networks:
     ipam:
       config:
         - subnet: 172.18.0.0/16
-        - subnet: fd00:db8:1::/64
+        - subnet: fd00:db8:2::/64
 
 volumes:
   caddy-data:
