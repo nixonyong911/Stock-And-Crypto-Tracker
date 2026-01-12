@@ -50,7 +50,7 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │   │  Workflows   │  Stock Data  │  Aggregates  │   Admin UI   │Logs │    │  │
 │   │   ├──────────────┴──────────────┴──────────────┴──────────────┴─────┤    │  │
 │   │   │                        AI HUB (Docker)                          │    │  │
-│   │   │                        ai-hub-docker:8080                       │    │  │
+│   │   │                        ai-hub2:8080                       │    │  │
 │   │   │              FastAPI + Claude CLI + Cursor-agent CLI            │    │  │
 │   │   │              (CLIs mounted via Docker volumes)                  │    │  │
 │   │   └─────────────────────────────────────────────────────────────────┘    │  │
@@ -160,7 +160,7 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 | Alloy | 12345 | — (internal) | Metrics/logs forwarder to Grafana Cloud |
 | AI Hub | 8080 | — (internal) | AI CLI gateway (claude, cursor-agent) |
 
-**AI Hub Docker Container**: Accesses CLIs (claude, cursor-agent) installed on the VM host via volume mounts. Other containers access it via `ai-hub-docker:8080` with `X-API-Key` header.
+**AI Hub Docker Container**: Accesses CLIs (claude, cursor-agent) installed on the VM host via volume mounts. Other containers access it via `ai-hub2:8080` with `X-API-Key` header.
 
 ## File Structure on VM
 
@@ -207,7 +207,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
 }
 
 # NOTE: AI Hub is NOT exposed via Caddy
-# Internal access only via Docker network: ai-hub-docker:8080
+# Internal access only via Docker network: ai-hub2:8080
 ```
 
 ## Public URLs
@@ -220,7 +220,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
 | Metrics Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger | API docs |
 | Metrics Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live | Health check |
 | Back Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ | Admin UI |
-| AI Hub | ai-hub-docker:8080 (Docker network) | Internal only |
+| AI Hub | ai-hub2:8080 (Docker network) | Internal only |
 
 ## Health Check Commands
 
@@ -234,7 +234,7 @@ curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/
 ssh azureuser@20.17.176.1 "docker ps"
 
 # AI Hub health (via Docker)
-ssh azureuser@20.17.176.1 "docker exec ai-hub-docker curl -sf http://localhost:8080/health/live"
+ssh azureuser@20.17.176.1 "docker exec ai-hub2 curl -sf http://localhost:8080/health/live"
 ```
 
 ## Related Documents

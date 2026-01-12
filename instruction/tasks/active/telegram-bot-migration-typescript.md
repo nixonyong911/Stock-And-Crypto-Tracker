@@ -186,13 +186,13 @@ telegram-bot-ts:
     - WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook
     - DATABASE_URL_TS=${DATABASE_URL_TS}
     - REDIS_URL=redis://redis:6379
-    - AI_HUB_URL=http://ai-hub-docker:8080
+    - AI_HUB_URL=http://ai-hub2:8080
     - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     - BOT_PORT=8087
   networks:
     - stocktracker
   depends_on:
-    - ai-hub-docker
+    - ai-hub2
     - redis
 ```
 

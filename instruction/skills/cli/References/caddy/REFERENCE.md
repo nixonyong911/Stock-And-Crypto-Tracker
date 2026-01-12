@@ -33,7 +33,7 @@ https://nxserver.malaysiawest.cloudapp.azure.com
 
 | Service | Internal URL | Purpose |
 |---------|--------------|---------|
-| **AI-Hub** | `http://ai-hub-docker:8080` | AI Gateway (Docker network) |
+| **AI-Hub** | `http://ai-hub2:8080` | AI Gateway (Docker network) |
 
 ---
 

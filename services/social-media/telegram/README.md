@@ -56,7 +56,7 @@ pip install -r requirements.txt
 # Set environment variables
 export TELEGRAM_BOT_TOKEN="your-token"
 export DATABASE_URL="postgresql://..."
-export AI_HUB_URL="http://localhost:8080"  # ai-hub-docker container (expose port if needed)
+export AI_HUB_URL="http://localhost:8080"  # ai-hub2 container (expose port if needed)
 
 # Run the bot
 python main.py

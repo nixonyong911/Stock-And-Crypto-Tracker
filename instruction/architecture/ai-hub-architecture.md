@@ -11,7 +11,7 @@ Centralized Python FastAPI service acting as gateway between microservices and A
 - Response verification before returning to services
 - Full request/response logging for debugging and auditing
 - Language-agnostic HTTP API consumable by any service
-- Docker containers access ai-hub via `ai-hub-docker:8080` (Docker network)
+- Docker containers access ai-hub via `ai-hub2:8080` (Docker network)
 
 ---
 
@@ -23,7 +23,7 @@ Centralized Python FastAPI service acting as gateway between microservices and A
 ├─────────────────┬─────────────────┬─────────────────┬───────────────────┤
 │  .NET Workers   │  Next.js Frontend│  Go Services    │  Python Services  │
 └────────┬────────┴────────┬─────────┴────────┬────────┴─────────┬─────────┘
-         │     HTTP POST to ai-hub-docker:8080 (Docker network)  │
+         │     HTTP POST to ai-hub2:8080 (Docker network)  │
          └─────────────────┴──────────────────┴──────────────────┘
                                     │
                                     ▼
@@ -45,7 +45,7 @@ Centralized Python FastAPI service acting as gateway between microservices and A
 
 **Production Flow (ai-hub in Docker):**
 ```
-Docker Service → ai-hub-docker:8080 → ai-hub → CLI (via volume) → Response → Service
+Docker Service → ai-hub2:8080 → ai-hub → CLI (via volume) → Response → Service
 ```
 
 **Local Dev Flow (ai-hub local + SSH):**
@@ -421,22 +421,22 @@ Azure VM Host
 ├── Docker Compose
 │   ├── Caddy (reverse proxy)
 │   │   └── NOTE: ai-hub NOT exposed publicly (internal only)
-│   ├── ai-hub-docker (port 8080)
+│   ├── ai-hub2 (port 8080)
 │   │   ├── FastAPI app
 │   │   ├── Volume mounts for claude, cursor-agent CLIs
 │   │   ├── API key authentication (X-API-Key header)
 │   │   └── Volume mount for /home/azureuser/stock-tracker/
-│   ├── TwelveData Worker → ai-hub-docker:8080
-│   ├── Metrics Service → ai-hub-docker:8080
-│   ├── back-office → ai-hub-docker:8080
-│   └── n8n → ai-hub-docker:8080
+│   ├── TwelveData Worker → ai-hub2:8080
+│   ├── Metrics Service → ai-hub2:8080
+│   ├── back-office → ai-hub2:8080
+│   └── n8n → ai-hub2:8080
 │
 └── CLIs (installed on host, mounted into container)
     ├── claude
     └── cursor-agent
 ```
 
-**Security:** ai-hub is NOT exposed via Caddy. Only Docker containers can access it via `ai-hub-docker:8080` with a valid `X-API-Key` header.
+**Security:** ai-hub is NOT exposed via Caddy. Only Docker containers can access it via `ai-hub2:8080` with a valid `X-API-Key` header.
 
 ### Docker Volume Mounts
 
@@ -455,16 +455,16 @@ Azure VM Host
 ssh-azure  # or: ssh -i key.pem azureuser@20.17.176.1
 
 # Container management
-docker ps --filter name=ai-hub-docker
-docker restart ai-hub-docker
-docker stop ai-hub-docker
+docker ps --filter name=ai-hub2
+docker restart ai-hub2
+docker stop ai-hub2
 
 # View logs
-docker logs ai-hub-docker -f
-docker logs ai-hub-docker --since "10m"
+docker logs ai-hub2 -f
+docker logs ai-hub2 --since "10m"
 
 # Test endpoint
-docker exec ai-hub-docker curl http://localhost:8080/health/live
+docker exec ai-hub2 curl http://localhost:8080/health/live
 ```
 
 ---
@@ -480,7 +480,7 @@ docker exec ai-hub-docker curl http://localhost:8080/health/live
 | CLIs Installed | claude (2.0.76), cursor-agent (2025.12.17) |
 | **Default Context Path** | `/home/azureuser/stock-tracker/` |
 | **AI Hub Port** | 8080 (Docker internal only) |
-| **Docker Access** | `ai-hub-docker:8080` + `X-API-Key` header |
+| **Docker Access** | `ai-hub2:8080` + `X-API-Key` header |
 
 **CLI Execution Pattern:**
 ```bash
@@ -507,7 +507,7 @@ Test UI for AI Hub endpoints. Runs in Docker, calls AI Hub via Docker bridge.
 Browser → Caddy → back-office container → AI Hub (Docker)
                          │
                          ▼
-              http://ai-hub-docker:8080
+              http://ai-hub2:8080
               + X-API-Key: <AI_HUB_API_KEY>
 ```
 
@@ -522,7 +522,7 @@ Browser → Caddy → back-office container → AI Hub (Docker)
 
 **API Route Example:**
 ```typescript
-const AI_HUB_URL = process.env.AI_HUB_URL || "http://ai-hub-docker:8080";
+const AI_HUB_URL = process.env.AI_HUB_URL || "http://ai-hub2:8080";
 const AI_HUB_API_KEY = process.env.AI_HUB_API_KEY || "";
 
 export async function POST(req: Request) {
@@ -554,7 +554,7 @@ export async function POST(req: Request) {
 
 ```caddyfile
 # NOTE: ai-hub is NOT exposed via Caddy (internal only)
-# Containers access it via ai-hub-docker:8080 + X-API-Key header
+# Containers access it via ai-hub2:8080 + X-API-Key header
 
 # Back-office (Docker container) - use handle, not handle_path
 handle /back-office* {
@@ -562,7 +562,7 @@ handle /back-office* {
 }
 ```
 
-> **Security:** ai-hub is intentionally NOT exposed via Caddy. Only internal Docker containers can access it using `ai-hub-docker:8080` with a valid API key.
+> **Security:** ai-hub is intentionally NOT exposed via Caddy. Only internal Docker containers can access it using `ai-hub2:8080` with a valid API key.
 
 ---
 
@@ -579,7 +579,7 @@ GitHub Actions (deploy-vm.yml)
     ├── Build Docker services (twelvedata, metrics, back-office, ai-hub)
     │
     └── Start Docker services with Infisical secrets
-        └── AI Hub deployed as Docker container (ai-hub-docker)
+        └── AI Hub deployed as Docker container (ai-hub2)
 ```
 
 ### AI Hub Deployment

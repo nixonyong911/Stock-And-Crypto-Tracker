@@ -1,4 +1,4 @@
-const AI_HUB_URL = process.env.AI_HUB_URL || "http://ai-hub-docker:8080";
+const AI_HUB_URL = process.env.AI_HUB_URL || "http://ai-hub2:8080";
 const AI_HUB_API_KEY = process.env.AI_HUB_API_KEY || "";
 
 export async function POST(req: Request) {

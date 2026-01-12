@@ -177,11 +177,11 @@ Logs are forwarded via Grafana Alloy. For Docker containers, logs are collected 
 
 ### Method 1: Docker Containers (Recommended for Services)
 
-All Docker containers (including ai-hub-docker) have logs collected automatically via Docker's logging driver. View logs with:
+All Docker containers (including ai-hub2) have logs collected automatically via Docker's logging driver. View logs with:
 
 ```bash
 docker logs <container-name> -f
-docker logs ai-hub-docker --tail 100
+docker logs ai-hub2 --tail 100
 ```
 
 ### Method 2: Log Files (For Scripts/Cron Jobs)

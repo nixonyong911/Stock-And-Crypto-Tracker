@@ -113,11 +113,11 @@ cd /home/azureuser/stock-tracker && cursor-agent --model opus-4.5 -p "<message>"
 
 ## How Workers Call AI Hub
 
-Workers in Docker containers call AI Hub at `http://ai-hub-docker:8080`:
+Workers in Docker containers call AI Hub at `http://ai-hub2:8080`:
 
 ```typescript
 // From a worker in Docker container
-const AI_HUB_URL = "http://ai-hub-docker:8080";
+const AI_HUB_URL = "http://ai-hub2:8080";
 
 const response = await fetch(`${AI_HUB_URL}/cli/stock-tracker/claude/opus-4.5`, {
   method: "POST",
@@ -174,7 +174,7 @@ async def cli_new_feature_claude_sonnet4(request: CLIMessageRequest):
 Push changes to trigger CI/CD, or restart ai-hub container on VM:
 
 ```bash
-docker restart ai-hub-docker
+docker restart ai-hub2
 ```
 
 ---
@@ -185,7 +185,7 @@ docker restart ai-hub-docker
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Worker (Docker Container)                                           │
 │                                                                     │
-│   POST http://ai-hub-docker:8080/cli/stock-tracker/claude/opus-4.5  │
+│   POST http://ai-hub2:8080/cli/stock-tracker/claude/opus-4.5  │
 │   Body: { "message": "..." }                                        │
 └─────────────────────────────────────────────────────────────────────┘
                               │
@@ -217,7 +217,7 @@ docker restart ai-hub-docker
 
 **Check logs:**
 ```bash
-docker logs -f ai-hub-docker
+docker logs -f ai-hub2
 ```
 
 ---
@@ -225,16 +225,16 @@ docker logs -f ai-hub-docker
 ## Testing
 
 ```bash
-# Discovery endpoint (run from inside ai-hub-docker container)
-docker exec ai-hub-docker curl http://localhost:8080/cli
+# Discovery endpoint (run from inside ai-hub2 container)
+docker exec ai-hub2 curl http://localhost:8080/cli
 
 # Test Claude endpoint
-docker exec ai-hub-docker curl -X POST http://localhost:8080/cli/stock-tracker/claude/opus-4.5 \
+docker exec ai-hub2 curl -X POST http://localhost:8080/cli/stock-tracker/claude/opus-4.5 \
   -H "Content-Type: application/json" \
   -d '{"message": "Hello, test"}'
 
 # Test Cursor endpoint
-docker exec ai-hub-docker curl -X POST http://localhost:8080/cli/stock-tracker/cursor/opus-4.5 \
+docker exec ai-hub2 curl -X POST http://localhost:8080/cli/stock-tracker/cursor/opus-4.5 \
   -H "Content-Type: application/json" \
   -d '{"message": "Hello, test"}'
 ```

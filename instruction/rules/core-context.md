@@ -83,6 +83,6 @@ A microservices-based stock and cryptocurrency tracking application with:
 9. **Caddy worker endpoints** - When adding new Caddy reverse proxy routes, update `instruction/skills/cli-caddy/SKILL.md`
 10. **VM deployment** - Backend services run on Azure VM (`nx-linux-server-azure`), not Container Apps
 11. **CLI documentation** - Detailed commands in `instruction/cli/` (PowerShell, Docker, Azure CLI)
-12. **AI Hub in Docker** - Python service as Docker container with volume mounts to access host CLIs; containers use `ai-hub-docker:8080`
+12. **AI Hub in Docker** - Python service as Docker container with volume mounts to access host CLIs; containers use `ai-hub2:8080`
 13. **Grafana Cloud** - Metrics/logs forwarded via Alloy; dashboards in `grafana/dashboards/`
 14. **Back-office** - Admin UI at `/back-office` on VM; uses Supabase for data display + AI Hub integration

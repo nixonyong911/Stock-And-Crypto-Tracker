@@ -43,11 +43,11 @@
 
 ```bash
 # Check AI Hub status
-docker ps --filter name=ai-hub-docker
-docker logs ai-hub-docker --since "10m"
+docker ps --filter name=ai-hub2
+docker logs ai-hub2 --since "10m"
 
 # Test from container
-docker exec ai-hub-docker curl -sf http://localhost:8080/health/live
+docker exec ai-hub2 curl -sf http://localhost:8080/health/live
 ```
 
 ## Lessons Learned

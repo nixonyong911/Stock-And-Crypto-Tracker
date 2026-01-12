@@ -210,8 +210,8 @@ return result.response;
 ## Docker Network
 
 When running in Docker Compose, use service name:
-- **Internal URL:** `http://ai-hub-docker:8080`
-- **Health Check:** `docker exec ai-hub-docker curl http://localhost:8080/health/live`
+- **Internal URL:** `http://ai-hub2:8080`
+- **Health Check:** `docker exec ai-hub2 curl http://localhost:8080/health/live`
 
 
 

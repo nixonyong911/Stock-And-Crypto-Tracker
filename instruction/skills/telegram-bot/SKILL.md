@@ -30,7 +30,7 @@ The Telegram AI Financial Assistant is a multi-component system that allows auth
 2. **Environment Variables in Infisical**
    - `TELEGRAM_BOT_TOKEN` - Bot token from @BotFather
    - `DATABASE_URL_PYTHON` - PostgreSQL DSN for asyncpg (see format below)
-   - `AI_HUB_URL` - AI Hub endpoint (default: `http://ai-hub-docker:8080`)
+   - `AI_HUB_URL` - AI Hub endpoint (default: `http://ai-hub2:8080`)
    - `AI_HUB_API_KEY` - AI Hub authentication key
 
 **Important:**
@@ -145,8 +145,8 @@ Common error: `invalid DSN: scheme is expected to be either "postgresql" or "pos
 
 ### AI Hub Errors
 
-1. Check Docker status: `docker ps --filter name=ai-hub-docker`
-2. View logs: `docker logs ai-hub-docker -f`
+1. Check Docker status: `docker ps --filter name=ai-hub2`
+2. View logs: `docker logs ai-hub2 -f`
 3. Verify `AI_HUB_API_KEY` is set
 
 ### Rate Limit Issues
