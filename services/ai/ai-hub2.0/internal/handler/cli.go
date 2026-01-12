@@ -29,7 +29,8 @@ func NewCLIHandler(cfg *config.Config, exec *executor.CLIExecutor, logger zerolo
 
 // CLIMessageRequest is the request body for CLI endpoints
 type CLIMessageRequest struct {
-	Message string `json:"message"`
+	Message   string `json:"message"`
+	SessionID string `json:"session_id,omitempty"` // Optional: resume previous session
 }
 
 // CLIEndpointInfo describes an available CLI endpoint
@@ -88,11 +89,17 @@ func (h *CLIHandler) executeCLI(w http.ResponseWriter, r *http.Request, cli, mod
 		return
 	}
 
+	// Log if session_id is provided (for debugging)
+	if req.SessionID != "" {
+		h.logger.Debug().Str("session_id", req.SessionID).Msg("Resuming session")
+	}
+
 	result, err := h.executor.Execute(r.Context(), executor.ExecuteParams{
 		CLI:         cli,
 		Message:     req.Message,
 		ContextPath: h.config.DefaultContextPath,
 		Model:       model,
+		SessionID:   req.SessionID,
 	})
 
 	if err != nil {

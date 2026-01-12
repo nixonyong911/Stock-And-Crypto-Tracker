@@ -32,6 +32,7 @@ type ExecuteParams struct {
 	Message     string
 	ContextPath string
 	Model       string
+	SessionID   string // Optional: resume session (cursor-agent: --resume, claude: -r)
 }
 
 // CLIExecutor handles CLI command execution with concurrency limits
@@ -106,26 +107,87 @@ func (e *CLIExecutor) Execute(ctx context.Context, params ExecuteParams) (*CLIRe
 	return result, nil
 }
 
-// buildCLICommand constructs the CLI command string
+// CLICommandBuilder provides centralized command building for different CLIs
+type CLICommandBuilder struct {
+	// Common settings
+	ClaudeMCPConfig string // Path to Claude MCP config file
+}
+
+// NewCLICommandBuilder creates a command builder with default settings
+func NewCLICommandBuilder() *CLICommandBuilder {
+	return &CLICommandBuilder{
+		ClaudeMCPConfig: "/root/.claude-mcp.json",
+	}
+}
+
+// escapeMessage escapes special shell characters in the message
+func (b *CLICommandBuilder) escapeMessage(message string) string {
+	escaped := strings.ReplaceAll(message, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+	escaped = strings.ReplaceAll(escaped, `$`, `\$`)
+	return escaped
+}
+
+// BuildClaudeCommand builds a Claude CLI command
+// Format: echo "<message>" | claude --print --output-format text --mcp-config <config> [-r <session_id>]
+func (b *CLICommandBuilder) BuildClaudeCommand(message, sessionID string) string {
+	escapedMessage := b.escapeMessage(message)
+
+	// Base command parts
+	parts := []string{
+		fmt.Sprintf(`echo "%s"`, escapedMessage),
+		"|",
+		"claude",
+		"--print",
+		"--output-format", "text",
+		"--mcp-config", b.ClaudeMCPConfig,
+	}
+
+	// Optional: session resume flag
+	if sessionID != "" {
+		parts = append(parts, "-r", sessionID)
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// BuildCursorAgentCommand builds a cursor-agent CLI command
+// Format: cursor-agent -p "<message>" --model <model> --approve-mcps --force [--resume=<session_id>]
+func (b *CLICommandBuilder) BuildCursorAgentCommand(message, model, sessionID string) string {
+	escapedMessage := b.escapeMessage(message)
+
+	// Base command parts
+	parts := []string{
+		"cursor-agent",
+		"-p", fmt.Sprintf(`"%s"`, escapedMessage),
+	}
+
+	// Optional: model flag
+	if model != "" {
+		parts = append(parts, "--model", model)
+	}
+
+	// Standard flags
+	parts = append(parts, "--approve-mcps", "--force")
+
+	// Optional: session resume flag
+	if sessionID != "" {
+		parts = append(parts, fmt.Sprintf("--resume=%s", sessionID))
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// buildCLICommand constructs the CLI command string (centralized entry point)
 func (e *CLIExecutor) buildCLICommand(params ExecuteParams) string {
-	// Escape special characters for shell
-	escapedMessage := strings.ReplaceAll(params.Message, `\`, `\\`)
-	escapedMessage = strings.ReplaceAll(escapedMessage, `"`, `\"`)
-	escapedMessage = strings.ReplaceAll(escapedMessage, `$`, `\$`)
+	builder := NewCLICommandBuilder()
 
 	switch params.CLI {
 	case "claude":
-		// Claude CLI: pipe message to stdin with --print for non-interactive
-		mcpConfig := "/root/.claude-mcp.json"
-		return fmt.Sprintf(`echo "%s" | claude --print --output-format text --mcp-config %s`, escapedMessage, mcpConfig)
+		return builder.BuildClaudeCommand(params.Message, params.SessionID)
 
 	case "cursor-agent":
-		// cursor-agent: use -p flag for prompt
-		modelFlag := ""
-		if params.Model != "" {
-			modelFlag = fmt.Sprintf("--model %s", params.Model)
-		}
-		return fmt.Sprintf(`cursor-agent -p "%s" %s --approve-mcps --force`, escapedMessage, modelFlag)
+		return builder.BuildCursorAgentCommand(params.Message, params.Model, params.SessionID)
 
 	default:
 		return fmt.Sprintf(`echo "Unknown CLI: %s"`, params.CLI)
