@@ -8,7 +8,6 @@ that can query financial data (stocks, crypto, candlestick patterns).
 
 import logging
 import asyncio
-import signal
 import sys
 from threading import Thread
 
@@ -16,8 +15,8 @@ from telegram.ext import Application
 from fastapi import FastAPI
 import uvicorn
 
-from config import TELEGRAM_BOT_TOKEN, BOT_PORT
-from services import SessionService, AIHubClient
+from config import TELEGRAM_BOT_TOKEN, BOT_PORT, DATABASE_URL
+from services import DatabaseContext, SessionService, AIHubClient
 from handlers import setup_command_handlers, setup_message_handlers
 
 
@@ -29,9 +28,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Global services
-session_service = SessionService()
+# Infrastructure layer
+db_context = DatabaseContext(DATABASE_URL)
+
+# Services (with dependency injection)
+session_service = SessionService(db_context)
 ai_client = AIHubClient()
+
+# Telegram application
 telegram_app: Application = None
 
 
@@ -135,7 +139,6 @@ async def main():
         if telegram_app.running:
             await telegram_app.stop()
         await telegram_app.shutdown()
-        await session_service.close()
         logger.info("Bot stopped.")
 
 
