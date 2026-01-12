@@ -48,12 +48,32 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /ai-hub2 /app/ai-hub2
 
-# CLI binaries will be available via volume mounts from host:
-# - /usr/lib/node_modules/@anthropic-ai (claude)
-# - /opt/cursor-agent (cursor-agent)
-#
-# Add volume mount paths to PATH
-ENV PATH="/usr/lib/node_modules/@anthropic-ai/claude-code/bin:/opt/cursor-agent/bin:${PATH}"
+# Create directories for CLI mounts
+RUN mkdir -p /usr/lib/node_modules/@anthropic-ai \
+    && mkdir -p /opt/cursor-agent \
+    && mkdir -p /root/.claude \
+    && mkdir -p /root/.cursor \
+    && mkdir -p /root/.config/cursor \
+    && mkdir -p /home/azureuser/stock-tracker
+
+# Create symlink for claude CLI
+RUN ln -s /usr/lib/node_modules/@anthropic-ai/claude-code/cli.js /usr/local/bin/claude
+
+# Create cursor-agent wrapper script
+RUN printf '#!/bin/bash\n\
+set -e\n\
+export HOME=/root\n\
+VERSION_DIR=$(ls -1 /opt/cursor-agent/versions 2>/dev/null | sort -r | head -1)\n\
+if [ -z "$VERSION_DIR" ]; then\n\
+    echo "Error: No cursor-agent version found" >&2\n\
+    exit 1\n\
+fi\n\
+export PATH="/opt/cursor-agent/versions/${VERSION_DIR}:$PATH"\n\
+exec "/opt/cursor-agent/versions/${VERSION_DIR}/cursor-agent" "$@"\n\
+' > /usr/local/bin/cursor-agent && chmod +x /usr/local/bin/cursor-agent
+
+# Add local bin to PATH
+ENV PATH="/root/.local/bin:/usr/local/bin:${PATH}"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
