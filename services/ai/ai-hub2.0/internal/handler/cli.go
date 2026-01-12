@@ -89,10 +89,15 @@ func (h *CLIHandler) executeCLI(w http.ResponseWriter, r *http.Request, cli, mod
 		return
 	}
 
-	// Log if session_id is provided
+	// Log request info
+	logEvent := h.logger.Info().
+		Str("cli", cli).
+		Str("model", model).
+		Int("message_length", len(req.Message))
 	if req.SessionID != "" {
-		h.logger.Info().Str("session_id", req.SessionID).Str("cli", cli).Msg("Session resume requested")
+		logEvent = logEvent.Str("session_id", req.SessionID)
 	}
+	logEvent.Msg("Processing CLI request")
 
 	result, err := h.executor.Execute(r.Context(), executor.ExecuteParams{
 		CLI:         cli,
