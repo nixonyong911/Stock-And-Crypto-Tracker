@@ -67,7 +67,8 @@ export class DatabaseContext {
     try {
       await this.pool.query('SELECT 1');
       return true;
-    } catch {
+    } catch (error) {
+      console.error('Database health check failed:', (error as Error).message);
       return false;
     }
   }
