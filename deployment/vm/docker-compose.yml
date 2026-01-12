@@ -335,7 +335,7 @@ services:
       - AI_HUB_DEFAULT_CONTEXT_PATH=/home/azureuser/stock-tracker
       - AI_HUB_CLI_TIMEOUT_SECONDS=120
       - AI_HUB_MAX_CONCURRENT=3
-      - DATABASE_URL=${DATABASE_URL_PYTHON}
+      - DATABASE_URL=${DATABASE_URL_GO}
       - REDIS_URL=redis://redis:6379
     volumes:
       # CLI binaries (read-only) - same as ai-hub-docker
