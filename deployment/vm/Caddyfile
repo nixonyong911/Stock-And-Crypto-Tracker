@@ -42,6 +42,13 @@ nxserver.malaysiawest.cloudapp.azure.com {
     
     
     # ===========================================
+    # Telegram Bot 2.0 Webhook
+    # ===========================================
+    handle /telegram/webhook {
+        reverse_proxy telegram-bot-2.0:8087
+    }
+    
+    # ===========================================
     # Back Office - Admin & Testing UI
     # Uses handle (not handle_path) because Next.js basePath handles the prefix
     # ===========================================

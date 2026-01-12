@@ -270,6 +270,37 @@ services:
       start_period: 15s
 
   # ===========================================
+  # Telegram Bot 2.0 - TypeScript/grammY
+  # Port: 8087 (internal, webhook mode)
+  # ===========================================
+  telegram-bot-2.0:
+    image: stocktracker-telegram-bot-2.0:latest
+    build:
+      context: ./repo/services/social-media/telegram-2.0
+      dockerfile: Dockerfile
+    container_name: telegram-bot-2.0
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook
+      - DATABASE_URL=${DATABASE_URL_GO}
+      - REDIS_URL=redis://redis:6379
+      - AI_HUB_URL=http://ai-hub2:8080
+      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
+      - BOT_PORT=8087
+    networks:
+      - stocktracker
+    depends_on:
+      - ai-hub2
+      - redis
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8087/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  # ===========================================
   # AI Hub 2.0 (Go) - High-Performance CLI Gateway
   # Port: 8081 (external), 8080 (internal)
   # ===========================================

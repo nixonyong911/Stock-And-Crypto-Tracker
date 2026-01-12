@@ -30,6 +30,7 @@ on:
       - 'services/back-office/**'
       - 'services/mcp/**'
       - 'services/social-media/telegram/**'
+      - 'services/social-media/telegram-2.0/**'
       - 'services/common/**'
       - 'deployment/vm/**'
       - '.github/workflows/deploy-vm.yml'
@@ -55,9 +56,10 @@ jobs:
       backoffice: ${{ steps.filter.outputs.backoffice }}
       mcp: ${{ steps.filter.outputs.mcp }}
       telegram: ${{ steps.filter.outputs.telegram }}
+      telegram2: ${{ steps.filter.outputs.telegram2 }}
       aihub: ${{ steps.filter.outputs.aihub }}
       config: ${{ steps.filter.outputs.config }}
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram == 'true' || steps.filter.outputs.aihub == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub == 'true' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -82,6 +84,8 @@ jobs:
               - 'services/mcp/**'
             telegram:
               - 'services/social-media/telegram/**'
+            telegram2:
+              - 'services/social-media/telegram-2.0/**'
             aihub:
               - 'services/ai/ai-hub/**'
             config:
@@ -99,6 +103,7 @@ jobs:
           echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
           echo "MCP Analysis: ${{ steps.filter.outputs.mcp }}"
           echo "Telegram Bot: ${{ steps.filter.outputs.telegram }}"
+          echo "Telegram Bot 2.0: ${{ steps.filter.outputs.telegram2 }}"
           echo "AI Hub: ${{ steps.filter.outputs.aihub }}"
           echo "Config: ${{ steps.filter.outputs.config }}"
           echo "Force Build: ${{ github.event.inputs.force_build }}"
@@ -114,6 +119,7 @@ jobs:
           echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
           echo "| MCP Analysis | ${{ steps.filter.outputs.mcp }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Telegram Bot | ${{ steps.filter.outputs.telegram }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Telegram Bot 2.0 | ${{ steps.filter.outputs.telegram2 }} |" >> $GITHUB_STEP_SUMMARY
           echo "| AI Hub | ${{ steps.filter.outputs.aihub }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Config | ${{ steps.filter.outputs.config }} |" >> $GITHUB_STEP_SUMMARY
 
@@ -235,6 +241,22 @@ jobs:
           cache-to: type=gha,mode=max,scope=telegram
           outputs: type=docker,dest=/tmp/telegram-bot.tar
 
+      # Build Telegram Bot 2.0 (only if changed or forced)
+      - name: Build Telegram Bot 2.0 image
+        id: build-telegram2
+        if: needs.detect-changes.outputs.telegram2 == 'true' || github.event.inputs.force_build == 'true'
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/social-media/telegram-2.0/
+          file: services/social-media/telegram-2.0/Dockerfile
+          tags: |
+            stocktracker-telegram-bot-2.0:latest
+            stocktracker-telegram-bot-2.0:${{ github.sha }}
+          cache-from: type=gha,scope=telegram2
+          cache-to: type=gha,mode=max,scope=telegram2
+          outputs: type=docker,dest=/tmp/telegram-bot-2.0.tar
+
       # Build AI Hub Docker (only if changed or forced)
       - name: Build AI Hub image
         id: build-aihub
@@ -306,6 +328,14 @@ jobs:
             echo "⏭️ Telegram Bot skipped (unchanged)"
           fi
           
+          if [ -f /tmp/telegram-bot-2.0.tar ]; then
+            gzip -1 < /tmp/telegram-bot-2.0.tar > /tmp/images/telegram-bot-2.0.tar.gz
+            BUILT="${BUILT}telegram2,"
+            echo "✅ Telegram Bot 2.0 compressed"
+          else
+            echo "⏭️ Telegram Bot 2.0 skipped (unchanged)"
+          fi
+          
           if [ -f /tmp/ai-hub.tar ]; then
             gzip -1 < /tmp/ai-hub.tar > /tmp/images/ai-hub.tar.gz
             BUILT="${BUILT}aihub,"
@@ -356,7 +386,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
             
-            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot ai-hub; do
+            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot telegram-bot-2.0 ai-hub; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -422,7 +452,7 @@ jobs:
           echo "📥 Loading Docker images..."
           
           # Only load our specific service images (not other .tar.gz files in /tmp)
-          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot ai-hub; do
+          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot telegram-bot-2.0 ai-hub; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -558,6 +588,9 @@ jobs:
           
           # Telegram Bot runs on internal port 8087 - check via SSH
           ssh azureuser@20.17.176.1 'curl -sf http://localhost:8087/health' > /dev/null && echo "✅ Telegram Bot: OK" || echo "⚠️ Telegram Bot: Check Docker logs"
+          
+          # Telegram Bot 2.0 (webhook mode) - check via SSH
+          ssh azureuser@20.17.176.1 'docker exec telegram-bot-2.0 wget -qO- http://localhost:8087/health' > /dev/null && echo "✅ Telegram Bot 2.0: OK" || echo "⚠️ Telegram Bot 2.0: Check Docker logs"
           
           ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "⚠️ Alloy: Check logs"
           

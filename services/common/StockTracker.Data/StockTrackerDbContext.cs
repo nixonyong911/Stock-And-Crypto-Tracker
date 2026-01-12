@@ -38,6 +38,11 @@ public class StockTrackerDbContext : DbContext
     
     // Analysis tables
     public DbSet<AnalysisStockCandlestickPattern> AnalysisStockCandlestickPatterns => Set<AnalysisStockCandlestickPattern>();
+    
+    // Telegram bot tables
+    public DbSet<TelegramUser> TelegramUsers => Set<TelegramUser>();
+    public DbSet<TelegramSession> TelegramSessions => Set<TelegramSession>();
+    public DbSet<TelegramRateLimit> TelegramRateLimits => Set<TelegramRateLimit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
