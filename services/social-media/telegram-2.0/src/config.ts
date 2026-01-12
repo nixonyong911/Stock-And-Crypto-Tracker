@@ -28,8 +28,8 @@ export const config = {
   // RabbitMQ
   rabbitmq: {
     url: getEnvOrDefault('RABBITMQ_URL', 'amqp://stocktracker:password@localhost:5672'),
-    prefetch: 1,            // FIFO: Each consumer handles 1 message at a time
-    consumerCount: 3,       // 3 parallel consumers (for different chats)
+    prefetch: 1,            // FIFO: Process 1 message at a time
+    consumerCount: 1,       // Single consumer for strict FIFO order
     requeueDelayMs: 1000,   // ms to wait before retry if lock busy
   },
   
