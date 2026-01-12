@@ -96,6 +96,16 @@ export class MessageConsumer {
     const { chatId, userId, messageId, text, sessionId, id: msgId } = payload;
     const keys = getQueueKeys(chatId);
 
+    // Deduplication: Check if this message was already processed
+    const dedupKey = `msg:${messageId}:processed`;
+    const alreadyProcessed = await this.redis.get(dedupKey);
+    if (alreadyProcessed) {
+      logger.debug({ message_id: msgId, chat_id: chatId }, 'Duplicate queued message ignored');
+      channel.ack(msg); // Acknowledge and discard
+      await this.decrementPending(keys.pending);
+      return;
+    }
+
     logger.debug({
       message_id: msgId,
       chat_id: chatId,

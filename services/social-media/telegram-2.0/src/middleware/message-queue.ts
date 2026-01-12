@@ -18,6 +18,23 @@ function getQueueKeys(chatId: number) {
 }
 
 /**
+ * Check if message was already processed (deduplication)
+ */
+async function isMessageProcessed(redis: BotContext['redis'], messageId: number): Promise<boolean> {
+  const key = `msg:${messageId}:processed`;
+  const exists = await redis.get(key);
+  return exists !== null;
+}
+
+/**
+ * Mark message as processed (prevents duplicates from Telegram retries)
+ */
+async function markMessageProcessed(redis: BotContext['redis'], messageId: number): Promise<void> {
+  const key = `msg:${messageId}:processed`;
+  await redis.set(key, '1', 300); // 5 min TTL - enough to cover processing time
+}
+
+/**
  * Message queue middleware - Fair queuing per chat.
  * 
  * Behavior:
@@ -39,6 +56,7 @@ export async function messageQueueMiddleware(
 
   const chatId = ctx.chat?.id;
   const userId = ctx.from?.id;
+  const messageId = ctx.message.message_id;
   
   if (!chatId || !userId) {
     return next();
@@ -48,6 +66,15 @@ export async function messageQueueMiddleware(
   const rabbitmq = getRabbitMQ();
 
   try {
+    // Deduplication: Check if this message was already processed (Telegram retry)
+    if (await isMessageProcessed(ctx.redis, messageId)) {
+      logger.debug({ message_id: messageId, chat_id: chatId }, 'Duplicate message ignored (Telegram retry)');
+      return; // Silently ignore duplicate
+    }
+
+    // Mark message as being processed
+    await markMessageProcessed(ctx.redis, messageId);
+
     // Check current queue depth for this chat
     const pendingCount = await ctx.redis.get(keys.pending);
     const queueDepth = pendingCount ? parseInt(pendingCount, 10) : 0;
