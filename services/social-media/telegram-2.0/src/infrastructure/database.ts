@@ -1,5 +1,9 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
+import dns from 'dns';
 import { config } from '../config.js';
+
+// Force Node.js to prefer IPv4 over IPv6
+dns.setDefaultResultOrder('ipv4first');
 
 /**
  * Database context with connection pooling and transaction support.
