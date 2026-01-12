@@ -380,3 +380,4 @@ volumes:
   caddy-data:
   caddy-config:
   redis-data:
+  rabbitmq-data:
