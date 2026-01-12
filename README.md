@@ -92,7 +92,7 @@ Track stocks and cryptocurrency prices by aggregating data from multiple third-p
 ```
 StockAndCryptoTracker/
 ├── README.md                          # This file
-├── docker-compose.yml                 # Container orchestration
+├── deployment/vm/docker-compose.yml   # VM container orchestration
 ├── .env.example                       # Environment variables template
 ├── monitoring/
 │   └── prometheus.yml                 # Prometheus configuration
@@ -225,7 +225,7 @@ COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "NewService.Worker.dll"]
 ```
 
-### 5. Add to docker-compose.yml
+### 5. Add to deployment/vm/docker-compose.yml
 ```yaml
 new-service-fetcher:
   build:
@@ -253,14 +253,14 @@ NEW_SERVICE_API_KEY=your-api-key-here
 ## Removing a Data Fetcher Service
 
 ### Option 1: Temporary Disable
-Comment out the service in `docker-compose.yml`:
+Comment out the service in `deployment/vm/docker-compose.yml`:
 ```yaml
 # new-service-fetcher:
 #   build: ...
 ```
 
 ### Option 2: Permanent Removal
-1. Remove or comment the service from `docker-compose.yml`
+1. Remove or comment the service from `deployment/vm/docker-compose.yml`
 2. Optionally delete the service directory
 3. Clean up related environment variables
 
@@ -268,7 +268,7 @@ Comment out the service in `docker-compose.yml`:
 
 ## Monitoring with Prometheus & Grafana
 
-1. Uncomment Prometheus and Grafana in `docker-compose.yml`
+> **Note**: Metrics are now forwarded to Grafana Cloud via Alloy. See `deployment/vm/alloy-config.alloy`.
 
 2. Start the monitoring stack:
    ```bash

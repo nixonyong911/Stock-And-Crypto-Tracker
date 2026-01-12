@@ -17,7 +17,7 @@ Commands and references for managing the Azure VM that hosts backend services.
 | User | `azureuser` |
 | FQDN | `nxserver.malaysiawest.cloudapp.azure.com` |
 | Deploy Path | `/opt/stocktracker` |
-| Services | Caddy, n8n, TwelveData, Metrics, Back-office, Alloy, AI Hub |
+| Services | Caddy, n8n, TwelveData, Metrics, Back-office, Alloy, AI Hub 2.0 |
 
 > **Note**: These values are centralized in [Infrastructure Configuration](../../../reference/infrastructure-config.md). If infrastructure changes, update that file first.
 
@@ -52,14 +52,14 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 
 ---
 
-## AI Hub Commands (Docker container)
+## AI Hub 2.0 Commands (Docker container)
 
 | Command | Purpose |
 |---------|---------|
-| `docker ps --filter name=ai-hub-docker` | Check AI Hub status |
-| `docker restart ai-hub-docker` | Restart AI Hub |
-| `docker logs ai-hub-docker -f` | Follow AI Hub logs |
-| `docker logs ai-hub-docker --since "10m"` | Recent logs |
+| `docker ps --filter name=ai-hub2` | Check AI Hub 2.0 status |
+| `docker restart ai-hub2` | Restart AI Hub 2.0 |
+| `docker logs ai-hub2 -f` | Follow AI Hub 2.0 logs |
+| `docker logs ai-hub2 --since "10m"` | Recent logs |
 
 ---
 
@@ -73,7 +73,7 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 | Metrics Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger |
 | Metrics Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live |
 | Back Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ |
-| AI Hub Health | ai-hub-docker:8080/health/live (Docker network) |
+| AI Hub 2.0 Health | ai-hub2:8080/health/live (Docker network) |
 
 ---
 

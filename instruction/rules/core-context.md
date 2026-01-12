@@ -31,10 +31,9 @@ A microservices-based stock and cryptocurrency tracking application with:
 /
 ├── .infisical.json           # Infisical CLI config (safe to commit)
 ├── .env.staging              # Local backup only (gitignored)
-├── docker-compose.yml        # Local development
 ├── deployment/
 │   └── vm/                   # VM deployment configs
-│       ├── docker-compose.yml   # Production services (Caddy, n8n, workers)
+│       ├── docker-compose.yml   # All services (Caddy, n8n, workers)
 │       ├── Caddyfile            # Reverse proxy routes
 │       ├── alloy-config.alloy   # Grafana Alloy config
 │       └── scripts/             # Setup, cron, systemd scripts

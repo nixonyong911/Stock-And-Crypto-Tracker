@@ -36,7 +36,7 @@ GitHub Actions (deploy-vm.yml)
          ├── 4. Deploy Services
          │      ├── git pull latest config
          │      ├── start-services.sh up -d  ◄── Infisical injects secrets
-         │      └── AI Hub: venv with hash-based caching
+         │      └── AI Hub 2.0: Go binary (no venv needed)
          │
          └── 5. Health Polling (smart, not fixed sleep)
                 └── Poll endpoints until healthy or timeout
@@ -52,7 +52,7 @@ The pipeline triggers on changes to:
 - `services/workers/data-fetcher/TwelveData/**`
 - `services/workers/analysis/**`
 - `services/metrics/**`
-- `services/ai/ai-hub/**`
+- `services/ai/ai-hub2.0/**`
 - `services/back-office/**`
 - `services/common/**`
 - `deployment/vm/**`
@@ -71,7 +71,7 @@ The pipeline uses `dorny/paths-filter` to detect which services changed:
 | Analysis | `services/workers/analysis/**`, `services/common/**` |
 | Metrics | `services/metrics/**`, `services/common/**` |
 | Back Office | `services/back-office/**` |
-| AI Hub | `services/ai/ai-hub/**` |
+| AI Hub 2.0 | `services/ai/ai-hub2.0/**` |
 | Config | `deployment/vm/**`, `.github/workflows/deploy-vm.yml` |
 
 **Optimization**: If only config files change, all Docker builds are skipped entirely.
@@ -85,11 +85,9 @@ cache-to: type=gha,mode=max,scope=<service>
 ```
 Layers are cached in GitHub's 10GB cache. Subsequent builds only rebuild changed layers.
 
-### AI Hub Venv Cache (VM)
-The AI Hub dependencies are cached using a hash of `requirements.txt`:
-- If hash matches cached version → skip pip install
-- If hash differs → recreate venv and install
-- Location: `/opt/stocktracker/ai-hub-venv`
+### AI Hub 2.0 (Go)
+AI Hub 2.0 is a compiled Go binary - no runtime dependencies or venv caching needed.
+The binary is built during Docker image creation with all dependencies statically linked.
 
 ## Health Checks
 
@@ -103,8 +101,8 @@ wait_healthy() {
 wait_healthy ".../api/twelvedata/health/live" "TwelveData"
 wait_healthy ".../api/metrics/health/live" "Metrics"
 
-# AI Hub: Docker container - check via docker exec
-ssh azureuser@VM 'docker exec ai-hub-docker curl -sf http://localhost:8080/health/live'
+# AI Hub 2.0: Go container - check via docker exec
+ssh azureuser@VM 'docker exec ai-hub2 wget -qO- http://localhost:8080/health/live'
 
 # Back Office: Check public URL
 curl -sf .../back-office/
