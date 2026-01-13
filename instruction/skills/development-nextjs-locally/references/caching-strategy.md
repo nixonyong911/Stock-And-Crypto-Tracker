@@ -32,28 +32,49 @@ export const redis = createClient({
 
 redis.on('error', (err) => console.error('Redis Client Error', err))
 
-// Namespace-aware helpers
+// Namespace-aware helpers with error handling
 export async function getCache<T>(key: string): Promise<T | null> {
-  const data = await redis.get(`${NAMESPACE}:${key}`)
-  return data ? JSON.parse(data) : null
+  try {
+    const data = await redis.get(`${NAMESPACE}:${key}`)
+    return data ? JSON.parse(data) : null
+  } catch (error) {
+    console.error(`Redis GET failed for ${key}:`, error)
+    return null // Graceful degradation - continue without cache
+  }
 }
 
 export async function setCache<T>(
   key: string,
   value: T,
   ttlSeconds: number = 300
-): Promise<void> {
-  await redis.setEx(`${NAMESPACE}:${key}`, ttlSeconds, JSON.stringify(value))
+): Promise<boolean> {
+  try {
+    await redis.setEx(`${NAMESPACE}:${key}`, ttlSeconds, JSON.stringify(value))
+    return true
+  } catch (error) {
+    console.error(`Redis SET failed for ${key}:`, error)
+    return false // Don't throw - cache miss is acceptable
+  }
 }
 
-export async function deleteCache(key: string): Promise<void> {
-  await redis.del(`${NAMESPACE}:${key}`)
+export async function deleteCache(key: string): Promise<boolean> {
+  try {
+    await redis.del(`${NAMESPACE}:${key}`)
+    return true
+  } catch (error) {
+    console.error(`Redis DEL failed for ${key}:`, error)
+    return false
+  }
 }
 
 export async function deleteCachePattern(pattern: string): Promise<void> {
-  const keys = await redis.keys(`${NAMESPACE}:${pattern}`)
-  if (keys.length > 0) {
-    await redis.del(keys)
+  try {
+    const keys = await redis.keys(`${NAMESPACE}:${pattern}`)
+    if (keys.length > 0) {
+      await redis.del(keys)
+    }
+  } catch (error) {
+    console.error(`Redis pattern delete failed for ${pattern}:`, error)
   }
 }
 ```
@@ -161,8 +182,10 @@ export function useStockMutation() {
 
 ```typescript
 // lib/query-keys.ts
+const CACHE_VERSION = 'v1' // Bump on breaking API changes
+
 export const queryKeys = {
-  all: ['stocks'] as const,
+  all: [CACHE_VERSION, 'stocks'] as const,
   lists: () => [...queryKeys.all, 'list'] as const,
   list: (filters: StockFilters) => [...queryKeys.lists(), filters] as const,
   details: () => [...queryKeys.all, 'detail'] as const,
@@ -174,6 +197,18 @@ useQuery({
   queryKey: queryKeys.detail('AAPL'),
   queryFn: () => getStock('AAPL'),
 })
+```
+
+### Query Key Versioning
+
+When API response shape changes, bump `CACHE_VERSION` to invalidate all cached data:
+
+```typescript
+// Before: { symbol: 'AAPL', price: 150 }
+// After:  { symbol: 'AAPL', currentPrice: 150, previousClose: 148 }
+
+// Bump version: 'v1' → 'v2'
+const CACHE_VERSION = 'v2'
 ```
 
 ## Cache Invalidation Patterns

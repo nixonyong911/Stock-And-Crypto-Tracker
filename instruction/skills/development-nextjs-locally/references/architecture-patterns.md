@@ -210,3 +210,48 @@ export type Tables<T extends keyof Database['public']['Tables']> =
 | SOLID - Single Responsibility | One component = one purpose |
 | SOLID - Dependency Inversion | Props/Context for dependencies |
 | TDD | Playwright for E2E, Vitest for unit |
+
+## Complete Feature Example: Stock List
+
+```
+# Files involved:
+types/schemas.ts           # Zod schema
+lib/supabase/stocks.ts     # Repository
+app/[locale]/stocks/page.tsx    # Page
+components/features/stocks/     # Components
+```
+
+```typescript
+// types/schemas.ts
+export const stockPriceSchema = z.object({
+  stock_id: z.number(),
+  symbol: z.string(),
+  close_price: z.number().nullable(),
+})
+export type StockPrice = z.infer<typeof stockPriceSchema>
+
+// lib/supabase/stocks.ts
+export async function getStocks(): Promise<Result<StockPrice[]>> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase.from('latest_stock_prices').select('*')
+  if (error) return { success: false, error: new Error(error.message) }
+  return { success: true, data: stockPriceSchema.array().parse(data) }
+}
+
+// app/[locale]/stocks/page.tsx
+export default async function StocksPage() {
+  return (
+    <Suspense fallback={<StockListSkeleton />}>
+      <StockList />
+    </Suspense>
+  )
+}
+
+// components/features/stocks/StockList.tsx
+export async function StockList() {
+  const result = await getStocks()
+  if (!result.success) return <ErrorDisplay messageKey="errors.api.fetchFailed" />
+  if (!result.data.length) return <EmptyState messageKey="empty.noStocks" />
+  return <StockGrid stocks={result.data} />
+}
+```
