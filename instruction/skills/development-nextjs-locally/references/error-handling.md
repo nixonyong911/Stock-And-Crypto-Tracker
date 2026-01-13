@@ -74,6 +74,14 @@ export type Locale = (typeof locales)[number]
     "loading": "Loading...",
     "saved": "Changes saved.",
     "deleted": "Item deleted."
+  },
+  "common": {
+    "tryAgain": "Try again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "loading": "Loading...",
+    "refresh": "Refresh"
   }
 }
 ```
@@ -329,7 +337,7 @@ export async function fetchWithError<T>(
   const { showToast = true, ...fetchOptions } = options
 
   try {
-    const response = await fetch(url, options)
+    const response = await fetch(url, fetchOptions)
 
     if (!response.ok) {
       const errorKey = getErrorMessageKey(response.status)
@@ -580,7 +588,7 @@ export function ErrorDisplay({
           onClick={onRetry}
           className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded"
         >
-          {t('common.tryAgain') || 'Try again'}
+          {t('common.tryAgain')}
         </button>
       )}
     </div>
