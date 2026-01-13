@@ -25,16 +25,22 @@ This injects `NEXT_PUBLIC_*` environment variables before Next.js starts.
 
 After making changes:
 
-1. **Playwright Visual Check**
+1. **Lint & Type Check**
+   ```bash
+   cd services/frontend
+   npm run lint && npm run type-check
+   ```
+
+2. **Playwright Visual Check**
    - Navigate to `http://localhost:3000`
    - Capture page snapshot
    - Visually confirm changes render correctly
 
-2. **Check Next.js Dev Tools**
+3. **Check Next.js Dev Tools**
    - Look at bottom-left corner for issues badge
    - Address any errors/warnings shown
 
-3. **Before Push - Build Check**
+4. **Before Push - Build Check**
    ```bash
    infisical run --env=dev -- npm run build
    ```
@@ -49,6 +55,11 @@ After making changes:
 | Styling | shadcn/ui + Tailwind CSS |
 | Data Layer | Repository functions (reads) + Server Actions (writes) |
 | Type Safety | Supabase generated types + Zod runtime validation |
+| Responsiveness | Mobile-first Tailwind breakpoints (`sm:`, `md:`, `lg:`) |
+| Device Support | Viewport meta tag, touch-friendly targets (min 44px) |
+| CDN | Vercel Edge Network (automatic), `next/image` optimization |
+
+**Maintainability:** Enforced via TypeScript strict mode, ESLint rules, and modular `lib/`/`components/`/`types/` separation.
 
 **Details:** See [references/architecture-patterns.md](references/architecture-patterns.md)
 
@@ -58,23 +69,36 @@ After making changes:
 - URL-based locales (`/en/`, `/zh/`, etc.)
 - Multi-destination logging: Console, Supabase `frontend_error_logs`, Grafana
 
-**Details:** See [references/error-handling.md](references/error-handling.md)
+**Details:**
+- [references/error-handling.md](references/error-handling.md) - Result pattern, Error boundaries, ErrorDisplay
+- [references/i18n-error-messages.md](references/i18n-error-messages.md) - next-intl config, message structure
+- [references/error-logging.md](references/error-logging.md) - Console, Supabase, Grafana logging
 
 ## Security Rules
 
-1. **Defense in Depth**
-   - Supabase RLS at database level
-   - Next.js middleware for route protection
-   - Component-level auth checks
+### Transport & Headers
+- **HTTPS by default** - Vercel enforces HTTPS; local dev uses HTTP (acceptable)
+- **CSP** - Content Security Policy via `next.config.js` headers
+- **HSTS** - Strict-Transport-Security header (Vercel handles)
+- **X-Frame-Options** - Prevent clickjacking via headers config
 
-2. **Environment Variables**
-   - Only `NEXT_PUBLIC_*` accessible client-side
-   - Sensitive operations in Server Components/Actions only
+### Input & Output
+- **Input validation** - Zod schemas in Server Actions, never trust client
+- **XSS protection** - React auto-escapes; avoid `dangerouslySetInnerHTML`
+- **CSRF protection** - Server Actions use built-in CSRF tokens
 
-3. **Protected Sections**
-   - Member-only pages require authentication
-   - Subscription sections require active subscription
-   - Cookie handling via Supabase SSR helpers
+### Auth & Access
+- Supabase RLS at database level
+- Next.js middleware for route protection
+- Component-level auth checks
+- Only `NEXT_PUBLIC_*` accessible client-side
+
+### Dependency Security
+- Run `npm audit` before releases
+- Keep dependencies updated (`npm outdated`)
+- Review changelogs for security patches
+
+**Details:** See [references/middleware.md](references/middleware.md)
 
 ## Caching Strategy
 
@@ -91,6 +115,15 @@ After making changes:
 - Frontend types generated from Supabase + Zod validation
 
 **Details:** See [references/folder-structure.md](references/folder-structure.md)
+
+## Additional Patterns
+
+| Pattern | Reference |
+|---------|-----------|
+| Testing (Vitest/Playwright) | [references/testing-strategy.md](references/testing-strategy.md) |
+| Form Handling (Zod/Server Actions) | [references/form-patterns.md](references/form-patterns.md) |
+| Loading States (Suspense/Skeletons) | [references/loading-patterns.md](references/loading-patterns.md) |
+| Data Fetching (Pagination/Search) | [references/data-fetching-patterns.md](references/data-fetching-patterns.md) |
 
 ## Quick Reference
 
