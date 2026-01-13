@@ -133,6 +133,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Cleanup old artifacts
+        run: |
+          echo "Cleaning up old artifacts to prevent storage quota issues..."
+          # Get and delete all artifacts older than current run
+          gh api repos/${{ github.repository }}/actions/artifacts --paginate --jq '.artifacts[].id' | while read id; do
+            echo "Deleting artifact $id"
+            gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$id || true
+          done
+          echo "Cleanup complete"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
