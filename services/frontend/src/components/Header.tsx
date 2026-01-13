@@ -12,7 +12,7 @@ export function Header() {
           <span className={styles.logoIcon}>◆</span>
           <span className={styles.logoText}>StockTracker</span>
         </div>
-        <p className={styles.tagline}>Real-time market data from multiple sources</p>
+        <p className={styles.tagline}>Latest market data from multiple sources</p>
       </div>
       <div className={styles.rightSection}>
         <a 
