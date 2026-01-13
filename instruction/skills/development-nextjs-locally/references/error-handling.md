@@ -329,7 +329,7 @@ export async function fetchWithError<T>(
   const { showToast = true, ...fetchOptions } = options
 
   try {
-    const response = await fetch(url, fetchOptions)
+    const response = await fetch(url, options)
 
     if (!response.ok) {
       const errorKey = getErrorMessageKey(response.status)
