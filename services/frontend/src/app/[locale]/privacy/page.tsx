@@ -31,110 +31,137 @@ function PrivacyContent() {
   const t = useTranslations("privacy");
 
   return (
-    <article className="container mx-auto max-w-4xl px-4 py-16">
-      <header className="mb-12 text-center">
-        <h1 className="text-4xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="mt-4 text-muted-foreground">
+    <article className="container mx-auto max-w-4xl px-4 py-12">
+      {/* Header */}
+      <header className="mb-10 border-b pb-6">
+        <h1 className="text-2xl font-bold uppercase tracking-wide">
+          {t("title")}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           {t("lastUpdated")}: January 16, 2026
         </p>
       </header>
 
-      <div className="prose prose-neutral dark:prose-invert max-w-none">
-        {/* Introduction */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.introduction.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.introduction.content")}</p>
+      <div className="space-y-8 text-sm leading-relaxed">
+        {/* 1. Introduction */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.introduction.title")}
+          </h2>
+          <p>{t("sections.introduction.content")}</p>
         </section>
 
-        {/* Data We Collect */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.dataCollected.title")}</h2>
-          <p className="mb-4 text-muted-foreground">{t("sections.dataCollected.intro")}</p>
-          <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>{t("sections.dataCollected.points.email")}</li>
-            <li>{t("sections.dataCollected.points.telegramId")}</li>
-            <li>{t("sections.dataCollected.points.usage")}</li>
-            <li>{t("sections.dataCollected.points.payment")}</li>
+        {/* 2. Definitions */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.definitions.title")}
+          </h2>
+          <p className="mb-3">{t("sections.definitions.intro")}</p>
+          <ul className="list-none space-y-2 pl-4">
+            <li><strong>&quot;Personal Data&quot;</strong> {t("sections.definitions.personalData")}</li>
+            <li><strong>&quot;Processing&quot;</strong> {t("sections.definitions.processing")}</li>
+            <li><strong>&quot;Data Controller&quot;</strong> {t("sections.definitions.dataController")}</li>
           </ul>
         </section>
 
-        {/* How We Use Your Data */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.dataUsage.title")}</h2>
-          <p className="mb-4 text-muted-foreground">{t("sections.dataUsage.intro")}</p>
-          <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>{t("sections.dataUsage.points.service")}</li>
-            <li>{t("sections.dataUsage.points.communication")}</li>
-            <li>{t("sections.dataUsage.points.improvement")}</li>
-            <li>{t("sections.dataUsage.points.billing")}</li>
-          </ul>
+        {/* 3. Information We Collect */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.dataCollected.title")}
+          </h2>
+          <p className="mb-3">{t("sections.dataCollected.intro")}</p>
+          <p>{t("sections.dataCollected.content")}</p>
         </section>
 
-        {/* Third-Party Services */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.thirdParty.title")}</h2>
-          <p className="mb-4 text-muted-foreground">{t("sections.thirdParty.intro")}</p>
-          <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>{t("sections.thirdParty.points.stripe")}</li>
-            <li>{t("sections.thirdParty.points.telegram")}</li>
-            <li>{t("sections.thirdParty.points.vercel")}</li>
-          </ul>
+        {/* 4. How We Use Your Information */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.dataUsage.title")}
+          </h2>
+          <p className="mb-3">{t("sections.dataUsage.intro")}</p>
+          <p>{t("sections.dataUsage.content")}</p>
         </section>
 
-        {/* Data Security */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.security.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.security.content")}</p>
+        {/* 5. Legal Basis for Processing */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.legalBasis.title")}
+          </h2>
+          <p>{t("sections.legalBasis.content")}</p>
         </section>
 
-        {/* Data Retention */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.retention.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.retention.content")}</p>
+        {/* 6. Third-Party Service Providers */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.thirdParty.title")}
+          </h2>
+          <p className="mb-3">{t("sections.thirdParty.intro")}</p>
+          <p>{t("sections.thirdParty.content")}</p>
         </section>
 
-        {/* Your Rights (GDPR) */}
-        <section className="mb-10 rounded-lg border bg-muted/30 p-6">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.rights.title")}</h2>
-          <p className="mb-4 text-muted-foreground">{t("sections.rights.intro")}</p>
-          <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>{t("sections.rights.points.access")}</li>
-            <li>{t("sections.rights.points.rectification")}</li>
-            <li>{t("sections.rights.points.erasure")}</li>
-            <li>{t("sections.rights.points.portability")}</li>
-            <li>{t("sections.rights.points.objection")}</li>
-          </ul>
-          <p className="mt-4 text-muted-foreground">{t("sections.rights.howToExercise")}</p>
+        {/* 7. Data Security */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.security.title")}
+          </h2>
+          <p>{t("sections.security.content")}</p>
         </section>
 
-        {/* Cookies */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.cookies.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.cookies.content")}</p>
+        {/* 8. Data Retention */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.retention.title")}
+          </h2>
+          <p>{t("sections.retention.content")}</p>
         </section>
 
-        {/* International Transfers */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.internationalTransfers.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.internationalTransfers.content")}</p>
+        {/* 9. Your Rights */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.rights.title")}
+          </h2>
+          <p className="mb-3">{t("sections.rights.intro")}</p>
+          <p>{t("sections.rights.content")}</p>
         </section>
 
-        {/* Children's Privacy */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.children.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.children.content")}</p>
+        {/* 10. International Data Transfers */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.internationalTransfers.title")}
+          </h2>
+          <p>{t("sections.internationalTransfers.content")}</p>
         </section>
 
-        {/* Changes to Policy */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.changes.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.changes.content")}</p>
+        {/* 11. Cookies and Tracking */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.cookies.title")}
+          </h2>
+          <p>{t("sections.cookies.content")}</p>
         </section>
 
-        {/* Contact */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.contact.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.contact.content")}</p>
+        {/* 12. Children's Privacy */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.children.title")}
+          </h2>
+          <p>{t("sections.children.content")}</p>
+        </section>
+
+        {/* 13. Changes to This Policy */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.changes.title")}
+          </h2>
+          <p>{t("sections.changes.content")}</p>
+        </section>
+
+        {/* 14. Contact Us */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.contact.title")}
+          </h2>
+          <p>{t("sections.contact.content")}</p>
         </section>
       </div>
     </article>

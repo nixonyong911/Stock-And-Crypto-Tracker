@@ -4,8 +4,8 @@ import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions | Stock And Crypto Tracker",
-  description: "Terms and Conditions for using Stock And Crypto Tracker services.",
+  title: "Terms of Service | Stock And Crypto Tracker",
+  description: "Terms of Service for using Stock And Crypto Tracker services.",
 };
 
 type Props = {
@@ -31,159 +31,187 @@ function TermsContent() {
   const t = useTranslations("terms");
 
   return (
-    <article className="container mx-auto max-w-4xl px-4 py-16">
-      <header className="mb-12 text-center">
-        <h1 className="text-4xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="mt-4 text-muted-foreground">
+    <article className="container mx-auto max-w-4xl px-4 py-12">
+      {/* Header */}
+      <header className="mb-10 border-b pb-6">
+        <h1 className="text-2xl font-bold uppercase tracking-wide">
+          {t("title")}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           {t("lastUpdated")}: January 16, 2026
         </p>
       </header>
 
-      <div className="prose prose-neutral dark:prose-invert max-w-none">
-        {/* Introduction */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.introduction.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.introduction.content")}</p>
+      <div className="space-y-8 text-sm leading-relaxed">
+        {/* 1. Definitions */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.definitions.title")}
+          </h2>
+          <p className="mb-3">{t("sections.definitions.intro")}</p>
+          <ul className="list-none space-y-2 pl-4">
+            <li><strong>&quot;Service&quot;</strong> {t("sections.definitions.service")}</li>
+            <li><strong>&quot;User&quot;</strong> {t("sections.definitions.user")}</li>
+            <li><strong>&quot;Content&quot;</strong> {t("sections.definitions.content")}</li>
+            <li><strong>&quot;Subscription&quot;</strong> {t("sections.definitions.subscription")}</li>
+            <li><strong>&quot;Third-Party Data&quot;</strong> {t("sections.definitions.thirdPartyData")}</li>
+          </ul>
         </section>
 
-        {/* NOT Financial Advice - CRITICAL */}
-        <section className="mb-10 rounded-lg border-2 border-destructive/50 bg-destructive/5 p-6">
-          <h2 className="text-2xl font-semibold mb-4 text-destructive">{t("sections.notFinancialAdvice.title")}</h2>
-          <div className="space-y-4 text-muted-foreground">
-            <p className="font-semibold text-foreground">{t("sections.notFinancialAdvice.warning")}</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>{t("sections.notFinancialAdvice.points.noLicense")}</li>
-              <li>{t("sections.notFinancialAdvice.points.educational")}</li>
-              <li>{t("sections.notFinancialAdvice.points.noRecommendation")}</li>
-              <li>{t("sections.notFinancialAdvice.points.consultProfessional")}</li>
-              <li>{t("sections.notFinancialAdvice.points.pastPerformance")}</li>
-              <li>{t("sections.notFinancialAdvice.points.ownRisk")}</li>
-            </ul>
+        {/* 2. Acceptance of Terms */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.acceptance.title")}
+          </h2>
+          <p>{t("sections.acceptance.content")}</p>
+        </section>
+
+        {/* 3. Description of Service */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.serviceDescription.title")}
+          </h2>
+          <p>{t("sections.serviceDescription.content")}</p>
+        </section>
+
+        {/* 4. Not Financial Advice */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.notFinancialAdvice.title")}
+          </h2>
+          <p className="mb-3 font-semibold uppercase">
+            {t("sections.notFinancialAdvice.warning")}
+          </p>
+          <div className="space-y-3">
+            <p>{t("sections.notFinancialAdvice.content1")}</p>
+            <p>{t("sections.notFinancialAdvice.content2")}</p>
+            <p>{t("sections.notFinancialAdvice.content3")}</p>
           </div>
         </section>
 
-        {/* AI-Generated Content Disclaimer - CRITICAL */}
-        <section className="mb-10 rounded-lg border-2 border-amber-500/50 bg-amber-500/5 p-6">
-          <h2 className="text-2xl font-semibold mb-4 text-amber-600 dark:text-amber-400">{t("sections.aiDisclaimer.title")}</h2>
-          <div className="space-y-4 text-muted-foreground">
-            <p>{t("sections.aiDisclaimer.intro")}</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>{t("sections.aiDisclaimer.points.errors")}</li>
-              <li>{t("sections.aiDisclaimer.points.noGuarantee")}</li>
-              <li>{t("sections.aiDisclaimer.points.verify")}</li>
-              <li>{t("sections.aiDisclaimer.points.historical")}</li>
-            </ul>
+        {/* 5. AI-Generated Content Disclaimer */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.aiDisclaimer.title")}
+          </h2>
+          <p className="mb-3">{t("sections.aiDisclaimer.intro")}</p>
+          <div className="space-y-3">
+            <p>{t("sections.aiDisclaimer.content1")}</p>
+            <p>{t("sections.aiDisclaimer.content2")}</p>
           </div>
         </section>
 
-        {/* Service Description */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.serviceDescription.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.serviceDescription.content")}</p>
+        {/* 6. Third-Party Data Sources */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.thirdPartyData.title")}
+          </h2>
+          <p>{t("sections.thirdPartyData.content")}</p>
         </section>
 
-        {/* User Eligibility */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.eligibility.title")}</h2>
-          <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>{t("sections.eligibility.points.age")}</li>
-            <li>{t("sections.eligibility.points.jurisdiction")}</li>
-            <li>{t("sections.eligibility.points.compliance")}</li>
-          </ul>
+        {/* 7. User Account */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.account.title")}
+          </h2>
+          <p>{t("sections.account.content")}</p>
         </section>
 
-        {/* Account Registration */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.account.title")}</h2>
-          <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>{t("sections.account.points.telegram")}</li>
-            <li>{t("sections.account.points.accurate")}</li>
-            <li>{t("sections.account.points.security")}</li>
-          </ul>
-        </section>
-
-        {/* Subscription & Payment */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.subscription.title")}</h2>
-          <div className="space-y-4 text-muted-foreground">
-            <p>{t("sections.subscription.intro")}</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>{t("sections.subscription.points.freeTier")}</li>
-              <li>{t("sections.subscription.points.proTier")}</li>
-              <li>{t("sections.subscription.points.billing")}</li>
-              <li>{t("sections.subscription.points.refunds")}</li>
-              <li>{t("sections.subscription.points.cancellation")}</li>
-            </ul>
+        {/* 8. Subscription and Payment */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.subscription.title")}
+          </h2>
+          <div className="space-y-3">
+            <p>{t("sections.subscription.content1")}</p>
+            <p>{t("sections.subscription.content2")}</p>
+            <p>{t("sections.subscription.content3")}</p>
           </div>
         </section>
 
-        {/* Limitation of Liability - CRITICAL */}
-        <section className="mb-10 rounded-lg border bg-muted/30 p-6">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.liability.title")}</h2>
-          <div className="space-y-4 text-muted-foreground">
-            <p className="font-semibold text-foreground">{t("sections.liability.warning")}</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>{t("sections.liability.points.noLiability")}</li>
-              <li>{t("sections.liability.points.maxLiability")}</li>
-              <li>{t("sections.liability.points.asIs")}</li>
-              <li>{t("sections.liability.points.noConsequential")}</li>
-            </ul>
-          </div>
+        {/* 9. User Conduct */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.conduct.title")}
+          </h2>
+          <p className="mb-3">{t("sections.conduct.intro")}</p>
+          <p>{t("sections.conduct.content")}</p>
         </section>
 
-        {/* Intellectual Property */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.intellectualProperty.title")}</h2>
-          <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>{t("sections.intellectualProperty.points.ownership")}</li>
-            <li>{t("sections.intellectualProperty.points.license")}</li>
-            <li>{t("sections.intellectualProperty.points.noRedistribution")}</li>
-          </ul>
+        {/* 10. Intellectual Property */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.intellectualProperty.title")}
+          </h2>
+          <p>{t("sections.intellectualProperty.content")}</p>
         </section>
 
-        {/* User Conduct */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.conduct.title")}</h2>
-          <p className="mb-4 text-muted-foreground">{t("sections.conduct.intro")}</p>
-          <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>{t("sections.conduct.points.noResale")}</li>
-            <li>{t("sections.conduct.points.noAbuse")}</li>
-            <li>{t("sections.conduct.points.noIllegal")}</li>
-          </ul>
+        {/* 11. Disclaimer of Warranties - ALL CAPS */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.warranties.title")}
+          </h2>
+          <p className="uppercase">
+            {t("sections.warranties.content")}
+          </p>
         </section>
 
-        {/* Indemnification */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.indemnification.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.indemnification.content")}</p>
+        {/* 12. Limitation of Liability - ALL CAPS */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.liability.title")}
+          </h2>
+          <p className="uppercase">
+            {t("sections.liability.content")}
+          </p>
         </section>
 
-        {/* Termination */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.termination.title")}</h2>
-          <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-            <li>{t("sections.termination.points.rightToTerminate")}</li>
-            <li>{t("sections.termination.points.effect")}</li>
-            <li>{t("sections.termination.points.survival")}</li>
-          </ul>
+        {/* 13. Indemnification */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.indemnification.title")}
+          </h2>
+          <p>{t("sections.indemnification.content")}</p>
         </section>
 
-        {/* Governing Law */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.governingLaw.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.governingLaw.content")}</p>
+        {/* 14. Termination */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.termination.title")}
+          </h2>
+          <p>{t("sections.termination.content")}</p>
         </section>
 
-        {/* Changes to Terms */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.changes.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.changes.content")}</p>
+        {/* 15. Governing Law and Disputes */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.governingLaw.title")}
+          </h2>
+          <p>{t("sections.governingLaw.content")}</p>
         </section>
 
-        {/* Contact */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{t("sections.contact.title")}</h2>
-          <p className="text-muted-foreground leading-relaxed">{t("sections.contact.content")}</p>
+        {/* 16. General Provisions */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.general.title")}
+          </h2>
+          <p>{t("sections.general.content")}</p>
+        </section>
+
+        {/* 17. Changes to Terms */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.changes.title")}
+          </h2>
+          <p>{t("sections.changes.content")}</p>
+        </section>
+
+        {/* 18. Contact Information */}
+        <section>
+          <h2 className="mb-3 text-base font-bold uppercase">
+            {t("sections.contact.title")}
+          </h2>
+          <p>{t("sections.contact.content")}</p>
         </section>
       </div>
     </article>
