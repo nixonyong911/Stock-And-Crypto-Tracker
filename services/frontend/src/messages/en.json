@@ -108,5 +108,198 @@
     "privacy": "Privacy",
     "telegram": "Telegram Bot",
     "copyright": "© {year} Stock And Crypto Tracker. All rights reserved."
+  },
+  "terms": {
+    "title": "Terms & Conditions",
+    "lastUpdated": "Last Updated",
+    "sections": {
+      "introduction": {
+        "title": "1. Introduction",
+        "content": "Welcome to Stock And Crypto Tracker. By accessing or using our service, you agree to be bound by these Terms and Conditions. If you do not agree to all the terms and conditions of this agreement, you may not access the service."
+      },
+      "notFinancialAdvice": {
+        "title": "2. NOT Financial Advice",
+        "warning": "IMPORTANT: Please read this section carefully before using our service.",
+        "points": {
+          "noLicense": "Stock And Crypto Tracker is NOT a licensed financial advisor, broker, investment advisor, or any other regulated financial professional. We do not hold any financial services license in any jurisdiction.",
+          "educational": "All content, analysis, signals, and information provided through our service are for EDUCATIONAL and INFORMATIONAL purposes only. Nothing on our platform constitutes financial advice.",
+          "noRecommendation": "We do NOT recommend buying, selling, or holding any securities, cryptocurrencies, or other financial instruments. Any mention of specific assets is purely for educational illustration.",
+          "consultProfessional": "Before making any investment decision, you MUST consult with a qualified, licensed financial advisor who can assess your personal financial situation and risk tolerance.",
+          "pastPerformance": "Past performance of any analysis or signal does NOT guarantee future results. Markets are inherently unpredictable and involve substantial risk of loss.",
+          "ownRisk": "You acknowledge that you use our service entirely at your own risk. Any trading or investment decisions you make are solely your responsibility."
+        }
+      },
+      "aiDisclaimer": {
+        "title": "3. AI-Generated Content Disclaimer",
+        "intro": "Our service utilizes artificial intelligence (AI) to generate market analysis and signals. You acknowledge and understand that:",
+        "points": {
+          "errors": "AI systems can and do make errors. The AI may produce inaccurate, incomplete, or misleading information.",
+          "noGuarantee": "We make NO guarantee regarding the accuracy, completeness, timeliness, or reliability of AI-generated content.",
+          "verify": "You MUST independently verify all information before making any decisions. Do not rely solely on AI-generated content.",
+          "historical": "AI analysis is based on historical data and patterns, which may not accurately predict future market movements."
+        }
+      },
+      "serviceDescription": {
+        "title": "4. Service Description",
+        "content": "Stock And Crypto Tracker provides AI-powered technical market analysis delivered via Telegram. The service includes market monitoring, pattern detection, and educational insights about market conditions. We offer both free and paid subscription tiers with varying levels of access."
+      },
+      "eligibility": {
+        "title": "5. User Eligibility",
+        "points": {
+          "age": "You must be at least 18 years old to use our service. By using the service, you represent that you meet this age requirement.",
+          "jurisdiction": "You are responsible for ensuring that your use of our service complies with all laws and regulations in your jurisdiction. Some jurisdictions may have restrictions on accessing financial information services.",
+          "compliance": "Users from sanctioned countries or those subject to trade restrictions may be prohibited from using our service. You represent that you are not located in, or a citizen of, any such restricted jurisdiction."
+        }
+      },
+      "account": {
+        "title": "6. Account Registration",
+        "points": {
+          "telegram": "A valid Telegram account is required to use our service. You are responsible for maintaining the security of your Telegram account.",
+          "accurate": "You agree to provide accurate, current, and complete information during registration and to update such information as necessary.",
+          "security": "You are solely responsible for all activity that occurs under your account. Notify us immediately of any unauthorized use."
+        }
+      },
+      "subscription": {
+        "title": "7. Subscription & Payment",
+        "intro": "We offer the following subscription options:",
+        "points": {
+          "freeTier": "Free Tier: Limited access to our service at no cost, including delayed alerts and basic analysis.",
+          "proTier": "Pro Tier: Full access to all features for $20 USD per month, including real-time alerts and comprehensive analysis.",
+          "billing": "Pro subscriptions are billed monthly through Stripe. Your subscription will automatically renew unless cancelled.",
+          "refunds": "Refunds are generally not provided for partial months. You may cancel at any time, and access will continue until the end of your current billing period.",
+          "cancellation": "To cancel your subscription, please contact us via Telegram or email. No refunds will be issued for unused portions of the subscription period."
+        }
+      },
+      "liability": {
+        "title": "8. Limitation of Liability",
+        "warning": "TO THE MAXIMUM EXTENT PERMITTED BY LAW:",
+        "points": {
+          "noLiability": "We shall NOT be liable for any trading losses, investment losses, or any financial damages whatsoever arising from your use of our service or reliance on our content.",
+          "maxLiability": "Our maximum aggregate liability for any claims arising from your use of the service shall not exceed the total amount you paid to us in the 12 months preceding the claim.",
+          "asIs": "The service is provided \"AS IS\" and \"AS AVAILABLE\" without warranties of any kind, either express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement.",
+          "noConsequential": "We shall not be liable for any indirect, incidental, special, consequential, or punitive damages, regardless of the cause of action or theory of liability."
+        }
+      },
+      "intellectualProperty": {
+        "title": "9. Intellectual Property",
+        "points": {
+          "ownership": "All content, analysis, signals, software, and materials provided through our service are owned by Stock And Crypto Tracker and protected by intellectual property laws.",
+          "license": "We grant you a limited, non-exclusive, non-transferable license to access and use our service for your personal, non-commercial purposes only.",
+          "noRedistribution": "You may NOT redistribute, resell, republish, or commercially exploit any content from our service without our express written permission."
+        }
+      },
+      "conduct": {
+        "title": "10. User Conduct",
+        "intro": "You agree NOT to:",
+        "points": {
+          "noResale": "Resell, redistribute, or share your account access with others.",
+          "noAbuse": "Abuse, harass, or interfere with other users or our systems.",
+          "noIllegal": "Use our service for any illegal purpose or in violation of any applicable laws."
+        }
+      },
+      "indemnification": {
+        "title": "11. Indemnification",
+        "content": "You agree to indemnify, defend, and hold harmless Stock And Crypto Tracker, its officers, directors, employees, and agents from any claims, damages, losses, liabilities, and expenses (including legal fees) arising from your use of the service, your violation of these terms, or your violation of any rights of another party."
+      },
+      "termination": {
+        "title": "12. Termination",
+        "points": {
+          "rightToTerminate": "We reserve the right to suspend or terminate your access to the service at any time, with or without cause, and with or without notice.",
+          "effect": "Upon termination, your right to use the service will immediately cease. Any provisions that by their nature should survive termination shall survive.",
+          "survival": "Sections relating to limitation of liability, indemnification, intellectual property, and governing law shall survive termination."
+        }
+      },
+      "governingLaw": {
+        "title": "13. Governing Law & Disputes",
+        "content": "These Terms shall be governed by and construed in accordance with the laws of Malaysia. Any disputes arising from these terms or your use of the service shall be resolved through binding arbitration in Malaysia. For users in the European Union, this does not affect your statutory rights under applicable consumer protection laws."
+      },
+      "changes": {
+        "title": "14. Changes to Terms",
+        "content": "We reserve the right to modify these terms at any time. We will notify users of material changes via email or through the service. Your continued use of the service after such modifications constitutes your acceptance of the updated terms."
+      },
+      "contact": {
+        "title": "15. Contact Us",
+        "content": "If you have any questions about these Terms and Conditions, please contact us via our Telegram bot @StockAndCryptoAdvisorBot or by email."
+      }
+    }
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "lastUpdated": "Last Updated",
+    "sections": {
+      "introduction": {
+        "title": "1. Introduction",
+        "content": "Stock And Crypto Tracker (\"we\", \"our\", or \"us\") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our service."
+      },
+      "dataCollected": {
+        "title": "2. Information We Collect",
+        "intro": "We collect the following types of information:",
+        "points": {
+          "email": "Email Address: Used for account verification, communication, and service updates.",
+          "telegramId": "Telegram User ID: Required to deliver our service through Telegram.",
+          "usage": "Usage Data: Information about how you interact with our service, including features used and timestamps.",
+          "payment": "Payment Information: If you subscribe to our Pro plan, Stripe processes your payment. We do not store your full credit card details."
+        }
+      },
+      "dataUsage": {
+        "title": "3. How We Use Your Information",
+        "intro": "We use the information we collect to:",
+        "points": {
+          "service": "Provide, operate, and maintain our service, including delivering alerts and analysis via Telegram.",
+          "communication": "Communicate with you about service updates, security alerts, and support inquiries.",
+          "improvement": "Analyze usage patterns to improve our service and develop new features.",
+          "billing": "Process payments and manage your subscription through our payment processor, Stripe."
+        }
+      },
+      "thirdParty": {
+        "title": "4. Third-Party Services",
+        "intro": "We use the following third-party services that may collect information:",
+        "points": {
+          "stripe": "Stripe: Processes payments securely. Stripe's privacy policy governs how they handle your payment information.",
+          "telegram": "Telegram: We deliver our service through Telegram. Your use of Telegram is subject to Telegram's privacy policy.",
+          "vercel": "Vercel: Hosts our website. Vercel may collect standard web analytics data."
+        }
+      },
+      "security": {
+        "title": "5. Data Security",
+        "content": "We implement appropriate technical and organizational security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the Internet is 100% secure, and we cannot guarantee absolute security."
+      },
+      "retention": {
+        "title": "6. Data Retention",
+        "content": "We retain your personal information for as long as your account is active or as needed to provide you services. We will retain and use your information as necessary to comply with our legal obligations, resolve disputes, and enforce our agreements. Upon account deletion, we will delete or anonymize your data within 30 days, except where retention is required by law."
+      },
+      "rights": {
+        "title": "7. Your Rights",
+        "intro": "Depending on your location, you may have the following rights regarding your personal data:",
+        "points": {
+          "access": "Right to Access: You can request a copy of the personal data we hold about you.",
+          "rectification": "Right to Rectification: You can request that we correct any inaccurate or incomplete data.",
+          "erasure": "Right to Erasure: You can request that we delete your personal data (\"right to be forgotten\").",
+          "portability": "Right to Data Portability: You can request a copy of your data in a structured, machine-readable format.",
+          "objection": "Right to Object: You can object to certain types of data processing, including direct marketing."
+        },
+        "howToExercise": "To exercise any of these rights, please contact us via our Telegram bot or email. We will respond to your request within 30 days."
+      },
+      "cookies": {
+        "title": "8. Cookies",
+        "content": "Our website uses minimal cookies for essential functionality only, such as maintaining your session and remembering your language preference. We do not use cookies for advertising or tracking purposes."
+      },
+      "internationalTransfers": {
+        "title": "9. International Data Transfers",
+        "content": "Your information may be transferred to and processed in countries other than your country of residence. These countries may have different data protection laws. By using our service, you consent to the transfer of your information to Malaysia and other countries where our service providers operate. We ensure appropriate safeguards are in place for such transfers."
+      },
+      "children": {
+        "title": "10. Children's Privacy",
+        "content": "Our service is not intended for individuals under the age of 18. We do not knowingly collect personal information from children. If we become aware that we have collected data from a child without parental consent, we will take steps to delete that information."
+      },
+      "changes": {
+        "title": "11. Changes to This Policy",
+        "content": "We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new policy on this page and updating the \"Last Updated\" date. Your continued use of the service after any changes indicates your acceptance of the updated policy."
+      },
+      "contact": {
+        "title": "12. Contact Us",
+        "content": "If you have any questions about this Privacy Policy or wish to exercise your data rights, please contact us via our Telegram bot @StockAndCryptoAdvisorBot or by email."
+      }
+    }
   }
 }
