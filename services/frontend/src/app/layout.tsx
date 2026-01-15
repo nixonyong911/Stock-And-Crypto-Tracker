@@ -1,20 +1,16 @@
-import type { Metadata } from 'next';
-import './globals.css';
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-    title: 'Stock & Crypto Tracker',
-    description: 'Track stocks and cryptocurrency prices from multiple sources',
+  title: "Stock And Crypto Tracker - AI-Powered Market Clarity",
+  description:
+    "AI-powered market analysis for stocks and crypto. Get clear signals without the noise, delivered directly to Telegram.",
 };
 
 export default function RootLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    return (
-        <html lang="en">
-            <body>{children}</body>
-        </html>
-    );
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return children;
 }
-

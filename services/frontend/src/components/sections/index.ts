@@ -1,0 +1,8 @@
+export { HeroSection } from "./hero";
+export { ProblemSection } from "./problem";
+export { SolutionSection } from "./solution";
+export { HowItWorksSection } from "./how-it-works";
+export { FeaturesSection } from "./features";
+export { PricingSection } from "./pricing";
+export { TrustSection } from "./trust";
+export { FinalCtaSection } from "./final-cta";

@@ -1,0 +1,112 @@
+{
+  "metadata": {
+    "title": "Stock And Crypto Tracker - AI-Powered Market Clarity",
+    "description": "AI-powered market analysis for stocks and crypto. Get clear signals without the noise, delivered directly to Telegram."
+  },
+  "nav": {
+    "product": "Product",
+    "pricing": "Pricing",
+    "about": "About"
+  },
+  "hero": {
+    "headline": "Clarity for Stock and Crypto Markets.",
+    "headlineHighlight": "Powered by AI.",
+    "subheadline": "Stock And Crypto Tracker scans global markets 24/7 and explains technical conditions in plain language. No hype. No noise. Just clear market context delivered on Telegram.",
+    "cta": "Start Free on Telegram",
+    "ctaSecondary": "See how it works"
+  },
+  "problem": {
+    "heading": "The market moves fast. Most signals don't.",
+    "paragraph1": "Retail investors are flooded with charts, indicators, and \"buy\" calls.",
+    "paragraph2": "By the time most signals reach you, the opportunity is often gone.",
+    "paragraph3": "You don't need more noise.",
+    "highlight": "You need clarity."
+  },
+  "solution": {
+    "heading": "One AI. One clear view of the market.",
+    "bullets": {
+      "scan": "Scans stocks and crypto continuously",
+      "identify": "Identifies meaningful technical setups",
+      "explain": "Explains what's happening and what to watch",
+      "deliver": "Sends alerts directly to your Telegram account"
+    },
+    "tagline": "No dashboards. No downloads. No complexity."
+  },
+  "howItWorks": {
+    "heading": "How it works",
+    "step1": {
+      "title": "We monitor the market",
+      "description": "Our AI analyzes price action, volume, and technical patterns across stocks and crypto."
+    },
+    "step2": {
+      "title": "We detect meaningful setups",
+      "description": "Only when conditions matter. No constant spam."
+    },
+    "step3": {
+      "title": "You get clear context",
+      "description": "Signal type, time horizon, confidence level, and risk to watch."
+    },
+    "step4": {
+      "title": "Delivered on Telegram",
+      "description": "Access everything via your own Telegram account."
+    }
+  },
+  "features": {
+    "heading": "What you get with Stock And Crypto Tracker",
+    "bullets": {
+      "context": "Market context, not blind signals",
+      "plain": "Technical explanations in plain English",
+      "coverage": "Stock and crypto coverage",
+      "fatigue": "Alert fatigue control",
+      "education": "Educational insights with every update"
+    },
+    "tagline": "Built for investors who value discipline over hype."
+  },
+  "pricing": {
+    "heading": "Simple pricing. No lock-in.",
+    "free": {
+      "name": "Free",
+      "price": "$0",
+      "features": {
+        "analysis": "Limited daily analysis",
+        "alerts": "Delayed alerts",
+        "insights": "Educational insights",
+        "telegram": "Telegram access"
+      },
+      "cta": "Start Free"
+    },
+    "pro": {
+      "name": "Pro",
+      "badge": "Recommended",
+      "price": "$20",
+      "period": "/ month",
+      "features": {
+        "coverage": "Stocks + crypto coverage",
+        "signals": "Signal type & confidence labels",
+        "priority": "Priority processing",
+        "telegram": "Full Telegram access"
+      },
+      "cta": "Get Pro"
+    },
+    "disclaimer": "No financial advice. Cancel anytime."
+  },
+  "trust": {
+    "heading": "Built for clarity. Designed responsibly.",
+    "paragraph1": "Stock And Crypto Tracker provides technical market analysis for educational purposes only.",
+    "paragraph2": "We do not provide financial advice, portfolio recommendations, or guarantees.",
+    "paragraph3": "Always apply your own risk management."
+  },
+  "finalCta": {
+    "heading": "Get clarity without the noise.",
+    "cta": "Start Free on Telegram",
+    "subtext": "No credit card. No app download."
+  },
+  "footer": {
+    "about": "About",
+    "pricing": "Pricing",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "telegram": "Telegram Bot",
+    "copyright": "© {year} Stock And Crypto Tracker. All rights reserved."
+  }
+}

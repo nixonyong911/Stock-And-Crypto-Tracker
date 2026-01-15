@@ -1,0 +1,112 @@
+{
+  "metadata": {
+    "title": "Stock And Crypto Tracker - AI驱动的市场洞察",
+    "description": "AI驱动的股票和加密货币市场分析。获取清晰的信号，通过Telegram直接推送。"
+  },
+  "nav": {
+    "product": "产品",
+    "pricing": "定价",
+    "about": "关于"
+  },
+  "hero": {
+    "headline": "股票和加密货币市场的清晰洞察。",
+    "headlineHighlight": "AI驱动。",
+    "subheadline": "Stock And Crypto Tracker 全天候扫描全球市场，用通俗易懂的语言解释技术状况。没有炒作。没有噪音。只有清晰的市场背景，直接发送到Telegram。",
+    "cta": "在Telegram上免费开始",
+    "ctaSecondary": "了解运作方式"
+  },
+  "problem": {
+    "heading": "市场瞬息万变。大多数信号却跟不上。",
+    "paragraph1": "散户投资者被图表、指标和\"买入\"信号淹没。",
+    "paragraph2": "当大多数信号到达你手中时，机会往往已经消失。",
+    "paragraph3": "你不需要更多的噪音。",
+    "highlight": "你需要清晰的洞察。"
+  },
+  "solution": {
+    "heading": "一个AI。一个清晰的市场视角。",
+    "bullets": {
+      "scan": "持续扫描股票和加密货币",
+      "identify": "识别有意义的技术形态",
+      "explain": "解释正在发生什么以及需要关注什么",
+      "deliver": "直接发送提醒到你的Telegram账户"
+    },
+    "tagline": "无需仪表盘。无需下载。无需复杂操作。"
+  },
+  "howItWorks": {
+    "heading": "运作方式",
+    "step1": {
+      "title": "我们监控市场",
+      "description": "我们的AI分析股票和加密货币的价格走势、成交量和技术形态。"
+    },
+    "step2": {
+      "title": "我们检测有意义的形态",
+      "description": "只在条件重要时提醒。不会持续发送垃圾信息。"
+    },
+    "step3": {
+      "title": "你获得清晰的背景",
+      "description": "信号类型、时间范围、置信度和需要关注的风险。"
+    },
+    "step4": {
+      "title": "通过Telegram推送",
+      "description": "通过你自己的Telegram账户访问所有内容。"
+    }
+  },
+  "features": {
+    "heading": "Stock And Crypto Tracker 为你提供",
+    "bullets": {
+      "context": "市场背景，而非盲目信号",
+      "plain": "用简单易懂的语言解释技术分析",
+      "coverage": "股票和加密货币全覆盖",
+      "fatigue": "提醒疲劳控制",
+      "education": "每次更新都附带教育性见解"
+    },
+    "tagline": "为重视纪律而非炒作的投资者打造。"
+  },
+  "pricing": {
+    "heading": "简单定价。无锁定。",
+    "free": {
+      "name": "免费版",
+      "price": "$0",
+      "features": {
+        "analysis": "有限的每日分析",
+        "alerts": "延迟提醒",
+        "insights": "教育性见解",
+        "telegram": "Telegram访问"
+      },
+      "cta": "免费开始"
+    },
+    "pro": {
+      "name": "专业版",
+      "badge": "推荐",
+      "price": "$20",
+      "period": "/ 月",
+      "features": {
+        "coverage": "股票 + 加密货币覆盖",
+        "signals": "信号类型和置信度标签",
+        "priority": "优先处理",
+        "telegram": "完整Telegram访问"
+      },
+      "cta": "获取专业版"
+    },
+    "disclaimer": "非财务建议。随时取消。"
+  },
+  "trust": {
+    "heading": "为清晰而构建。负责任地设计。",
+    "paragraph1": "Stock And Crypto Tracker 仅为教育目的提供技术市场分析。",
+    "paragraph2": "我们不提供财务建议、投资组合建议或保证。",
+    "paragraph3": "请始终运用你自己的风险管理。"
+  },
+  "finalCta": {
+    "heading": "获取清晰洞察，远离噪音。",
+    "cta": "在Telegram上免费开始",
+    "subtext": "无需信用卡。无需下载应用。"
+  },
+  "footer": {
+    "about": "关于",
+    "pricing": "定价",
+    "terms": "条款",
+    "privacy": "隐私",
+    "telegram": "Telegram机器人",
+    "copyright": "© {year} Stock And Crypto Tracker. 保留所有权利。"
+  }
+}
