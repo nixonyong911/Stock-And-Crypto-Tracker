@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { GradientText } from "@/components/ui/gradient-text";
 import { ScanLine, Lightbulb, MessageSquareText, Send } from "lucide-react";
 
 const icons = {
@@ -20,7 +21,9 @@ export function SolutionSection() {
       <div className="container mx-auto px-4 py-24">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            {t("heading")}
+            {t("headingPrefix")}
+            <GradientText>{t("headingAccent")}</GradientText>
+            {t("headingSuffix")}
           </h2>
 
           <ul className="mt-12 grid gap-6 sm:grid-cols-2">

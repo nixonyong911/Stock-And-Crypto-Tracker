@@ -6,12 +6,17 @@
   "nav": {
     "product": "产品",
     "pricing": "定价",
-    "about": "关于"
+    "about": "关于",
+    "blog": "博客"
   },
   "hero": {
     "headline": "股票和加密货币市场的清晰洞察。",
-    "headlineHighlight": "AI驱动。",
-    "subheadline": "Stock And Crypto Tracker 全天候扫描全球市场，用通俗易懂的语言解释技术状况。没有炒作。没有噪音。只有清晰的市场背景，直接发送到Telegram。",
+    "headlineHighlightPrefix": "",
+    "headlineHighlightAccent": "AI",
+    "headlineHighlightSuffix": "驱动。",
+    "subheadlinePart1": "Stock And Crypto Tracker ",
+    "subheadlineAccent": "全天候",
+    "subheadlinePart2": "扫描全球市场，用通俗易懂的语言解释技术状况。没有炒作。没有噪音。只有清晰的市场背景，直接发送到Telegram。",
     "cta": "在Telegram上免费开始",
     "ctaSecondary": "了解运作方式"
   },
@@ -20,10 +25,14 @@
     "paragraph1": "散户投资者被图表、指标和\"买入\"信号淹没。",
     "paragraph2": "当大多数信号到达你手中时，机会往往已经消失。",
     "paragraph3": "你不需要更多的噪音。",
-    "highlight": "你需要清晰的洞察。"
+    "highlightPrefix": "你需要",
+    "highlightAccent": "清晰的洞察",
+    "highlightSuffix": "。"
   },
   "solution": {
-    "heading": "一个AI。一个清晰的市场视角。",
+    "headingPrefix": "一个",
+    "headingAccent": "AI",
+    "headingSuffix": "。一个清晰的市场视角。",
     "bullets": {
       "scan": "持续扫描股票和加密货币",
       "identify": "识别有意义的技术形态",
@@ -52,7 +61,9 @@
     }
   },
   "features": {
-    "heading": "Stock And Crypto Tracker 为你提供",
+    "headingPrefix": "",
+    "headingBrand": "Stock And Crypto Tracker",
+    "headingSuffix": " 为你提供",
     "bullets": {
       "context": "市场背景，而非盲目信号",
       "plain": "用简单易懂的语言解释技术分析",
@@ -91,7 +102,9 @@
     "disclaimer": "非财务建议。随时取消。"
   },
   "trust": {
-    "heading": "为清晰而构建。负责任地设计。",
+    "headingPrefix": "为",
+    "headingAccent": "清晰",
+    "headingSuffix": "而构建。负责任地设计。",
     "paragraph1": "Stock And Crypto Tracker 仅为教育目的提供技术市场分析。",
     "paragraph2": "我们不提供财务建议、投资组合建议或保证。",
     "paragraph3": "请始终运用你自己的风险管理。"
@@ -102,8 +115,17 @@
     "subtext": "无需信用卡。无需下载应用。"
   },
   "footer": {
+    "tagline": "AI驱动的股票和加密货币市场分析。获取清晰的信号，无需噪音。",
+    "sections": {
+      "product": "产品",
+      "company": "公司",
+      "legal": "法律"
+    },
     "about": "关于",
     "pricing": "定价",
+    "blog": "博客",
+    "faq": "常见问题",
+    "contact": "联系我们",
     "terms": "条款",
     "privacy": "隐私",
     "telegram": "Telegram机器人",
@@ -206,7 +228,7 @@
     "sections": {
       "introduction": {
         "title": "1. 简介",
-        "content": "Stock And Crypto Tracker（"我们"、"我们的"或"本公司"）致力于保护您的隐私。本隐私政策描述了我们在您访问或使用本服务时如何收集、使用、披露和保护您的个人数据。使用本服务即表示您同意本隐私政策中描述的做法。"
+        "content": "Stock And Crypto Tracker（「我们」、「我们的」或「本公司」）致力于保护您的隐私。本隐私政策描述了我们在您访问或使用本服务时如何收集、使用、披露和保护您的个人数据。使用本服务即表示您同意本隐私政策中描述的做法。"
       },
       "definitions": {
         "title": "2. 定义",
@@ -268,5 +290,267 @@
         "content": "如果您对本隐私政策有疑问、希望行使您的数据权利或对我们的数据做法有疑虑，请通过我们的 Telegram 机器人 @StockAndCryptoAdvisorBot 或电子邮件联系我们。我们将努力在合理的时间范围内回复您的咨询。"
       }
     }
+  },
+  "pricingPage": {
+    "meta": {
+      "title": "定价 - Stock And Crypto Tracker",
+      "description": "AI驱动的股票和加密货币市场分析的简单透明定价。免费开始或升级到Pro获得完整覆盖。"
+    },
+    "hero": {
+      "title": "简单透明的定价",
+      "subtitle": "免费开始，随时升级。无隐藏费用，随时取消。"
+    },
+    "comparison": {
+      "title": "功能对比",
+      "feature": "功能",
+      "features": {
+        "dailyAnalysis": "每日分析",
+        "alertSpeed": "提醒速度",
+        "stockCoverage": "股票覆盖",
+        "cryptoCoverage": "加密货币覆盖",
+        "signalConfidence": "信号置信度标签",
+        "priorityProcessing": "优先处理",
+        "educationalInsights": "教育性洞察",
+        "telegramAccess": "Telegram访问"
+      }
+    },
+    "faq": {
+      "title": "定价常见问题",
+      "questions": {
+        "cancelAnytime": {
+          "question": "我可以随时取消订阅吗？",
+          "answer": "是的，您可以随时取消Pro订阅。您的访问权限将持续到当前计费周期结束。"
+        },
+        "paymentMethods": {
+          "question": "你们接受哪些付款方式？",
+          "answer": "我们通过安全的支付处理器Stripe接受所有主要信用卡（Visa、Mastercard、American Express）。"
+        },
+        "refundPolicy": {
+          "question": "你们的退款政策是什么？",
+          "answer": "我们为新Pro订阅用户提供7天退款保证。如果您不满意，请在7天内联系我们全额退款。"
+        },
+        "upgradeDowngrade": {
+          "question": "我可以在计划之间切换吗？",
+          "answer": "是的，您可以随时从免费升级到Pro。降级时，您的Pro功能将保持活跃直到计费周期结束。"
+        },
+        "trialPeriod": {
+          "question": "Pro有免费试用吗？",
+          "answer": "我们不提供免费试用，但我们的免费计划让您体验核心功能。此外，我们有7天退款保证。"
+        }
+      }
+    }
+  },
+  "contactPage": {
+    "meta": {
+      "title": "联系我们 - Stock And Crypto Tracker",
+      "description": "联系Stock And Crypto Tracker。我们在24小时内回复所有咨询。"
+    },
+    "hero": {
+      "title": "联系我们",
+      "subtitle": "有问题或反馈？我们很乐意听取您的意见。我们的团队在24小时内回复。"
+    },
+    "form": {
+      "title": "给我们发送消息",
+      "name": "姓名",
+      "namePlaceholder": "您的姓名",
+      "email": "电子邮件",
+      "emailPlaceholder": "you@example.com",
+      "subject": "主题",
+      "subjects": {
+        "general": "一般咨询",
+        "support": "技术支持",
+        "partnership": "合作伙伴关系",
+        "other": "其他"
+      },
+      "message": "消息",
+      "messagePlaceholder": "我们能帮您什么？",
+      "submit": "发送消息",
+      "sending": "发送中...",
+      "responseTime": "我们通常在24小时内回复。"
+    },
+    "success": {
+      "title": "消息已发送！",
+      "message": "感谢您联系我们。我们已收到您的消息，将在24小时内回复。",
+      "sendAnother": "发送另一条消息"
+    },
+    "info": {
+      "title": "其他联系方式",
+      "description": "选择最适合您的方式。",
+      "telegram": {
+        "title": "Telegram机器人",
+        "description": "通过我们的Telegram机器人获得即时帮助。"
+      },
+      "email": {
+        "title": "电子邮件",
+        "description": "直接给我们发送电子邮件。"
+      },
+      "response": {
+        "title": "响应时间",
+        "description": "我们的目标是在工作日内24小时内回复所有咨询。复杂问题可能需要更长时间，但我们会随时通知您。"
+      }
+    }
+  },
+  "aboutPage": {
+    "meta": {
+      "title": "关于我们 - Stock And Crypto Tracker",
+      "description": "了解Stock And Crypto Tracker - 我们通过AI驱动的分析为股票和加密货币市场带来清晰度的使命。"
+    },
+    "hero": {
+      "title": "关于我们",
+      "subtitle": "通过AI驱动的分析为市场带来清晰度"
+    },
+    "mission": {
+      "title": "我们的使命",
+      "paragraph1": "Stock And Crypto Tracker建立在一个简单的信念上：散户投资者值得拥有更好的工具。不是更多的工具。是更好的工具。能够消除噪音而不是增加噪音的工具。",
+      "paragraph2": "我们的使命是让高质量的市场分析变得触手可及。我们使用AI不是为了预测未来，而是帮助您清楚地理解现在——这样您就可以自信地做出明智的决定。"
+    },
+    "story": {
+      "title": "我们的故事",
+      "paragraph1": "在亲身经历了信息过载的挫折后，我们创建了Stock And Crypto Tracker。太多的信号。太多的噪音。太少的清晰度。",
+      "paragraph2": "传统的市场分析工具要么对普通投资者来说太复杂，要么太简单而没有用处。我们想要构建一些不同的东西——一个用通俗易懂的语言解释正在发生什么的工具。",
+      "paragraph3": "通过Telegram——人们每天都在使用的应用程序——提供洞察，我们消除了检查另一个仪表盘或下载另一个应用程序的麻烦。只有清晰的背景，送到您所在的地方。"
+    },
+    "values": {
+      "title": "我们的价值观",
+      "items": {
+        "clarity": {
+          "title": "清晰胜过复杂",
+          "description": "我们用通俗易懂的语言解释市场状况。没有行话，没有令人眼花缭乱的图表——只有清晰的背景。"
+        },
+        "discipline": {
+          "title": "纪律胜过炒作",
+          "description": "我们不追逐趋势或承诺快速致富。我们为有纪律的投资者提供平衡的分析。"
+        },
+        "transparency": {
+          "title": "透明度",
+          "description": "我们坦诚地说明我们是什么（教育性分析）以及我们不是什么（财务建议）。"
+        },
+        "simplicity": {
+          "title": "简单性",
+          "description": "无需下载应用程序。无需监控仪表盘。只有发送到您Telegram的洞察。"
+        }
+      }
+    },
+    "whatWeAreNot": {
+      "title": "我们不是什么",
+      "item1": "我们不是财务顾问，不提供投资建议。",
+      "item2": "我们不保证回报或预测未来的市场走势。",
+      "item3": "我们不出售您的数据或用垃圾信息轰炸您。",
+      "conclusion": "我们在这里提供教育性的市场背景——不多也不少。"
+    },
+    "cta": {
+      "title": "准备体验市场清晰度了吗？",
+      "description": "加入成千上万选择清晰度而非噪音的投资者。",
+      "primary": "在Telegram上免费开始",
+      "secondary": "联系我们"
+    }
+  },
+  "faqPage": {
+    "meta": {
+      "title": "常见问题 - Stock And Crypto Tracker",
+      "description": "关于Stock And Crypto Tracker的常见问题。查找有关我们的服务、定价、功能等的答案。"
+    },
+    "hero": {
+      "title": "常见问题",
+      "subtitle": "查找有关Stock And Crypto Tracker的常见问题答案"
+    },
+    "categories": {
+      "general": {
+        "title": "一般问题",
+        "questions": {
+          "q1": {
+            "question": "什么是Stock And Crypto Tracker？",
+            "answer": "Stock And Crypto Tracker是一项AI驱动的市场分析服务，全天候监控股票和加密货币，并将清晰、有背景的洞察直接发送到您的Telegram账户。"
+          },
+          "q2": {
+            "question": "它是如何工作的？",
+            "answer": "我们的AI持续分析市场数据，识别有意义的技术形态，并在条件值得注意时向您发送提醒。每个提醒都包括信号类型、时间范围、置信度和需要关注的风险。"
+          },
+          "q3": {
+            "question": "这是财务建议吗？",
+            "answer": "不是。Stock And Crypto Tracker仅提供教育性市场分析。我们不提供财务建议、投资组合建议或保证。在做出投资决定之前，请务必咨询持牌财务顾问。"
+          },
+          "q4": {
+            "question": "你们与其他服务有什么不同？",
+            "answer": "我们专注于清晰度而非复杂性。我们不是用图表和指标让您不知所措，而是用通俗易懂的语言解释市场状况，并在您已经在的地方——Telegram——提供洞察。"
+          }
+        }
+      },
+      "pricing": {
+        "title": "定价和计费",
+        "questions": {
+          "q1": {
+            "question": "有免费计划吗？",
+            "answer": "有！我们的免费计划包括有限的每日分析、延迟提醒和教育性洞察。非常适合开始了解服务的运作方式。"
+          },
+          "q2": {
+            "question": "Pro包括什么？",
+            "answer": "Pro（每月$20）包括无限分析、实时提醒、完整的股票和加密货币覆盖、信号置信度标签和优先处理。"
+          },
+          "q3": {
+            "question": "我可以随时取消吗？",
+            "answer": "当然可以。您可以随时取消Pro订阅，无需任何处罚。您的访问权限将持续到当前计费周期结束。"
+          },
+          "q4": {
+            "question": "你们提供退款吗？",
+            "answer": "是的，我们为新Pro订阅用户提供7天退款保证。如果您在前7天内不满意，请联系我们全额退款。"
+          }
+        }
+      },
+      "technical": {
+        "title": "技术问题",
+        "questions": {
+          "q1": {
+            "question": "如何开始？",
+            "answer": "只需向我们的Telegram机器人 @StockAndCryptoAdvisorBot 发送消息并按照设置说明操作。无需下载应用程序或创建账户——只需您的Telegram账户。"
+          },
+          "q2": {
+            "question": "你们覆盖哪些市场？",
+            "answer": "我们覆盖主要的美国股票（NYSE、NASDAQ）和流行的加密货币（BTC、ETH等）。Pro用户可以获得更多资产的扩展覆盖。"
+          },
+          "q3": {
+            "question": "我多久收到一次提醒？",
+            "answer": "提醒频率取决于市场状况。我们只在有意义的时候发送提醒——不是不断的通知。您也可以自定义您的提醒偏好。"
+          }
+        }
+      },
+      "account": {
+        "title": "账户",
+        "questions": {
+          "q1": {
+            "question": "如何升级到Pro？",
+            "answer": "向机器人发送 /upgrade 消息并点击付款链接。付款确认后，您的Pro功能将立即激活。"
+          },
+          "q2": {
+            "question": "如何更改我的设置？",
+            "answer": "在Telegram机器人中使用 /settings 命令来自定义您的偏好，包括提醒类型、资产覆盖和通知频率。"
+          },
+          "q3": {
+            "question": "我可以在多个设备上使用该服务吗？",
+            "answer": "可以！由于一切都通过Telegram运行，您可以在任何安装了Telegram的设备上访问该服务——手机、平板电脑或桌面电脑。"
+          }
+        }
+      }
+    },
+    "contact": {
+      "title": "还有问题吗？",
+      "description": "找不到您要找的内容？我们的团队随时为您提供帮助。",
+      "telegram": "在Telegram上询问",
+      "email": "联系我们"
+    }
+  },
+  "blogPage": {
+    "meta": {
+      "title": "博客 - Stock And Crypto Tracker",
+      "description": "来自Stock And Crypto Tracker的市场洞察、产品更新和教育内容。"
+    },
+    "hero": {
+      "title": "博客",
+      "subtitle": "市场洞察、产品更新和教育内容"
+    },
+    "noPosts": "暂无博客文章。请稍后再来！",
+    "minRead": "分钟阅读",
+    "backToList": "返回博客",
+    "tryBot": "试用我们的机器人"
   }
 }

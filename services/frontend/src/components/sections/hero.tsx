@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { GradientText } from "@/components/ui/gradient-text";
 import { Send, ArrowDown } from "lucide-react";
 
 const TELEGRAM_BOT_URL = "https://t.me/StockAndCryptoAdvisorBot?start=register";
@@ -25,13 +26,19 @@ export function HeroSection() {
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
             {t("headline")}
             <br />
-            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              {t("headlineHighlight")}
+            <span>
+              {t("headlineHighlightPrefix")}
+              <GradientText>{t("headlineHighlightAccent")}</GradientText>
+              {t("headlineHighlightSuffix")}
             </span>
           </h1>
 
           <p className="mt-6 text-lg leading-8 text-muted-foreground sm:text-xl">
-            {t("subheadline")}
+            {t("subheadlinePart1")}
+            <GradientText className="text-xl font-semibold sm:text-2xl">
+              {t("subheadlineAccent")}
+            </GradientText>
+            {t("subheadlinePart2")}
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">

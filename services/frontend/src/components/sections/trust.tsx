@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { GradientText } from "@/components/ui/gradient-text";
 import { Shield } from "lucide-react";
 
 export function TrustSection() {
@@ -15,7 +16,9 @@ export function TrustSection() {
           </div>
 
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            {t("heading")}
+            {t("headingPrefix")}
+            <GradientText>{t("headingAccent")}</GradientText>
+            {t("headingSuffix")}
           </h2>
 
           <div className="mt-6 space-y-4 text-muted-foreground">

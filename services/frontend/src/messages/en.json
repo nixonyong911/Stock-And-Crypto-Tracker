@@ -6,12 +6,17 @@
   "nav": {
     "product": "Product",
     "pricing": "Pricing",
-    "about": "About"
+    "about": "About",
+    "blog": "Blog"
   },
   "hero": {
     "headline": "Clarity for Stock and Crypto Markets.",
-    "headlineHighlight": "Powered by AI.",
-    "subheadline": "Stock And Crypto Tracker scans global markets 24/7 and explains technical conditions in plain language. No hype. No noise. Just clear market context delivered on Telegram.",
+    "headlineHighlightPrefix": "Powered by ",
+    "headlineHighlightAccent": "AI",
+    "headlineHighlightSuffix": ".",
+    "subheadlinePart1": "Stock And Crypto Tracker scans global markets ",
+    "subheadlineAccent": "24/7",
+    "subheadlinePart2": " and explains technical conditions in plain language. No hype. No noise. Just clear market context delivered on Telegram.",
     "cta": "Start Free on Telegram",
     "ctaSecondary": "See how it works"
   },
@@ -20,10 +25,14 @@
     "paragraph1": "Retail investors are flooded with charts, indicators, and \"buy\" calls.",
     "paragraph2": "By the time most signals reach you, the opportunity is often gone.",
     "paragraph3": "You don't need more noise.",
-    "highlight": "You need clarity."
+    "highlightPrefix": "You need ",
+    "highlightAccent": "clarity",
+    "highlightSuffix": "."
   },
   "solution": {
-    "heading": "One AI. One clear view of the market.",
+    "headingPrefix": "One ",
+    "headingAccent": "AI",
+    "headingSuffix": ". One clear view of the market.",
     "bullets": {
       "scan": "Scans stocks and crypto continuously",
       "identify": "Identifies meaningful technical setups",
@@ -52,7 +61,9 @@
     }
   },
   "features": {
-    "heading": "What you get with Stock And Crypto Tracker",
+    "headingPrefix": "What you get with ",
+    "headingBrand": "Stock And Crypto Tracker",
+    "headingSuffix": "",
     "bullets": {
       "context": "Market context, not blind signals",
       "plain": "Technical explanations in plain English",
@@ -91,7 +102,9 @@
     "disclaimer": "No financial advice. Cancel anytime."
   },
   "trust": {
-    "heading": "Built for clarity. Designed responsibly.",
+    "headingPrefix": "Built for ",
+    "headingAccent": "clarity",
+    "headingSuffix": ". Designed responsibly.",
     "paragraph1": "Stock And Crypto Tracker provides technical market analysis for educational purposes only.",
     "paragraph2": "We do not provide financial advice, portfolio recommendations, or guarantees.",
     "paragraph3": "Always apply your own risk management."
@@ -102,8 +115,17 @@
     "subtext": "No credit card. No app download."
   },
   "footer": {
+    "tagline": "AI-powered market analysis for stocks and crypto. Get clear signals without the noise.",
+    "sections": {
+      "product": "Product",
+      "company": "Company",
+      "legal": "Legal"
+    },
     "about": "About",
     "pricing": "Pricing",
+    "blog": "Blog",
+    "faq": "FAQ",
+    "contact": "Contact",
     "terms": "Terms",
     "privacy": "Privacy",
     "telegram": "Telegram Bot",
@@ -268,5 +290,267 @@
         "content": "If you have questions about this Privacy Policy, wish to exercise your data rights, or have concerns about our data practices, please contact us via our Telegram bot @StockAndCryptoAdvisorBot or by email. We will endeavor to respond to your inquiry within a reasonable timeframe."
       }
     }
+  },
+  "pricingPage": {
+    "meta": {
+      "title": "Pricing - Stock And Crypto Tracker",
+      "description": "Simple, transparent pricing for AI-powered stock and crypto market analysis. Start free or upgrade to Pro for full coverage."
+    },
+    "hero": {
+      "title": "Simple, Transparent Pricing",
+      "subtitle": "Start free and upgrade when you're ready. No hidden fees, cancel anytime."
+    },
+    "comparison": {
+      "title": "Feature Comparison",
+      "feature": "Feature",
+      "features": {
+        "dailyAnalysis": "Daily Analysis",
+        "alertSpeed": "Alert Speed",
+        "stockCoverage": "Stock Coverage",
+        "cryptoCoverage": "Crypto Coverage",
+        "signalConfidence": "Signal Confidence Labels",
+        "priorityProcessing": "Priority Processing",
+        "educationalInsights": "Educational Insights",
+        "telegramAccess": "Telegram Access"
+      }
+    },
+    "faq": {
+      "title": "Pricing FAQ",
+      "questions": {
+        "cancelAnytime": {
+          "question": "Can I cancel my subscription anytime?",
+          "answer": "Yes, you can cancel your Pro subscription at any time. Your access will continue until the end of your current billing period."
+        },
+        "paymentMethods": {
+          "question": "What payment methods do you accept?",
+          "answer": "We accept all major credit cards (Visa, Mastercard, American Express) through our secure payment processor, Stripe."
+        },
+        "refundPolicy": {
+          "question": "What is your refund policy?",
+          "answer": "We offer a 7-day money-back guarantee for new Pro subscribers. If you're not satisfied, contact us within 7 days for a full refund."
+        },
+        "upgradeDowngrade": {
+          "question": "Can I switch between plans?",
+          "answer": "Yes, you can upgrade from Free to Pro anytime. When downgrading, your Pro features remain active until the end of your billing period."
+        },
+        "trialPeriod": {
+          "question": "Is there a free trial for Pro?",
+          "answer": "We don't offer a free trial, but our Free plan lets you experience the core features. Plus, we have a 7-day money-back guarantee."
+        }
+      }
+    }
+  },
+  "contactPage": {
+    "meta": {
+      "title": "Contact Us - Stock And Crypto Tracker",
+      "description": "Get in touch with Stock And Crypto Tracker. We respond to all inquiries within 24 hours."
+    },
+    "hero": {
+      "title": "Contact Us",
+      "subtitle": "Have a question or feedback? We'd love to hear from you. Our team responds within 24 hours."
+    },
+    "form": {
+      "title": "Send us a message",
+      "name": "Name",
+      "namePlaceholder": "Your name",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "subject": "Subject",
+      "subjects": {
+        "general": "General Inquiry",
+        "support": "Technical Support",
+        "partnership": "Partnership",
+        "other": "Other"
+      },
+      "message": "Message",
+      "messagePlaceholder": "How can we help you?",
+      "submit": "Send Message",
+      "sending": "Sending...",
+      "responseTime": "We typically respond within 24 hours."
+    },
+    "success": {
+      "title": "Message Sent!",
+      "message": "Thank you for contacting us. We've received your message and will respond within 24 hours.",
+      "sendAnother": "Send Another Message"
+    },
+    "info": {
+      "title": "Other Ways to Reach Us",
+      "description": "Choose the method that works best for you.",
+      "telegram": {
+        "title": "Telegram Bot",
+        "description": "Get instant help through our Telegram bot."
+      },
+      "email": {
+        "title": "Email",
+        "description": "Send us an email directly."
+      },
+      "response": {
+        "title": "Response Time",
+        "description": "We aim to respond to all inquiries within 24 hours during business days. Complex issues may take longer, but we'll keep you updated."
+      }
+    }
+  },
+  "aboutPage": {
+    "meta": {
+      "title": "About Us - Stock And Crypto Tracker",
+      "description": "Learn about Stock And Crypto Tracker - our mission to bring clarity to stock and crypto markets through AI-powered analysis."
+    },
+    "hero": {
+      "title": "About Us",
+      "subtitle": "Bringing clarity to markets through AI-powered analysis"
+    },
+    "mission": {
+      "title": "Our Mission",
+      "paragraph1": "Stock And Crypto Tracker was built on a simple belief: retail investors deserve better tools. Not more tools. Better ones. Tools that cut through the noise instead of adding to it.",
+      "paragraph2": "Our mission is to democratize access to quality market analysis. We use AI not to predict the future, but to help you understand the present clearly—so you can make informed decisions with confidence."
+    },
+    "story": {
+      "title": "Our Story",
+      "paragraph1": "We started Stock And Crypto Tracker after experiencing firsthand the frustration of information overload. Too many signals. Too much noise. Too little clarity.",
+      "paragraph2": "Traditional market analysis tools are either too complex for everyday investors or too simplistic to be useful. We wanted to build something different—a tool that explains what's happening in plain language.",
+      "paragraph3": "By delivering insights through Telegram—an app people already use daily—we removed the friction of checking yet another dashboard or downloading another app. Just clear context, delivered where you are."
+    },
+    "values": {
+      "title": "Our Values",
+      "items": {
+        "clarity": {
+          "title": "Clarity Over Complexity",
+          "description": "We explain market conditions in plain language. No jargon, no overwhelming charts—just clear context."
+        },
+        "discipline": {
+          "title": "Discipline Over Hype",
+          "description": "We don't chase trends or promise quick riches. We provide balanced analysis for disciplined investors."
+        },
+        "transparency": {
+          "title": "Transparency",
+          "description": "We're upfront about what we are (educational analysis) and what we're not (financial advice)."
+        },
+        "simplicity": {
+          "title": "Simplicity",
+          "description": "No apps to download. No dashboards to monitor. Just insights delivered to your Telegram."
+        }
+      }
+    },
+    "whatWeAreNot": {
+      "title": "What We Are Not",
+      "item1": "We are not financial advisors and don't provide investment advice.",
+      "item2": "We don't guarantee returns or predict future market movements.",
+      "item3": "We don't sell your data or bombard you with spam.",
+      "conclusion": "We're here to provide educational market context—nothing more, nothing less."
+    },
+    "cta": {
+      "title": "Ready to Experience Market Clarity?",
+      "description": "Join thousands of investors who've chosen clarity over noise.",
+      "primary": "Start Free on Telegram",
+      "secondary": "Contact Us"
+    }
+  },
+  "faqPage": {
+    "meta": {
+      "title": "FAQ - Stock And Crypto Tracker",
+      "description": "Frequently asked questions about Stock And Crypto Tracker. Find answers about our service, pricing, features, and more."
+    },
+    "hero": {
+      "title": "Frequently Asked Questions",
+      "subtitle": "Find answers to common questions about Stock And Crypto Tracker"
+    },
+    "categories": {
+      "general": {
+        "title": "General",
+        "questions": {
+          "q1": {
+            "question": "What is Stock And Crypto Tracker?",
+            "answer": "Stock And Crypto Tracker is an AI-powered market analysis service that monitors stocks and cryptocurrencies 24/7 and delivers clear, contextual insights directly to your Telegram account."
+          },
+          "q2": {
+            "question": "How does it work?",
+            "answer": "Our AI continuously analyzes market data, identifies meaningful technical patterns, and sends you alerts when conditions are noteworthy. Each alert includes the signal type, time horizon, confidence level, and risks to watch."
+          },
+          "q3": {
+            "question": "Is this financial advice?",
+            "answer": "No. Stock And Crypto Tracker provides educational market analysis only. We do not provide financial advice, portfolio recommendations, or guarantees. Always consult a licensed financial advisor before making investment decisions."
+          },
+          "q4": {
+            "question": "What makes you different from other services?",
+            "answer": "We focus on clarity over complexity. Instead of overwhelming you with charts and indicators, we explain market conditions in plain language and deliver insights where you already are—Telegram."
+          }
+        }
+      },
+      "pricing": {
+        "title": "Pricing & Billing",
+        "questions": {
+          "q1": {
+            "question": "Is there a free plan?",
+            "answer": "Yes! Our Free plan includes limited daily analysis, delayed alerts, and educational insights. It's perfect for getting started and understanding how the service works."
+          },
+          "q2": {
+            "question": "What does Pro include?",
+            "answer": "Pro ($20/month) includes unlimited analysis, real-time alerts, full stock and crypto coverage, signal confidence labels, and priority processing."
+          },
+          "q3": {
+            "question": "Can I cancel anytime?",
+            "answer": "Absolutely. You can cancel your Pro subscription at any time with no penalties. Your access continues until the end of your current billing period."
+          },
+          "q4": {
+            "question": "Do you offer refunds?",
+            "answer": "Yes, we offer a 7-day money-back guarantee for new Pro subscribers. If you're not satisfied within the first 7 days, contact us for a full refund."
+          }
+        }
+      },
+      "technical": {
+        "title": "Technical",
+        "questions": {
+          "q1": {
+            "question": "How do I get started?",
+            "answer": "Simply message our Telegram bot @StockAndCryptoAdvisorBot and follow the setup instructions. No app downloads or account creation required—just your Telegram account."
+          },
+          "q2": {
+            "question": "What markets do you cover?",
+            "answer": "We cover major US stocks (NYSE, NASDAQ) and popular cryptocurrencies (BTC, ETH, and more). Pro users get expanded coverage across more assets."
+          },
+          "q3": {
+            "question": "How often do I receive alerts?",
+            "answer": "Alert frequency depends on market conditions. We only send alerts when there's something meaningful—not constant notifications. You can also customize your alert preferences."
+          }
+        }
+      },
+      "account": {
+        "title": "Account",
+        "questions": {
+          "q1": {
+            "question": "How do I upgrade to Pro?",
+            "answer": "Message the bot with /upgrade and follow the payment link. Once payment is confirmed, your Pro features activate immediately."
+          },
+          "q2": {
+            "question": "How do I change my settings?",
+            "answer": "Use the /settings command in the Telegram bot to customize your preferences, including alert types, asset coverage, and notification frequency."
+          },
+          "q3": {
+            "question": "Can I use the service on multiple devices?",
+            "answer": "Yes! Since everything runs through Telegram, you can access the service on any device where you have Telegram installed—phone, tablet, or desktop."
+          }
+        }
+      }
+    },
+    "contact": {
+      "title": "Still Have Questions?",
+      "description": "Can't find what you're looking for? Our team is here to help.",
+      "telegram": "Ask on Telegram",
+      "email": "Contact Us"
+    }
+  },
+  "blogPage": {
+    "meta": {
+      "title": "Blog - Stock And Crypto Tracker",
+      "description": "Market insights, product updates, and educational content from Stock And Crypto Tracker."
+    },
+    "hero": {
+      "title": "Blog",
+      "subtitle": "Market insights, product updates, and educational content"
+    },
+    "noPosts": "No blog posts yet. Check back soon!",
+    "minRead": "min read",
+    "backToList": "Back to Blog",
+    "tryBot": "Try Our Bot"
   }
 }

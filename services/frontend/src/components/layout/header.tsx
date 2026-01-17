@@ -27,16 +27,22 @@ export function Header() {
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <Link
-              href="#how-it-works"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {t("product")}
-            </Link>
-            <Link
-              href="#pricing"
+              href="/pricing"
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {t("pricing")}
+            </Link>
+            <Link
+              href="/about"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {t("about")}
+            </Link>
+            <Link
+              href="/blog"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {t("blog")}
             </Link>
           </nav>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { GradientText } from "@/components/ui/gradient-text";
 
 export function ProblemSection() {
   const t = useTranslations("problem");
@@ -20,7 +21,9 @@ export function ProblemSection() {
               {t("paragraph3")}
               <br />
               <span className="font-semibold text-foreground">
-                {t("highlight")}
+                {t("highlightPrefix")}
+                <GradientText>{t("highlightAccent")}</GradientText>
+                {t("highlightSuffix")}
               </span>
             </p>
           </div>
