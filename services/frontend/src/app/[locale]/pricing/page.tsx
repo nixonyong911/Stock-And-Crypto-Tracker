@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
 import { PricingContent } from "./pricing-content";
+import { PRICING } from "@/config/pricing";
 
 export async function generateMetadata({
   params,
@@ -45,16 +46,16 @@ const pricingSchema = {
       "@type": "Offer",
       name: "Free Plan",
       price: "0",
-      priceCurrency: "USD",
+      priceCurrency: PRICING.currency,
       availability: "https://schema.org/InStock",
       description: "Limited daily analysis with delayed alerts",
     },
     {
       "@type": "Offer",
       name: "Pro Plan",
-      price: "20",
-      priceCurrency: "USD",
-      priceValidUntil: "2026-12-31",
+      price: PRICING.price,
+      priceCurrency: PRICING.currency,
+      priceValidUntil: PRICING.priceValidUntil,
       availability: "https://schema.org/InStock",
       description:
         "Full stocks and crypto coverage with priority processing and real-time alerts",

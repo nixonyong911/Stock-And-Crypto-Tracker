@@ -1,3 +1,5 @@
+import { PRICING } from "@/config/pricing";
+
 const baseUrl = "https://stockandcryptotracker.com";
 
 // Organization Schema
@@ -48,15 +50,15 @@ const softwareApplicationSchema = {
       "@type": "Offer",
       name: "Free Plan",
       price: "0",
-      priceCurrency: "USD",
+      priceCurrency: PRICING.currency,
       description: "Limited daily analysis with delayed alerts",
     },
     {
       "@type": "Offer",
       name: "Pro Plan",
-      price: "20",
-      priceCurrency: "USD",
-      priceValidUntil: "2026-12-31",
+      price: PRICING.price,
+      priceCurrency: PRICING.currency,
+      priceValidUntil: PRICING.priceValidUntil,
       description: "Full stocks and crypto coverage with priority processing",
     },
   ],

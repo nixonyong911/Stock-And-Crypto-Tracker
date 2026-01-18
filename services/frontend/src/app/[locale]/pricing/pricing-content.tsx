@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { getFormattedPrice } from "@/config/pricing";
 import {
   Card,
   CardContent,
@@ -108,7 +109,7 @@ export function PricingContent() {
                   <CardTitle className="text-2xl">{t("pro.name")}</CardTitle>
                   <CardDescription>
                     <span className="text-4xl font-bold text-foreground">
-                      {t("pro.price")}
+                      {getFormattedPrice()}
                     </span>
                     <span className="text-muted-foreground">
                       {t("pro.period")}
