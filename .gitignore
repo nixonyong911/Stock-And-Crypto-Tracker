@@ -90,3 +90,4 @@ logs/
 *.temp
 testing-folder/
 
+.env*.local
