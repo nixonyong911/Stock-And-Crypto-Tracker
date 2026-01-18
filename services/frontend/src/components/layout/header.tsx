@@ -26,7 +26,7 @@ export function Header() {
               <span className="text-sm font-bold">SC</span>
             </div>
             <span className="hidden font-semibold sm:inline-block">
-              Stock & Crypto Tracker
+              Stock and Crypto Tracker
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">

@@ -21,7 +21,7 @@ export function Footer() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <span className="text-sm font-bold">SC</span>
               </div>
-              <span className="font-semibold">Stock & Crypto Tracker</span>
+              <span className="font-semibold">Stock and Crypto Tracker</span>
             </div>
             <p className="text-sm text-muted-foreground">
               {t("tagline")}
