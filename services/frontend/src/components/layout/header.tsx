@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Send, LogIn } from "lucide-react";
+import Image from "next/image";
 
 // Check if Clerk is configured
 const isClerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -20,31 +21,36 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="text-sm font-bold">SC</span>
-            </div>
-            <span className="hidden font-semibold sm:inline-block">
-              Stock and Crypto Tracker
+        <div className="flex items-center gap-10">
+          <Link href="/" className="flex items-center gap-1.5">
+            <Image
+              src="/icon.svg"
+              alt="Stock and Crypto Tracker Logo"
+              width={40}
+              height={40}
+              className="h-10 w-10"
+            />
+            <span className="hidden flex-col leading-tight sm:flex">
+              <span className="font-semibold">Stock and Crypto</span>
+              <span className="font-semibold text-violet-400">Tracker</span>
             </span>
           </Link>
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden md:flex items-center gap-8">
             <Link
               href="/pricing"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-lg font-semibold text-muted-foreground transition-colors hover:text-foreground"
             >
               {t("pricing")}
             </Link>
             <Link
               href="/about"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-lg font-semibold text-muted-foreground transition-colors hover:text-foreground"
             >
               {t("about")}
             </Link>
             <Link
               href="/blog"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-lg font-semibold text-muted-foreground transition-colors hover:text-foreground"
             >
               {t("blog")}
             </Link>
@@ -52,7 +58,7 @@ export function Header() {
               <SignedIn>
                 <Link
                   href="/dashboard"
-                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-lg font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Dashboard
                 </Link>

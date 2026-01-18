@@ -3,6 +3,7 @@
 import { Link } from "@/lib/i18n/routing";
 import { useTranslations } from "next-intl";
 import { Separator } from "@/components/ui/separator";
+import Image from "next/image";
 
 const TELEGRAM_BOT_URL = "https://t.me/StockAndCryptoAdvisorBot";
 
@@ -17,11 +18,18 @@ export function Footer() {
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <span className="text-sm font-bold">SC</span>
-              </div>
-              <span className="font-semibold">Stock and Crypto Tracker</span>
+            <div className="flex items-center gap-1.5 mb-4">
+              <Image
+                src="/icon.svg"
+                alt="Stock and Crypto Tracker Logo"
+                width={40}
+                height={40}
+                className="h-10 w-10"
+              />
+              <span className="flex flex-col leading-tight">
+                <span className="font-semibold">Stock and Crypto</span>
+                <span className="font-semibold text-violet-400">Tracker</span>
+              </span>
             </div>
             <p className="text-sm text-muted-foreground">
               {t("tagline")}
