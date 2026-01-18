@@ -1,8 +1,33 @@
-import createMiddleware from "next-intl/middleware";
-import { routing } from "@/lib/i18n/routing";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default createMiddleware(routing);
+// Define public routes that don't require authentication
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/webhooks(.*)",
+  // Locale-prefixed routes
+  "/:locale",
+  "/:locale/sign-in(.*)",
+  "/:locale/sign-up(.*)",
+  "/:locale/pricing(.*)",
+  "/:locale/about(.*)",
+  "/:locale/contact(.*)",
+  "/:locale/faq(.*)",
+  "/:locale/blog(.*)",
+]);
+
+export default clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect();
+  }
+});
 
 export const config = {
-  matcher: ["/", "/(en|zh)/:path*"],
+  matcher: [
+    // Skip Next.js internals and static files
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // Always run for API routes
+    "/(api|trpc)(.*)",
+  ],
 };

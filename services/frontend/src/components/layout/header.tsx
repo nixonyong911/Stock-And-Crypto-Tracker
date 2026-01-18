@@ -2,10 +2,14 @@
 
 import { Link } from "@/lib/i18n/routing";
 import { useTranslations } from "next-intl";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { Send } from "lucide-react";
+import { Send, LogIn } from "lucide-react";
+
+// Check if Clerk is configured
+const isClerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 const TELEGRAM_BOT_URL = "https://t.me/StockAndCryptoAdvisorBot?start=register";
 
@@ -44,18 +48,59 @@ export function Header() {
             >
               {t("blog")}
             </Link>
+            {isClerkConfigured && (
+              <SignedIn>
+                <Link
+                  href="/dashboard"
+                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Dashboard
+                </Link>
+              </SignedIn>
+            )}
           </nav>
         </div>
 
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
           <ThemeToggle />
-          <Button asChild size="sm" className="hidden sm:flex gap-2">
-            <a href={TELEGRAM_BOT_URL} target="_blank" rel="noopener noreferrer">
-              <Send className="h-4 w-4" />
-              {tHero("cta")}
-            </a>
-          </Button>
+          
+          {isClerkConfigured ? (
+            <>
+              <SignedOut>
+                <Button asChild variant="ghost" size="sm" className="hidden sm:flex gap-2">
+                  <Link href="/sign-in">
+                    <LogIn className="h-4 w-4" />
+                    Sign In
+                  </Link>
+                </Button>
+                <Button asChild size="sm" className="hidden sm:flex gap-2">
+                  <a href={TELEGRAM_BOT_URL} target="_blank" rel="noopener noreferrer">
+                    <Send className="h-4 w-4" />
+                    {tHero("cta")}
+                  </a>
+                </Button>
+              </SignedOut>
+              
+              <SignedIn>
+                <UserButton
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "h-8 w-8",
+                    },
+                  }}
+                />
+              </SignedIn>
+            </>
+          ) : (
+            <Button asChild size="sm" className="hidden sm:flex gap-2">
+              <a href={TELEGRAM_BOT_URL} target="_blank" rel="noopener noreferrer">
+                <Send className="h-4 w-4" />
+                {tHero("cta")}
+              </a>
+            </Button>
+          )}
         </div>
       </div>
     </header>

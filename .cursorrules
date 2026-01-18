@@ -197,17 +197,47 @@ https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live
 
 ## AI Agent Interaction Rules
 
-When asking the user questions with multiple choice options:
-- **Always include a custom input option** (e.g., "Or type your own answer")
-- Never assume pre-filled choices cover all possibilities
-- Format questions like:
-  ```
-  Which option would you like?
-  1. Option A
-  2. Option B
-  3. Option C
-  4. **Or type your own answer**
-  ```
+### Asking Questions
+
+When asking the user questions:
+
+1. **Use structured MCQ format first** - Present numbered options for common/likely answers
+2. **Always include a custom input option** as the last choice
+3. **Never assume pre-filled choices cover all possibilities**
+
+Format:
+- Options 1-N: Pre-filled relevant choices based on context
+- Final option: "Other (let me specify)" or similar
+
+Example:
+```
+Which database would you like to use?
+1. PostgreSQL
+2. MySQL
+3. SQLite
+4. Other (let me specify)
+```
+
+When user selects "Other", follow up to get their custom input.
+
+### Research and Service Evaluation
+
+When researching or recommending services, tools, or libraries:
+
+1. **Prioritize free tier availability** - Always check if a free tier exists and its limitations
+2. **Check for CLI support** - Prefer tools with CLI/API for automation and scripting
+3. **Document the evaluation criteria** - When presenting options, include:
+   - Free tier: Yes/No and limits
+   - CLI/API: Available/Not available
+   - Pricing model: Pay-as-you-go, subscription, etc.
+
+Example format when presenting service options:
+
+| Service | Free Tier | CLI Support | Notes |
+|---------|-----------|-------------|-------|
+| Option A | Yes (100 req/mo) | Yes | ... |
+| Option B | No | Yes | ... |
+| Option C | Yes (limited) | No | ... |
 
 ---
 
