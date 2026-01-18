@@ -48,6 +48,12 @@ triggers:
 
 # CLI Skill
 
+> **⚠️ DEPRECATED**: This skill has been split into two focused skills for better auto-detection and usability:
+> - **[devops-tools](../devops-tools/SKILL.md)** - For VM operations, deployments, service management, and troubleshooting
+> - **[credentials-connections](../credentials-connections/SKILL.md)** - For SSH authentication, Infisical secrets, and service tokens
+>
+> This skill will be removed in a future update. Please use the new skills instead.
+
 ## Overview
 
 Unified CLI skill for all command-line tools used in the Stock Tracker project. This skill provides quick access to CLI commands for development, deployment, secrets management, infrastructure operations, and monitoring.
@@ -59,83 +65,83 @@ Unified CLI skill for all command-line tools used in the Stock Tracker project. 
 ### Docker
 **Use when:** Managing containers, viewing logs, rebuilding services, or working with docker-compose.
 
-**Reference:** [References/docker/REFERENCE.md](References/docker/REFERENCE.md)
+**Reference:** [references/docker/REFERENCE.md](references/docker/REFERENCE.md)
 
 ---
 
 ### Infisical
 **Use when:** Running services with secrets injected, viewing secret values, or managing secrets locally.
 
-**Reference:** [References/infisical/REFERENCE.md](References/infisical/REFERENCE.md)
+**Reference:** [references/infisical/REFERENCE.md](references/infisical/REFERENCE.md)
 
 ---
 
 ### GitHub CLI
 **Use when:** Triggering deployments, checking workflow status, or managing GitHub Actions workflows.
 
-**Reference:** [References/github/REFERENCE.md](References/github/REFERENCE.md)
+**Reference:** [references/github/REFERENCE.md](references/github/REFERENCE.md)
 
 ---
 
 ### Grafana CLI
 **Use when:** Exporting dashboards, deploying dashboards, or managing Grafana Cloud resources.
 
-**Reference:** [References/grafana/REFERENCE.md](References/grafana/REFERENCE.md)
+**Reference:** [references/grafana/REFERENCE.md](references/grafana/REFERENCE.md)
 
 ---
 
 ### Caddy
 **Use when:** Checking service URLs, adding new routes, or debugging reverse proxy issues.
 
-**Reference:** [References/caddy/REFERENCE.md](References/caddy/REFERENCE.md)
+**Reference:** [references/caddy/REFERENCE.md](references/caddy/REFERENCE.md)
 
 ---
 
 ### PowerShell
 **Use when:** Using custom shell functions like `ssh-azure` or running cursor-agent via WSL.
 
-**Reference:** [References/powershell/REFERENCE.md](References/powershell/REFERENCE.md)
+**Reference:** [references/powershell/REFERENCE.md](references/powershell/REFERENCE.md)
 
 ---
 
 ### Vercel
 **Use when:** Deploying the Next.js frontend to Vercel manually.
 
-**Reference:** [References/vercel/REFERENCE.md](References/vercel/REFERENCE.md)
+**Reference:** [references/vercel/REFERENCE.md](references/vercel/REFERENCE.md)
 
 ---
 
 ### Oracle Cloud
 **Use when:** Creating VMs or managing Oracle Cloud infrastructure resources.
 
-**Reference:** [References/oracle/REFERENCE.md](References/oracle/REFERENCE.md)
+**Reference:** [references/oracle/REFERENCE.md](references/oracle/REFERENCE.md)
 
 ---
 
 ### AI CLI
 **Use when:** Running AI agents from command line for code review, generation, or automation (Claude Code, Cursor Agent).
 
-**Reference:** [References/ai/REFERENCE.md](References/ai/REFERENCE.md)
+**Reference:** [references/ai/REFERENCE.md](references/ai/REFERENCE.md)
 
 ---
 
 ### Azure VM
 **Use when:** Checking VM status, connecting to VM, managing services, or performing health checks.
 
-**Reference:** [References/vm/REFERENCE.md](References/vm/REFERENCE.md)
+**Reference:** [references/vm/REFERENCE.md](references/vm/REFERENCE.md)
 
 ---
 
 ## All References
 
-- [Docker](References/docker/REFERENCE.md) - Container management
-- [Infisical](References/infisical/REFERENCE.md) - Secrets management
-- [GitHub](References/github/REFERENCE.md) - Workflow management
-- [Grafana](References/grafana/REFERENCE.md) - Dashboard management
-- [Caddy](References/caddy/REFERENCE.md) - Reverse proxy and endpoints
-- [PowerShell](References/powershell/REFERENCE.md) - Custom shell functions
-- [Vercel](References/vercel/REFERENCE.md) - Frontend deployment
-- [Oracle](References/oracle/REFERENCE.md) - Oracle Cloud management
-- [AI](References/ai/REFERENCE.md) - AI coding agents
-- [VM](References/vm/REFERENCE.md) - Azure VM operations
+- [Docker](references/docker/REFERENCE.md) - Container management
+- [Infisical](references/infisical/REFERENCE.md) - Secrets management
+- [GitHub](references/github/REFERENCE.md) - Workflow management
+- [Grafana](references/grafana/REFERENCE.md) - Dashboard management
+- [Caddy](references/caddy/REFERENCE.md) - Reverse proxy and endpoints
+- [PowerShell](references/powershell/REFERENCE.md) - Custom shell functions
+- [Vercel](references/vercel/REFERENCE.md) - Frontend deployment
+- [Oracle](references/oracle/REFERENCE.md) - Oracle Cloud management
+- [AI](references/ai/REFERENCE.md) - AI coding agents
+- [VM](references/vm/REFERENCE.md) - Azure VM operations
 
