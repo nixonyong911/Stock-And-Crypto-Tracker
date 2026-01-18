@@ -1,4 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+const locales = ["en", "zh"];
+const defaultLocale = "en";
 
 // Define public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
@@ -15,9 +20,28 @@ const isPublicRoute = createRouteMatcher([
   "/:locale/contact(.*)",
   "/:locale/faq(.*)",
   "/:locale/blog(.*)",
+  "/:locale/dashboard(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
+export default clerkMiddleware(async (auth, request: NextRequest) => {
+  const { pathname } = request.nextUrl;
+
+  // Handle root redirect to default locale
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL(`/${defaultLocale}`, request.url));
+  }
+
+  // Check if pathname starts with a locale
+  const pathnameHasLocale = locales.some(
+    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
+  );
+
+  // If no locale prefix and not an API/special route, redirect to default locale
+  if (!pathnameHasLocale && !pathname.startsWith("/api") && !pathname.startsWith("/_next")) {
+    return NextResponse.redirect(new URL(`/${defaultLocale}${pathname}`, request.url));
+  }
+
+  // Protect non-public routes
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
