@@ -1,9 +1,28 @@
 import Stripe from "stripe";
 
-// Server-side Stripe instance
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-12-15.clover",
-  typescript: true,
+// Lazy-initialized Stripe instance to avoid build-time errors
+// STRIPE_SECRET_KEY is only available at runtime, not during Next.js build
+let _stripe: Stripe | null = null;
+
+function getStripeInstance(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error("STRIPE_SECRET_KEY is not configured");
+    }
+    _stripe = new Stripe(key, {
+      apiVersion: "2025-12-15.clover",
+      typescript: true,
+    });
+  }
+  return _stripe;
+}
+
+// Export a getter that creates the instance on first access
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    return (getStripeInstance() as Record<string | symbol, unknown>)[prop];
+  },
 });
 
 // Helper to convert Unix timestamp to Date
