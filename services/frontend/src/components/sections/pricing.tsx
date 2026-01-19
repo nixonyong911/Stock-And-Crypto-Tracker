@@ -15,7 +15,7 @@ import { Check, Send } from "lucide-react";
 
 const TELEGRAM_BOT_URL = "https://t.me/StockAndCryptoAdvisorBot?start=register";
 
-const freeFeatures = ["analysis", "alerts", "insights", "telegram"] as const;
+const freeFeatures = ["stockCoverage", "alerts", "insights", "telegram"] as const;
 const proFeatures = ["coverage", "signals", "priority", "telegram"] as const;
 
 export function PricingSection() {

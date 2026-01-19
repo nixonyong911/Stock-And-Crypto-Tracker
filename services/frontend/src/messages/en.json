@@ -79,7 +79,7 @@
       "name": "Free",
       "price": "$0",
       "features": {
-        "analysis": "Limited daily analysis",
+        "stockCoverage": "Stock coverage",
         "alerts": "Delayed alerts",
         "insights": "Educational insights",
         "telegram": "Telegram access"
@@ -300,6 +300,28 @@
       "title": "Simple, Transparent Pricing",
       "subtitle": "Start free and upgrade when you're ready. No hidden fees, cancel anytime."
     },
+    "benefits": {
+      "title": "Why traders choose us",
+      "cta": "See it in action",
+      "items": {
+        "reduceNoise": {
+          "title": "Reduce noise and wasted trades",
+          "description": "Cut through market chaos with AI-filtered signals that matter"
+        },
+        "marketContext": {
+          "title": "Understand market context in seconds",
+          "description": "Get instant clarity on price action with pattern recognition"
+        },
+        "learnFromAlerts": {
+          "title": "Learn from every alert",
+          "description": "Educational insights help you grow as a trader over time"
+        }
+      }
+    },
+    "ctas": {
+      "tryFree": "Try free in Telegram",
+      "startLearning": "Start learning now"
+    },
     "comparison": {
       "title": "Feature Comparison",
       "feature": "Feature",
@@ -481,7 +503,7 @@
         "questions": {
           "q1": {
             "question": "Is there a free plan?",
-            "answer": "Yes! Our Free plan includes limited daily analysis, delayed alerts, and educational insights. It's perfect for getting started and understanding how the service works."
+            "answer": "Yes! Our Free plan includes stock coverage, delayed alerts, and educational insights. It's perfect for getting started and understanding how the service works."
           },
           "q2": {
             "question": "What does Pro include?",

@@ -12,18 +12,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Send } from "lucide-react";
+import { Check, X, Send, Filter, Zap, GraduationCap } from "lucide-react";
 
 const TELEGRAM_BOT_URL =
   "https://t.me/StockAndCryptoAdvisorBot?start=register";
 
-const freeFeatures = ["analysis", "alerts", "insights", "telegram"] as const;
+const freeFeatures = ["stockCoverage", "alerts", "insights", "telegram"] as const;
 const proFeatures = ["coverage", "signals", "priority", "telegram"] as const;
 
 // Feature comparison data
 const comparisonFeatures = [
   { key: "dailyAnalysis", free: "Limited", pro: "Unlimited" },
-  { key: "alertSpeed", free: "Delayed", pro: "Real-time" },
+  { key: "alertSpeed", free: "Delayed", pro: "End of day" },
   { key: "stockCoverage", free: true, pro: true },
   { key: "cryptoCoverage", free: false, pro: true },
   { key: "signalConfidence", free: false, pro: true },
@@ -41,6 +41,13 @@ const pricingFaqs = [
   "trialPeriod",
 ] as const;
 
+// Benefits data with icons
+const benefits = [
+  { key: "reduceNoise", icon: Filter },
+  { key: "marketContext", icon: Zap },
+  { key: "learnFromAlerts", icon: GraduationCap },
+] as const;
+
 export function PricingContent() {
   const t = useTranslations("pricing");
   const tPage = useTranslations("pricingPage");
@@ -56,6 +63,42 @@ export function PricingContent() {
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
             {tPage("hero.subtitle")}
           </p>
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="py-12 border-b">
+        <div className="container mx-auto px-4">
+          <h2 className="mb-10 text-center text-2xl font-bold">
+            {tPage("benefits.title")}
+          </h2>
+          <div className="mx-auto max-w-5xl grid gap-8 md:grid-cols-3">
+            {benefits.map(({ key, icon: Icon }) => (
+              <div key={key} className="text-center">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <Icon className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="mb-2 font-semibold">
+                  {tPage(`benefits.items.${key}.title`)}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {tPage(`benefits.items.${key}.description`)}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-10 text-center">
+            <Button asChild variant="outline" className="gap-2">
+              <a
+                href={TELEGRAM_BOT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Send className="h-4 w-4" />
+                {tPage("benefits.cta")}
+              </a>
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -94,7 +137,7 @@ export function PricingContent() {
                       rel="noopener noreferrer"
                     >
                       <Send className="h-4 w-4" />
-                      {t("free.cta")}
+                      {tPage("ctas.tryFree")}
                     </a>
                   </Button>
                 </CardFooter>
@@ -208,6 +251,18 @@ export function PricingContent() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-10 text-center">
+              <Button asChild className="gap-2">
+                <a
+                  href={TELEGRAM_BOT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Send className="h-4 w-4" />
+                  {tPage("ctas.startLearning")}
+                </a>
+              </Button>
             </div>
           </div>
         </div>

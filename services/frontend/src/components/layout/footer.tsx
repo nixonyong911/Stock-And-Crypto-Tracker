@@ -3,6 +3,7 @@
 import { Link } from "@/lib/i18n/routing";
 import { useTranslations } from "next-intl";
 import { Separator } from "@/components/ui/separator";
+import { GradientText } from "@/components/ui/gradient-text";
 import Image from "next/image";
 
 const TELEGRAM_BOT_URL = "https://t.me/StockAndCryptoAdvisorBot";
@@ -28,7 +29,7 @@ export function Footer() {
               />
               <span className="flex flex-col leading-tight">
                 <span className="font-semibold">Stock and Crypto</span>
-                <span className="font-semibold text-violet-400">Tracker</span>
+                <GradientText className="font-semibold">Tracker</GradientText>
               </span>
             </div>
             <p className="text-sm text-muted-foreground">

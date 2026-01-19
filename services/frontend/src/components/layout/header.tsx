@@ -6,18 +6,15 @@ import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { Send, LogIn } from "lucide-react";
 import Image from "next/image";
 import { GradientText } from "@/components/ui/gradient-text";
+import { SignInButton } from "@/components/ui/sign-in-button";
 
 // Check if Clerk is configured
 const isClerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-const TELEGRAM_BOT_URL = "https://t.me/StockAndCryptoAdvisorBot?start=register";
-
 export function Header() {
   const t = useTranslations("nav");
-  const tHero = useTranslations("hero");
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -55,41 +52,24 @@ export function Header() {
             >
               {t("blog")}
             </Link>
-            {isClerkConfigured && (
-              <SignedIn>
-                <Link
-                  href="/dashboard"
-                  className="text-lg font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Dashboard
-                </Link>
-              </SignedIn>
-            )}
           </nav>
         </div>
 
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
-          <ThemeToggle />
           
           {isClerkConfigured ? (
             <>
               <SignedOut>
-                <Button asChild variant="ghost" size="sm" className="hidden sm:flex gap-2">
-                  <Link href="/sign-in">
-                    <LogIn className="h-4 w-4" />
-                    Sign In
-                  </Link>
-                </Button>
-                <Button asChild size="sm" className="hidden sm:flex gap-2">
-                  <a href={TELEGRAM_BOT_URL} target="_blank" rel="noopener noreferrer">
-                    <Send className="h-4 w-4" />
-                    {tHero("cta")}
-                  </a>
-                </Button>
+                <SignInButton size="sm" className="hidden sm:flex" />
               </SignedOut>
               
               <SignedIn>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/dashboard">
+                    Dashboard
+                  </Link>
+                </Button>
                 <UserButton
                   afterSignOutUrl="/"
                   appearance={{
@@ -101,13 +81,10 @@ export function Header() {
               </SignedIn>
             </>
           ) : (
-            <Button asChild size="sm" className="hidden sm:flex gap-2">
-              <a href={TELEGRAM_BOT_URL} target="_blank" rel="noopener noreferrer">
-                <Send className="h-4 w-4" />
-                {tHero("cta")}
-              </a>
-            </Button>
+            <SignInButton size="sm" className="hidden sm:flex" />
           )}
+          
+          <ThemeToggle />
         </div>
       </div>
     </header>

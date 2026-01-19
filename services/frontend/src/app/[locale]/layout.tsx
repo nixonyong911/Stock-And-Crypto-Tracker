@@ -1,6 +1,7 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ClerkProviderWrapper } from "@/components/providers/clerk-provider-wrapper";
 import { JsonLdSchemas } from "@/components/seo";
 import { locales } from "@/lib/i18n/config";
 import { notFound } from "next/navigation";
@@ -49,9 +50,11 @@ export default async function LocaleLayout({ children, params }: Props) {
           enableSystem
           disableTransitionOnChange
         >
-          <NextIntlClientProvider messages={messages}>
-            {children}
-          </NextIntlClientProvider>
+          <ClerkProviderWrapper>
+            <NextIntlClientProvider messages={messages}>
+              {children}
+            </NextIntlClientProvider>
+          </ClerkProviderWrapper>
         </ThemeProvider>
       </body>
     </html>

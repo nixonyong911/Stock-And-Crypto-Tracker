@@ -136,17 +136,11 @@ export async function linkTelegramAccount(
 }
 
 // Update user's tier
+// @deprecated Use setUserTierById from user-tier.ts instead (has caching)
 export async function updateUserTier(userId: number, tier: "free" | "pro"): Promise<void> {
-  const supabase = getSupabaseAdmin();
-  const { error } = await supabase
-    .from("users")
-    .update({
-      tier,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
-
-  if (error) throw error;
+  // Import and use the cached version
+  const { setUserTierById } = await import("./user-tier");
+  await setUserTierById(userId, tier);
 }
 
 // Check if user has telegram linked

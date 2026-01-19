@@ -51,7 +51,7 @@ const softwareApplicationSchema = {
       name: "Free Plan",
       price: "0",
       priceCurrency: PRICING.currency,
-      description: "Limited daily analysis with delayed alerts",
+      description: "Stock coverage with delayed alerts",
     },
     {
       "@type": "Offer",

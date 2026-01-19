@@ -79,7 +79,7 @@
       "name": "免费版",
       "price": "$0",
       "features": {
-        "analysis": "有限的每日分析",
+        "stockCoverage": "股票覆盖",
         "alerts": "延迟提醒",
         "insights": "教育性见解",
         "telegram": "Telegram访问"
@@ -300,6 +300,28 @@
       "title": "简单透明的定价",
       "subtitle": "免费开始，随时升级。无隐藏费用，随时取消。"
     },
+    "benefits": {
+      "title": "交易者选择我们的原因",
+      "cta": "立即体验",
+      "items": {
+        "reduceNoise": {
+          "title": "减少噪音和无效交易",
+          "description": "通过AI过滤的信号穿透市场混乱"
+        },
+        "marketContext": {
+          "title": "秒懂市场背景",
+          "description": "通过模式识别即时获得价格走势的清晰洞察"
+        },
+        "learnFromAlerts": {
+          "title": "从每个提醒中学习",
+          "description": "教育性洞察帮助您逐步成长为更好的交易者"
+        }
+      }
+    },
+    "ctas": {
+      "tryFree": "在Telegram免费试用",
+      "startLearning": "立即开始学习"
+    },
     "comparison": {
       "title": "功能对比",
       "feature": "功能",
@@ -481,7 +503,7 @@
         "questions": {
           "q1": {
             "question": "有免费计划吗？",
-            "answer": "有！我们的免费计划包括有限的每日分析、延迟提醒和教育性洞察。非常适合开始了解服务的运作方式。"
+            "answer": "有！我们的免费计划包括股票覆盖、延迟提醒和教育性洞察。非常适合开始了解服务的运作方式。"
           },
           "q2": {
             "question": "Pro包括什么？",

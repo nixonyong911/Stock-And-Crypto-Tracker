@@ -3,9 +3,8 @@
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { GradientText } from "@/components/ui/gradient-text";
-import { Send, ArrowDown } from "lucide-react";
-
-const TELEGRAM_BOT_URL = "https://t.me/StockAndCryptoAdvisorBot?start=register";
+import { SignInButton } from "@/components/ui/sign-in-button";
+import { ArrowDown } from "lucide-react";
 
 export function HeroSection() {
   const t = useTranslations("hero");
@@ -42,16 +41,7 @@ export function HeroSection() {
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Button asChild size="lg" className="gap-2 px-8">
-              <a
-                href={TELEGRAM_BOT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Send className="h-5 w-5" />
-                {t("cta")}
-              </a>
-            </Button>
+            <SignInButton size="lg" />
             <Button
               variant="outline"
               size="lg"

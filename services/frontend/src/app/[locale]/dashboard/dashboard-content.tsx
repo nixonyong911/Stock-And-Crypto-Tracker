@@ -86,19 +86,23 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Account Card */}
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Account</CardTitle>
             <CardDescription>Your account information</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex-1 space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Name</p>
+              <p className="font-medium">{displayName}</p>
+            </div>
             <div>
               <p className="text-sm text-muted-foreground">Email</p>
               <p className="font-medium">{clerkUser.email}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Subscription</p>
-              <Badge variant={dbUser?.tier === "pro" ? "default" : "secondary"}>
+              <Badge variant={dbUser?.tier === "pro" ? "default" : "secondary"} className="text-base px-3 py-1">
                 {dbUser?.tier === "pro" ? "Pro" : "Free"}
               </Badge>
             </div>
@@ -106,7 +110,7 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
         </Card>
 
         {/* Telegram Link Card */}
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Send className="h-5 w-5" />
@@ -116,18 +120,18 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
               Link your Telegram account to receive alerts
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-1 flex-col">
             {dbUser?.telegramLinked ? (
               <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                 <Check className="h-5 w-5" />
                 <span>Telegram account linked</span>
               </div>
             ) : linkState === "ready" && deepLink ? (
-              <div className="space-y-4">
+              <div className="flex flex-1 flex-col space-y-4">
                 <p className="text-sm text-muted-foreground">
                   Click the link below or copy it to open in Telegram:
                 </p>
-                <div className="flex gap-2">
+                <div className="mt-auto flex gap-2">
                   <Button asChild className="flex-1 gap-2">
                     <a
                       href={deepLink}
@@ -155,23 +159,27 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
                 </p>
               </div>
             ) : (
-              <Button
-                onClick={handleLinkTelegram}
-                disabled={linkState === "loading"}
-                className="w-full gap-2"
-              >
-                {linkState === "loading" ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating link...
-                  </>
-                ) : (
-                  <>
-                    <Link2 className="h-4 w-4" />
-                    Link Telegram Account
-                  </>
-                )}
-              </Button>
+              <div className="flex flex-1 flex-col">
+                <div className="mt-auto">
+                  <Button
+                    onClick={handleLinkTelegram}
+                    disabled={linkState === "loading"}
+                    className="w-full gap-2"
+                  >
+                    {linkState === "loading" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generating link...
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="h-4 w-4" />
+                        Link Telegram Account
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
             )}
             {linkState === "error" && (
               <p className="mt-2 text-sm text-destructive">
@@ -182,29 +190,33 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
         </Card>
 
         {/* Subscription Card */}
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Subscription</CardTitle>
             <CardDescription>Manage your plan</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-1 flex-col">
             {dbUser?.tier === "pro" ? (
-              <div className="space-y-4">
+              <div className="flex flex-1 flex-col">
                 <p className="text-sm">
                   You&apos;re on the <strong>Pro</strong> plan.
                 </p>
-                <Button variant="outline" className="w-full" disabled>
-                  Manage Subscription
-                </Button>
+                <div className="mt-auto">
+                  <Button variant="outline" className="w-full" disabled>
+                    Manage Subscription
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="flex flex-1 flex-col">
                 <p className="text-sm text-muted-foreground">
                   Upgrade to Pro for unlimited analysis and real-time alerts.
                 </p>
-                <Button className="w-full" asChild>
-                  <a href="/pricing">Upgrade to Pro</a>
-                </Button>
+                <div className="mt-auto pt-4">
+                  <Button className="w-full" asChild>
+                    <a href="/pricing">Upgrade to Pro</a>
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

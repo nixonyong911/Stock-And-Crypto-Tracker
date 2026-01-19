@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { ClerkProviderWrapper } from "@/components/providers/clerk-provider-wrapper";
 import "./globals.css";
 
 const baseUrl = "https://stockandcryptotracker.com";
@@ -110,5 +109,5 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <ClerkProviderWrapper>{children}</ClerkProviderWrapper>;
+  return children;
 }

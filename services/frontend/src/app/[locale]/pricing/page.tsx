@@ -48,7 +48,7 @@ const pricingSchema = {
       price: "0",
       priceCurrency: PRICING.currency,
       availability: "https://schema.org/InStock",
-      description: "Limited daily analysis with delayed alerts",
+      description: "Stock coverage with delayed alerts",
     },
     {
       "@type": "Offer",
