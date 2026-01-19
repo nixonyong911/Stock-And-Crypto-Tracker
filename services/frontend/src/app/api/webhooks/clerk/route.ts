@@ -2,6 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/db/supabase";
+import { createStripeCustomer, stripe } from "@/lib/stripe/stripe";
 
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
@@ -55,12 +56,29 @@ export async function POST(req: Request) {
           email?.split("@")[0] ||
           "User";
 
+        // Create Stripe customer first
+        let stripeCustomerId: string | null = null;
+        if (email) {
+          try {
+            const stripeCustomer = await createStripeCustomer(email, displayName, {
+              clerk_user_id: id,
+            });
+            stripeCustomerId = stripeCustomer.id;
+            console.log(`Stripe customer created: ${stripeCustomerId} for Clerk user ${id}`);
+          } catch (stripeError) {
+            console.error("Error creating Stripe customer:", stripeError);
+            // Continue without Stripe customer - can be created later
+          }
+        }
+
+        // Create user in database with stripe_customer_id
         const { error } = await supabase.from("users").insert({
           clerk_user_id: id,
           email: email,
           display_name: displayName,
           avatar_url: image_url,
           tier: "free",
+          stripe_customer_id: stripeCustomerId,
         });
 
         if (error) {
@@ -81,6 +99,25 @@ export async function POST(req: Request) {
           [first_name, last_name].filter(Boolean).join(" ") ||
           email?.split("@")[0] ||
           "User";
+
+        // Get current user to check if they have a Stripe customer
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("stripe_customer_id")
+          .eq("clerk_user_id", id)
+          .single();
+
+        // Update Stripe customer email if it changed
+        if (existingUser?.stripe_customer_id && email) {
+          try {
+            await stripe.customers.update(existingUser.stripe_customer_id, {
+              email: email,
+              name: displayName,
+            });
+          } catch (stripeError) {
+            console.error("Error updating Stripe customer:", stripeError);
+          }
+        }
 
         const { error } = await supabase
           .from("users")
@@ -105,6 +142,47 @@ export async function POST(req: Request) {
         const { id } = evt.data;
 
         if (id) {
+          // Get user to find Stripe customer ID and active subscription
+          const { data: user } = await supabase
+            .from("users")
+            .select("id, stripe_customer_id")
+            .eq("clerk_user_id", id)
+            .single();
+
+          if (user?.stripe_customer_id) {
+            // Cancel any active subscriptions at period end
+            try {
+              const subscriptions = await stripe.subscriptions.list({
+                customer: user.stripe_customer_id,
+                status: "active",
+              });
+
+              for (const sub of subscriptions.data) {
+                await stripe.subscriptions.update(sub.id, {
+                  cancel_at_period_end: true,
+                });
+                console.log(`Canceled subscription ${sub.id} at period end for deleted user ${id}`);
+              }
+
+              // Also check for trialing subscriptions
+              const trialingSubscriptions = await stripe.subscriptions.list({
+                customer: user.stripe_customer_id,
+                status: "trialing",
+              });
+
+              for (const sub of trialingSubscriptions.data) {
+                await stripe.subscriptions.update(sub.id, {
+                  cancel_at_period_end: true,
+                });
+                console.log(`Canceled trialing subscription ${sub.id} for deleted user ${id}`);
+              }
+            } catch (stripeError) {
+              console.error("Error canceling subscriptions:", stripeError);
+              // Continue with user deletion
+            }
+          }
+
+          // Delete user from database (subscriptions will cascade delete)
           const { error } = await supabase
             .from("users")
             .delete()

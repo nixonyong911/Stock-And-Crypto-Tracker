@@ -1,24 +1,19 @@
 import { getSupabaseAdmin } from "./supabase";
+import { getCache, setCache, deleteCache } from "@/lib/redis/client";
+import { cacheKeys, cacheTTL } from "@/lib/redis/keys";
 
 export type UserTier = "free" | "pro";
 
-// In-memory cache for user tiers
-// Key: clerkUserId, Value: { tier, expiresAt }
-const tierCache = new Map<string, { tier: UserTier; expiresAt: number }>();
-
-// Cache TTL: 60 minutes
-const CACHE_TTL_MS = 60 * 60 * 1000;
-
 /**
- * Get user tier by Clerk ID with caching
- * - Cached for 60 minutes for fast retrieval
+ * Get user tier by Clerk ID with Redis caching
+ * - Cached in Upstash Redis for 1 hour
  * - Returns "free" if user not found in database
  */
 export async function getUserTier(clerkUserId: string): Promise<UserTier> {
-  // Check cache first
-  const cached = tierCache.get(clerkUserId);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.tier;
+  // Check Redis cache first
+  const cached = await getCache<UserTier>(cacheKeys.userTier(clerkUserId));
+  if (cached) {
+    return cached;
   }
 
   // Fetch from database
@@ -39,11 +34,8 @@ export async function getUserTier(clerkUserId: string): Promise<UserTier> {
 
   const tier: UserTier = data?.tier || "free";
 
-  // Store in cache
-  tierCache.set(clerkUserId, {
-    tier,
-    expiresAt: Date.now() + CACHE_TTL_MS,
-  });
+  // Store in Redis cache
+  await setCache(cacheKeys.userTier(clerkUserId), tier, cacheTTL.userTier);
 
   return tier;
 }
@@ -68,10 +60,7 @@ export async function getUserTierById(userId: number): Promise<UserTier> {
 
   // Also cache by clerk_user_id if available
   if (data?.clerk_user_id) {
-    tierCache.set(data.clerk_user_id, {
-      tier,
-      expiresAt: Date.now() + CACHE_TTL_MS,
-    });
+    await setCache(cacheKeys.userTier(data.clerk_user_id), tier, cacheTTL.userTier);
   }
 
   return tier;
@@ -81,16 +70,9 @@ export async function getUserTierById(userId: number): Promise<UserTier> {
  * Invalidate tier cache for a user
  * Call this when subscription changes (subscribe/unsubscribe)
  */
-export function invalidateUserTierCache(clerkUserId: string): void {
-  tierCache.delete(clerkUserId);
-}
-
-/**
- * Invalidate all tier caches
- * Useful for admin operations or deployments
- */
-export function invalidateAllTierCaches(): void {
-  tierCache.clear();
+export async function invalidateUserTierCache(clerkUserId: string): Promise<void> {
+  await deleteCache(cacheKeys.userTier(clerkUserId));
+  console.log(`Invalidated tier cache for user ${clerkUserId}`);
 }
 
 /**
@@ -114,7 +96,7 @@ export async function setUserTier(
   if (error) throw error;
 
   // Invalidate cache so next read gets fresh data
-  invalidateUserTierCache(clerkUserId);
+  await invalidateUserTierCache(clerkUserId);
 }
 
 /**
@@ -145,7 +127,7 @@ export async function setUserTierById(
 
   // Invalidate cache
   if (userData?.clerk_user_id) {
-    invalidateUserTierCache(userData.clerk_user_id);
+    await invalidateUserTierCache(userData.clerk_user_id);
   }
 }
 
@@ -155,4 +137,16 @@ export async function setUserTierById(
 export async function isProUser(clerkUserId: string): Promise<boolean> {
   const tier = await getUserTier(clerkUserId);
   return tier === "pro";
+}
+
+/**
+ * Refresh user tier cache - fetch from DB and update cache
+ * Use this after subscription changes to ensure cache is fresh
+ */
+export async function refreshUserTierCache(clerkUserId: string): Promise<UserTier> {
+  // Delete existing cache
+  await deleteCache(cacheKeys.userTier(clerkUserId));
+  
+  // Fetch fresh from database and re-cache
+  return getUserTier(clerkUserId);
 }

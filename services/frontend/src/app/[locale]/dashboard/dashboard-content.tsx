@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { UserButton } from "@clerk/nextjs";
+import { useState, useCallback } from "react";
+import { UserButton, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -33,11 +33,34 @@ interface Props {
 }
 
 export function DashboardContent({ clerkUser, dbUser }: Props) {
+  const { openUserProfile } = useClerk();
   const [linkState, setLinkState] = useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [deepLink, setDeepLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
+
+  const handleManageSubscription = useCallback(async () => {
+    setBillingLoading(true);
+    try {
+      const response = await fetch("/api/stripe/billing-portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ returnUrl: window.location.href }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create portal session");
+      }
+
+      const data = await response.json();
+      window.location.href = data.url;
+    } catch (error) {
+      console.error("Error opening billing portal:", error);
+      setBillingLoading(false);
+    }
+  }, []);
 
   const displayName =
     [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
@@ -88,10 +111,15 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
         {/* Account Card */}
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>Account</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Account</CardTitle>
+              <Badge variant={dbUser?.tier === "pro" ? "default" : "secondary"}>
+                {dbUser?.tier === "pro" ? "Pro" : "Free"}
+              </Badge>
+            </div>
             <CardDescription>Your account information</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 space-y-4">
+          <CardContent className="flex flex-1 flex-col space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Name</p>
               <p className="font-medium">{displayName}</p>
@@ -100,12 +128,60 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
               <p className="text-sm text-muted-foreground">Email</p>
               <p className="font-medium">{clerkUser.email}</p>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Subscription</p>
-              <Badge variant={dbUser?.tier === "pro" ? "default" : "secondary"} className="text-base px-3 py-1">
-                {dbUser?.tier === "pro" ? "Pro" : "Free"}
-              </Badge>
+            <div className="mt-auto pt-4">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => openUserProfile()}
+              >
+                Manage Account
+              </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Subscription Card */}
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle>Subscription</CardTitle>
+            <CardDescription>Manage your plan</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col">
+            {dbUser?.tier === "pro" ? (
+              <div className="flex flex-1 flex-col">
+                <p className="text-sm">
+                  You&apos;re on the <strong>Pro</strong> plan.
+                </p>
+                <div className="mt-auto">
+                  <Button 
+                    variant="outline" 
+                    className="w-full" 
+                    onClick={handleManageSubscription}
+                    disabled={billingLoading}
+                  >
+                    {billingLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      "Manage Subscription"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-1 flex-col">
+                <p className="text-sm text-muted-foreground">
+                  Upgrade to Pro for unlimited analysis and real-time alerts.
+                </p>
+                <div className="mt-auto pt-4">
+                  <Button className="w-full" asChild>
+                    <a href="/pricing">Upgrade to Pro</a>
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -185,39 +261,6 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
               <p className="mt-2 text-sm text-destructive">
                 Failed to create link. Please try again.
               </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Subscription Card */}
-        <Card className="flex flex-col">
-          <CardHeader>
-            <CardTitle>Subscription</CardTitle>
-            <CardDescription>Manage your plan</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col">
-            {dbUser?.tier === "pro" ? (
-              <div className="flex flex-1 flex-col">
-                <p className="text-sm">
-                  You&apos;re on the <strong>Pro</strong> plan.
-                </p>
-                <div className="mt-auto">
-                  <Button variant="outline" className="w-full" disabled>
-                    Manage Subscription
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-1 flex-col">
-                <p className="text-sm text-muted-foreground">
-                  Upgrade to Pro for unlimited analysis and real-time alerts.
-                </p>
-                <div className="mt-auto pt-4">
-                  <Button className="w-full" asChild>
-                    <a href="/pricing">Upgrade to Pro</a>
-                  </Button>
-                </div>
-              </div>
             )}
           </CardContent>
         </Card>

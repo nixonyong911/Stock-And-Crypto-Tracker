@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { getFormattedPrice } from "@/config/pricing";
 import {
   Card,
   CardContent,
@@ -16,6 +17,12 @@ import { Check, X, Send, Filter, Zap, GraduationCap } from "lucide-react";
 
 const TELEGRAM_BOT_URL =
   "https://t.me/StockAndCryptoAdvisorBot?start=register";
+
+// Payment links - these will be set via environment variables
+const PAYMENT_LINKS = {
+  monthly: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_MONTHLY || "",
+  annual: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_ANNUAL || "",
+};
 
 const freeFeatures = ["stockCoverage", "alerts", "insights", "telegram"] as const;
 const proFeatures = ["coverage", "signals", "priority", "telegram"] as const;
@@ -48,9 +55,35 @@ const benefits = [
   { key: "learnFromAlerts", icon: GraduationCap },
 ] as const;
 
+type BillingPeriod = "monthly" | "annual";
+
 export function PricingContent() {
   const t = useTranslations("pricing");
   const tPage = useTranslations("pricingPage");
+  const { user } = useUser();
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
+
+  const prices = {
+    monthly: 19.99,
+    annual: 199.00,
+  };
+
+  const monthlyEquivalent = (prices.annual / 12).toFixed(2);
+  const savingsPercentage = Math.round(((prices.monthly * 12 - prices.annual) / (prices.monthly * 12)) * 100);
+
+  const getPaymentLink = () => {
+    const baseLink = billingPeriod === "monthly" ? PAYMENT_LINKS.monthly : PAYMENT_LINKS.annual;
+    if (!baseLink) return "";
+    
+    // Prefill user's email if logged in
+    const userEmail = user?.primaryEmailAddress?.emailAddress;
+    if (userEmail) {
+      const separator = baseLink.includes("?") ? "&" : "?";
+      return `${baseLink}${separator}prefilled_email=${encodeURIComponent(userEmail)}`;
+    }
+    
+    return baseLink;
+  };
 
   return (
     <>
@@ -106,6 +139,35 @@ export function PricingContent() {
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-4xl">
+            {/* Billing Period Toggle */}
+            <div className="mb-10 flex justify-center">
+              <div className="inline-flex items-center rounded-full bg-muted p-1">
+                <button
+                  onClick={() => setBillingPeriod("monthly")}
+                  className={`rounded-full px-6 py-2 text-sm font-medium transition-all ${
+                    billingPeriod === "monthly"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingPeriod("annual")}
+                  className={`rounded-full px-6 py-2 text-sm font-medium transition-all ${
+                    billingPeriod === "annual"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Annual
+                  <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">
+                    Save {savingsPercentage}%
+                  </span>
+                </button>
+              </div>
+            </div>
+
             <div className="grid gap-8 md:grid-cols-2">
               {/* Free Plan */}
               <Card className="flex flex-col">
@@ -151,15 +213,35 @@ export function PricingContent() {
                 <CardHeader>
                   <CardTitle className="text-2xl">{t("pro.name")}</CardTitle>
                   <CardDescription>
-                    <span className="text-4xl font-bold text-foreground">
-                      {getFormattedPrice()}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {t("pro.period")}
-                    </span>
+                    {billingPeriod === "monthly" ? (
+                      <>
+                        <span className="text-4xl font-bold text-foreground">
+                          ${prices.monthly}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {t("pro.period")}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-bold text-foreground">
+                          ${prices.annual}
+                        </span>
+                        <span className="text-muted-foreground">
+                          /year
+                        </span>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          ${monthlyEquivalent}/month · Save ${(prices.monthly * 12 - prices.annual).toFixed(0)}/year
+                        </div>
+                      </>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1">
+                  <div className="mb-4 rounded-lg bg-primary/5 px-3 py-2 text-center text-sm">
+                    <span className="font-medium text-primary">7-day free trial</span>
+                    <span className="text-muted-foreground"> · Cancel anytime</span>
+                  </div>
                   <ul className="space-y-3">
                     {proFeatures.map((key) => (
                       <li key={key} className="flex items-center gap-3">
@@ -172,16 +254,24 @@ export function PricingContent() {
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Button asChild className="w-full gap-2">
-                    <a
-                      href={TELEGRAM_BOT_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Send className="h-4 w-4" />
-                      {t("pro.cta")}
-                    </a>
-                  </Button>
+                  {getPaymentLink() ? (
+                    <Button asChild className="w-full gap-2">
+                      <a href={getPaymentLink()}>
+                        Start 7-Day Free Trial
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button asChild className="w-full gap-2">
+                      <a
+                        href={TELEGRAM_BOT_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Send className="h-4 w-4" />
+                        {t("pro.cta")}
+                      </a>
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             </div>

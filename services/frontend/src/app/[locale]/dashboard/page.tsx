@@ -5,6 +5,9 @@ import { Header, Footer } from "@/components/layout";
 import { DashboardContent } from "./dashboard-content";
 import { getUserByClerkId } from "@/lib/db/users";
 
+// Disable caching - always fetch fresh user data
+export const dynamic = "force-dynamic";
+
 type Props = {
   params: Promise<{ locale: string }>;
 };

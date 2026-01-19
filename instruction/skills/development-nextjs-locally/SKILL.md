@@ -102,9 +102,10 @@ After making changes:
 
 ## Caching Strategy
 
-- Redis with `frontend:` namespace prefix (shared server)
+- **Upstash Redis** (serverless, HTTP-based) with `frontend:` namespace prefix
 - TanStack Query for client-side caching
 - MUST use prefix to avoid conflicts with other services
+- Env vars: `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (in Infisical)
 
 **Details:** See [references/caching-strategy.md](references/caching-strategy.md)
 
@@ -133,3 +134,4 @@ After making changes:
 | Build check | `infisical run --env=dev -- npm run build` |
 | Generate types | `npx supabase gen types typescript --project-id <id> > src/types/supabase.ts` |
 | Add shadcn component | `npx shadcn@latest add <component>` |
+| Install Upstash Redis | `npm install @upstash/redis` |

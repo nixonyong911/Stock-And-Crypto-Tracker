@@ -33,22 +33,22 @@ export function Header() {
               <GradientText className="font-semibold">Tracker</GradientText>
             </span>
           </Link>
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-6">
             <Link
               href="/pricing"
-              className="text-lg font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {t("pricing")}
             </Link>
             <Link
               href="/about"
-              className="text-lg font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {t("about")}
             </Link>
             <Link
               href="/blog"
-              className="text-lg font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {t("blog")}
             </Link>

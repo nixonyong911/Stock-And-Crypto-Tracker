@@ -3,14 +3,30 @@
 ## Overview
 
 Two-layer caching approach:
-1. **Redis** - Server-side shared cache
+1. **Upstash Redis** - Server-side shared cache (serverless, HTTP-based)
 2. **TanStack Query** - Client-side cache with smart invalidation
 
-## Redis Configuration
+## Upstash Redis Configuration
+
+### Why Upstash
+
+- **HTTP-based API** - No TCP connection limits, works perfectly with serverless/edge
+- **Vercel integration** - Auto-injected environment variables
+- **Pay-per-request** - Scales to zero when idle
+- **Edge-compatible** - Works in Edge Runtime and middleware
+
+### Environment Variables
+
+Stored in **Infisical** (injected via `infisical run`):
+
+```bash
+UPSTASH_REDIS_REST_URL=https://xxx.upstash.io
+UPSTASH_REDIS_REST_TOKEN=AxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQ==
+```
 
 ### Namespace Convention
 
-**CRITICAL:** Redis server is shared with other services. MUST use `frontend:` prefix.
+**CRITICAL:** Redis is shared with other services. MUST use `frontend:` prefix.
 
 | Service | Prefix | Example |
 |---------|--------|---------|
@@ -18,25 +34,22 @@ Two-layer caching approach:
 | Telegram Bot | `telegram:` | `telegram:sessions:123` |
 | MCP Analysis | `mcp:` | `mcp:query:cache` |
 
-### Redis Client Setup
+### Upstash Client Setup
 
 ```typescript
 // lib/redis/client.ts
-import { createClient } from 'redis'
+import { Redis } from '@upstash/redis'
 
 const NAMESPACE = 'frontend'
 
-export const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-})
-
-redis.on('error', (err) => console.error('Redis Client Error', err))
+// Uses UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN from env
+export const redis = Redis.fromEnv()
 
 // Namespace-aware helpers with error handling
 export async function getCache<T>(key: string): Promise<T | null> {
   try {
-    const data = await redis.get(`${NAMESPACE}:${key}`)
-    return data ? JSON.parse(data) : null
+    const data = await redis.get<T>(`${NAMESPACE}:${key}`)
+    return data ?? null
   } catch (error) {
     console.error(`Redis GET failed for ${key}:`, error)
     return null // Graceful degradation - continue without cache
@@ -49,7 +62,7 @@ export async function setCache<T>(
   ttlSeconds: number = 300
 ): Promise<boolean> {
   try {
-    await redis.setEx(`${NAMESPACE}:${key}`, ttlSeconds, JSON.stringify(value))
+    await redis.set(`${NAMESPACE}:${key}`, value, { ex: ttlSeconds })
     return true
   } catch (error) {
     console.error(`Redis SET failed for ${key}:`, error)
@@ -71,7 +84,7 @@ export async function deleteCachePattern(pattern: string): Promise<void> {
   try {
     const keys = await redis.keys(`${NAMESPACE}:${pattern}`)
     if (keys.length > 0) {
-      await redis.del(keys)
+      await redis.del(...keys)
     }
   } catch (error) {
     console.error(`Redis pattern delete failed for ${pattern}:`, error)
@@ -253,8 +266,8 @@ export async function updateSubscription(userId: string, plan: string) {
 ## Hybrid Caching Flow
 
 ```
-Request → TanStack Query Cache → Redis Cache → Supabase
-            (client-side)        (server-side)   (database)
+Request → TanStack Query Cache → Upstash Redis → Supabase
+            (client-side)        (server-side)    (database)
 ```
 
 ### Implementation Example
@@ -265,7 +278,7 @@ import { getCache, setCache } from '@/lib/redis/client'
 import { cacheKeys } from '@/lib/redis/keys'
 
 export async function getStocksWithCache(): Promise<StockPrice[]> {
-  // 1. Check Redis cache
+  // 1. Check Upstash Redis cache
   const cached = await getCache<StockPrice[]>(cacheKeys.stockPrices())
   if (cached) return cached
 
@@ -277,10 +290,37 @@ export async function getStocksWithCache(): Promise<StockPrice[]> {
 
   if (error) throw error
 
-  // 3. Store in Redis
+  // 3. Store in Upstash Redis
   await setCache(cacheKeys.stockPrices(), data, 300) // 5 min TTL
 
   return data
+}
+```
+
+## Edge Runtime Usage
+
+Upstash works in Edge Runtime (middleware, edge API routes):
+
+```typescript
+// middleware.ts or app/api/route.ts with edge runtime
+import { Redis } from '@upstash/redis'
+
+export const runtime = 'edge'
+
+const redis = Redis.fromEnv()
+
+export async function middleware(request: NextRequest) {
+  // Rate limiting example
+  const ip = request.ip ?? '127.0.0.1'
+  const requests = await redis.incr(`ratelimit:${ip}`)
+  
+  if (requests === 1) {
+    await redis.expire(`ratelimit:${ip}`, 60) // 1 minute window
+  }
+  
+  if (requests > 100) {
+    return new Response('Too many requests', { status: 429 })
+  }
 }
 ```
 
@@ -292,7 +332,7 @@ Track cache hit rates via metrics:
 // lib/redis/client.ts
 export async function getCacheWithMetrics<T>(key: string): Promise<T | null> {
   const start = Date.now()
-  const data = await redis.get(`${NAMESPACE}:${key}`)
+  const data = await redis.get<T>(`${NAMESPACE}:${key}`)
   const duration = Date.now() - start
 
   // Log metrics (Grafana integration)
@@ -303,6 +343,12 @@ export async function getCacheWithMetrics<T>(key: string): Promise<T | null> {
     duration_ms: duration,
   })
 
-  return data ? JSON.parse(data) : null
+  return data ?? null
 }
+```
+
+## Package Installation
+
+```bash
+npm install @upstash/redis
 ```

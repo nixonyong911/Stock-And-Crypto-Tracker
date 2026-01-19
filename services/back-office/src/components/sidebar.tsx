@@ -11,6 +11,7 @@ import {
   Activity,
   Home,
   BarChart3,
+  Globe,
 } from "lucide-react";
 import { getSupabase, WorkerRegistry } from "@/lib/supabase";
 
@@ -25,6 +26,7 @@ export function Sidebar({ className }: SidebarProps) {
     cli: false,
     analysis: true,
     dataFetchers: true,
+    frontend: true,
   });
   
   const [dataFetchers, setDataFetchers] = useState<WorkerRegistry[]>([]);
@@ -240,6 +242,43 @@ export function Sidebar({ className }: SidebarProps) {
                   </Link>
                 ))
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Frontend Section */}
+        <div>
+          <button
+            onClick={() => toggleSection('frontend')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+              isActive("/frontend")
+                ? 'bg-sky-500/20 text-sky-400'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              Frontend
+            </div>
+            {expandedSections.frontend ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </button>
+          
+          {expandedSections.frontend && (
+            <div className="ml-4 mt-1 space-y-1">
+              <Link
+                href="/frontend/cache"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs ${
+                  pathname === "/back-office/frontend/cache"
+                    ? 'text-sky-400 bg-sky-500/10'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                }`}
+              >
+                Cache Management
+              </Link>
             </div>
           )}
         </div>

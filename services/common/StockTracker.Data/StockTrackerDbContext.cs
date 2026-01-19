@@ -43,6 +43,10 @@ public class StockTrackerDbContext : DbContext
     public DbSet<TelegramUser> TelegramUsers => Set<TelegramUser>();
     public DbSet<TelegramSession> TelegramSessions => Set<TelegramSession>();
     public DbSet<TelegramRateLimit> TelegramRateLimits => Set<TelegramRateLimit>();
+    
+    // Subscription tables (Stripe)
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<SubscriptionHistory> SubscriptionHistories => Set<SubscriptionHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
