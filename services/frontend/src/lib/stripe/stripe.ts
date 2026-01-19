@@ -19,12 +19,14 @@ export function getStripe(): Stripe {
 }
 
 // For backward compatibility - get stripe instance
+// Only expose the resources that are actually used in the codebase
 export const stripe = {
   get customers() { return getStripe().customers; },
   get prices() { return getStripe().prices; },
   get subscriptions() { return getStripe().subscriptions; },
   get billingPortal() { return getStripe().billingPortal; },
   get webhooks() { return getStripe().webhooks; },
+  get checkout() { return getStripe().checkout; },
 };
 
 // Helper to convert Unix timestamp to Date
