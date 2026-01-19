@@ -90,9 +90,10 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
     detectedLocale = detectLocale(countryCode, acceptLanguage);
   }
 
-  // Build the redirect URL
+  // Build the redirect URL with basePath support for VM staging
+  const basePath = process.env.USE_BASE_PATH === "true" ? "/front-end" : "";
   const newUrl = new URL(request.url);
-  newUrl.pathname = `/${detectedLocale}${pathname === "/" ? "" : pathname}`;
+  newUrl.pathname = `${basePath}/${detectedLocale}${pathname === "/" ? "" : pathname}`;
 
   // Create redirect response
   const response = NextResponse.redirect(newUrl);

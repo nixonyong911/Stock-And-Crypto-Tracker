@@ -121,33 +121,3 @@ export function getSavingsPercentage(monthlyAmount: number, annualAmount: number
   return Math.round((savings / yearlyIfMonthly) * 100);
 }
 
-// Get payment link URLs from environment
-export function getPaymentLinks() {
-  return {
-    monthly: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_MONTHLY || "",
-    annual: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_ANNUAL || "",
-  };
-}
-
-// Build payment link with optional parameters
-export function buildPaymentLink(
-  baseUrl: string,
-  options?: {
-    clientReferenceId?: string;
-    prefillEmail?: string;
-  }
-): string {
-  if (!baseUrl) return "#";
-  
-  const url = new URL(baseUrl);
-  
-  if (options?.clientReferenceId) {
-    url.searchParams.set("client_reference_id", options.clientReferenceId);
-  }
-  
-  if (options?.prefillEmail) {
-    url.searchParams.set("prefilled_email", options.prefillEmail);
-  }
-  
-  return url.toString();
-}

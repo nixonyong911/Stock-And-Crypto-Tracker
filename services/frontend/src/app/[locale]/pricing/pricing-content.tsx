@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Send, Filter, Zap, GraduationCap, Loader2 } from "lucide-react";
+import type { StripePrices } from "@/lib/stripe/prices";
 
 const TELEGRAM_BOT_URL =
   "https://t.me/StockAndCryptoAdvisorBot?start=register";
@@ -51,7 +52,11 @@ const benefits = [
 
 type BillingPeriod = "monthly" | "annual";
 
-export function PricingContent() {
+interface Props {
+  prices: StripePrices;
+}
+
+export function PricingContent({ prices }: Props) {
   const t = useTranslations("pricing");
   const tPage = useTranslations("pricingPage");
   const { isSignedIn } = useAuth();
@@ -59,13 +64,14 @@ export function PricingContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const prices = {
-    monthly: 19.99,
-    annual: 199.00,
+  // Convert from cents to dollars, with fallback values
+  const displayPrices = {
+    monthly: prices.monthly ? prices.monthly.unitAmount / 100 : 19.99,
+    annual: prices.annual ? prices.annual.unitAmount / 100 : 199.00,
   };
 
-  const monthlyEquivalent = (prices.annual / 12).toFixed(2);
-  const savingsPercentage = Math.round(((prices.monthly * 12 - prices.annual) / (prices.monthly * 12)) * 100);
+  const monthlyEquivalent = (displayPrices.annual / 12).toFixed(2);
+  const savingsPercentage = Math.round(((displayPrices.monthly * 12 - displayPrices.annual) / (displayPrices.monthly * 12)) * 100);
 
   const handleCheckout = async () => {
     if (!isSignedIn) {
@@ -234,7 +240,7 @@ export function PricingContent() {
                     {billingPeriod === "monthly" ? (
                       <>
                         <span className="text-4xl font-bold text-foreground">
-                          ${prices.monthly}
+                          ${displayPrices.monthly.toFixed(2)}
                         </span>
                         <span className="text-muted-foreground">
                           {t("pro.period")}
@@ -243,13 +249,13 @@ export function PricingContent() {
                     ) : (
                       <>
                         <span className="text-4xl font-bold text-foreground">
-                          ${prices.annual}
+                          ${displayPrices.annual.toFixed(2)}
                         </span>
                         <span className="text-muted-foreground">
                           /year
                         </span>
                         <div className="mt-1 text-sm text-muted-foreground">
-                          ${monthlyEquivalent}/month · Save ${(prices.monthly * 12 - prices.annual).toFixed(0)}/year
+                          ${monthlyEquivalent}/month · Save ${(displayPrices.monthly * 12 - displayPrices.annual).toFixed(0)}/year
                         </div>
                       </>
                     )}

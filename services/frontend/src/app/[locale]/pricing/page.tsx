@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
 import { PricingContent } from "./pricing-content";
-import { PRICING } from "@/config/pricing";
+import { getStripePrices } from "@/lib/stripe/prices";
 
 export async function generateMetadata({
   params,
@@ -30,39 +30,6 @@ export async function generateMetadata({
   };
 }
 
-// JSON-LD for pricing offers
-const pricingSchema = {
-  "@context": "https://schema.org",
-  "@type": "Product",
-  name: "Stock And Crypto Tracker",
-  description:
-    "AI-powered market analysis for stocks and crypto delivered via Telegram",
-  brand: {
-    "@type": "Brand",
-    name: "Stock And Crypto Tracker",
-  },
-  offers: [
-    {
-      "@type": "Offer",
-      name: "Free Plan",
-      price: "0",
-      priceCurrency: PRICING.currency,
-      availability: "https://schema.org/InStock",
-      description: "Stock coverage with delayed alerts",
-    },
-    {
-      "@type": "Offer",
-      name: "Pro Plan",
-      price: PRICING.price,
-      priceCurrency: PRICING.currency,
-      priceValidUntil: PRICING.priceValidUntil,
-      availability: "https://schema.org/InStock",
-      description:
-        "Full stocks and crypto coverage with priority processing and real-time alerts",
-    },
-  ],
-};
-
 type Props = {
   params: Promise<{ locale: string }>;
 };
@@ -70,6 +37,59 @@ type Props = {
 export default async function PricingPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
+
+  // Fetch prices from Stripe (cached 1 hour)
+  const prices = await getStripePrices();
+
+  // Build dynamic SEO schema with fetched prices
+  const monthlyPrice = prices.monthly
+    ? (prices.monthly.unitAmount / 100).toFixed(2)
+    : "19.99";
+  const annualPrice = prices.annual
+    ? (prices.annual.unitAmount / 100).toFixed(2)
+    : "199.00";
+
+  const pricingSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: "Stock And Crypto Tracker",
+    description:
+      "AI-powered market analysis for stocks and crypto delivered via Telegram",
+    brand: {
+      "@type": "Brand",
+      name: "Stock And Crypto Tracker",
+    },
+    offers: [
+      {
+        "@type": "Offer",
+        name: "Free Plan",
+        price: "0",
+        priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+        description: "Stock coverage with delayed alerts",
+      },
+      {
+        "@type": "Offer",
+        name: "Pro Plan (Monthly)",
+        price: monthlyPrice,
+        priceCurrency: "USD",
+        priceValidUntil: "2026-12-31",
+        availability: "https://schema.org/InStock",
+        description:
+          "Full stocks and crypto coverage with priority processing and real-time alerts",
+      },
+      {
+        "@type": "Offer",
+        name: "Pro Plan (Annual)",
+        price: annualPrice,
+        priceCurrency: "USD",
+        priceValidUntil: "2026-12-31",
+        availability: "https://schema.org/InStock",
+        description:
+          "Full stocks and crypto coverage with priority processing and real-time alerts - Annual billing",
+      },
+    ],
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -81,7 +101,7 @@ export default async function PricingPage({ params }: Props) {
             __html: JSON.stringify(pricingSchema),
           }}
         />
-        <PricingContent />
+        <PricingContent prices={prices} />
       </main>
       <Footer />
     </div>

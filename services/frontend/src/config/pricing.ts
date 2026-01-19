@@ -1,11 +1,12 @@
 /**
  * Centralized pricing configuration
- * Environment variable (optional): NEXT_PUBLIC_PRICING_PRICE
+ * Used as fallback for global SEO schema only.
+ * Actual prices are fetched dynamically from Stripe.
  */
 
 export const PRICING = {
-    /** Monthly subscription price */
-    price: process.env.NEXT_PUBLIC_PRICING_PRICE || "19.99",
+    /** Monthly subscription price (fallback for SEO) */
+    price: "19.99",
 
     /** Currency code */
     currency: "USD",
