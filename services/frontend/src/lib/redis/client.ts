@@ -20,7 +20,8 @@ function getRedis(): Redis {
 // Export getter for backward compatibility
 export const redis = {
   get: <T>(key: string) => getRedis().get<T>(key),
-  set: <T>(key: string, value: T, opts?: { ex?: number }) => getRedis().set(key, value, opts),
+  set: <T>(key: string, value: T, opts?: { ex: number }) => 
+    opts ? getRedis().set(key, value, { ex: opts.ex }) : getRedis().set(key, value),
   del: (...keys: string[]) => getRedis().del(...keys),
   keys: (pattern: string) => getRedis().keys(pattern),
 };
