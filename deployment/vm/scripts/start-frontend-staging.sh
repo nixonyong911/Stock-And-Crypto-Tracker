@@ -6,15 +6,22 @@
 # 1. Not affect backend services (which use prod env)
 # 2. Use Infisical STAGING environment for frontend
 #
-# Usage: ./start-frontend-staging.sh [docker-compose-args]
-# Example: ./start-frontend-staging.sh up -d
-#          ./start-frontend-staging.sh up -d --build
+# Usage: ./start-frontend-staging.sh [--build]
+# Example: ./start-frontend-staging.sh           # just start
+#          ./start-frontend-staging.sh --build   # rebuild and start
 # ===========================================
 
 set -e
 
 DEPLOY_PATH="/opt/stocktracker"
 cd $DEPLOY_PATH
+
+# Parse arguments
+BUILD_FLAG=""
+if [ "$1" == "--build" ]; then
+    BUILD_FLAG="--build"
+    echo "=== Build flag detected - will rebuild image ==="
+fi
 
 # Load Infisical Machine Identity credentials
 if [ ! -f "config/infisical-auth.sh" ]; then
@@ -37,8 +44,9 @@ fi
 
 echo "=== Starting frontend-staging with STAGING secrets ==="
 # Use --env=staging (NOT prod!) for frontend staging
+# NEXT_PUBLIC_* vars are injected as env vars and used as build args
 infisical run --env=staging --projectId=$INFISICAL_PROJECT_ID --token=$TOKEN \
-    -- docker compose up -d frontend-staging "$@"
+    -- docker compose up -d $BUILD_FLAG frontend-staging
 
 echo "=== Frontend staging started ==="
 docker ps --filter name=frontend-staging --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

@@ -58,7 +58,8 @@ jobs:
       aihub2: ${{ steps.filter.outputs.aihub2 }}
       frontend: ${{ steps.filter.outputs.frontend }}
       config: ${{ steps.filter.outputs.config }}
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub2 == 'true' || steps.filter.outputs.frontend == 'true' }}
+      # NOTE: frontend is NOT in any_service because it's built on VM only (needs Infisical staging secrets)
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub2 == 'true' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -268,28 +269,9 @@ jobs:
           cache-to: type=gha,mode=max,scope=aihub2
           outputs: type=docker,dest=/tmp/ai-hub2.tar
 
-      # Build Frontend Staging (only if changed or forced)
-      - name: Build Frontend Staging image
-        id: build-frontend
-        if: needs.detect-changes.outputs.frontend == 'true' || github.event.inputs.force_build == 'true'
-        continue-on-error: true
-        uses: docker/build-push-action@v5
-        with:
-          context: services/frontend/
-          file: services/frontend/Dockerfile
-          tags: |
-            stocktracker-frontend-staging:latest
-            stocktracker-frontend-staging:${{ github.sha }}
-          build-args: |
-            USE_BASE_PATH=true
-            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
-            NEXT_PUBLIC_STRIPE_PAYMENT_LINK_MONTHLY=${{ secrets.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_MONTHLY }}
-            NEXT_PUBLIC_STRIPE_PAYMENT_LINK_ANNUAL=${{ secrets.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_ANNUAL }}
-            NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
-          cache-from: type=gha,scope=frontend-staging
-          cache-to: type=gha,mode=max,scope=frontend-staging
-          outputs: type=docker,dest=/tmp/frontend-staging.tar
+      # NOTE: Frontend Staging is NOT built on GHA
+      # It must be built on VM with Infisical STAGING secrets (not Production)
+      # The start-frontend-staging.sh script handles this during deploy
 
       # Compress built images
       - name: Compress Docker images
@@ -354,13 +336,7 @@ jobs:
             echo "⏭️ AI Hub 2.0 skipped (unchanged)"
           fi
           
-          if [ -f /tmp/frontend-staging.tar ]; then
-            gzip -1 < /tmp/frontend-staging.tar > /tmp/images/frontend-staging.tar.gz
-            BUILT="${BUILT}frontend,"
-            echo "✅ Frontend Staging compressed"
-          else
-            echo "⏭️ Frontend Staging skipped (unchanged)"
-          fi
+          # NOTE: Frontend Staging is built on VM only (needs Infisical staging secrets)
           
           echo "built=$BUILT" >> $GITHUB_OUTPUT
           ls -lh /tmp/images/ 2>/dev/null || echo "No images to transfer"
@@ -404,7 +380,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
             
-            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 frontend-staging; do
+            for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -470,7 +446,8 @@ jobs:
           echo "📥 Loading Docker images..."
           
           # Only load our specific service images (not other .tar.gz files in /tmp)
-          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 frontend-staging; do
+          # NOTE: Frontend Staging is built on VM, not transferred from GHA
+          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -506,7 +483,8 @@ jobs:
           cd $DEPLOY_PATH
           
           echo "📦 Building Docker services on VM (fallback mode)..."
-          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 frontend-staging
+          # NOTE: Frontend Staging is NOT built here - it's built separately with Infisical staging
+          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2
           
           echo "✅ VM build complete"
           EOF
@@ -547,8 +525,9 @@ jobs:
           # Docker Compose detects image changes and only recreates affected containers
           ./scripts/start-services.sh up -d
           
-          echo "=== Starting frontend-staging (Infisical STAGING env) ==="
-          ./scripts/start-frontend-staging.sh up -d || echo "⚠️ Frontend staging start failed - may need manual start"
+          echo "=== Building & Starting frontend-staging (Infisical STAGING env) ==="
+          # Build with Infisical staging secrets (NEXT_PUBLIC_* embedded at build time)
+          ./scripts/start-frontend-staging.sh --build || echo "⚠️ Frontend staging build/start failed - may need manual intervention"
           
           echo "=== Reloading Caddy config ==="
           docker exec caddy caddy reload --config /etc/caddy/Caddyfile || docker restart caddy
