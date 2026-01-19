@@ -4,7 +4,7 @@ import Stripe from "stripe";
 // STRIPE_SECRET_KEY is only available at runtime, not during Next.js build
 let _stripe: Stripe | null = null;
 
-function getStripeInstance(): Stripe {
+export function getStripe(): Stripe {
   if (!_stripe) {
     const key = process.env.STRIPE_SECRET_KEY;
     if (!key) {
@@ -18,12 +18,14 @@ function getStripeInstance(): Stripe {
   return _stripe;
 }
 
-// Export a getter that creates the instance on first access
-export const stripe = new Proxy({} as Stripe, {
-  get(_target, prop) {
-    return (getStripeInstance() as Record<string | symbol, unknown>)[prop];
-  },
-});
+// For backward compatibility - get stripe instance
+export const stripe = {
+  get customers() { return getStripe().customers; },
+  get prices() { return getStripe().prices; },
+  get subscriptions() { return getStripe().subscriptions; },
+  get billingPortal() { return getStripe().billingPortal; },
+  get webhooks() { return getStripe().webhooks; },
+};
 
 // Helper to convert Unix timestamp to Date
 export function unixToDate(timestamp: number | null | undefined): Date | null {
