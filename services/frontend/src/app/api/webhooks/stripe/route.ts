@@ -295,7 +295,9 @@ async function handleInvoicePaid(
   event: Stripe.Event
 ) {
   const customerId = invoice.customer as string;
-  const subscriptionId = invoice.subscription as string;
+  // Stripe SDK v20: subscription moved to parent.subscription_details
+  const subscription = invoice.parent?.subscription_details?.subscription;
+  const subscriptionId = typeof subscription === 'string' ? subscription : subscription?.id;
 
   if (!subscriptionId) return; // Not a subscription invoice
 
@@ -324,7 +326,9 @@ async function handlePaymentFailed(
   event: Stripe.Event
 ) {
   const customerId = invoice.customer as string;
-  const subscriptionId = invoice.subscription as string;
+  // Stripe SDK v20: subscription moved to parent.subscription_details
+  const subscription = invoice.parent?.subscription_details?.subscription;
+  const subscriptionId = typeof subscription === 'string' ? subscription : subscription?.id;
 
   if (!subscriptionId) return;
 
