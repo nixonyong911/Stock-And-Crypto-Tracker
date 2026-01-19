@@ -11,7 +11,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { locales, defaultLocale } from "@/lib/i18n/config";
 import {
   detectLocale,
   pathnameHasLocale,
@@ -79,14 +78,12 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
     detectedLocale = cookieLocale;
   } else {
     // 2. Detect from geo/headers (runs at edge, zero latency impact)
-    // Vercel provides these headers automatically:
-    // - x-vercel-ip-country: Country code (e.g., "US", "CN")
-    // Other providers may use different header names
+    // Vercel provides x-vercel-ip-country header automatically
+    // Cloudflare provides cf-ipcountry header
     const countryCode =
-      request.geo?.country ||
       request.headers.get("x-vercel-ip-country") ||
-      request.headers.get("cf-ipcountry") || // Cloudflare
-      request.headers.get("x-country-code"); // Custom header
+      request.headers.get("cf-ipcountry") ||
+      request.headers.get("x-country-code"); // Custom header fallback
 
     const acceptLanguage = request.headers.get("accept-language");
 
