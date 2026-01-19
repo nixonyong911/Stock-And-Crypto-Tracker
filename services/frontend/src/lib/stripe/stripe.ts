@@ -181,7 +181,7 @@ export async function createCheckoutSession(options: {
   clientReferenceId?: string;
   includeTrial: boolean;
 }) {
-  const sessionConfig: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+  const sessionConfig: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
     line_items: [{ price: options.priceId, quantity: 1 }],
     success_url: options.successUrl,
