@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "./supabase";
+import { createStripeCustomer } from "@/lib/stripe/stripe";
 import crypto from "crypto";
 
 // User types
@@ -40,6 +41,80 @@ export async function getUserByClerkId(clerkUserId: string): Promise<User | null
     throw error;
   }
 
+  return data;
+}
+
+// Clerk user data for creating user in Supabase
+interface ClerkUserData {
+  id: string;
+  email: string | null | undefined;
+  firstName: string | null;
+  lastName: string | null;
+  imageUrl: string | null;
+}
+
+/**
+ * Ensures user exists in Supabase - creates if missing (fallback for webhook failure)
+ * This is useful for local development where webhooks can't reach localhost
+ */
+export async function ensureUserExists(clerkUser: ClerkUserData): Promise<User> {
+  const supabase = getSupabaseAdmin();
+
+  // Try to find existing user
+  const existingUser = await getUserByClerkId(clerkUser.id);
+  if (existingUser) {
+    return existingUser;
+  }
+
+  // User doesn't exist - create them (webhook likely failed)
+  console.log(`Creating user in Supabase (webhook fallback) for Clerk user: ${clerkUser.id}`);
+
+  const email = clerkUser.email || undefined;
+  const displayName =
+    [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
+    email?.split("@")[0] ||
+    "User";
+
+  // Create Stripe customer first
+  let stripeCustomerId: string | null = null;
+  if (email) {
+    try {
+      const stripeCustomer = await createStripeCustomer(email, displayName, {
+        clerk_user_id: clerkUser.id,
+      });
+      stripeCustomerId = stripeCustomer.id;
+      console.log(`Stripe customer created: ${stripeCustomerId} for Clerk user ${clerkUser.id}`);
+    } catch (stripeError) {
+      console.error("Error creating Stripe customer (fallback):", stripeError);
+      // Continue without Stripe customer - can be created later
+    }
+  }
+
+  // Create user in database
+  const { data, error } = await supabase
+    .from("users")
+    .insert({
+      clerk_user_id: clerkUser.id,
+      email: email,
+      display_name: displayName,
+      avatar_url: clerkUser.imageUrl,
+      tier: "free",
+      stripe_customer_id: stripeCustomerId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // Handle race condition - user might have been created by webhook in parallel
+    if (error.code === "23505") { // Unique constraint violation
+      const user = await getUserByClerkId(clerkUser.id);
+      if (user) return user;
+    }
+    console.error("Error creating user (fallback):", error);
+    throw error;
+  }
+
+  console.log(`User created via fallback: ${clerkUser.id}`);
   return data;
 }
 
@@ -108,7 +183,7 @@ export async function linkTelegramAccount(
 ): Promise<boolean> {
   const supabase = getSupabaseAdmin();
   const linkToken = await verifyLinkToken(token);
-  
+
   if (!linkToken || linkToken.direction !== "web_to_telegram" || !linkToken.user_id) {
     return false;
   }

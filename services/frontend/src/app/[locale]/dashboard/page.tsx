@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { DashboardContent } from "./dashboard-content";
-import { getUserByClerkId } from "@/lib/db/users";
+import { ensureUserExists } from "@/lib/db/users";
 
 // Disable caching - always fetch fresh user data
 export const dynamic = "force-dynamic";
@@ -22,8 +22,14 @@ export default async function DashboardPage({ params }: Props) {
     redirect(`/${locale}/sign-in`);
   }
 
-  // Get user from database
-  const dbUser = await getUserByClerkId(user.id);
+  // Get or create user in database (fallback for webhook failure in local dev)
+  const dbUser = await ensureUserExists({
+    id: user.id,
+    email: user.emailAddresses[0]?.emailAddress,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    imageUrl: user.imageUrl,
+  });
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -37,15 +43,11 @@ export default async function DashboardPage({ params }: Props) {
             email: user.emailAddresses[0]?.emailAddress,
             imageUrl: user.imageUrl,
           }}
-          dbUser={
-            dbUser
-              ? {
-                  id: dbUser.id,
-                  tier: dbUser.tier,
-                  telegramLinked: dbUser.telegram_user_id !== null,
-                }
-              : null
-          }
+          dbUser={{
+            id: dbUser.id,
+            tier: dbUser.tier,
+            telegramLinked: dbUser.telegram_user_id !== null,
+          }}
         />
       </main>
       <Footer />
