@@ -34,11 +34,15 @@ export const getStripePrices = unstable_cache(
       let annual: StripePriceInfo | null = null;
 
       for (const price of prices.data) {
-        const product = price.product as import("stripe").Stripe.Product;
+        // Skip if product is not expanded or is deleted
+        const product = price.product;
+        if (typeof product === 'string') continue; // Not expanded
+        if (!product || product.deleted) continue; // Deleted product
         
-        // Skip if product is not active or doesn't match our Pro product
-        if (!product || product.deleted || !product.active) continue;
-        if (!product.name.toLowerCase().includes("pro")) continue;
+        // Cast to Product (not DeletedProduct) and check if active
+        const productObj = product as import("stripe").Stripe.Product;
+        if (!productObj.active) continue;
+        if (!productObj.name.toLowerCase().includes("pro")) continue;
 
         const priceInfo: StripePriceInfo = {
           id: price.id,
@@ -46,8 +50,8 @@ export const getStripePrices = unstable_cache(
           currency: price.currency,
           interval: price.recurring?.interval as "month" | "year",
           intervalCount: price.recurring?.interval_count || 1,
-          productId: product.id,
-          productName: product.name,
+          productId: productObj.id,
+          productName: productObj.name,
           trialDays: price.recurring?.trial_period_days || null,
         };
 
