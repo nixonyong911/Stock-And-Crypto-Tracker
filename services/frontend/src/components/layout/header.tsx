@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Send, LogIn } from "lucide-react";
 import Image from "next/image";
+import { GradientText } from "@/components/ui/gradient-text";
 
 // Check if Clerk is configured
 const isClerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -32,7 +33,7 @@ export function Header() {
             />
             <span className="hidden flex-col leading-tight sm:flex">
               <span className="font-semibold">Stock and Crypto</span>
-              <span className="font-semibold text-violet-400">Tracker</span>
+              <GradientText className="font-semibold">Tracker</GradientText>
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-8">
