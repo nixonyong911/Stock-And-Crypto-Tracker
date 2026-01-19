@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid tag" }, { status: 400 });
     }
 
-    // Revalidate the cache
-    revalidateTag(tag);
+    // Revalidate the cache (Next.js 16 requires a cache life profile as second arg)
+    revalidateTag(tag, "default");
 
     return NextResponse.json({
       success: true,
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid tag" }, { status: 400 });
   }
 
-  revalidateTag(tag);
+  revalidateTag(tag, "default");
 
   return NextResponse.json({
     success: true,
