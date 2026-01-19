@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,16 +13,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Send, Filter, Zap, GraduationCap } from "lucide-react";
+import { Check, X, Send, Filter, Zap, GraduationCap, Loader2 } from "lucide-react";
 
 const TELEGRAM_BOT_URL =
   "https://t.me/StockAndCryptoAdvisorBot?start=register";
-
-// Payment links - these will be set via environment variables
-const PAYMENT_LINKS = {
-  monthly: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_MONTHLY || "",
-  annual: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_ANNUAL || "",
-};
 
 const freeFeatures = ["stockCoverage", "alerts", "insights", "telegram"] as const;
 const proFeatures = ["coverage", "signals", "priority", "telegram"] as const;
@@ -60,8 +54,10 @@ type BillingPeriod = "monthly" | "annual";
 export function PricingContent() {
   const t = useTranslations("pricing");
   const tPage = useTranslations("pricingPage");
-  const { user } = useUser();
+  const { isSignedIn } = useAuth();
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const prices = {
     monthly: 19.99,
@@ -71,18 +67,40 @@ export function PricingContent() {
   const monthlyEquivalent = (prices.annual / 12).toFixed(2);
   const savingsPercentage = Math.round(((prices.monthly * 12 - prices.annual) / (prices.monthly * 12)) * 100);
 
-  const getPaymentLink = () => {
-    const baseLink = billingPeriod === "monthly" ? PAYMENT_LINKS.monthly : PAYMENT_LINKS.annual;
-    if (!baseLink) return "";
-    
-    // Prefill user's email if logged in
-    const userEmail = user?.primaryEmailAddress?.emailAddress;
-    if (userEmail) {
-      const separator = baseLink.includes("?") ? "&" : "?";
-      return `${baseLink}${separator}prefilled_email=${encodeURIComponent(userEmail)}`;
+  const handleCheckout = async () => {
+    if (!isSignedIn) {
+      // Redirect to sign in with return URL
+      window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/pricing")}`;
+      return;
     }
-    
-    return baseLink;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ billingPeriod }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to create checkout session");
+        return;
+      }
+
+      // Redirect to Stripe Checkout
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      setError("An error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -253,25 +271,24 @@ export function PricingContent() {
                     ))}
                   </ul>
                 </CardContent>
-                <CardFooter>
-                  {getPaymentLink() ? (
-                    <Button asChild className="w-full gap-2">
-                      <a href={getPaymentLink()}>
-                        Start 7-Day Free Trial
-                      </a>
-                    </Button>
-                  ) : (
-                    <Button asChild className="w-full gap-2">
-                      <a
-                        href={TELEGRAM_BOT_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Send className="h-4 w-4" />
-                        {t("pro.cta")}
-                      </a>
-                    </Button>
+                <CardFooter className="flex flex-col gap-2">
+                  {error && (
+                    <p className="text-sm text-destructive">{error}</p>
                   )}
+                  <Button 
+                    className="w-full gap-2" 
+                    onClick={handleCheckout}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      "Start 7-Day Free Trial"
+                    )}
+                  </Button>
                 </CardFooter>
               </Card>
             </div>

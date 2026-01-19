@@ -133,3 +133,78 @@ export async function updateSubscriptionPrice(subscriptionId: string, newPriceId
   
   return updatedSubscription;
 }
+
+// Check if email has used a trial before (for trial-once-per-email enforcement)
+export async function hasUsedTrial(email: string): Promise<boolean> {
+  try {
+    // Search for existing customers by email
+    const customers = await stripe.customers.list({
+      email,
+      limit: 10,
+    });
+
+    if (customers.data.length === 0) {
+      return false;
+    }
+
+    // Check if any customer has had a subscription with a trial
+    for (const customer of customers.data) {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customer.id,
+        limit: 100,
+        status: "all", // Include canceled, active, trialing, etc.
+      });
+
+      for (const sub of subscriptions.data) {
+        // If trial_start exists, user has used a trial
+        if (sub.trial_start !== null) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error checking trial history:", error);
+    // Default to allowing trial if check fails (better UX)
+    return false;
+  }
+}
+
+// Create checkout session with conditional trial
+export async function createCheckoutSession(options: {
+  priceId: string;
+  customerId?: string;
+  customerEmail: string;
+  successUrl: string;
+  cancelUrl: string;
+  clientReferenceId?: string;
+  includeTrial: boolean;
+}) {
+  const sessionConfig: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+    mode: "subscription",
+    line_items: [{ price: options.priceId, quantity: 1 }],
+    success_url: options.successUrl,
+    cancel_url: options.cancelUrl,
+    customer_email: options.customerId ? undefined : options.customerEmail,
+    customer: options.customerId || undefined,
+    client_reference_id: options.clientReferenceId,
+    billing_address_collection: "auto",
+    payment_method_collection: "always",
+  };
+
+  // Only add trial if user hasn't used one before
+  if (options.includeTrial) {
+    sessionConfig.subscription_data = {
+      trial_period_days: 7,
+      trial_settings: {
+        end_behavior: {
+          missing_payment_method: "pause",
+        },
+      },
+    };
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionConfig);
+  return session;
+}
