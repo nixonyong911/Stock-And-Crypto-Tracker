@@ -102,9 +102,10 @@ async function handleSubscriptionChange(
   event: Stripe.Event
 ) {
   const customerId = subscription.customer as string;
-  const priceId = subscription.items.data[0]?.price?.id;
-  const productId = subscription.items.data[0]?.price?.product as string;
-  const interval = subscription.items.data[0]?.price?.recurring?.interval || "month";
+  const subscriptionItem = subscription.items.data[0];
+  const priceId = subscriptionItem?.price?.id;
+  const productId = subscriptionItem?.price?.product as string;
+  const interval = subscriptionItem?.price?.recurring?.interval || "month";
 
   // Find user by stripe_customer_id
   let { data: user } = await supabase
@@ -159,8 +160,8 @@ async function handleSubscriptionChange(
         plan_type: "pro",
         status: subscription.status,
         interval: interval,
-        current_period_start: unixToDate(subscription.current_period_start)?.toISOString(),
-        current_period_end: unixToDate(subscription.current_period_end)?.toISOString(),
+        current_period_start: subscriptionItem ? unixToDate(subscriptionItem.current_period_start)?.toISOString() : null,
+        current_period_end: subscriptionItem ? unixToDate(subscriptionItem.current_period_end)?.toISOString() : null,
         cancel_at_period_end: subscription.cancel_at_period_end,
         canceled_at: subscription.canceled_at ? unixToDate(subscription.canceled_at)?.toISOString() : null,
         trial_start: subscription.trial_start ? unixToDate(subscription.trial_start)?.toISOString() : null,
