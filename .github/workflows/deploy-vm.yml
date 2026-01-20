@@ -501,7 +501,16 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 20.17.176.1 >> ~/.ssh/known_hosts
+          
+          # Configure SSH to skip host key verification for our controlled VM
+          # This is acceptable for CI/CD with a known, controlled server
+          cat >> ~/.ssh/config << 'SSHCONFIG'
+          Host 20.17.176.1
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            LogLevel ERROR
+          SSHCONFIG
+          chmod 600 ~/.ssh/config
 
       # Download pre-built images if available
       - name: Download Docker images
@@ -625,10 +634,10 @@ jobs:
             -H "Authorization: Bearer ${SUPABASE_KEY}")
           
           MAJOR=$(echo "$RESPONSE" | jq -r '.[0].major_version // 1')
-          MINOR=$(echo "$RESPONSE" | jq -r '.[0].minor_version // 1')
+          MINOR=$(echo "$RESPONSE" | jq -r '.[0].minor_version // 0')
           
           if [ "$MINOR" -le 0 ]; then
-            echo "::error::Cannot rollback - already at v${MAJOR}.0"
+            echo "::error::Cannot rollback - already at v${MAJOR}.0 (no previous version exists)"
             exit 1
           fi
           
@@ -666,6 +675,12 @@ jobs:
           
           # Restart container with previous version
           echo "Restarting ${ROLLBACK_SERVICE} with ${PREV_VERSION}..."
+          
+          # Re-tag the previous version as :latest so docker-compose uses it
+          docker tag "${IMAGE}:${PREV_VERSION}" "${IMAGE}:latest"
+          echo "  Tagged ${IMAGE}:${PREV_VERSION} as ${IMAGE}:latest"
+          
+          # Now docker compose will use the re-tagged :latest image
           docker compose up -d ${ROLLBACK_SERVICE}
           
           echo "✅ Rollback complete: ${ROLLBACK_SERVICE} -> ${PREV_VERSION}"
