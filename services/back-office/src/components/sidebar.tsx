@@ -13,6 +13,7 @@ import {
   BarChart3,
   Globe,
   HardDrive,
+  Server,
 } from "lucide-react";
 import { WorkerRegistry } from "@/lib/db/workers";
 
@@ -28,6 +29,7 @@ export function Sidebar({ className }: SidebarProps) {
     analysis: true,
     dataFetchers: true,
     frontend: true,
+    infrastructure: true,
   });
   
   const [dataFetchers, setDataFetchers] = useState<WorkerRegistry[]>([]);
@@ -263,6 +265,43 @@ export function Sidebar({ className }: SidebarProps) {
                 }`}
               >
                 Cache Management
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Infrastructure Section */}
+        <div>
+          <button
+            onClick={() => toggleSection('infrastructure')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+              isActive("/infrastructure")
+                ? 'bg-indigo-500/20 text-indigo-400'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Server className="w-4 h-4" />
+              Infrastructure
+            </div>
+            {expandedSections.infrastructure ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </button>
+          
+          {expandedSections.infrastructure && (
+            <div className="ml-4 mt-1 space-y-1">
+              <Link
+                href="/infrastructure/versions"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs ${
+                  pathname === "/back-office/infrastructure/versions"
+                    ? 'text-indigo-400 bg-indigo-500/10'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                }`}
+              >
+                Worker Versions
               </Link>
             </div>
           )}

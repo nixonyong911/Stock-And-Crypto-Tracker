@@ -41,6 +41,20 @@ on:
         required: false
         default: 'false'
         type: boolean
+      rollback_service:
+        description: 'Service to rollback (leave empty for normal deploy)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - 'twelvedata'
+          - 'candlestick-analysis'
+          - 'metrics'
+          - 'back-office'
+          - 'mcp-analysis'
+          - 'telegram-bot-2.0'
+          - 'ai-hub2'
+          - 'frontend-staging'
 
 jobs:
   # ===========================================
@@ -60,6 +74,15 @@ jobs:
       config: ${{ steps.filter.outputs.config }}
       # NOTE: frontend is NOT in any_service because it's built on VM only (needs Infisical staging secrets)
       any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub2 == 'true' }}
+      # Version outputs for tagging
+      twelvedata_version: ${{ steps.versions.outputs.twelvedata }}
+      analysis_version: ${{ steps.versions.outputs.analysis }}
+      metrics_version: ${{ steps.versions.outputs.metrics }}
+      backoffice_version: ${{ steps.versions.outputs.backoffice }}
+      mcp_version: ${{ steps.versions.outputs.mcp }}
+      telegram2_version: ${{ steps.versions.outputs.telegram2 }}
+      aihub2_version: ${{ steps.versions.outputs.aihub2 }}
+      frontend_version: ${{ steps.versions.outputs.frontend }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -107,6 +130,7 @@ jobs:
           echo "Frontend Staging: ${{ steps.filter.outputs.frontend }}"
           echo "Config: ${{ steps.filter.outputs.config }}"
           echo "Force Build: ${{ github.event.inputs.force_build }}"
+          echo "Rollback Service: ${{ github.event.inputs.rollback_service }}"
           
           # Summary
           echo "## 🔍 Change Detection" >> $GITHUB_STEP_SUMMARY
@@ -123,6 +147,63 @@ jobs:
           echo "| Frontend Staging | ${{ steps.filter.outputs.frontend }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Config | ${{ steps.filter.outputs.config }} |" >> $GITHUB_STEP_SUMMARY
 
+      # Query current versions from Supabase (increment minor for new deploys)
+      - name: Get versions from Supabase
+        id: versions
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "Querying current versions from Supabase..."
+          
+          # Service name mapping (workflow name -> DB service name)
+          declare -A SERVICE_MAP=(
+            ["twelvedata"]="twelvedata"
+            ["analysis"]="candlestick-analysis"
+            ["metrics"]="metrics"
+            ["backoffice"]="back-office"
+            ["mcp"]="mcp-analysis"
+            ["telegram2"]="telegram-bot-2.0"
+            ["aihub2"]="ai-hub2"
+            ["frontend"]="frontend-staging"
+          )
+          
+          # Query all versions from Supabase
+          RESPONSE=$(curl -sf "${SUPABASE_URL}/rest/v1/worker_versions?select=service,major_version,minor_version" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}")
+          
+          if [ -z "$RESPONSE" ]; then
+            echo "::warning::Failed to query Supabase, using default versions"
+            # Default to v1.0 for all services
+            for key in "${!SERVICE_MAP[@]}"; do
+              echo "${key}=1.0" >> $GITHUB_OUTPUT
+            done
+            exit 0
+          fi
+          
+          echo "Raw response: $RESPONSE"
+          
+          # Parse and output new versions (current minor + 1)
+          for key in "${!SERVICE_MAP[@]}"; do
+            DB_NAME="${SERVICE_MAP[$key]}"
+            
+            # Extract version for this service using jq
+            MAJOR=$(echo "$RESPONSE" | jq -r ".[] | select(.service == \"$DB_NAME\") | .major_version // 1")
+            MINOR=$(echo "$RESPONSE" | jq -r ".[] | select(.service == \"$DB_NAME\") | .minor_version // 0")
+            
+            # Default if not found
+            [ -z "$MAJOR" ] || [ "$MAJOR" == "null" ] && MAJOR=1
+            [ -z "$MINOR" ] || [ "$MINOR" == "null" ] && MINOR=0
+            
+            # New version = current minor + 1
+            NEW_MINOR=$((MINOR + 1))
+            NEW_VERSION="${MAJOR}.${NEW_MINOR}"
+            
+            echo "${key}=${NEW_VERSION}" >> $GITHUB_OUTPUT
+            echo "  $DB_NAME: v${MAJOR}.${MINOR} -> v${NEW_VERSION}"
+          done
+
   # ===========================================
   # Cleanup artifacts (always runs to prevent quota issues)
   # ===========================================
@@ -131,15 +212,15 @@ jobs:
     permissions:
       actions: write
     steps:
-      - name: Cleanup old artifacts (keep 3 most recent)
+      - name: Cleanup old artifacts (keep 1 most recent)
         run: |
           echo "Checking artifact storage..."
           ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/artifacts --paginate)
           TOTAL=$(echo "$ARTIFACTS" | jq '.artifacts | length')
           echo "Found $TOTAL artifacts"
           
-          # Keep 3 most recent, delete the rest
-          KEEP=3
+          # Keep only 1 most recent to avoid quota errors
+          KEEP=1
           if [ "$TOTAL" -gt "$KEEP" ]; then
             echo "Deleting artifacts beyond the $KEEP most recent..."
             echo "$ARTIFACTS" | jq -r '.artifacts | sort_by(.created_at) | reverse | .['$KEEP':][] | .id' | while read id; do
@@ -175,15 +256,13 @@ jobs:
       # Build TwelveData (only if changed or forced)
       - name: Build TwelveData image
         id: build-twelvedata
-        if: needs.detect-changes.outputs.twelvedata == 'true' || github.event.inputs.force_build == 'true'
+        if: (needs.detect-changes.outputs.twelvedata == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: services/
           file: services/workers/data-fetcher/TwelveData/Dockerfile
-          tags: |
-            stocktracker-twelvedata:latest
-            stocktracker-twelvedata:${{ github.sha }}
+          tags: stocktracker-twelvedata:v${{ needs.detect-changes.outputs.twelvedata_version }}
           cache-from: type=gha,scope=twelvedata
           cache-to: type=gha,mode=max,scope=twelvedata
           outputs: type=docker,dest=/tmp/twelvedata.tar
@@ -191,15 +270,13 @@ jobs:
       # Build Candlestick Analysis (only if changed or forced)
       - name: Build Candlestick Analysis image
         id: build-analysis
-        if: needs.detect-changes.outputs.analysis == 'true' || github.event.inputs.force_build == 'true'
+        if: (needs.detect-changes.outputs.analysis == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: services/
           file: services/workers/analysis/CandlestickAnalysis/Dockerfile
-          tags: |
-            stocktracker-candlestick-analysis:latest
-            stocktracker-candlestick-analysis:${{ github.sha }}
+          tags: stocktracker-candlestick-analysis:v${{ needs.detect-changes.outputs.analysis_version }}
           cache-from: type=gha,scope=analysis
           cache-to: type=gha,mode=max,scope=analysis
           outputs: type=docker,dest=/tmp/candlestick-analysis.tar
@@ -207,15 +284,13 @@ jobs:
       # Build Metrics (only if changed or forced)
       - name: Build Metrics image
         id: build-metrics
-        if: needs.detect-changes.outputs.metrics == 'true' || github.event.inputs.force_build == 'true'
+        if: (needs.detect-changes.outputs.metrics == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: services/
           file: services/metrics/StockTracker.Metrics/Dockerfile
-          tags: |
-            stocktracker-metrics:latest
-            stocktracker-metrics:${{ github.sha }}
+          tags: stocktracker-metrics:v${{ needs.detect-changes.outputs.metrics_version }}
           cache-from: type=gha,scope=metrics
           cache-to: type=gha,mode=max,scope=metrics
           outputs: type=docker,dest=/tmp/metrics.tar
@@ -223,15 +298,13 @@ jobs:
       # Build Back Office (only if changed or forced)
       - name: Build Back Office image
         id: build-backoffice
-        if: needs.detect-changes.outputs.backoffice == 'true' || github.event.inputs.force_build == 'true'
+        if: (needs.detect-changes.outputs.backoffice == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: services/back-office/
           file: services/back-office/Dockerfile
-          tags: |
-            stocktracker-back-office:latest
-            stocktracker-back-office:${{ github.sha }}
+          tags: stocktracker-back-office:v${{ needs.detect-changes.outputs.backoffice_version }}
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
@@ -242,15 +315,13 @@ jobs:
       # Build MCP Analysis Server (only if changed or forced)
       - name: Build MCP Analysis image
         id: build-mcp
-        if: needs.detect-changes.outputs.mcp == 'true' || github.event.inputs.force_build == 'true'
+        if: (needs.detect-changes.outputs.mcp == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: services/mcp/
           file: services/mcp/Dockerfile
-          tags: |
-            stocktracker-mcp-analysis:latest
-            stocktracker-mcp-analysis:${{ github.sha }}
+          tags: stocktracker-mcp-analysis:v${{ needs.detect-changes.outputs.mcp_version }}
           cache-from: type=gha,scope=mcp
           cache-to: type=gha,mode=max,scope=mcp
           outputs: type=docker,dest=/tmp/mcp-analysis.tar
@@ -258,15 +329,13 @@ jobs:
       # Build Telegram Bot 2.0 (only if changed or forced)
       - name: Build Telegram Bot 2.0 image
         id: build-telegram2
-        if: needs.detect-changes.outputs.telegram2 == 'true' || github.event.inputs.force_build == 'true'
+        if: (needs.detect-changes.outputs.telegram2 == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: services/social-media/telegram-2.0/
           file: services/social-media/telegram-2.0/Dockerfile
-          tags: |
-            stocktracker-telegram-bot-2.0:latest
-            stocktracker-telegram-bot-2.0:${{ github.sha }}
+          tags: stocktracker-telegram-bot-2.0:v${{ needs.detect-changes.outputs.telegram2_version }}
           cache-from: type=gha,scope=telegram2
           cache-to: type=gha,mode=max,scope=telegram2
           outputs: type=docker,dest=/tmp/telegram-bot-2.0.tar
@@ -274,15 +343,13 @@ jobs:
       # Build AI Hub 2.0 (Go) (only if changed or forced)
       - name: Build AI Hub 2.0 image
         id: build-aihub2
-        if: needs.detect-changes.outputs.aihub2 == 'true' || github.event.inputs.force_build == 'true'
+        if: (needs.detect-changes.outputs.aihub2 == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
         continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: services/ai/ai-hub2.0/
           file: services/ai/ai-hub2.0/Dockerfile
-          tags: |
-            stocktracker-ai-hub2:latest
-            stocktracker-ai-hub2:${{ github.sha }}
+          tags: stocktracker-ai-hub2:v${{ needs.detect-changes.outputs.aihub2_version }}
           cache-from: type=gha,scope=aihub2
           cache-to: type=gha,mode=max,scope=aihub2
           outputs: type=docker,dest=/tmp/ai-hub2.tar
@@ -483,34 +550,143 @@ jobs:
           fi
 
       # ===========================================
-      # FALLBACK PATH: Build on VM if needed
+      # FALLBACK PATH: Build on VM if needed (selective)
       # ===========================================
       - name: Fallback - Build on VM
         if: |
-          needs.build.result == 'failure' || 
-          (needs.detect-changes.outputs.any_service == 'true' && needs.build.outputs.build_success != 'true')
+          github.event.inputs.rollback_service == '' && (
+            needs.build.result == 'failure' || 
+            (needs.detect-changes.outputs.any_service == 'true' && needs.build.outputs.build_success != 'true')
+          )
+        env:
+          TWELVEDATA_CHANGED: ${{ needs.detect-changes.outputs.twelvedata }}
+          ANALYSIS_CHANGED: ${{ needs.detect-changes.outputs.analysis }}
+          METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
+          BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
+          MCP_CHANGED: ${{ needs.detect-changes.outputs.mcp }}
+          TELEGRAM2_CHANGED: ${{ needs.detect-changes.outputs.telegram2 }}
+          AIHUB2_CHANGED: ${{ needs.detect-changes.outputs.aihub2 }}
+          FORCE_BUILD: ${{ github.event.inputs.force_build }}
         run: |
           echo "::warning::GHA build failed or incomplete, falling back to VM build"
           echo "=========================================="
-          echo "=== FALLBACK: Building on VM ==="
+          echo "=== FALLBACK: Building on VM (selective) ==="
           echo "=========================================="
           
-          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
+          # Build selective services list based on detected changes
+          SERVICES=""
+          [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES twelvedata"
+          [ "$ANALYSIS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES candlestick-analysis"
+          [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES metrics"
+          [ "$BACKOFFICE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES back-office"
+          [ "$MCP_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES mcp-analysis"
+          [ "$TELEGRAM2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES telegram-bot-2.0"
+          [ "$AIHUB2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES ai-hub2"
+          
+          # Trim whitespace
+          SERVICES=$(echo "$SERVICES" | xargs)
+          
+          if [ -z "$SERVICES" ]; then
+            echo "No services to build"
+            exit 0
+          fi
+          
+          echo "Building services: $SERVICES"
+          
+          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 "bash -s" << EOF
           set -e
           DEPLOY_PATH="/opt/stocktracker"
-          cd $DEPLOY_PATH
+          cd \$DEPLOY_PATH
           
           echo "📦 Building Docker services on VM (fallback mode)..."
           # NOTE: Frontend Staging is NOT built here - it's built separately with Infisical staging
-          DOCKER_BUILDKIT=1 docker compose build twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2
+          DOCKER_BUILDKIT=1 docker compose build $SERVICES
           
           echo "✅ VM build complete"
           EOF
 
       # ===========================================
+      # ROLLBACK PATH: Rollback to previous version
+      # ===========================================
+      - name: Rollback service
+        if: github.event.inputs.rollback_service != ''
+        env:
+          ROLLBACK_SERVICE: ${{ github.event.inputs.rollback_service }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "=========================================="
+          echo "=== ROLLBACK: $ROLLBACK_SERVICE ==="
+          echo "=========================================="
+          
+          # Get current version from Supabase
+          RESPONSE=$(curl -sf "${SUPABASE_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}&select=major_version,minor_version" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}")
+          
+          MAJOR=$(echo "$RESPONSE" | jq -r '.[0].major_version // 1')
+          MINOR=$(echo "$RESPONSE" | jq -r '.[0].minor_version // 1')
+          
+          if [ "$MINOR" -le 0 ]; then
+            echo "::error::Cannot rollback - already at v${MAJOR}.0"
+            exit 1
+          fi
+          
+          # Previous version = current minor - 1
+          PREV_MINOR=$((MINOR - 1))
+          PREV_VERSION="v${MAJOR}.${PREV_MINOR}"
+          
+          echo "Rolling back $ROLLBACK_SERVICE from v${MAJOR}.${MINOR} to ${PREV_VERSION}"
+          
+          # Docker image name mapping
+          case "$ROLLBACK_SERVICE" in
+            "twelvedata") IMAGE="stocktracker-twelvedata" ;;
+            "candlestick-analysis") IMAGE="stocktracker-candlestick-analysis" ;;
+            "metrics") IMAGE="stocktracker-metrics" ;;
+            "back-office") IMAGE="stocktracker-back-office" ;;
+            "mcp-analysis") IMAGE="stocktracker-mcp-analysis" ;;
+            "telegram-bot-2.0") IMAGE="stocktracker-telegram-bot-2.0" ;;
+            "ai-hub2") IMAGE="stocktracker-ai-hub2" ;;
+            "frontend-staging") IMAGE="stocktracker-frontend-staging" ;;
+            *) echo "::error::Unknown service: $ROLLBACK_SERVICE"; exit 1 ;;
+          esac
+          
+          # SSH to VM and restart with previous version
+          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 "bash -s" << EOF
+          set -e
+          DEPLOY_PATH="/opt/stocktracker"
+          cd \$DEPLOY_PATH
+          
+          # Check if previous version image exists
+          if ! docker images "${IMAGE}:${PREV_VERSION}" --format "{{.ID}}" | grep -q .; then
+            echo "::error::Previous version image ${IMAGE}:${PREV_VERSION} not found on VM"
+            docker images "${IMAGE}" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+            exit 1
+          fi
+          
+          # Restart container with previous version
+          echo "Restarting ${ROLLBACK_SERVICE} with ${PREV_VERSION}..."
+          docker compose up -d ${ROLLBACK_SERVICE}
+          
+          echo "✅ Rollback complete: ${ROLLBACK_SERVICE} -> ${PREV_VERSION}"
+          EOF
+          
+          # Decrement version in Supabase
+          curl -sf "${SUPABASE_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}" \
+            -X PATCH \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "{\"minor_version\": ${PREV_MINOR}, \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+          
+          echo "✅ Supabase version decremented to v${MAJOR}.${PREV_MINOR}"
+
+      # ===========================================
       # Sync config and start services
       # ===========================================
       - name: Sync config and deploy services
+        if: github.event.inputs.rollback_service == ''
         run: |
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
           set -e
@@ -553,7 +729,24 @@ jobs:
           echo "=== Reloading Alloy config ==="
           docker exec alloy wget -qO- http://localhost:12345/-/reload 2>/dev/null || docker restart alloy
           
-          echo "=== Cleanup old images ==="
+          echo "=== Cleanup old images (keep running + 1 previous for rollback) ==="
+          # Smart cleanup: keep 2 most recent versions per service (running + previous for rollback)
+          for SERVICE in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 frontend-staging; do
+            # Get all version tags for this service, sorted by version number
+            TAGS=$(docker images "stocktracker-${SERVICE}" --format '{{.Tag}}' | grep -E '^v[0-9]+\.[0-9]+$' | sort -V 2>/dev/null || true)
+            if [ -n "$TAGS" ]; then
+              # Keep only the 2 most recent versions
+              DELETE_TAGS=$(echo "$TAGS" | head -n -2)
+              if [ -n "$DELETE_TAGS" ]; then
+                echo "Cleaning old images for ${SERVICE}..."
+                echo "$DELETE_TAGS" | while read TAG; do
+                  docker rmi "stocktracker-${SERVICE}:${TAG}" 2>/dev/null || true
+                done
+              fi
+            fi
+          done
+          
+          # Also prune dangling images
           docker image prune -f
           
           echo "=== Running containers ==="
@@ -640,3 +833,73 @@ jobs:
           echo "=========================================="
           echo "✅ Deployment complete!"
           echo "=========================================="
+
+      # ===========================================
+      # Update versions in Supabase after successful deploy
+      # ===========================================
+      - name: Update versions in Supabase
+        if: success() && github.event.inputs.rollback_service == ''
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TWELVEDATA_CHANGED: ${{ needs.detect-changes.outputs.twelvedata }}
+          ANALYSIS_CHANGED: ${{ needs.detect-changes.outputs.analysis }}
+          METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
+          BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
+          MCP_CHANGED: ${{ needs.detect-changes.outputs.mcp }}
+          TELEGRAM2_CHANGED: ${{ needs.detect-changes.outputs.telegram2 }}
+          AIHUB2_CHANGED: ${{ needs.detect-changes.outputs.aihub2 }}
+          FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+          TWELVEDATA_VERSION: ${{ needs.detect-changes.outputs.twelvedata_version }}
+          ANALYSIS_VERSION: ${{ needs.detect-changes.outputs.analysis_version }}
+          METRICS_VERSION: ${{ needs.detect-changes.outputs.metrics_version }}
+          BACKOFFICE_VERSION: ${{ needs.detect-changes.outputs.backoffice_version }}
+          MCP_VERSION: ${{ needs.detect-changes.outputs.mcp_version }}
+          TELEGRAM2_VERSION: ${{ needs.detect-changes.outputs.telegram2_version }}
+          AIHUB2_VERSION: ${{ needs.detect-changes.outputs.aihub2_version }}
+          FRONTEND_VERSION: ${{ needs.detect-changes.outputs.frontend_version }}
+          FORCE_BUILD: ${{ github.event.inputs.force_build }}
+        run: |
+          echo "=========================================="
+          echo "=== Updating versions in Supabase ==="
+          echo "=========================================="
+          
+          UPDATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          
+          update_version() {
+            local service=$1
+            local version=$2
+            local major=$(echo "$version" | cut -d. -f1)
+            local minor=$(echo "$version" | cut -d. -f2)
+            
+            echo "Updating $service to v$version..."
+            
+            # Upsert using PATCH with conflict handling
+            HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+              "${SUPABASE_URL}/rest/v1/worker_versions?service=eq.${service}" \
+              -X PATCH \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: return=minimal" \
+              -d "{\"major_version\": ${major}, \"minor_version\": ${minor}, \"updated_at\": \"${UPDATED_AT}\"}")
+            
+            if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+              echo "  ✅ $service -> v$version"
+            else
+              echo "  ⚠️ Failed to update $service (HTTP $HTTP_CODE)"
+            fi
+          }
+          
+          # Update versions for deployed services
+          [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "twelvedata" "$TWELVEDATA_VERSION"
+          [ "$ANALYSIS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "candlestick-analysis" "$ANALYSIS_VERSION"
+          [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "metrics" "$METRICS_VERSION"
+          [ "$BACKOFFICE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "back-office" "$BACKOFFICE_VERSION"
+          [ "$MCP_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "mcp-analysis" "$MCP_VERSION"
+          [ "$TELEGRAM2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "telegram-bot-2.0" "$TELEGRAM2_VERSION"
+          [ "$AIHUB2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "ai-hub2" "$AIHUB2_VERSION"
+          [ "$FRONTEND_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "frontend-staging" "$FRONTEND_VERSION"
+          
+          echo ""
+          echo "✅ Version updates complete"
