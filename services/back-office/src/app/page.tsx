@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getSupabase, WorkerRegistry } from "@/lib/supabase";
+import { WorkerRegistry } from "@/lib/db/workers";
 import { Activity, Database, CheckCircle, XCircle, Clock } from "lucide-react";
 import Link from "next/link";
 
@@ -18,37 +18,31 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboard() {
-      const supabase = getSupabase();
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-      
       try {
-        const { data, error } = await supabase
-          .from('worker_registry')
-          .select('*')
-          .eq('is_active', true)
-          .order('display_name');
+        // Fetch workers via API route (server-side with caching)
+        const response = await fetch("/back-office/api/workers");
+        if (!response.ok) {
+          throw new Error("Failed to fetch workers");
+        }
         
-        if (error) throw error;
+        const { workers: data } = await response.json();
         
         // Check health for each worker
         const workersWithHealth = await Promise.all(
-          (data || []).map(async (worker) => {
+          (data || []).map(async (worker: WorkerRegistry) => {
             if (!worker.health_endpoint) {
               return { ...worker, healthStatus: 'unknown' as const };
             }
             
             try {
               const healthUrl = `https://nxserver.malaysiawest.cloudapp.azure.com${worker.health_endpoint}`;
-              const response = await fetch(healthUrl, { 
+              const healthResponse = await fetch(healthUrl, { 
                 method: 'GET',
                 cache: 'no-store',
               });
               return {
                 ...worker,
-                healthStatus: response.ok ? 'healthy' as const : 'unhealthy' as const
+                healthStatus: healthResponse.ok ? 'healthy' as const : 'unhealthy' as const
               };
             } catch {
               return { ...worker, healthStatus: 'unhealthy' as const };

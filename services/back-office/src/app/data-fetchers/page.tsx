@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getSupabase, WorkerRegistry, FetchSchedule } from "@/lib/supabase";
+import { WorkerRegistry } from "@/lib/db/workers";
+import { FetchSchedule } from "@/lib/db/schedules";
 import { Database, CheckCircle, XCircle, Clock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -19,32 +20,28 @@ export default function DataFetchersPage() {
 
   useEffect(() => {
     async function loadWorkers() {
-      const supabase = getSupabase();
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-      
       try {
-        // Load workers
-        const { data: workersData, error: workersError } = await supabase
-          .from('worker_registry')
-          .select('*')
-          .eq('service_type', 'data-fetcher')
-          .order('display_name');
+        // Fetch workers and schedules via API routes (server-side with caching)
+        const [workersRes, schedulesRes] = await Promise.all([
+          fetch("/back-office/api/workers"),
+          fetch("/back-office/api/schedules"),
+        ]);
         
-        if (workersError) throw workersError;
-
-        // Load schedules
-        const { data: schedulesData } = await supabase
-          .from('fetch_schedules')
-          .select('*');
+        if (!workersRes.ok || !schedulesRes.ok) {
+          throw new Error("Failed to fetch data");
+        }
+        
+        const { workers: allWorkers } = await workersRes.json();
+        const { schedules: schedulesData } = await schedulesRes.json();
+        
+        // Filter to data-fetcher workers only
+        const workersData = allWorkers.filter((w: WorkerRegistry) => w.service_type === "data-fetcher");
 
         // Match schedules to workers and check health
         const workersWithData = await Promise.all(
-          (workersData || []).map(async (worker) => {
+          (workersData || []).map(async (worker: WorkerRegistry) => {
             // Find schedule for this worker (matching by name in data_sources)
-            const schedule = schedulesData?.find(s => 
+            const schedule = schedulesData?.find((s: FetchSchedule) => 
               s.name.toLowerCase().includes(worker.name.toLowerCase())
             );
 
@@ -155,8 +152,8 @@ export default function DataFetchersPage() {
                       {/* Schedule Time */}
                       <div className="text-slate-400">
                         <span className="text-slate-600">Time: </span>
-                        {worker.schedule?.schedule_time_utc || 'Not set'}
-                        <span className="text-slate-600"> UTC</span>
+                        {worker.schedule?.schedule_time || 'Not set'}
+                        <span className="text-slate-600"> {worker.schedule?.schedule_timezone || ''}</span>
                       </div>
 
                       {/* Last Run */}

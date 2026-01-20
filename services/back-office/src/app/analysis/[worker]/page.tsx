@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getSupabase, WorkerRegistry, FetchSchedule } from "@/lib/supabase";
+import { WorkerRegistry } from "@/lib/db/workers";
+import { FetchSchedule } from "@/lib/db/schedules";
 import { 
   CheckCircle, 
   XCircle, 
@@ -33,22 +34,25 @@ export default function AnalysisWorkerPage() {
 
   useEffect(() => {
     async function loadWorkerDetails() {
-      const supabase = getSupabase();
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-      
       try {
-        // Load worker from registry
-        const { data: workerData, error: workerError } = await supabase
-          .from('worker_registry')
-          .select('*')
-          .eq('name', workerName)
-          .single();
+        // Fetch workers and schedules via API routes (server-side with caching)
+        const [workersRes, schedulesRes] = await Promise.all([
+          fetch("/back-office/api/workers"),
+          fetch("/back-office/api/schedules"),
+        ]);
         
-        if (workerError || !workerData) {
-          console.error('Worker not found:', workerError);
+        if (!workersRes.ok || !schedulesRes.ok) {
+          throw new Error("Failed to fetch data");
+        }
+        
+        const { workers } = await workersRes.json();
+        const { schedules } = await schedulesRes.json();
+        
+        // Find the specific worker
+        const workerData = workers.find((w: WorkerRegistry) => w.name === workerName);
+        
+        if (!workerData) {
+          console.error('Worker not found');
           setLoading(false);
           return;
         }
@@ -67,12 +71,10 @@ export default function AnalysisWorkerPage() {
 
         setWorker({ ...workerData, healthStatus });
 
-        // Load schedule
-        const { data: scheduleData } = await supabase
-          .from('fetch_schedules')
-          .select('*')
-          .ilike('name', `%${workerName}%`)
-          .single();
+        // Find schedule for this worker
+        const scheduleData = schedules.find((s: FetchSchedule) => 
+          s.name.toLowerCase().includes(workerName.toLowerCase())
+        );
         
         if (scheduleData) {
           setSchedule(scheduleData);
@@ -89,16 +91,18 @@ export default function AnalysisWorkerPage() {
 
   const handleToggleSchedule = async () => {
     if (!schedule) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
     
-    const { error } = await supabase
-      .from('fetch_schedules')
-      .update({ is_enabled: !schedule.is_enabled })
-      .eq('id', schedule.id);
-    
-    if (!error) {
-      setSchedule({ ...schedule, is_enabled: !schedule.is_enabled });
+    try {
+      const response = await fetch(`/back-office/api/schedules?toggle=${schedule.id}`, {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const { schedule: updatedSchedule } = await response.json();
+        setSchedule(updatedSchedule);
+      }
+    } catch (err) {
+      console.error('Failed to toggle schedule:', err);
     }
   };
 
@@ -223,9 +227,9 @@ export default function AnalysisWorkerPage() {
             </CardHeader>
             <CardContent>
               <span className="font-semibold text-slate-200">
-                {schedule?.schedule_time_utc || 'Not set'}
+                {schedule?.schedule_time || 'Not set'}
               </span>
-              <span className="text-slate-500 ml-1">UTC</span>
+              <span className="text-slate-500 ml-1">{schedule?.schedule_timezone || ''}</span>
             </CardContent>
           </Card>
 
@@ -261,7 +265,7 @@ export default function AnalysisWorkerPage() {
               <div>
                 <p className="text-slate-200">Automatic Daily Analysis</p>
                 <p className="text-sm text-slate-500">
-                  Runs analysis daily at {schedule?.schedule_time_utc || '23:00:00'} UTC
+                  Runs analysis daily at {schedule?.schedule_time || '23:00:00'} {schedule?.schedule_timezone || 'America/New_York'}
                 </p>
               </div>
               <Button

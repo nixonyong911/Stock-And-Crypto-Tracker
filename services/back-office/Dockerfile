@@ -2,19 +2,11 @@
 # Back Office - Next.js Application
 # ===========================================
 # Multi-stage build for smaller image size
+# No build-time env vars needed - all Supabase access is server-side via runtime env vars
 
 FROM node:20-alpine AS builder
 
 WORKDIR /app
-
-# Supabase public config (passed as build args from docker-compose)
-# NEVER hardcode secrets here - they come from Infisical via docker-compose build args
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
-
-# Next.js embeds NEXT_PUBLIC_* vars at build time
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
 
 # Copy package files
 COPY package*.json ./

@@ -12,8 +12,9 @@ import {
   Home,
   BarChart3,
   Globe,
+  HardDrive,
 } from "lucide-react";
-import { getSupabase, WorkerRegistry } from "@/lib/supabase";
+import { WorkerRegistry } from "@/lib/db/workers";
 
 interface SidebarProps {
   className?: string;
@@ -35,36 +36,20 @@ export function Sidebar({ className }: SidebarProps) {
 
   useEffect(() => {
     async function loadWorkers() {
-      const supabase = getSupabase();
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-      
       try {
-        // Load both data-fetcher and analysis workers
-        const [fetchersResult, analysisResult] = await Promise.all([
-          supabase
-            .from('worker_registry')
-            .select('*')
-            .eq('service_type', 'data-fetcher')
-            .eq('is_active', true)
-            .order('display_name'),
-          supabase
-            .from('worker_registry')
-            .select('*')
-            .eq('service_type', 'analysis')
-            .eq('is_active', true)
-            .order('display_name')
-        ]);
+        // Fetch workers via API route (server-side with caching)
+        const response = await fetch("/back-office/api/workers");
+        if (!response.ok) {
+          throw new Error("Failed to fetch workers");
+        }
         
-        if (fetchersResult.error) throw fetchersResult.error;
-        if (analysisResult.error) throw analysisResult.error;
+        const { workers } = await response.json();
         
-        setDataFetchers(fetchersResult.data || []);
-        setAnalysisWorkers(analysisResult.data || []);
+        // Filter by service type
+        setDataFetchers(workers.filter((w: WorkerRegistry) => w.service_type === "data-fetcher"));
+        setAnalysisWorkers(workers.filter((w: WorkerRegistry) => w.service_type === "analysis"));
       } catch (err) {
-        console.error('Failed to load workers:', err);
+        console.error("Failed to load workers:", err);
       } finally {
         setLoading(false);
       }
@@ -282,6 +267,19 @@ export function Sidebar({ className }: SidebarProps) {
             </div>
           )}
         </div>
+
+        {/* Redis Section */}
+        <Link
+          href="/redis"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
+            isActive("/redis")
+              ? 'bg-red-500/20 text-red-400'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+          }`}
+        >
+          <HardDrive className="w-4 h-4" />
+          Redis Cache
+        </Link>
 
         {/* Monitoring Link */}
         <a

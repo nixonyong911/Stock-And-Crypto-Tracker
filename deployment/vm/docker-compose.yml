@@ -344,10 +344,6 @@ services:
     build:
       context: ./repo/services/back-office
       dockerfile: Dockerfile
-      # Pass Supabase public keys at build time (Next.js embeds NEXT_PUBLIC_* at build)
-      args:
-        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-        - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY}
     container_name: back-office
     restart: unless-stopped
     extra_hosts:
@@ -356,10 +352,16 @@ services:
       # AI Hub 2.0 (Go) access (Docker internal - faster than host.docker.internal)
       - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
+      # Supabase (server-side, service role key)
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      # Redis (VM local)
+      - REDIS_URL=redis://redis:6379
     networks:
       - stocktracker
     depends_on:
       - ai-hub2
+      - redis
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000/back-office" ]
       interval: 30s

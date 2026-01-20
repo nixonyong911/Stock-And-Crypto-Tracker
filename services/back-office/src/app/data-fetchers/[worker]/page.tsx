@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getSupabase, WorkerRegistry, FetchSchedule, StockTicker } from "@/lib/supabase";
+import { WorkerRegistry } from "@/lib/db/workers";
+import { FetchSchedule } from "@/lib/db/schedules";
 import { 
   CheckCircle, 
   XCircle, 
@@ -16,6 +17,19 @@ import {
   Activity,
   ExternalLink
 } from "lucide-react";
+
+// Stock ticker type (not cached, loaded on demand)
+interface StockTicker {
+  id: number;
+  universe_id: number;
+  symbol: string;
+  name: string | null;
+  exchange: string | null;
+  currency: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 interface WorkerDetails extends WorkerRegistry {
   healthStatus?: 'healthy' | 'unhealthy' | 'unknown';
@@ -34,22 +48,25 @@ export default function WorkerConfigPage() {
 
   useEffect(() => {
     async function loadWorkerDetails() {
-      const supabase = getSupabase();
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-      
       try {
-        // Load worker from registry
-        const { data: workerData, error: workerError } = await supabase
-          .from('worker_registry')
-          .select('*')
-          .eq('name', workerName)
-          .single();
+        // Fetch workers and schedules via API routes (server-side with caching)
+        const [workersRes, schedulesRes] = await Promise.all([
+          fetch("/back-office/api/workers"),
+          fetch("/back-office/api/schedules"),
+        ]);
         
-        if (workerError || !workerData) {
-          console.error('Worker not found:', workerError);
+        if (!workersRes.ok || !schedulesRes.ok) {
+          throw new Error("Failed to fetch data");
+        }
+        
+        const { workers } = await workersRes.json();
+        const { schedules } = await schedulesRes.json();
+        
+        // Find the specific worker
+        const workerData = workers.find((w: WorkerRegistry) => w.name === workerName);
+        
+        if (!workerData) {
+          console.error('Worker not found');
           setLoading(false);
           return;
         }
@@ -68,25 +85,26 @@ export default function WorkerConfigPage() {
 
         setWorker({ ...workerData, healthStatus });
 
-        // Load schedule
-        const { data: scheduleData } = await supabase
-          .from('fetch_schedules')
-          .select('*')
-          .ilike('name', `%${workerName}%`)
-          .single();
+        // Find schedule for this worker
+        const scheduleData = schedules.find((s: FetchSchedule) => 
+          s.name.toLowerCase().includes(workerName.toLowerCase())
+        );
         
         if (scheduleData) {
           setSchedule(scheduleData);
         }
 
-        // Load tickers (for data fetcher workers)
+        // Load tickers via API route (for data fetcher workers)
         if (workerData.service_type === 'data-fetcher') {
-          const { data: tickersData } = await supabase
-            .from('stock_tickers')
-            .select('*')
-            .order('symbol');
-          
-          setTickers(tickersData || []);
+          try {
+            const tickersRes = await fetch("/back-office/api/tickers");
+            if (tickersRes.ok) {
+              const { tickers: tickersData } = await tickersRes.json();
+              setTickers(tickersData || []);
+            }
+          } catch (err) {
+            console.error('Failed to load tickers:', err);
+          }
         }
       } catch (err) {
         console.error('Failed to load worker details:', err);
@@ -100,32 +118,34 @@ export default function WorkerConfigPage() {
 
   const handleToggleSchedule = async () => {
     if (!schedule) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
     
-    const { error } = await supabase
-      .from('fetch_schedules')
-      .update({ is_enabled: !schedule.is_enabled })
-      .eq('id', schedule.id);
-    
-    if (!error) {
-      setSchedule({ ...schedule, is_enabled: !schedule.is_enabled });
+    try {
+      const response = await fetch(`/back-office/api/schedules?toggle=${schedule.id}`, {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const { schedule: updatedSchedule } = await response.json();
+        setSchedule(updatedSchedule);
+      }
+    } catch (err) {
+      console.error('Failed to toggle schedule:', err);
     }
   };
 
   const handleToggleTicker = async (ticker: StockTicker) => {
-    const supabase = getSupabase();
-    if (!supabase) return;
-    
-    const { error } = await supabase
-      .from('stock_tickers')
-      .update({ is_active: !ticker.is_active })
-      .eq('id', ticker.id);
-    
-    if (!error) {
-      setTickers(tickers.map(t => 
-        t.id === ticker.id ? { ...t, is_active: !t.is_active } : t
-      ));
+    try {
+      const response = await fetch(`/back-office/api/tickers?toggle=${ticker.id}`, {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        setTickers(tickers.map(t => 
+          t.id === ticker.id ? { ...t, is_active: !t.is_active } : t
+        ));
+      }
+    } catch (err) {
+      console.error('Failed to toggle ticker:', err);
     }
   };
 
@@ -266,9 +286,9 @@ export default function WorkerConfigPage() {
             </CardHeader>
             <CardContent>
               <span className="font-semibold text-slate-200">
-                {schedule?.schedule_time_utc || 'Not set'}
+                {schedule?.schedule_time || 'Not set'}
               </span>
-              <span className="text-slate-500 ml-1">UTC</span>
+              <span className="text-slate-500 ml-1">{schedule?.schedule_timezone || ''}</span>
             </CardContent>
           </Card>
 
@@ -304,7 +324,7 @@ export default function WorkerConfigPage() {
               <div>
                 <p className="text-slate-200">Automatic Daily Fetch</p>
                 <p className="text-sm text-slate-500">
-                  Fetches data daily at {schedule?.schedule_time_utc || '22:00:00'} UTC
+                  Fetches data daily at {schedule?.schedule_time || '22:00:00'} {schedule?.schedule_timezone || 'America/New_York'}
                 </p>
               </div>
               <Button
