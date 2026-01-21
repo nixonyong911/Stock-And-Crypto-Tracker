@@ -1,9 +1,10 @@
 {
-  "name": "Stock-And-Crypto-Tracker",
+  "name": "sct-devcontainer",
   "build": {
     "dockerfile": "Dockerfile",
     "context": "."
   },
+  "runArgs": ["--name", "sct-devcontainer"],
   "remoteUser": "root",
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
