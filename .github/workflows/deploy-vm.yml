@@ -918,3 +918,69 @@ jobs:
           
           echo ""
           echo "✅ Version updates complete"
+
+  # ===========================================
+  # Cleanup old caches after successful deploy
+  # ===========================================
+  cleanup-cache:
+    needs: [detect-changes, deploy]
+    if: success()
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Cleanup old BuildKit caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "=========================================="
+          echo "=== Cleaning up old BuildKit caches ==="
+          echo "=========================================="
+          
+          # Service scopes used in build job
+          SCOPES="twelvedata analysis metrics backoffice mcp telegram2 aihub2"
+          
+          for SCOPE in $SCOPES; do
+            echo ""
+            echo "--- Processing scope: $SCOPE ---"
+            
+            # Get all caches for this scope, sorted by last accessed (newest first)
+            CACHES=$(gh cache list -R ${{ github.repository }} --key "$SCOPE" --json id,key,lastAccessedAt,sizeInBytes 2>/dev/null \
+              | jq 'sort_by(.lastAccessedAt) | reverse' 2>/dev/null || echo "[]")
+            
+            TOTAL=$(echo "$CACHES" | jq length)
+            echo "Found $TOTAL caches for scope $SCOPE"
+            
+            if [ "$TOTAL" -gt 1 ]; then
+              # Keep only the latest (index 0), delete the rest
+              echo "$CACHES" | jq -r '.[1:][] | .key' | while read key; do
+                echo "  Deleting: $key"
+                gh cache delete "$key" -R ${{ github.repository }} 2>/dev/null || true
+              done
+              echo "  Kept latest, deleted $((TOTAL - 1)) old caches"
+            else
+              echo "  Only $TOTAL cache(s), nothing to delete"
+            fi
+          done
+          
+          # Clean up old buildkit blobs not accessed in last 24 hours
+          echo ""
+          echo "--- Cleaning old buildkit blobs ---"
+          OLD_BLOBS=$(gh cache list -R ${{ github.repository }} --json key,lastAccessedAt 2>/dev/null \
+            | jq -r '.[] | select(.key | startswith("buildkit-blob-")) | select(.lastAccessedAt < (now - 86400 | todate)) | .key' 2>/dev/null || true)
+          
+          if [ -n "$OLD_BLOBS" ]; then
+            echo "$OLD_BLOBS" | while read key; do
+              echo "  Deleting old blob: $key"
+              gh cache delete "$key" -R ${{ github.repository }} 2>/dev/null || true
+            done
+          else
+            echo "  No old blobs to delete"
+          fi
+          
+          echo ""
+          echo "=== Cache cleanup complete ==="
+          
+          # Log final state
+          REMAINING=$(gh cache list -R ${{ github.repository }} --json key 2>/dev/null | jq length || echo "unknown")
+          echo "Remaining caches: $REMAINING"
