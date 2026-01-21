@@ -205,9 +205,9 @@ jobs:
           done
 
   # ===========================================
-  # Cleanup artifacts (always runs to prevent quota issues)
+  # Cleanup artifacts AND caches (always runs to prevent quota issues)
   # ===========================================
-  cleanup-artifacts:
+  cleanup-storage:
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -230,7 +230,45 @@ jobs:
           else
             echo "Only $TOTAL artifacts, no cleanup needed"
           fi
-          echo "Cleanup complete"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Cleanup old BuildKit caches (keep 1 per scope)
+        run: |
+          echo "Checking cache storage..."
+          
+          # Service scopes used in build job
+          SCOPES="twelvedata analysis metrics backoffice mcp telegram2 aihub2"
+          
+          for SCOPE in $SCOPES; do
+            echo "--- Processing scope: $SCOPE ---"
+            
+            # Get all caches for this scope, sorted by last accessed (newest first)
+            CACHES=$(gh cache list -R ${{ github.repository }} --key "$SCOPE" --json id,key,lastAccessedAt 2>/dev/null \
+              | jq 'sort_by(.lastAccessedAt) | reverse' 2>/dev/null || echo "[]")
+            
+            TOTAL=$(echo "$CACHES" | jq length)
+            
+            if [ "$TOTAL" -gt 1 ]; then
+              # Keep only the latest (index 0), delete the rest
+              echo "$CACHES" | jq -r '.[1:][] | .key' | while read key; do
+                echo "  Deleting: $key"
+                gh cache delete "$key" -R ${{ github.repository }} 2>/dev/null || true
+              done
+              echo "  Kept latest, deleted $((TOTAL - 1)) old caches"
+            fi
+          done
+          
+          # Clean up old buildkit blobs not accessed in last 7 days
+          echo "--- Cleaning old buildkit blobs (>7 days) ---"
+          gh cache list -R ${{ github.repository }} --json key,lastAccessedAt 2>/dev/null \
+            | jq -r '.[] | select(.key | startswith("buildkit-blob-")) | select(.lastAccessedAt < (now - 604800 | todate)) | .key' 2>/dev/null \
+            | while read key; do
+                echo "  Deleting old blob: $key"
+                gh cache delete "$key" -R ${{ github.repository }} 2>/dev/null || true
+              done
+          
+          echo "Cache cleanup complete"
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -238,7 +276,7 @@ jobs:
   # PHASE 3: Build only changed services (parallel)
   # ===========================================
   build:
-    needs: [detect-changes, cleanup-artifacts]
+    needs: [detect-changes, cleanup-storage]
     runs-on: ubuntu-latest
     # Skip build job entirely if only config changed and not forcing
     if: needs.detect-changes.outputs.any_service == 'true' || github.event.inputs.force_build == 'true'
