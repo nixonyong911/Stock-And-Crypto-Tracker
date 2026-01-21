@@ -923,8 +923,8 @@ jobs:
   # Cleanup old caches after successful deploy
   # ===========================================
   cleanup-cache:
-    needs: [detect-changes, deploy]
-    if: success()
+    needs: [deploy]
+    if: needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       actions: write
