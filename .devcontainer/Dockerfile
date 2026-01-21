@@ -58,16 +58,28 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 # Azure CLI
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
-# Infisical CLI
-RUN curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | bash \
+# Infisical CLI (updated installation method)
+RUN curl -1sLf 'https://artifacts.infisical.com/repos/infisical-cli/setup.deb.sh' | bash \
     && apt-get update && apt-get install -y infisical \
     && rm -rf /var/lib/apt/lists/*
+
+# Set Infisical to use file-based vault (no system keyring needed in containers)
+ENV INFISICAL_VAULT_FILE_PASSPHRASE="devcontainer"
 
 # NPM global packages: Vercel, Claude, TypeScript
 RUN npm install -g vercel @anthropic-ai/claude-code typescript ts-node pnpm yarn
 
-# Supabase CLI (no longer supports npm global install)
-RUN curl -fsSL https://supabase.com/install.sh | bash -s -- -b /usr/local/bin
+# Cursor CLI (agent command) - temporarily disabled to debug build
+# RUN curl https://cursor.com/install -fsS | bash || true
+ENV PATH="/root/.local/bin:/root/.cursor/bin:${PATH}"
+
+# Supabase CLI (install from GitHub releases)
+RUN SUPABASE_VERSION=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | jq -r '.tag_name' | sed 's/v//') \
+    && curl -fsSL "https://github.com/supabase/cli/releases/download/v${SUPABASE_VERSION}/supabase_linux_amd64.tar.gz" -o /tmp/supabase.tar.gz \
+    && tar -xzf /tmp/supabase.tar.gz -C /tmp \
+    && mv /tmp/supabase /usr/local/bin/supabase \
+    && chmod +x /usr/local/bin/supabase \
+    && rm /tmp/supabase.tar.gz
 
 # Oracle Cloud CLI
 RUN pip3 install oci-cli --break-system-packages

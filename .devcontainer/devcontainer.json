@@ -6,6 +6,9 @@
   },
   "runArgs": ["--name", "sct-devcontainer"],
   "remoteUser": "root",
+  "containerEnv": {
+    "INFISICAL_VAULT_FILE_PASSPHRASE": "devcontainer"
+  },
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "moby": false,
@@ -51,7 +54,6 @@
         "eamodio.gitlens",
         "mhutchie.git-graph",
         "editorconfig.editorconfig",
-        "streetsidesoftware.code-spell-checker",
         "usernamehw.errorlens",
         "gruntfuggly.todo-tree",
         "humao.rest-client",
