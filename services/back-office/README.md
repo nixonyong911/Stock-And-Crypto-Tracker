@@ -66,7 +66,6 @@ The back-office reads from these Supabase tables:
 | `worker_registry` | Dynamic worker discovery & config schema |
 | `worker_fetch_schedules` | Schedule configuration with worker_id link (editable) |
 | `stock_tickers` | Ticker management (editable) |
-| `worker_metrics_daily` | Daily statistics |
 
 ### Adding a New Worker
 

@@ -45,11 +45,6 @@ This document describes the architecture for integrating data-fetcher workers (l
         │  │    stock_prices         │  │◄─── Price data
         │  │    - OHLCV candles      │  │
         │  └─────────────────────────┘  │
-        │  ┌─────────────────────────┐  │
-        │  │  worker_metrics_daily   │  │◄─── Daily aggregates
-        │  │    - api_calls          │  │
-        │  │    - success/failure    │  │
-        │  └─────────────────────────┘  │
         └──────────────────────────────┘
                        │
                        ▼

@@ -32,7 +32,6 @@ See [EF Migrations CLI](../cli/ef-migrations.md) for commands.
 | `crypto_prices` | 15-minute crypto candles | Read-only |
 | `analysis_stock_candlestick_pattern` | Daily candlestick pattern analysis | Service role only |
 | `worker_registry` | Worker discovery for back-office | Service role only |
-| `worker_metrics_daily` | Daily aggregated worker metrics | Service role only |
 
 See [schema.md](schema.md) for detailed table definitions.
 
