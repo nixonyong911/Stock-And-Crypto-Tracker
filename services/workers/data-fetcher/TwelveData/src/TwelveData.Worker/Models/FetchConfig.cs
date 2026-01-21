@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace TwelveData.Worker.Models;
 
 /// <summary>
-/// Deserialized fetch configuration from fetch_schedules.fetch_config JSONB
+/// Deserialized fetch configuration from worker_fetch_schedules.fetch_config JSONB
 /// </summary>
 public class FetchConfig
 {

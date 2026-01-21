@@ -40,9 +40,9 @@ export default function DataFetchersPage() {
         // Match schedules to workers and check health
         const workersWithData = await Promise.all(
           (workersData || []).map(async (worker: WorkerRegistry) => {
-            // Find schedule for this worker (matching by name in data_sources)
+            // Find schedule for this worker using worker_id (proper relational lookup)
             const schedule = schedulesData?.find((s: FetchSchedule) => 
-              s.name.toLowerCase().includes(worker.name.toLowerCase())
+              s.worker_id === worker.id
             );
 
             // Check health

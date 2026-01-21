@@ -82,6 +82,7 @@ public class StockPriceRepository : IStockPriceRepository
             SELECT 
                 fs.id AS Id,
                 fs.data_source_id AS DataSourceId,
+                fs.worker_id AS WorkerId,
                 fs.name AS Name,
                 fs.description AS Description,
                 fs.schedule_time AS ScheduleTime,
@@ -91,7 +92,7 @@ public class StockPriceRepository : IStockPriceRepository
                 fs.last_run_at AS LastRunAt,
                 fs.last_run_status AS LastRunStatus,
                 fs.last_run_message AS LastRunMessage
-            FROM fetch_schedules fs
+            FROM worker_fetch_schedules fs
             JOIN data_sources ds ON fs.data_source_id = ds.id
             WHERE ds.name = @DataSourceName
               AND fs.is_enabled = true
@@ -104,7 +105,7 @@ public class StockPriceRepository : IStockPriceRepository
     public async Task UpdateScheduleStatusAsync(int scheduleId, string status, string message)
     {
         const string sql = @"
-            UPDATE fetch_schedules
+            UPDATE worker_fetch_schedules
             SET last_run_at = @LastRunAt,
                 last_run_status = @Status,
                 last_run_message = @Message,

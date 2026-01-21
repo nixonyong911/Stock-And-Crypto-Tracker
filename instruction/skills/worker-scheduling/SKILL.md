@@ -5,14 +5,15 @@ description: Manage timezone-aware worker schedules via database. Use when updat
 
 # Worker Scheduling
 
-Manage worker schedules by updating the `fetch_schedules` database table.
+Manage worker schedules by updating the `worker_fetch_schedules` database table.
 
 ## Database Schema
 
-**Table**: `fetch_schedules`
+**Table**: `worker_fetch_schedules`
 
 | Column | Type | Description |
 |--------|------|-------------|
+| `worker_id` | `int` | FK to worker_registry for schedule-worker linking |
 | `schedule_time` | `time` | Time of day (in `schedule_timezone`) |
 | `schedule_timezone` | `varchar(50)` | IANA timezone (e.g., `America/New_York`) |
 | `is_enabled` | `boolean` | Enable/disable schedule |
@@ -26,7 +27,7 @@ Run in Supabase SQL Editor. See [references/sql-examples.md](references/sql-exam
 
 ```sql
 -- Update schedule time
-UPDATE fetch_schedules 
+UPDATE worker_fetch_schedules 
 SET schedule_time = '17:00:00',
     updated_at = CURRENT_TIMESTAMP
 WHERE name = 'TwelveData Daily Stocks';

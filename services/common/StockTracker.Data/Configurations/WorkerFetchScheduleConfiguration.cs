@@ -4,11 +4,11 @@ using StockTracker.Data.Entities;
 
 namespace StockTracker.Data.Configurations;
 
-public class FetchScheduleConfiguration : IEntityTypeConfiguration<FetchSchedule>
+public class WorkerFetchScheduleConfiguration : IEntityTypeConfiguration<WorkerFetchSchedule>
 {
-    public void Configure(EntityTypeBuilder<FetchSchedule> builder)
+    public void Configure(EntityTypeBuilder<WorkerFetchSchedule> builder)
     {
-        builder.ToTable("fetch_schedules");
+        builder.ToTable("worker_fetch_schedules");
 
         builder.HasKey(e => e.Id);
 
@@ -19,6 +19,10 @@ public class FetchScheduleConfiguration : IEntityTypeConfiguration<FetchSchedule
         builder.Property(e => e.DataSourceId)
             .HasColumnName("data_source_id")
             .IsRequired();
+
+        // Worker reference for proper schedule-worker linking
+        builder.Property(e => e.WorkerId)
+            .HasColumnName("worker_id");
 
         builder.Property(e => e.Name)
             .HasColumnName("name")
@@ -73,12 +77,15 @@ public class FetchScheduleConfiguration : IEntityTypeConfiguration<FetchSchedule
         builder.HasOne(e => e.DataSource)
             .WithMany()
             .HasForeignKey(e => e.DataSourceId)
-            .HasConstraintName("FK_fetch_schedules_data_sources_data_source_id")
+            .HasConstraintName("FK_worker_fetch_schedules_data_sources_data_source_id")
             .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes
         builder.HasIndex(e => e.DataSourceId)
-            .HasDatabaseName("ix_fetch_schedules_data_source_id");
+            .HasDatabaseName("ix_worker_fetch_schedules_data_source_id");
+
+        builder.HasIndex(e => e.WorkerId)
+            .HasDatabaseName("ix_worker_fetch_schedules_worker_id");
     }
 }
 

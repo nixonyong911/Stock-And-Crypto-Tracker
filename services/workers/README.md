@@ -97,7 +97,7 @@ See: [Worker Requirements Skill](../../instruction/skills/worker-requirements/SK
 
 4. **Register in database:**
    - Add to `data_sources` table
-   - Add to `fetch_schedules` table
+   - Add to `worker_fetch_schedules` table with `worker_id` reference
 
 ## Best Practices
 

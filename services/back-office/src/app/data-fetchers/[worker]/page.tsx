@@ -85,9 +85,9 @@ export default function WorkerConfigPage() {
 
         setWorker({ ...workerData, healthStatus });
 
-        // Find schedule for this worker
+        // Find schedule for this worker using worker_id (proper relational lookup)
         const scheduleData = schedules.find((s: FetchSchedule) => 
-          s.name.toLowerCase().includes(workerName.toLowerCase())
+          s.worker_id === workerData.id
         );
         
         if (scheduleData) {

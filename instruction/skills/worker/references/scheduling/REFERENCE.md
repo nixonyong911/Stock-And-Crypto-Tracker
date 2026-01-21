@@ -1,6 +1,6 @@
 # Scheduling Implementation Reference
 
-Workers use database-driven scheduling via `BackgroundService`. Polls `fetch_schedules`, calculates delay, executes at scheduled time.
+Workers use database-driven scheduling via `BackgroundService`. Polls `worker_fetch_schedules`, calculates delay, executes at scheduled time.
 
 **Reference:** `services/workers/data-fetcher/TwelveData/src/TwelveData.Worker/`
 
@@ -8,7 +8,7 @@ Workers use database-driven scheduling via `BackgroundService`. Polls `fetch_sch
 
 | Component | Location |
 |-----------|----------|
-| `FetchSchedule` model | `Models/` - maps to `fetch_schedules` table |
+| `FetchSchedule` model | `Models/` - maps to `worker_fetch_schedules` table |
 | `IFetchScheduleRepository` | `Repositories/` - queries schedule from DB |
 | `{Worker}Worker` | `Workers/` - BackgroundService with loop |
 

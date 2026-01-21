@@ -2,10 +2,12 @@ import { getSupabaseAdmin } from "./supabase";
 import { getCache, setCache, deleteCache } from "../redis/client";
 import { cacheKeys, cacheTTL } from "../redis/keys";
 
-// Schedule types (matching Supabase schema)
+// Schedule types (matching Supabase worker_fetch_schedules table)
 export interface FetchSchedule {
   id: number;
   data_source_id: number;
+  /** Foreign key to worker_registry for proper schedule-worker linking */
+  worker_id: number | null;
   name: string;
   description: string | null;
   schedule_time: string;
@@ -32,7 +34,7 @@ export async function getSchedules(): Promise<FetchSchedule[]> {
   // Fetch from database
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
-    .from("fetch_schedules")
+    .from("worker_fetch_schedules")
     .select("*")
     .order("name");
 
@@ -62,7 +64,7 @@ export async function getScheduleByDataSourceId(dataSourceId: number): Promise<F
   // Fetch from database
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
-    .from("fetch_schedules")
+    .from("worker_fetch_schedules")
     .select("*")
     .eq("data_source_id", dataSourceId)
     .single();
@@ -99,7 +101,7 @@ export async function toggleSchedule(scheduleId: number): Promise<FetchSchedule 
   
   // Get current state
   const { data: current } = await supabase
-    .from("fetch_schedules")
+    .from("worker_fetch_schedules")
     .select("is_enabled")
     .eq("id", scheduleId)
     .single();
@@ -108,7 +110,7 @@ export async function toggleSchedule(scheduleId: number): Promise<FetchSchedule 
 
   // Toggle
   const { data, error } = await supabase
-    .from("fetch_schedules")
+    .from("worker_fetch_schedules")
     .update({ 
       is_enabled: !current.is_enabled,
       updated_at: new Date().toISOString(),

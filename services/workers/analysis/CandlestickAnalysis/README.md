@@ -54,7 +54,7 @@ All API endpoints are prefixed with PATH_BASE (`/api/analysis` in production).
 
 ### Database Registration
 
-The worker reads its schedule from `fetch_schedules` table via `data_sources.name = 'CandlestickAnalysis'`.
+The worker reads its schedule from `worker_fetch_schedules` table via `data_sources.name = 'CandlestickAnalysis'`. The schedule is linked to this worker via `worker_id` for proper back-office display.
 
 ## Local Development
 

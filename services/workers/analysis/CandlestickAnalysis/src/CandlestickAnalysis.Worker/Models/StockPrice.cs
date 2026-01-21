@@ -30,12 +30,17 @@ public class StockTicker
 }
 
 /// <summary>
-/// Analysis schedule configuration.
+/// Analysis schedule configuration from worker_fetch_schedules table.
+/// Links to worker_registry via WorkerId for proper schedule-worker association.
 /// </summary>
 public class AnalysisSchedule
 {
     public int Id { get; set; }
     public int DataSourceId { get; set; }
+    /// <summary>
+    /// Foreign key to worker_registry table for proper schedule-worker linking.
+    /// </summary>
+    public int? WorkerId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     /// <summary>
@@ -54,7 +59,7 @@ public class AnalysisSchedule
 }
 
 /// <summary>
-/// Analysis configuration parsed from fetch_config JSONB.
+/// Analysis configuration parsed from worker_fetch_schedules.fetch_config JSONB.
 /// </summary>
 public class AnalysisConfig
 {

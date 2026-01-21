@@ -1,13 +1,21 @@
 namespace StockTracker.Data.Entities;
 
 /// <summary>
-/// Worker scheduling configuration for data fetching.
-/// Stores when and how workers should fetch data from data sources.
+/// Worker scheduling configuration stored in worker_fetch_schedules table.
+/// Stores when and how workers should run their scheduled tasks.
+/// Links to worker_registry via WorkerId for proper relational lookup.
 /// </summary>
-public class FetchSchedule
+public class WorkerFetchSchedule
 {
     public int Id { get; set; }
     public int DataSourceId { get; set; }
+    
+    /// <summary>
+    /// Foreign key to worker_registry table for proper schedule-worker linking.
+    /// Nullable for backward compatibility during migration.
+    /// </summary>
+    public int? WorkerId { get; set; }
+    
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     

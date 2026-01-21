@@ -77,12 +77,13 @@ CREATE TABLE data_sources (
 );
 ```
 
-### fetch_schedules
+### worker_fetch_schedules
 
 ```sql
-CREATE TABLE fetch_schedules (
+CREATE TABLE worker_fetch_schedules (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     data_source_id INT NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
+    worker_id INT REFERENCES worker_registry(id),  -- Links schedule to worker for proper lookup
     name VARCHAR(100) NOT NULL,
     description TEXT,
     schedule_time_utc TIME NOT NULL DEFAULT '22:00:00',
@@ -96,7 +97,8 @@ CREATE TABLE fetch_schedules (
 );
 
 -- Indexes
-CREATE INDEX ix_fetch_schedules_data_source_id ON fetch_schedules(data_source_id);
+CREATE INDEX ix_worker_fetch_schedules_data_source_id ON worker_fetch_schedules(data_source_id);
+CREATE INDEX ix_worker_fetch_schedules_worker_id ON worker_fetch_schedules(worker_id);
 ```
 
 #### `fetch_config` JSON Structure

@@ -6,7 +6,7 @@
 - [ ] `curl http://localhost:8080/health/live` returns 200
 - [ ] Swagger UI loads at `/swagger`
 - [ ] Metrics visible at `/api/metrics/workers`
-- [ ] Database entries exist (data_sources, fetch_schedules)
+- [ ] Database entries exist (data_sources, worker_fetch_schedules)
 
 ## Post-Deployment Commands
 
@@ -28,7 +28,7 @@ ssh-azure "docker logs yourworker --tail 50"
 
 ```sql
 SELECT * FROM data_sources WHERE name = 'YourWorker';
-SELECT name, schedule_time_utc FROM fetch_schedules WHERE name LIKE '%YourWorker%';
+SELECT name, schedule_time_utc FROM worker_fetch_schedules WHERE name LIKE '%YourWorker%';
 SELECT COUNT(*), MAX(created_at) FROM your_table;
 ```
 

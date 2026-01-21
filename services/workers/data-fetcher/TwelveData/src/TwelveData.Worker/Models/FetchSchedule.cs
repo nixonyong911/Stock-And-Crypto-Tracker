@@ -1,12 +1,17 @@
 namespace TwelveData.Worker.Models;
 
 /// <summary>
-/// Represents a fetch schedule record from the fetch_schedules table
+/// Represents a schedule record from the worker_fetch_schedules table.
+/// Links to worker_registry via WorkerId for proper schedule-worker association.
 /// </summary>
 public class FetchSchedule
 {
     public int Id { get; set; }
     public int DataSourceId { get; set; }
+    /// <summary>
+    /// Foreign key to worker_registry table for proper schedule-worker linking.
+    /// </summary>
+    public int? WorkerId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     /// <summary>

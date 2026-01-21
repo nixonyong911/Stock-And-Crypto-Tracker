@@ -19,7 +19,7 @@ The TwelveData worker is a .NET 8 Web API host that:
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Supabase PostgreSQL                       │
 ├───────────────────┬───────────────────┬─────────────────────────┤
-│   fetch_schedules │   stock_tickers   │     stock_prices        │
+│   worker_fetch_schedules │   stock_tickers   │     stock_prices        │
 │   (schedule/config)│   (symbols)       │     (OHLCV data)        │
 └─────────┬─────────┴─────────┬─────────┴───────────┬─────────────┘
           │                   │                     │
@@ -44,7 +44,7 @@ The TwelveData worker is a .NET 8 Web API host that:
 ### Worker Behavior
 
 1. **Startup** - Wait for database readiness (10s delay)
-2. **Load Schedule** - Query `fetch_schedules` joined with `data_sources`
+2. **Load Schedule** - Query `worker_fetch_schedules` joined with `data_sources`
 3. **Calculate Delay** - Compute time until `schedule_time_utc`
 4. **Wait** - Sleep until scheduled time
 5. **Execute Fetch**:
@@ -61,14 +61,14 @@ The TwelveData worker is a .NET 8 Web API host that:
 
 ```sql
 SELECT name, schedule_time_utc, fetch_config, last_run_at, last_run_status 
-FROM fetch_schedules 
+FROM worker_fetch_schedules 
 WHERE data_source_id = 1;
 ```
 
 #### Update Schedule Time
 
 ```sql
-UPDATE fetch_schedules 
+UPDATE worker_fetch_schedules 
 SET schedule_time_utc = '23:00', updated_at = CURRENT_TIMESTAMP
 WHERE data_source_id = 1;
 ```
@@ -76,7 +76,7 @@ WHERE data_source_id = 1;
 #### Update Fetch Parameters
 
 ```sql
-UPDATE fetch_schedules 
+UPDATE worker_fetch_schedules 
 SET fetch_config = jsonb_set(fetch_config, '{output_size}', '50'),
     updated_at = CURRENT_TIMESTAMP
 WHERE data_source_id = 1;
@@ -85,7 +85,7 @@ WHERE data_source_id = 1;
 #### Disable Schedule
 
 ```sql
-UPDATE fetch_schedules 
+UPDATE worker_fetch_schedules 
 SET is_enabled = false, updated_at = CURRENT_TIMESTAMP
 WHERE data_source_id = 1;
 ```
@@ -177,7 +177,7 @@ dotnet run
 
 | Component | Purpose |
 |-----------|---------|
-| `FetchSchedule` entity | Maps to `fetch_schedules` table |
+| `FetchSchedule` entity | Maps to `worker_fetch_schedules` table |
 | `FetchConfig` model | Deserializes JSON config with `[JsonPropertyName]` |
 | `IFetchScheduleRepository` | Load schedule, update run status |
 | `IStockTickerRepository` | Get or create tickers |
@@ -212,7 +212,7 @@ var builder = new NpgsqlConnectionStringBuilder(baseConnectionString)
 
 ## Related Documentation
 
-- [Database Schema](../database/schema.md) - `fetch_schedules` table definition
+- [Database Schema](../database/schema.md) - `worker_fetch_schedules` table definition
 - [TwelveData Worker README](../../services/workers/data-fetcher/TwelveData/README.md) - Service documentation
 - [Adding Workers to CI/CD](../reference/adding-worker-to-azure-cicd.md) - Deployment guide
 

@@ -82,14 +82,14 @@ This document describes the architecture for integrating data-fetcher workers (l
 
 ```
 1. StockFetchWorker (BackgroundService) runs at scheduled time (22:00 UTC)
-2. Loads schedule from fetch_schedules table
+2. Loads schedule from worker_fetch_schedules table
 3. Gets active tickers from stock_tickers table
 4. For each ticker:
    a. Calls TwelveData API /time_series
    b. Parses response and converts to UTC timestamps
    c. Upserts price data to stock_prices table
    d. Records metrics (success/failure, duration, records)
-5. Updates fetch_schedules.last_run_status
+5. Updates worker_fetch_schedules.last_run_status
 6. Pushes metrics to Metrics Service
 ```
 

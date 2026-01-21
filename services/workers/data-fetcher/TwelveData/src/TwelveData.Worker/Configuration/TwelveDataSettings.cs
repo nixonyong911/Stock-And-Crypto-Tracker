@@ -2,7 +2,7 @@ namespace TwelveData.Worker.Configuration;
 
 /// <summary>
 /// Configuration for Twelve Data API authentication.
-/// Fetch parameters (interval, exchange, etc.) are now stored in the fetch_schedules database table.
+/// Fetch parameters (interval, exchange, etc.) are now stored in the worker_fetch_schedules database table.
 /// </summary>
 public class TwelveDataSettings
 {

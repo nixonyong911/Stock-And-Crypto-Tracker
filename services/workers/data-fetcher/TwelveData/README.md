@@ -4,7 +4,7 @@ A .NET 8 background worker service that fetches daily OHLC candle data from the 
 
 ## Features
 
-- **Database-driven configuration** - Schedule and fetch parameters stored in `fetch_schedules` table
+- **Database-driven configuration** - Schedule and fetch parameters stored in `worker_fetch_schedules` table
 - Daily fetch at configurable time (default: 10 PM UTC / 5 PM ET)
 - Uses `date=yesterday` parameter to fetch complete trading day data
 - Fetches stock symbols from `stock_tickers` table (filtered by exchange and currency)
@@ -20,7 +20,7 @@ A .NET 8 background worker service that fetches daily OHLC candle data from the 
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Supabase PostgreSQL                       │
 ├───────────────────┬───────────────────┬─────────────────────────┤
-│   fetch_schedules │   stock_tickers   │     stock_prices        │
+│   worker_fetch_schedules │   stock_tickers   │     stock_prices        │
 │   (schedule/config)│   (symbols)       │     (OHLCV data)        │
 └─────────┬─────────┴─────────┬─────────┴───────────┬─────────────┘
           │                   │                     │
@@ -44,12 +44,12 @@ A .NET 8 background worker service that fetches daily OHLC candle data from the 
 | `TWELVE_DATA_API_KEY` | Your Twelve Data API key | Yes |
 | `DATABASE_CONNECTION_STRING` | PostgreSQL connection string | Yes |
 
-### Database Configuration (`fetch_schedules` table)
+### Database Configuration (`worker_fetch_schedules` table)
 
 Fetch parameters are stored in the database, allowing runtime configuration without redeployment:
 
 ```sql
-SELECT * FROM fetch_schedules WHERE data_source_id = 1;
+SELECT * FROM worker_fetch_schedules WHERE data_source_id = 1;
 ```
 
 | Column | Description | Default |
@@ -85,12 +85,12 @@ Update the schedule via SQL:
 
 ```sql
 -- Change schedule time to 6 PM ET (11 PM UTC)
-UPDATE fetch_schedules 
+UPDATE worker_fetch_schedules 
 SET schedule_time_utc = '23:00'
 WHERE data_source_id = 1;
 
 -- Update fetch config
-UPDATE fetch_schedules 
+UPDATE worker_fetch_schedules 
 SET fetch_config = '{
   "fetch_date": "yesterday",
   "interval": "15min",
@@ -102,14 +102,14 @@ SET fetch_config = '{
 WHERE data_source_id = 1;
 
 -- Disable schedule
-UPDATE fetch_schedules SET is_enabled = false WHERE data_source_id = 1;
+UPDATE worker_fetch_schedules SET is_enabled = false WHERE data_source_id = 1;
 ```
 
 ## Prerequisites
 
 1. **Database Setup**: Ensure the following tables exist:
    - `data_sources` with a "TwelveData" entry
-   - `fetch_schedules` with a schedule linked to TwelveData
+   - `worker_fetch_schedules` with a schedule linked to TwelveData
    - `stock_tickers` with active stocks
 
 2. **Stock Tickers**: Add stocks to track:
@@ -157,7 +157,7 @@ GET https://api.twelvedata.com/time_series
 
 ## Run Tracking
 
-The worker updates `fetch_schedules` after each run:
+The worker updates `worker_fetch_schedules` after each run:
 
 | Column | Description |
 |--------|-------------|
@@ -169,7 +169,7 @@ Query run history:
 
 ```sql
 SELECT name, last_run_at, last_run_status, last_run_message 
-FROM fetch_schedules 
+FROM worker_fetch_schedules 
 WHERE data_source_id = 1;
 ```
 
@@ -235,7 +235,7 @@ View metrics: `https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/metr
 
 ### No data fetched
 
-1. Check `fetch_schedules.is_enabled` is `true`
+1. Check `worker_fetch_schedules.is_enabled` is `true`
 2. Verify `stock_tickers` has active entries with matching exchange
 3. Check `data_sources` has "TwelveData" entry with `is_active = true`
 4. Review logs for API errors

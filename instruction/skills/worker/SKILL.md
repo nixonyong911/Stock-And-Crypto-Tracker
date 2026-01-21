@@ -77,7 +77,7 @@ Use Supabase MCP tools for any database queries, verification, or migrations.
 4. Metrics           → Emit standard Prometheus metrics
 5. Grafana Dashboard → Create worker-specific dashboard
 6. CI/CD Pipeline    → Add build/deploy triggers
-7. Schedule Config   → Register in fetch_schedules (10min offset)
+7. Schedule Config   → Register in worker_fetch_schedules with worker_id
 8. Verification      → Pre/post deployment checks
 ```
 
