@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Polly;
 using Polly.Extensions.Http;
+using RabbitMQ.Client;
 using Serilog;
 using StockTracker.Common.Metrics;
 using TwelveData.Worker.Configuration;
@@ -28,6 +29,10 @@ try
         builder.Configuration.GetSection("TwelveData"));
     builder.Services.Configure<DatabaseSettings>(
         builder.Configuration.GetSection("ConnectionStrings"));
+    builder.Services.Configure<RabbitMQSettings>(
+        builder.Configuration.GetSection("RabbitMQ"));
+    builder.Services.Configure<BackfillSettings>(
+        builder.Configuration.GetSection("Backfill"));
 
     // Register HTTP client with retry policy
     builder.Services.AddHttpClient<ITwelveDataApiClient, TwelveDataApiClient>()
@@ -43,12 +48,14 @@ try
 
     // Register services
     builder.Services.AddScoped<IStockFetchService, StockFetchService>();
+    builder.Services.AddScoped<IHistoricalBackfillService, HistoricalBackfillService>();
 
     // Register metrics client for pushing metrics to central metrics service
     builder.Services.AddMetricsClient(builder.Configuration);
 
-    // Register the background worker
+    // Register the background workers
     builder.Services.AddHostedService<StockFetchWorker>();
+    builder.Services.AddHostedService<BackfillQueueConsumer>();
 
     // Add controllers
     builder.Services.AddControllers();

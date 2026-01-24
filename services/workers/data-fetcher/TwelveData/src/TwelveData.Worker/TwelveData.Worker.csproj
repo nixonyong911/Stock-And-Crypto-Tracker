@@ -28,6 +28,9 @@
     <!-- Health Checks -->
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
     
+    <!-- Message Queue -->
+    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    
     <!-- API Documentation -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>

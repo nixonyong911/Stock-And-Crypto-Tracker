@@ -79,6 +79,11 @@ services:
       - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
       - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
       - TwelveData__BaseUrl=https://api.twelvedata.com
+      # RabbitMQ for historical backfill queue
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=stocktracker
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - RabbitMQ__QueueName=backfill-queue
       # AI Hub 2.0 (Go) access (Docker internal)
       - AI_HUB_URL=http://ai-hub2:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
@@ -86,6 +91,7 @@ services:
       - stocktracker
     depends_on:
       - ai-hub2
+      - rabbitmq
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
       interval: 30s

@@ -170,4 +170,117 @@ public class TwelveDataApiClient : ITwelveDataApiClient
             ? result 
             : 0;
     }
+
+    public async Task<TimeSeriesResponse?> GetHistoricalTimeSeriesAsync(
+        string symbol, 
+        string interval,
+        int outputSize, 
+        string exchange = "NASDAQ",
+        string? endDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var url = BuildHistoricalTimeSeriesUrl(symbol, interval, outputSize, exchange, endDate);
+            var urlForLogging = BuildHistoricalTimeSeriesUrlForLogging(symbol, interval, outputSize, exchange, endDate);
+            
+            _logger.LogInformation("TwelveData Historical API Request: {Symbol} - {Url}", symbol, urlForLogging);
+            
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            
+            // Log raw response for debugging
+            _logger.LogDebug("TwelveData Historical API Response for {Symbol}: {Response}", symbol, 
+                content.Length > 500 ? content.Substring(0, 500) + "..." : content);
+            
+            response.EnsureSuccessStatusCode();
+            
+            var timeSeriesResponse = JsonSerializer.Deserialize<TimeSeriesResponse>(content);
+            
+            if (timeSeriesResponse == null)
+            {
+                _logger.LogWarning("Failed to deserialize historical response for {Symbol}. Raw: {Response}", symbol, content);
+                return null;
+            }
+            
+            // Check for API error responses
+            if (timeSeriesResponse.Status == "error")
+            {
+                _logger.LogWarning("TwelveData Historical API error for {Symbol}: {Message} (Code: {Code}). Request: {Url}", 
+                    symbol, timeSeriesResponse.Message, timeSeriesResponse.Code, urlForLogging);
+                return null;
+            }
+
+            _logger.LogInformation("TwelveData Historical API Success: {Symbol} - {Count} data points fetched (endDate: {EndDate})", 
+                symbol, timeSeriesResponse.Values?.Count ?? 0, endDate ?? "none");
+            
+            return timeSeriesResponse;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error fetching historical time series for {Symbol}. Status: {Status}", 
+                symbol, ex.StatusCode);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching historical time series for {Symbol}", symbol);
+            throw;
+        }
+    }
+
+    private string BuildHistoricalTimeSeriesUrl(string symbol, string interval, int outputSize, string exchange, string? endDate)
+    {
+        var url = $"/time_series?symbol={symbol}" +
+                  $"&interval={interval}" +
+                  $"&exchange={exchange}" +
+                  $"&timezone=America/New_York" +
+                  $"&outputsize={outputSize}" +
+                  $"&apikey={_settings.ApiKey}";
+        
+        // Add end_date only for batching (subsequent requests after first batch)
+        if (!string.IsNullOrEmpty(endDate))
+        {
+            url += $"&end_date={endDate}";
+        }
+        
+        return url;
+    }
+
+    private string BuildHistoricalTimeSeriesUrlForLogging(string symbol, string interval, int outputSize, string exchange, string? endDate)
+    {
+        var url = $"/time_series?symbol={symbol}" +
+                  $"&interval={interval}" +
+                  $"&exchange={exchange}" +
+                  $"&timezone=America/New_York" +
+                  $"&outputsize={outputSize}" +
+                  $"&apikey=***REDACTED***";
+        
+        if (!string.IsNullOrEmpty(endDate))
+        {
+            url += $"&end_date={endDate}";
+        }
+        
+        return url;
+    }
+
+    /// <summary>
+    /// Calculates the end_date for the next batch based on the oldest datetime from previous batch
+    /// </summary>
+    /// <param name="oldestDatetime">Oldest datetime from previous batch (format: "yyyy-MM-dd HH:mm:ss")</param>
+    /// <param name="intervalMinutes">Interval in minutes</param>
+    /// <returns>End date formatted for TwelveData API (format: "yyyy-MM-ddTHH:mm:ss")</returns>
+    public static string CalculateNextBatchEndDate(string oldestDatetime, int intervalMinutes)
+    {
+        var parsed = DateTime.ParseExact(
+            oldestDatetime, 
+            "yyyy-MM-dd HH:mm:ss", 
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None);
+        
+        var nextEndDate = parsed.AddMinutes(-intervalMinutes);
+        
+        // Format with T separator for TwelveData API
+        return nextEndDate.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+    }
 }

@@ -1,4 +1,10 @@
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
+using TwelveData.Worker.Configuration;
+using TwelveData.Worker.Models;
 using TwelveData.Worker.Services;
 
 namespace TwelveData.Worker.Controllers;
@@ -9,13 +15,16 @@ namespace TwelveData.Worker.Controllers;
 public class FetchController : ControllerBase
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly RabbitMQSettings _rabbitSettings;
     private readonly ILogger<FetchController> _logger;
 
     public FetchController(
         IServiceProvider serviceProvider,
+        IOptions<RabbitMQSettings> rabbitSettings,
         ILogger<FetchController> logger)
     {
         _serviceProvider = serviceProvider;
+        _rabbitSettings = rabbitSettings.Value;
         _logger = logger;
     }
 
@@ -166,6 +175,190 @@ public class FetchController : ControllerBase
                 Timezone = "America/New_York"
             }
         });
+    }
+
+    /// <summary>
+    /// Queue a historical backfill request for a symbol.
+    /// This endpoint is designed to be called by Supabase webhook when a new ticker is added.
+    /// The request is queued in RabbitMQ for FIFO processing to prevent API rate limit issues.
+    /// </summary>
+    /// <param name="symbol">Stock symbol (e.g., AAPL, MSFT, GOOGL)</param>
+    /// <param name="exchange">Optional exchange (defaults to NASDAQ)</param>
+    [HttpPost("backfill/{symbol}")]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status500InternalServerError)]
+    public ActionResult<BackfillResponse> QueueBackfill(
+        string symbol,
+        [FromQuery] string? exchange = null)
+    {
+        if (string.IsNullOrWhiteSpace(symbol))
+        {
+            return BadRequest(new BackfillResponse
+            {
+                Success = false,
+                Message = "Symbol is required."
+            });
+        }
+
+        symbol = symbol.ToUpperInvariant();
+        var actualExchange = string.IsNullOrWhiteSpace(exchange) ? "NASDAQ" : exchange.ToUpperInvariant();
+
+        _logger.LogInformation(
+            "Backfill request received for {Symbol} on {Exchange} - queuing to RabbitMQ",
+            symbol, actualExchange);
+
+        try
+        {
+            var request = new BackfillRequest
+            {
+                Symbol = symbol,
+                Exchange = actualExchange,
+                RequestedAt = DateTime.UtcNow
+            };
+
+            // Publish to RabbitMQ queue
+            PublishToQueue(request);
+
+            return Accepted(new BackfillResponse
+            {
+                Success = true,
+                Message = $"Backfill request queued for {symbol}. Processing will begin shortly.",
+                Symbol = symbol,
+                QueuedAt = request.RequestedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to queue backfill request for {Symbol}", symbol);
+            
+            return StatusCode(500, new BackfillResponse
+            {
+                Success = false,
+                Message = $"Failed to queue backfill request: {ex.Message}",
+                Symbol = symbol
+            });
+        }
+    }
+
+    /// <summary>
+    /// Webhook endpoint for Supabase database trigger.
+    /// Called when a new row is inserted into stock_tickers table.
+    /// </summary>
+    [HttpPost("webhook/new-ticker")]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status400BadRequest)]
+    public ActionResult<BackfillResponse> HandleNewTickerWebhook([FromBody] SupabaseWebhookPayload? payload)
+    {
+        if (payload?.Record == null)
+        {
+            _logger.LogWarning("Received webhook with null or invalid payload");
+            return BadRequest(new BackfillResponse
+            {
+                Success = false,
+                Message = "Invalid webhook payload"
+            });
+        }
+
+        var symbol = payload.Record.Symbol;
+        var exchange = payload.Record.Exchange ?? "NASDAQ";
+
+        if (string.IsNullOrWhiteSpace(symbol))
+        {
+            _logger.LogWarning("Received webhook with empty symbol");
+            return BadRequest(new BackfillResponse
+            {
+                Success = false,
+                Message = "Symbol is required in webhook payload"
+            });
+        }
+
+        _logger.LogInformation(
+            "Webhook received: New ticker {Symbol} on {Exchange} (type: {Type})",
+            symbol, exchange, payload.Type);
+
+        // Only process INSERT events
+        if (payload.Type != "INSERT")
+        {
+            _logger.LogInformation("Ignoring non-INSERT webhook event: {Type}", payload.Type);
+            return Ok(new BackfillResponse
+            {
+                Success = true,
+                Message = $"Ignored {payload.Type} event - only INSERT triggers backfill"
+            });
+        }
+
+        try
+        {
+            var request = new BackfillRequest
+            {
+                Symbol = symbol.ToUpperInvariant(),
+                Exchange = exchange.ToUpperInvariant(),
+                RequestedAt = DateTime.UtcNow,
+                TickerId = payload.Record.Id
+            };
+
+            PublishToQueue(request);
+
+            return Accepted(new BackfillResponse
+            {
+                Success = true,
+                Message = $"Backfill queued for new ticker {symbol}",
+                Symbol = symbol,
+                QueuedAt = request.RequestedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to queue backfill from webhook for {Symbol}", symbol);
+            
+            return StatusCode(500, new BackfillResponse
+            {
+                Success = false,
+                Message = $"Failed to queue backfill: {ex.Message}",
+                Symbol = symbol
+            });
+        }
+    }
+
+    private void PublishToQueue(BackfillRequest request)
+    {
+        var factory = new ConnectionFactory
+        {
+            HostName = _rabbitSettings.HostName,
+            UserName = _rabbitSettings.UserName,
+            Password = _rabbitSettings.Password,
+            Port = _rabbitSettings.Port
+        };
+
+        using var connection = factory.CreateConnection();
+        using var channel = connection.CreateModel();
+
+        // Ensure queue exists
+        channel.QueueDeclare(
+            queue: _rabbitSettings.QueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null);
+
+        var message = JsonSerializer.Serialize(request);
+        var body = Encoding.UTF8.GetBytes(message);
+
+        // Publish with persistent delivery mode
+        var properties = channel.CreateBasicProperties();
+        properties.Persistent = true;
+        properties.ContentType = "application/json";
+
+        channel.BasicPublish(
+            exchange: string.Empty,
+            routingKey: _rabbitSettings.QueueName,
+            basicProperties: properties,
+            body: body);
+
+        _logger.LogInformation(
+            "Published backfill request to queue: {Symbol} (queue: {Queue})",
+            request.Symbol, _rabbitSettings.QueueName);
     }
 }
 
