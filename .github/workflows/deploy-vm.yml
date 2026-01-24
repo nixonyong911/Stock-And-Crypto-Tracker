@@ -262,7 +262,7 @@ jobs:
           # Clean up old buildkit blobs not accessed in last 7 days
           echo "--- Cleaning old buildkit blobs (>7 days) ---"
           gh cache list -R ${{ github.repository }} --json key,lastAccessedAt 2>/dev/null \
-            | jq -r '.[] | select(.key | startswith("buildkit-blob-")) | select(.lastAccessedAt < (now - 604800 | todate)) | .key' 2>/dev/null \
+            | jq -r '.[] | select(.key | startswith("buildkit-blob-")) | select((.lastAccessedAt | fromdateiso8601) < (now - 604800)) | .key' 2>/dev/null \
             | while read key; do
                 echo "  Deleting old blob: $key"
                 gh cache delete "$key" -R ${{ github.repository }} 2>/dev/null || true
@@ -1005,7 +1005,7 @@ jobs:
           echo ""
           echo "--- Cleaning old buildkit blobs ---"
           OLD_BLOBS=$(gh cache list -R ${{ github.repository }} --json key,lastAccessedAt 2>/dev/null \
-            | jq -r '.[] | select(.key | startswith("buildkit-blob-")) | select(.lastAccessedAt < (now - 86400 | todate)) | .key' 2>/dev/null || true)
+            | jq -r '.[] | select(.key | startswith("buildkit-blob-")) | select((.lastAccessedAt | fromdateiso8601) < (now - 86400)) | .key' 2>/dev/null || true)
           
           if [ -n "$OLD_BLOBS" ]; then
             echo "$OLD_BLOBS" | while read key; do

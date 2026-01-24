@@ -58,8 +58,8 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 # Azure CLI
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
-# Infisical CLI (updated installation method)
-RUN curl -1sLf 'https://artifacts.infisical.com/repos/infisical-cli/setup.deb.sh' | bash \
+# Infisical CLI (using official install script)
+RUN curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | bash \
     && apt-get update && apt-get install -y infisical \
     && rm -rf /var/lib/apt/lists/*
 
