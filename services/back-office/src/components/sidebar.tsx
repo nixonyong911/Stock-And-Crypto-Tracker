@@ -14,6 +14,7 @@ import {
   Globe,
   HardDrive,
   Server,
+  Layers,
 } from "lucide-react";
 import { WorkerRegistry } from "@/lib/db/workers";
 
@@ -318,6 +319,19 @@ export function Sidebar({ className }: SidebarProps) {
         >
           <HardDrive className="w-4 h-4" />
           Redis Cache
+        </Link>
+
+        {/* RabbitMQ Section */}
+        <Link
+          href="/rabbitmq"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
+            isActive("/rabbitmq")
+              ? 'bg-purple-500/20 text-purple-400'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          RabbitMQ Queues
         </Link>
 
         {/* Monitoring Link */}
