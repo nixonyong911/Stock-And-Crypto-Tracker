@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Check, X, Send, Filter, Zap, GraduationCap } from "lucide-react";
-import { PricingCards, type BillingPeriod } from "@/components/pricing";
+import { PricingSection } from "@/components/pricing";
 import type { StripePrices } from "@/lib/stripe/prices";
 
 const TELEGRAM_BOT_URL =
@@ -46,50 +44,11 @@ interface Props {
 export function PricingContent({ prices }: Props) {
   const t = useTranslations("pricing");
   const tPage = useTranslations("pricingPage");
-  const { isSignedIn } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Convert from cents to dollars, with fallback values
   const displayPrices = {
     monthly: prices.monthly ? prices.monthly.unitAmount / 100 : 19.99,
-    annual: prices.annual ? prices.annual.unitAmount / 100 : 199.00,
-  };
-
-  const handleCheckout = async (billingPeriod: BillingPeriod) => {
-    if (!isSignedIn) {
-      // Redirect to sign in with return URL
-      window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/pricing")}`;
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ billingPeriod }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Failed to create checkout session");
-        return;
-      }
-
-      // Redirect to Stripe Checkout
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (err) {
-      console.error("Checkout error:", err);
-      setError("An error occurred. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+    annual: prices.annual ? prices.annual.unitAmount / 100 : 199.0,
   };
 
   return (
@@ -142,14 +101,11 @@ export function PricingContent({ prices }: Props) {
         </div>
       </section>
 
-      {/* Pricing Cards */}
+      {/* Pricing Cards - Using shared component */}
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <PricingCards
+          <PricingSection
             prices={displayPrices}
-            onCheckout={handleCheckout}
-            isLoading={isLoading}
-            error={error}
             freeCta={tPage("ctas.tryFree")}
           />
         </div>

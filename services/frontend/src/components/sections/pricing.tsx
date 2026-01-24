@@ -1,9 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { PricingCards } from "@/components/pricing";
+import { PricingSection } from "@/components/pricing";
 
-export function PricingSection() {
+export function PricingSection_HomePage() {
   const t = useTranslations("pricing");
 
   return (
@@ -12,8 +12,11 @@ export function PricingSection() {
         <h2 className="mb-10 text-center text-3xl font-bold tracking-tight sm:text-4xl">
           {t("heading")}
         </h2>
-        <PricingCards />
+        <PricingSection />
       </div>
     </section>
   );
 }
+
+// Re-export with original name for backwards compatibility
+export { PricingSection_HomePage as PricingSection };
