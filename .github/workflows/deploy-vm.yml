@@ -205,34 +205,14 @@ jobs:
           done
 
   # ===========================================
-  # Cleanup artifacts AND caches (always runs to prevent quota issues)
+  # Cleanup caches (artifacts no longer used - direct SCP transfer)
   # ===========================================
   cleanup-storage:
     runs-on: ubuntu-latest
     permissions:
       actions: write
     steps:
-      - name: Cleanup old artifacts (keep 1 most recent)
-        run: |
-          echo "Checking artifact storage..."
-          ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/artifacts --paginate)
-          TOTAL=$(echo "$ARTIFACTS" | jq '.artifacts | length')
-          echo "Found $TOTAL artifacts"
-          
-          # Keep only 1 most recent to avoid quota errors
-          KEEP=1
-          if [ "$TOTAL" -gt "$KEEP" ]; then
-            echo "Deleting artifacts beyond the $KEEP most recent..."
-            echo "$ARTIFACTS" | jq -r '.artifacts | sort_by(.created_at) | reverse | .['$KEEP':][] | .id' | while read id; do
-              echo "Deleting artifact $id"
-              gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$id || true
-            done
-          else
-            echo "Only $TOTAL artifacts, no cleanup needed"
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-
+      # NOTE: Artifacts no longer used - images transferred directly via SCP to bypass quota
       - name: Cleanup old BuildKit caches (keep 1 per scope)
         run: |
           echo "Checking cache storage..."
@@ -482,15 +462,45 @@ jobs:
           echo "success=$SUCCESS" >> $GITHUB_OUTPUT
           echo "images=$IMAGES" >> $GITHUB_OUTPUT
 
-      # Upload artifacts
-      - name: Upload Docker images
+      # Setup SSH for direct transfer (bypass artifact quota)
+      - name: Setup SSH for direct transfer
         if: steps.build-result.outputs.success == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-images
-          path: /tmp/images/*.tar.gz
-          retention-days: 1
-          if-no-files-found: warn
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          cat >> ~/.ssh/config << 'SSHCONFIG'
+          Host 20.17.176.1
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            LogLevel ERROR
+          SSHCONFIG
+          chmod 600 ~/.ssh/config
+
+      # Transfer images directly via SCP (bypass GitHub artifact storage quota)
+      - name: Transfer and load images directly
+        if: steps.build-result.outputs.success == 'true'
+        run: |
+          echo "📤 Transferring images directly to VM (bypassing artifact storage)..."
+          scp -o ServerAliveInterval=60 /tmp/images/*.tar.gz azureuser@20.17.176.1:/tmp/
+          
+          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
+          set -e
+          echo "📥 Loading Docker images..."
+          
+          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
+            img="/tmp/${NAME}.tar.gz"
+            if [ -f "$img" ]; then
+              echo "Loading $NAME..."
+              gunzip -c "$img" | docker load
+              rm "$img"
+              echo "✅ $NAME loaded"
+            fi
+          done
+          
+          echo "✅ Images loaded directly from build job"
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | head -10
+          EOF
 
       # Log transfer metrics
       - name: Log transfer metrics
@@ -550,51 +560,20 @@ jobs:
           SSHCONFIG
           chmod 600 ~/.ssh/config
 
-      # Download pre-built images if available
-      - name: Download Docker images
-        if: needs.build.outputs.build_success == 'true'
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-images
-          path: ./docker-images
-
-      # ===========================================
-      # PRIMARY PATH: Transfer pre-built images
-      # ===========================================
-      - name: Transfer and load images (GHA build path)
+      # NOTE: Images are now transferred directly from build job via SCP (bypasses artifact quota)
+      # No artifact download needed - images are already loaded on VM
+      - name: Verify images loaded (GHA build path)
         if: needs.build.outputs.build_success == 'true'
         run: |
           echo "=========================================="
-          echo "=== Transferring GHA-built images ==="
+          echo "=== Verifying GHA-built images on VM ==="
           echo "=========================================="
+          echo "Images were transferred directly from build job (no artifact storage used)"
           
-          if ls ./docker-images/*.tar.gz 1>/dev/null 2>&1; then
-            echo "📤 Transferring images to VM..."
-            scp -o ServerAliveInterval=60 ./docker-images/*.tar.gz azureuser@20.17.176.1:/tmp/
-            
-            ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
-          set -e
-          echo "📥 Loading Docker images..."
-          
-          # Only load our specific service images (not other .tar.gz files in /tmp)
-          # NOTE: Frontend Staging is built on VM, not transferred from GHA
-          for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
-            img="/tmp/${NAME}.tar.gz"
-            if [ -f "$img" ]; then
-              echo "Loading $NAME..."
-              gunzip -c "$img" | docker load
-              rm "$img"
-              echo "✅ $NAME loaded"
-            fi
-          done
-          
-          echo "✅ Images loaded"
-          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | head -10
+          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
+          echo "Current Docker images:"
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep stocktracker || echo "No stocktracker images yet"
           EOF
-          else
-            echo "⏭️ No images to transfer (all services unchanged)"
-          fi
 
       # ===========================================
       # FALLBACK PATH: Build on VM if needed (selective)
