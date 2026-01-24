@@ -363,11 +363,15 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       # Redis (VM local)
       - REDIS_URL=redis://redis:6379
+      # RabbitMQ Management API (for monitoring)
+      - RABBITMQ_MANAGEMENT_URL=http://rabbitmq:15672
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     networks:
       - stocktracker
     depends_on:
       - ai-hub2
       - redis
+      - rabbitmq
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000/back-office" ]
       interval: 30s
