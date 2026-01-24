@@ -192,7 +192,7 @@ public class HistoricalBackfillService : IHistoricalBackfillService
                 break;
             }
 
-            // Convert and store the data
+            // Convert API response to StockPrice entities
             var prices = response.Values.Select(value => new StockPrice
             {
                 StockTickerId = ticker.Id,
@@ -205,7 +205,8 @@ public class HistoricalBackfillService : IHistoricalBackfillService
                 Volume = TwelveDataApiClient.ParseLong(value.Volume)
             }).ToList();
 
-            // Batch upsert for better performance
+            // Store data using optimized multi-value INSERT (batched internally)
+            _logger.LogDebug("Storing {Count} records for {Symbol}...", prices.Count, ticker.Symbol);
             await _priceRepository.UpsertStockPricesBatchAsync(prices);
             
             var recordsInBatch = prices.Count;

@@ -76,7 +76,8 @@ services:
       # Path base for reverse proxy (tells Swagger to prefix API URLs)
       - PATH_BASE=/api/twelvedata
       # Secrets from Infisical (mapped to .NET config format)
-      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      # Using direct connection for best performance (bypasses pooler)
+      - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
       - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
       - TwelveData__BaseUrl=https://api.twelvedata.com
       # RabbitMQ for historical backfill queue

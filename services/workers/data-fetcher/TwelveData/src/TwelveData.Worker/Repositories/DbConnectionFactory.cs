@@ -13,13 +13,14 @@ public class DbConnectionFactory : IDbConnectionFactory
     {
         var baseConnectionString = settings.Value.DefaultConnection;
         
-        // Add timeout and SSL settings for Supabase connections
+        // Configure connection for direct Supabase connection with bulk operation support
         var builder = new NpgsqlConnectionStringBuilder(baseConnectionString)
         {
-            CommandTimeout = 30,
-            Timeout = 15,
+            CommandTimeout = 120,  // Increased for bulk insert operations
+            Timeout = 30,          // Connection timeout
             SslMode = SslMode.Require,
-            Pooling = false  // Disable local pooling since Supabase has its own pooler
+            Pooling = true,        // Enable local pooling for connection reuse
+            MaxPoolSize = 10       // Limit pool size for direct connection
         };
         
         _connectionString = builder.ConnectionString;
