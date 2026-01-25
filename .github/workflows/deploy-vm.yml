@@ -492,14 +492,23 @@ jobs:
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
-              gunzip -c "$img" | docker load
+              # Load and capture the loaded image info
+              LOADED=$(gunzip -c "$img" | docker load | grep "Loaded image:" | sed 's/Loaded image: //')
               rm "$img"
-              echo "✅ $NAME loaded"
+              
+              # Tag the loaded image as :latest so docker-compose picks it up
+              if [ -n "$LOADED" ]; then
+                IMAGE_NAME=$(echo "$LOADED" | cut -d: -f1)
+                docker tag "$LOADED" "${IMAGE_NAME}:latest"
+                echo "✅ $NAME loaded and tagged as :latest"
+              else
+                echo "⚠️ $NAME loaded but couldn't extract tag"
+              fi
             fi
           done
           
-          echo "✅ Images loaded directly from build job"
-          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | head -10
+          echo "✅ Images loaded and tagged as :latest"
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep stocktracker | head -20
           EOF
 
       # Log transfer metrics
