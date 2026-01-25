@@ -34,6 +34,16 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
+echo "=== Loading version variables ==="
+# Load version variables if they exist (written by CI/CD)
+if [ -f "$DEPLOY_PATH/.env.versions" ]; then
+    export $(grep -v '^#' "$DEPLOY_PATH/.env.versions" | xargs)
+    echo "Loaded versions from .env.versions"
+    cat "$DEPLOY_PATH/.env.versions"
+else
+    echo "No .env.versions found, using :latest tags"
+fi
+
 echo "=== Starting services with secrets injected ==="
 # Run docker compose with secrets injected from Infisical
 infisical run --env=prod --projectId=$INFISICAL_PROJECT_ID --token=$TOKEN -- docker compose "$@"

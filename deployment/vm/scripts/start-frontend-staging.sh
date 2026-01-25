@@ -42,6 +42,13 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
+echo "=== Loading version variables ==="
+# Load version variables if they exist (written by CI/CD)
+if [ -f "$DEPLOY_PATH/.env.versions" ]; then
+    export $(grep -v '^#' "$DEPLOY_PATH/.env.versions" | xargs)
+    echo "Loaded versions from .env.versions"
+fi
+
 echo "=== Starting frontend-staging with STAGING secrets ==="
 # Use --env=staging (NOT prod!) for frontend staging
 # NEXT_PUBLIC_* vars are injected as env vars and used as build args
