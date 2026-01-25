@@ -27,9 +27,13 @@
     
     <!-- Health Checks -->
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
+    <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="8.0.1" />
     
     <!-- Message Queue -->
     <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    
+    <!-- Redis -->
+    <PackageReference Include="StackExchange.Redis" Version="2.7.33" />
     
     <!-- API Documentation -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
