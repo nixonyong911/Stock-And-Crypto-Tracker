@@ -13,6 +13,10 @@ export const QUEUE_REGISTRY: Record<string, QueueMetadata> = {
     owner: "TwelveData Worker",
     description: "Historical data backfill requests (FIFO processing)",
   },
+  "ticker-add-queue": {
+    owner: "TwelveData Worker",
+    description: "New ticker registration requests (adds stocks/crypto to tracking)",
+  },
   "analysis-backfill-queue": {
     owner: "Candlestick Analysis Worker",
     description: "Candlestick pattern analysis backfill requests (triggered after price data backfill)",
