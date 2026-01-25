@@ -131,7 +131,7 @@ jobs:
           echo "Config: ${{ steps.filter.outputs.config }}"
           echo "Force Build: ${{ github.event.inputs.force_build }}"
           echo "Rollback Service: ${{ github.event.inputs.rollback_service }}"
-          
+
           # Summary
           echo "## 🔍 Change Detection" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -155,7 +155,7 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "Querying current versions from Supabase..."
-          
+
           # Service name mapping (workflow name -> DB service name)
           declare -A SERVICE_MAP=(
             ["twelvedata"]="twelvedata"
@@ -167,12 +167,12 @@ jobs:
             ["aihub2"]="ai-hub2"
             ["frontend"]="frontend-staging"
           )
-          
+
           # Query all versions from Supabase
           RESPONSE=$(curl -sf "${SUPABASE_URL}/rest/v1/worker_versions?select=service,major_version,minor_version" \
             -H "apikey: ${SUPABASE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_KEY}")
-          
+
           if [ -z "$RESPONSE" ]; then
             echo "::warning::Failed to query Supabase, using default versions"
             # Default to v1.0 for all services
@@ -181,25 +181,25 @@ jobs:
             done
             exit 0
           fi
-          
+
           echo "Raw response: $RESPONSE"
-          
+
           # Parse and output new versions (current minor + 1)
           for key in "${!SERVICE_MAP[@]}"; do
             DB_NAME="${SERVICE_MAP[$key]}"
-            
+
             # Extract version for this service using jq
             MAJOR=$(echo "$RESPONSE" | jq -r ".[] | select(.service == \"$DB_NAME\") | .major_version // 1")
             MINOR=$(echo "$RESPONSE" | jq -r ".[] | select(.service == \"$DB_NAME\") | .minor_version // 0")
-            
+
             # Default if not found
             [ -z "$MAJOR" ] || [ "$MAJOR" == "null" ] && MAJOR=1
             [ -z "$MINOR" ] || [ "$MINOR" == "null" ] && MINOR=0
-            
+
             # New version = current minor + 1
             NEW_MINOR=$((MINOR + 1))
             NEW_VERSION="${MAJOR}.${NEW_MINOR}"
-            
+
             echo "${key}=${NEW_VERSION}" >> $GITHUB_OUTPUT
             echo "  $DB_NAME: v${MAJOR}.${MINOR} -> v${NEW_VERSION}"
           done
@@ -215,7 +215,7 @@ jobs:
     outputs:
       build_success: ${{ steps.build-result.outputs.success }}
       images_built: ${{ steps.build-result.outputs.images }}
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -334,7 +334,7 @@ jobs:
         run: |
           mkdir -p /tmp/images
           BUILT=""
-          
+
           if [ -f /tmp/twelvedata.tar ]; then
             gzip -1 < /tmp/twelvedata.tar > /tmp/images/twelvedata.tar.gz
             BUILT="${BUILT}twelvedata,"
@@ -342,7 +342,7 @@ jobs:
           else
             echo "⏭️ TwelveData skipped (unchanged)"
           fi
-          
+
           if [ -f /tmp/candlestick-analysis.tar ]; then
             gzip -1 < /tmp/candlestick-analysis.tar > /tmp/images/candlestick-analysis.tar.gz
             BUILT="${BUILT}analysis,"
@@ -350,7 +350,7 @@ jobs:
           else
             echo "⏭️ Candlestick Analysis skipped (unchanged)"
           fi
-          
+
           if [ -f /tmp/metrics.tar ]; then
             gzip -1 < /tmp/metrics.tar > /tmp/images/metrics.tar.gz
             BUILT="${BUILT}metrics,"
@@ -358,7 +358,7 @@ jobs:
           else
             echo "⏭️ Metrics skipped (unchanged)"
           fi
-          
+
           if [ -f /tmp/back-office.tar ]; then
             gzip -1 < /tmp/back-office.tar > /tmp/images/back-office.tar.gz
             BUILT="${BUILT}backoffice,"
@@ -366,7 +366,7 @@ jobs:
           else
             echo "⏭️ Back Office skipped (unchanged)"
           fi
-          
+
           if [ -f /tmp/mcp-analysis.tar ]; then
             gzip -1 < /tmp/mcp-analysis.tar > /tmp/images/mcp-analysis.tar.gz
             BUILT="${BUILT}mcp,"
@@ -374,7 +374,7 @@ jobs:
           else
             echo "⏭️ MCP Analysis skipped (unchanged)"
           fi
-          
+
           if [ -f /tmp/telegram-bot-2.0.tar ]; then
             gzip -1 < /tmp/telegram-bot-2.0.tar > /tmp/images/telegram-bot-2.0.tar.gz
             BUILT="${BUILT}telegram2,"
@@ -382,7 +382,7 @@ jobs:
           else
             echo "⏭️ Telegram Bot 2.0 skipped (unchanged)"
           fi
-          
+
           if [ -f /tmp/ai-hub2.tar ]; then
             gzip -1 < /tmp/ai-hub2.tar > /tmp/images/ai-hub2.tar.gz
             BUILT="${BUILT}aihub2,"
@@ -390,9 +390,9 @@ jobs:
           else
             echo "⏭️ AI Hub 2.0 skipped (unchanged)"
           fi
-          
+
           # NOTE: Frontend Staging is built on VM only (needs Infisical staging secrets)
-          
+
           echo "built=$BUILT" >> $GITHUB_OUTPUT
           ls -lh /tmp/images/ 2>/dev/null || echo "No images to transfer"
 
@@ -410,7 +410,7 @@ jobs:
             IMAGES=""
             echo "⚠️ No images built"
           fi
-          
+
           echo "success=$SUCCESS" >> $GITHUB_OUTPUT
           echo "images=$IMAGES" >> $GITHUB_OUTPUT
 
@@ -435,20 +435,20 @@ jobs:
         run: |
           echo "📤 Transferring images directly to VM (bypassing artifact storage)..."
           scp -o ServerAliveInterval=60 /tmp/images/*.tar.gz azureuser@20.17.176.1:/tmp/
-          
+
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
           set -e
           echo "📥 Loading Docker images..."
-          
+
           # Create/update .env.versions file with version variables for docker-compose
           DEPLOY_PATH="/opt/stocktracker"
           ENV_FILE="$DEPLOY_PATH/.env.versions"
-          
+
           # Preserve existing versions for services not being updated
           if [ -f "$ENV_FILE" ]; then
             cp "$ENV_FILE" "$ENV_FILE.bak"
           fi
-          
+
           for NAME in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
@@ -456,10 +456,10 @@ jobs:
               # Load and capture the loaded image info
               LOADED=$(gunzip -c "$img" | docker load | grep "Loaded image:" | sed 's/Loaded image: //')
               rm "$img"
-              
+
               if [ -n "$LOADED" ]; then
                 VERSION=$(echo "$LOADED" | cut -d: -f2)
-                
+
                 # Map service name to env var name
                 case "$NAME" in
                   "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;
@@ -470,24 +470,24 @@ jobs:
                   "telegram-bot-2.0") VAR_NAME="TELEGRAM_BOT_VERSION" ;;
                   "ai-hub2") VAR_NAME="AI_HUB2_VERSION" ;;
                 esac
-                
+
                 # Update or add version variable
                 if [ -f "$ENV_FILE" ] && grep -q "^${VAR_NAME}=" "$ENV_FILE"; then
                   sed -i "s/^${VAR_NAME}=.*/${VAR_NAME}=${VERSION}/" "$ENV_FILE"
                 else
                   echo "${VAR_NAME}=${VERSION}" >> "$ENV_FILE"
                 fi
-                
+
                 echo "✅ $NAME loaded: $VERSION"
               else
                 echo "⚠️ $NAME loaded but couldn't extract version"
               fi
             fi
           done
-          
+
           echo "=== Current .env.versions ==="
           cat "$ENV_FILE" 2>/dev/null || echo "(empty)"
-          
+
           echo ""
           echo "✅ Images loaded with versioned tags"
           docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep stocktracker | head -20
@@ -498,12 +498,12 @@ jobs:
         run: |
           echo "## 📦 Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if ls /tmp/images/*.tar.gz 1>/dev/null 2>&1; then
             TOTAL_SIZE=$(du -ch /tmp/images/*.tar.gz 2>/dev/null | tail -1 | cut -f1 || echo "0")
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
-            
+
             for service in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
@@ -512,13 +512,13 @@ jobs:
                 echo "| $service | - | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
               fi
             done
-            
+
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Total transfer**: $TOTAL_SIZE" >> $GITHUB_STEP_SUMMARY
           else
             echo "No images built (all skipped or failed)" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "💡 Azure inbound transfer is FREE" >> $GITHUB_STEP_SUMMARY
 
@@ -530,7 +530,7 @@ jobs:
     # Always run deploy (even if build was skipped for config-only changes)
     if: always() && !cancelled()
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -540,7 +540,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          
+
           # Configure SSH to skip host key verification for our controlled VM
           # This is acceptable for CI/CD with a known, controlled server
           cat >> ~/.ssh/config << 'SSHCONFIG'
@@ -560,7 +560,7 @@ jobs:
           echo "=== Verifying GHA-built images on VM ==="
           echo "=========================================="
           echo "Images were transferred directly from build job (no artifact storage used)"
-          
+
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
           echo "Current Docker images:"
           docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep stocktracker || echo "No stocktracker images yet"
@@ -572,7 +572,7 @@ jobs:
       - name: Fallback - Build on VM
         if: |
           github.event.inputs.rollback_service == '' && (
-            needs.build.result == 'failure' || 
+            needs.build.result == 'failure' ||
             (needs.detect-changes.outputs.any_service == 'true' && needs.build.outputs.build_success != 'true')
           )
         env:
@@ -589,7 +589,7 @@ jobs:
           echo "=========================================="
           echo "=== FALLBACK: Building on VM (selective) ==="
           echo "=========================================="
-          
+
           # Build selective services list based on detected changes
           SERVICES=""
           [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES twelvedata"
@@ -599,26 +599,26 @@ jobs:
           [ "$MCP_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES mcp-analysis"
           [ "$TELEGRAM2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES telegram-bot-2.0"
           [ "$AIHUB2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES ai-hub2"
-          
+
           # Trim whitespace
           SERVICES=$(echo "$SERVICES" | xargs)
-          
+
           if [ -z "$SERVICES" ]; then
             echo "No services to build"
             exit 0
           fi
-          
+
           echo "Building services: $SERVICES"
-          
+
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 "bash -s" << EOF
           set -e
           DEPLOY_PATH="/opt/stocktracker"
           cd \$DEPLOY_PATH
-          
+
           echo "📦 Building Docker services on VM (fallback mode)..."
           # NOTE: Frontend Staging is NOT built here - it's built separately with Infisical staging
           DOCKER_BUILDKIT=1 docker compose build $SERVICES
-          
+
           echo "✅ VM build complete"
           EOF
 
@@ -635,26 +635,26 @@ jobs:
           echo "=========================================="
           echo "=== ROLLBACK: $ROLLBACK_SERVICE ==="
           echo "=========================================="
-          
+
           # Get current version from Supabase
           RESPONSE=$(curl -sf "${SUPABASE_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}&select=major_version,minor_version" \
             -H "apikey: ${SUPABASE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_KEY}")
-          
+
           MAJOR=$(echo "$RESPONSE" | jq -r '.[0].major_version // 1')
           MINOR=$(echo "$RESPONSE" | jq -r '.[0].minor_version // 0')
-          
+
           if [ "$MINOR" -le 0 ]; then
             echo "::error::Cannot rollback - already at v${MAJOR}.0 (no previous version exists)"
             exit 1
           fi
-          
+
           # Previous version = current minor - 1
           PREV_MINOR=$((MINOR - 1))
           PREV_VERSION="v${MAJOR}.${PREV_MINOR}"
-          
+
           echo "Rolling back $ROLLBACK_SERVICE from v${MAJOR}.${MINOR} to ${PREV_VERSION}"
-          
+
           # Docker image name mapping
           case "$ROLLBACK_SERVICE" in
             "twelvedata") IMAGE="stocktracker-twelvedata" ;;
@@ -667,23 +667,23 @@ jobs:
             "frontend-staging") IMAGE="stocktracker-frontend-staging" ;;
             *) echo "::error::Unknown service: $ROLLBACK_SERVICE"; exit 1 ;;
           esac
-          
+
           # SSH to VM and restart with previous version
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 "bash -s" << EOF
           set -e
           DEPLOY_PATH="/opt/stocktracker"
           cd \$DEPLOY_PATH
-          
+
           # Check if previous version image exists
           if ! docker images "${IMAGE}:${PREV_VERSION}" --format "{{.ID}}" | grep -q .; then
             echo "::error::Previous version image ${IMAGE}:${PREV_VERSION} not found on VM"
             docker images "${IMAGE}" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
             exit 1
           fi
-          
+
           # Restart container with previous version
           echo "Restarting ${ROLLBACK_SERVICE} with ${PREV_VERSION}..."
-          
+
           # Update .env.versions with the rollback version
           ENV_FILE="/opt/stocktracker/.env.versions"
           case "${ROLLBACK_SERVICE}" in
@@ -696,20 +696,20 @@ jobs:
             "ai-hub2") VAR_NAME="AI_HUB2_VERSION" ;;
             "frontend-staging") VAR_NAME="FRONTEND_STAGING_VERSION" ;;
           esac
-          
+
           if [ -f "\$ENV_FILE" ] && grep -q "^\${VAR_NAME}=" "\$ENV_FILE"; then
             sed -i "s/^\${VAR_NAME}=.*/\${VAR_NAME}=${PREV_VERSION}/" "\$ENV_FILE"
           else
             echo "\${VAR_NAME}=${PREV_VERSION}" >> "\$ENV_FILE"
           fi
           echo "  Updated \$ENV_FILE: \${VAR_NAME}=${PREV_VERSION}"
-          
+
           # Restart with updated version
           /opt/stocktracker/scripts/start-services.sh up -d ${ROLLBACK_SERVICE}
-          
+
           echo "✅ Rollback complete: ${ROLLBACK_SERVICE} -> ${PREV_VERSION}"
           EOF
-          
+
           # Decrement version in Supabase
           curl -sf "${SUPABASE_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}" \
             -X PATCH \
@@ -718,7 +718,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Prefer: return=minimal" \
             -d "{\"minor_version\": ${PREV_MINOR}, \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
-          
+
           echo "✅ Supabase version decremented to v${MAJOR}.${PREV_MINOR}"
 
       # ===========================================
@@ -733,19 +733,19 @@ jobs:
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
           set -e
           DEPLOY_PATH="/opt/stocktracker"
-          
+
           echo "=========================================="
           echo "=== Syncing repository ==="
           echo "=========================================="
           cd $DEPLOY_PATH/repo
           git fetch origin main
           git reset --hard origin/main
-          
+
           echo "=== Syncing agent-context to stock-tracker ==="
           rsync -av --delete \
             $DEPLOY_PATH/repo/services/ai/ai-hub2.0/agent-context/stock-tracker/ \
             /home/azureuser/stock-tracker/
-          
+
           echo "=== Copying config files ==="
           cp $DEPLOY_PATH/repo/deployment/vm/docker-compose.yml $DEPLOY_PATH/
           cp $DEPLOY_PATH/repo/deployment/vm/Caddyfile $DEPLOY_PATH/
@@ -753,17 +753,17 @@ jobs:
           sudo cp $DEPLOY_PATH/repo/deployment/vm/scripts/*.sh $DEPLOY_PATH/scripts/
           sudo chmod +x $DEPLOY_PATH/scripts/*.sh
           sudo chown azureuser:azureuser $DEPLOY_PATH/scripts/*
-          
+
           echo "=========================================="
           echo "=== Starting services ==="
           echo "=========================================="
           cd $DEPLOY_PATH
           # Docker Compose detects image changes and only recreates affected containers
           ./scripts/start-services.sh up -d
-          
+
           echo "=== Starting frontend-staging (Infisical STAGING env) ==="
           EOF
-          
+
           # Build frontend only if files changed (check outside heredoc to access GHA env vars)
           if [ "$FRONTEND_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ]; then
             echo "Frontend changed - rebuilding with Infisical staging secrets..."
@@ -772,15 +772,15 @@ jobs:
             echo "Frontend unchanged - starting existing image..."
             ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'cd /opt/stocktracker && ./scripts/start-frontend-staging.sh' || echo "⚠️ Frontend staging start failed"
           fi
-          
+
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
-          
+
           echo "=== Reloading Caddy config ==="
           docker exec caddy caddy reload --config /etc/caddy/Caddyfile || docker restart caddy
-          
+
           echo "=== Reloading Alloy config ==="
           docker exec alloy wget -qO- http://localhost:12345/-/reload 2>/dev/null || docker restart alloy
-          
+
           echo "=== Cleanup old images (keep running + 1 previous for rollback) ==="
           # Smart cleanup: keep 2 most recent versions per service (running + previous for rollback)
           for SERVICE in twelvedata candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 frontend-staging; do
@@ -797,10 +797,10 @@ jobs:
               fi
             fi
           done
-          
+
           # Also prune dangling images
           docker image prune -f
-          
+
           echo "=== Running containers ==="
           docker ps
           EOF
@@ -813,13 +813,13 @@ jobs:
           echo "=========================================="
           echo "=== Smart Health Polling ==="
           echo "=========================================="
-          
+
           wait_healthy() {
             local url=$1
             local name=$2
             local max_attempts=30
             local attempt=0
-            
+
             echo "Waiting for $name..."
             while [ $attempt -lt $max_attempts ]; do
               if curl -sf "$url" > /dev/null 2>&1; then
@@ -832,36 +832,36 @@ jobs:
             echo "⚠️ $name: TIMEOUT after ${max_attempts}s"
             return 1
           }
-          
+
           echo ""
           echo "=== Checking services ==="
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/ > /dev/null && echo "✅ n8n: OK" || echo "⚠️ n8n: May need login"
-          
+
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" "TwelveData"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/health/live" "Candlestick Analysis"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live" "Metrics"
-          
+
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ > /dev/null && echo "✅ Back Office: OK" || echo "⚠️ Back Office: Starting..."
-          
+
           # Frontend Staging - check via public URL
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/front-end > /dev/null && echo "✅ Frontend Staging: OK" || echo "⚠️ Frontend Staging: Starting..."
-          
+
           # AI Hub 2.0 (Go) container - check via SSH
           ssh azureuser@20.17.176.1 'docker exec ai-hub2 wget -qO- http://localhost:8080/health/live' > /dev/null && echo "✅ AI Hub 2.0: OK" || echo "⚠️ AI Hub 2.0: Check Docker logs"
-          
+
           # MCP Analysis runs on internal port 8085 - check via SSH
           ssh azureuser@20.17.176.1 'curl -sf http://localhost:8085/health' > /dev/null && echo "✅ MCP Analysis: OK" || echo "⚠️ MCP Analysis: Check Docker logs"
-          
+
           # Telegram Bot 2.0 (webhook mode) - check via SSH
           ssh azureuser@20.17.176.1 'docker exec telegram-bot-2.0 wget -qO- http://localhost:8087/health' > /dev/null && echo "✅ Telegram Bot 2.0: OK" || echo "⚠️ Telegram Bot 2.0: Check Docker logs"
-          
+
           ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "⚠️ Alloy: Check logs"
-          
+
           # Summary
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Build path indicator
           if [ "${{ needs.build.outputs.build_success }}" == "true" ]; then
             echo "✅ **Build Path**: GitHub Actions (optimized)" >> $GITHUB_STEP_SUMMARY
@@ -870,7 +870,7 @@ jobs:
           else
             echo "⚠️ **Build Path**: VM fallback" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Service URLs" >> $GITHUB_STEP_SUMMARY
           echo "- [n8n](https://nxserver.malaysiawest.cloudapp.azure.com/)" >> $GITHUB_STEP_SUMMARY
@@ -880,7 +880,7 @@ jobs:
           echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
           echo "- [Frontend Staging](https://nxserver.malaysiawest.cloudapp.azure.com/front-end)" >> $GITHUB_STEP_SUMMARY
           echo "- AI Hub 2.0: Go container (ai-hub2:8080)" >> $GITHUB_STEP_SUMMARY
-          
+
           echo ""
           echo "=========================================="
           echo "✅ Deployment complete!"
@@ -915,17 +915,17 @@ jobs:
           echo "=========================================="
           echo "=== Updating versions in Supabase ==="
           echo "=========================================="
-          
+
           UPDATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          
+
           update_version() {
             local service=$1
             local version=$2
             local major=$(echo "$version" | cut -d. -f1)
             local minor=$(echo "$version" | cut -d. -f2)
-            
+
             echo "Updating $service to v$version..."
-            
+
             # Upsert using PATCH with conflict handling
             HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
               "${SUPABASE_URL}/rest/v1/worker_versions?service=eq.${service}" \
@@ -935,14 +935,14 @@ jobs:
               -H "Content-Type: application/json" \
               -H "Prefer: return=minimal" \
               -d "{\"major_version\": ${major}, \"minor_version\": ${minor}, \"updated_at\": \"${UPDATED_AT}\"}")
-            
+
             if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
               echo "  ✅ $service -> v$version"
             else
               echo "  ⚠️ Failed to update $service (HTTP $HTTP_CODE)"
             fi
           }
-          
+
           # Update versions for deployed services
           [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "twelvedata" "$TWELVEDATA_VERSION"
           [ "$ANALYSIS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "candlestick-analysis" "$ANALYSIS_VERSION"
@@ -952,6 +952,6 @@ jobs:
           [ "$TELEGRAM2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "telegram-bot-2.0" "$TELEGRAM2_VERSION"
           [ "$AIHUB2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "ai-hub2" "$AIHUB2_VERSION"
           [ "$FRONTEND_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "frontend-staging" "$FRONTEND_VERSION"
-          
+
           echo ""
           echo "✅ Version updates complete"
