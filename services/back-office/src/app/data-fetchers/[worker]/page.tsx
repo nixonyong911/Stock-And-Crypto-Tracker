@@ -17,6 +17,11 @@ import {
 } from "lucide-react";
 import { FileCode2 } from "lucide-react";
 
+// Public API path mapping for swagger URLs (matches Caddyfile routing)
+const SWAGGER_PATHS: Record<string, string> = {
+  'twelvedata': '/api/twelvedata',
+};
+
 // Stock ticker type (not cached, loaded on demand)
 interface StockTicker {
   id: number;
@@ -322,7 +327,7 @@ export default function WorkerConfigPage() {
                   </p>
                 </div>
                 <a
-                  href={`https://nxserver.malaysiawest.cloudapp.azure.com/${workerName}/swagger`}
+                  href={`https://nxserver.malaysiawest.cloudapp.azure.com${SWAGGER_PATHS[workerName] || `/${workerName}`}/swagger`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
