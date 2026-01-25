@@ -34,7 +34,10 @@ export const CACHE_REGISTRY: Record<string, Partial<CacheMetadata>> = {
     description: "Message queue locks and state",
   },
   "twelvedata:daily:*": {
-    description: "Daily stock price data from TwelveData API",
+    description: "Daily API call counter (800/day limit, resets at midnight UTC)",
+  },
+  "twelvedata:minute:*": {
+    description: "Per-minute API call counter (8 calls/min limit)",
   },
 };
 

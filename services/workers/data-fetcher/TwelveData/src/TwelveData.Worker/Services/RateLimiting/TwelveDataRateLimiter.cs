@@ -27,7 +27,6 @@ public class TwelveDataRateLimiter : ITwelveDataRateLimiter
     
     // TTL values
     private const int MinuteTtlSeconds = 60;
-    private const int DailyTtlSeconds = 86400;  // 24 hours
     
     // Redis key prefixes
     private const string MinuteKeyPrefix = "twelvedata:minute:";
@@ -80,9 +79,9 @@ public class TwelveDataRateLimiter : ITwelveDataRateLimiter
                     var minuteIncrTask = transaction.StringIncrementAsync(minuteKey);
                     _ = transaction.KeyExpireAsync(minuteKey, TimeSpan.FromSeconds(MinuteTtlSeconds));
                     
-                    // Increment daily counter with TTL
+                    // Increment daily counter with TTL (expires at midnight UTC when TwelveData resets)
                     var dailyIncrTask = transaction.StringIncrementAsync(dailyKey);
-                    _ = transaction.KeyExpireAsync(dailyKey, TimeSpan.FromSeconds(DailyTtlSeconds));
+                    _ = transaction.KeyExpireAsync(dailyKey, TimeSpan.FromSeconds(GetSecondsUntilMidnightUtc()));
                     
                     if (await transaction.ExecuteAsync())
                     {
@@ -191,5 +190,16 @@ public class TwelveDataRateLimiter : ITwelveDataRateLimiter
         
         // Add 1 second buffer to ensure we're in the new minute
         return sleepSeconds + 1;
+    }
+
+    /// <summary>
+    /// Calculates seconds remaining until midnight UTC.
+    /// This ensures the daily counter expires when TwelveData resets their limit.
+    /// </summary>
+    private static int GetSecondsUntilMidnightUtc()
+    {
+        var now = DateTime.UtcNow;
+        var midnight = now.Date.AddDays(1);
+        return (int)(midnight - now).TotalSeconds;
     }
 }
