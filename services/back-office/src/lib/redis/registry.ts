@@ -1,78 +1,109 @@
 // Cache registry for Redis monitoring UI
-// Maps key patterns to their metadata for display
+// Fully automatic discovery with optional manual overrides
 
 export interface CacheMetadata {
   owner: string;
   ttl: number; // seconds
-  description: string;
+  description: string | null;
   refreshEndpoint: string | null; // API endpoint to refresh this cache, null if manual only
 }
 
-export const CACHE_REGISTRY: Record<string, CacheMetadata> = {
+/**
+ * Optional registry for enhanced metadata (descriptions, refresh endpoints)
+ * Keys not in this registry will still be discovered automatically
+ */
+export const CACHE_REGISTRY: Record<string, Partial<CacheMetadata>> = {
   "back-office:workers": {
-    owner: "Back Office",
-    ttl: 86400, // 24 hours
     description: "Worker registry from Supabase",
     refreshEndpoint: "/back-office/api/workers?refresh=true",
   },
   "back-office:schedules": {
-    owner: "Back Office",
-    ttl: 86400, // 24 hours
     description: "Fetch schedules from Supabase",
     refreshEndpoint: "/back-office/api/schedules?refresh=true",
   },
   "back-office:worker:*": {
-    owner: "Back Office",
-    ttl: 86400, // 24 hours
     description: "Individual worker cache",
-    refreshEndpoint: null, // Cleared when workers are refreshed
   },
   "back-office:schedule:*": {
-    owner: "Back Office",
-    ttl: 86400, // 24 hours
     description: "Individual schedule cache",
-    refreshEndpoint: null,
   },
   "mcp-analysis__*": {
-    owner: "MCP Analysis",
-    ttl: 86400, // 24 hours
     description: "Cached database query results",
-    refreshEndpoint: null, // No auto-refresh, just clear
   },
   "chat:*": {
-    owner: "Telegram Bot",
-    ttl: 600, // 10 minutes
     description: "Message queue locks and state",
-    refreshEndpoint: null, // Managed by bot
   },
 };
 
 /**
- * Get metadata for a cache key by matching against patterns
+ * Map of key prefixes to friendly owner names
+ * Add new services here for custom naming, otherwise auto-derived from prefix
  */
-export function getCacheMetadata(key: string): CacheMetadata | null {
-  // Try exact match first
+const OWNER_MAP: Record<string, string> = {
+  "back-office": "Back Office",
+  "chat": "Telegram Bot",
+  "mcp-analysis": "MCP Analysis",
+  "telegram": "Telegram Bot",
+  "stock": "Stock Fetcher",
+  "crypto": "Crypto Fetcher",
+  "analysis": "Analysis Worker",
+};
+
+/**
+ * Auto-derive owner from key prefix
+ * Converts kebab-case/snake_case to Title Case
+ */
+function deriveOwnerFromKey(key: string): string {
+  // Handle double underscore separator (e.g., mcp-analysis__query)
+  const prefix = key.split(/[:_]{2}|:/)[0];
+  
+  // Check if we have a custom mapping
+  if (OWNER_MAP[prefix]) {
+    return OWNER_MAP[prefix];
+  }
+  
+  // Auto-convert: kebab-case or snake_case → Title Case
+  return prefix
+    .split(/[-_]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/**
+ * Get metadata for a cache key
+ * Fully automatic - always returns metadata (derived if not in registry)
+ */
+export function getCacheMetadata(key: string): CacheMetadata {
+  // Default auto-derived metadata
+  const autoMetadata: CacheMetadata = {
+    owner: deriveOwnerFromKey(key),
+    ttl: 0,
+    description: null,
+    refreshEndpoint: null,
+  };
+
+  // Try exact match in registry for enhanced metadata
   if (CACHE_REGISTRY[key]) {
-    return CACHE_REGISTRY[key];
+    return { ...autoMetadata, ...CACHE_REGISTRY[key] };
   }
 
-  // Try pattern matching (replace * with regex)
+  // Try pattern matching for enhanced metadata
   for (const [pattern, metadata] of Object.entries(CACHE_REGISTRY)) {
     if (pattern.includes("*")) {
       const regex = new RegExp("^" + pattern.replace(/\*/g, ".*") + "$");
       if (regex.test(key)) {
-        return metadata;
+        return { ...autoMetadata, ...metadata };
       }
     }
   }
 
-  return null;
+  // Return auto-derived metadata (fully automatic)
+  return autoMetadata;
 }
 
 /**
- * Get the owner of a cache key
+ * Get the owner of a cache key (always returns a value)
  */
 export function getCacheOwner(key: string): string {
-  const metadata = getCacheMetadata(key);
-  return metadata?.owner || "Unknown";
+  return getCacheMetadata(key).owner;
 }
