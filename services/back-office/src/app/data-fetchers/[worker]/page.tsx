@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { WorkerRegistry } from "@/lib/db/workers";
 import { FetchSchedule } from "@/lib/db/schedules";
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
   Settings,
   Database,
   Activity,
@@ -37,7 +37,7 @@ interface WorkerDetails extends WorkerRegistry {
 export default function WorkerConfigPage() {
   const params = useParams();
   const workerName = params.worker as string;
-  
+
   const [worker, setWorker] = useState<WorkerDetails | null>(null);
   const [schedule, setSchedule] = useState<FetchSchedule | null>(null);
   const [tickers, setTickers] = useState<StockTicker[]>([]);
@@ -51,17 +51,17 @@ export default function WorkerConfigPage() {
           fetch("/back-office/api/workers"),
           fetch("/back-office/api/schedules"),
         ]);
-        
+
         if (!workersRes.ok || !schedulesRes.ok) {
           throw new Error("Failed to fetch data");
         }
-        
+
         const { workers } = await workersRes.json();
         const { schedules } = await schedulesRes.json();
-        
+
         // Find the specific worker
         const workerData = workers.find((w: WorkerRegistry) => w.name === workerName);
-        
+
         if (!workerData) {
           console.error('Worker not found');
           setLoading(false);
@@ -83,10 +83,10 @@ export default function WorkerConfigPage() {
         setWorker({ ...workerData, healthStatus });
 
         // Find schedule for this worker using worker_id (proper relational lookup)
-        const scheduleData = schedules.find((s: FetchSchedule) => 
+        const scheduleData = schedules.find((s: FetchSchedule) =>
           s.worker_id === workerData.id
         );
-        
+
         if (scheduleData) {
           setSchedule(scheduleData);
         }
@@ -109,18 +109,18 @@ export default function WorkerConfigPage() {
         setLoading(false);
       }
     }
-    
+
     loadWorkerDetails();
   }, [workerName]);
 
   const handleToggleSchedule = async () => {
     if (!schedule) return;
-    
+
     try {
       const response = await fetch(`/back-office/api/schedules?toggle=${schedule.id}`, {
         method: 'POST',
       });
-      
+
       if (response.ok) {
         const { schedule: updatedSchedule } = await response.json();
         setSchedule(updatedSchedule);
@@ -135,9 +135,9 @@ export default function WorkerConfigPage() {
       const response = await fetch(`/back-office/api/tickers?toggle=${ticker.id}`, {
         method: 'POST',
       });
-      
+
       if (response.ok) {
-        setTickers(tickers.map(t => 
+        setTickers(tickers.map(t =>
           t.id === ticker.id ? { ...t, is_active: !t.is_active } : t
         ));
       }
@@ -289,8 +289,8 @@ export default function WorkerConfigPage() {
               <Button
                 onClick={handleToggleSchedule}
                 variant={schedule?.is_enabled ? "default" : "secondary"}
-                className={schedule?.is_enabled 
-                  ? "bg-emerald-600 hover:bg-emerald-700" 
+                className={schedule?.is_enabled
+                  ? "bg-emerald-600 hover:bg-emerald-700"
                   : "bg-slate-700 hover:bg-slate-600"
                 }
               >
@@ -340,8 +340,8 @@ export default function WorkerConfigPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => handleToggleTicker(ticker)}
-                      className={ticker.is_active 
-                        ? "text-emerald-400 hover:text-emerald-300" 
+                      className={ticker.is_active
+                        ? "text-emerald-400 hover:text-emerald-300"
                         : "text-slate-500 hover:text-slate-400"
                       }
                     >

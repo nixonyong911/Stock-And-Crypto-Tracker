@@ -87,7 +87,7 @@ function parseOpenApiSpec(spec: OpenApiSpec): ParsedEndpoint[] {
     }
 
     const httpMethods = ['get', 'post', 'put', 'delete', 'patch'] as const;
-    
+
     for (const method of httpMethods) {
       const operation = methods[method];
       if (!operation) continue;
@@ -140,7 +140,7 @@ export async function GET(
 ) {
   try {
     const { worker } = await params;
-    
+
     const baseUrl = WORKER_URLS[worker];
     if (!baseUrl) {
       return NextResponse.json(
@@ -150,7 +150,7 @@ export async function GET(
     }
 
     const swaggerUrl = `${baseUrl}/swagger/v1/swagger.json`;
-    
+
     const response = await fetch(swaggerUrl, {
       cache: 'no-store',
       headers: {

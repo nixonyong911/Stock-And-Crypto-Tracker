@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { WorkerRegistry } from "@/lib/db/workers";
 import { FetchSchedule } from "@/lib/db/schedules";
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
   Settings,
   BarChart3,
   Activity,
@@ -24,7 +24,7 @@ interface WorkerDetails extends WorkerRegistry {
 export default function AnalysisWorkerPage() {
   const params = useParams();
   const workerName = params.worker as string;
-  
+
   const [worker, setWorker] = useState<WorkerDetails | null>(null);
   const [schedule, setSchedule] = useState<FetchSchedule | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,17 +37,17 @@ export default function AnalysisWorkerPage() {
           fetch("/back-office/api/workers"),
           fetch("/back-office/api/schedules"),
         ]);
-        
+
         if (!workersRes.ok || !schedulesRes.ok) {
           throw new Error("Failed to fetch data");
         }
-        
+
         const { workers } = await workersRes.json();
         const { schedules } = await schedulesRes.json();
-        
+
         // Find the specific worker
         const workerData = workers.find((w: WorkerRegistry) => w.name === workerName);
-        
+
         if (!workerData) {
           console.error('Worker not found');
           setLoading(false);
@@ -69,10 +69,10 @@ export default function AnalysisWorkerPage() {
         setWorker({ ...workerData, healthStatus });
 
         // Find schedule for this worker using worker_id (proper relational lookup)
-        const scheduleData = schedules.find((s: FetchSchedule) => 
+        const scheduleData = schedules.find((s: FetchSchedule) =>
           s.worker_id === workerData.id
         );
-        
+
         if (scheduleData) {
           setSchedule(scheduleData);
         }
@@ -82,18 +82,18 @@ export default function AnalysisWorkerPage() {
         setLoading(false);
       }
     }
-    
+
     loadWorkerDetails();
   }, [workerName]);
 
   const handleToggleSchedule = async () => {
     if (!schedule) return;
-    
+
     try {
       const response = await fetch(`/back-office/api/schedules?toggle=${schedule.id}`, {
         method: 'POST',
       });
-      
+
       if (response.ok) {
         const { schedule: updatedSchedule } = await response.json();
         setSchedule(updatedSchedule);
@@ -246,8 +246,8 @@ export default function AnalysisWorkerPage() {
               <Button
                 onClick={handleToggleSchedule}
                 variant={schedule?.is_enabled ? "default" : "secondary"}
-                className={schedule?.is_enabled 
-                  ? "bg-violet-600 hover:bg-violet-700" 
+                className={schedule?.is_enabled
+                  ? "bg-violet-600 hover:bg-violet-700"
                   : "bg-slate-700 hover:bg-slate-600"
                 }
               >

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     // Try to parse response as JSON, fallback to text
     let data: unknown;
     const contentType = response.headers.get('content-type');
-    
+
     if (contentType?.includes('application/json')) {
       try {
         data = await response.json();
@@ -81,11 +81,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("POST /api/openapi/execute error:", error);
-    
+
     // Check if it's a network error (worker unreachable)
     if (error instanceof TypeError && error.message.includes('fetch')) {
       return NextResponse.json(
-        { 
+        {
           status: 503,
           statusText: 'Service Unavailable',
           data: { error: 'Worker service is unreachable' },

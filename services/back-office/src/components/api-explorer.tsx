@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Play, 
+import {
+  ChevronDown,
+  ChevronRight,
+  Play,
   RefreshCw,
   Copy,
   Check,
@@ -73,7 +73,7 @@ function JsonHighlighter({ json }: { json: string }) {
     .replace(/: (null)/g, ': <span class="text-slate-500">$1</span>');
 
   return (
-    <pre 
+    <pre
       className="text-sm text-slate-300 whitespace-pre-wrap font-mono"
       dangerouslySetInnerHTML={{ __html: highlighted }}
     />
@@ -81,13 +81,13 @@ function JsonHighlighter({ json }: { json: string }) {
 }
 
 // Single endpoint row component
-function EndpointRow({ 
-  endpoint, 
+function EndpointRow({
+  endpoint,
   worker,
   isExpanded,
   onToggle,
-}: { 
-  endpoint: Endpoint; 
+}: {
+  endpoint: Endpoint;
   worker: string;
   isExpanded: boolean;
   onToggle: () => void;
@@ -187,8 +187,8 @@ function EndpointRow({
     if (!response) return;
     try {
       await navigator.clipboard.writeText(
-        typeof response.data === "string" 
-          ? response.data 
+        typeof response.data === "string"
+          ? response.data
           : JSON.stringify(response.data, null, 2)
       );
       setCopied(true);
@@ -216,15 +216,15 @@ function EndpointRow({
         ) : (
           <div className="w-4" />
         )}
-        
+
         <span className={`px-2 py-0.5 rounded text-xs font-mono font-semibold shrink-0 ${METHOD_COLORS[endpoint.method] || "bg-slate-600"}`}>
           {endpoint.method}
         </span>
-        
+
         <span className="font-mono text-sm text-slate-200 truncate">
           {endpoint.path}
         </span>
-        
+
         <span className="text-sm text-slate-500 truncate ml-auto mr-2">
           {endpoint.summary}
         </span>
@@ -365,7 +365,7 @@ function EndpointRow({
               {response.status}
             </span>
             <span className="text-sm text-slate-500 truncate">
-              {typeof response.data === "object" 
+              {typeof response.data === "object"
                 ? JSON.stringify(response.data).slice(0, 100) + "..."
                 : String(response.data).slice(0, 100)
               }
@@ -387,16 +387,16 @@ export function ApiExplorer({ worker }: ApiExplorerProps) {
   const loadEndpoints = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const res = await fetch(`/back-office/api/openapi/${worker}`);
       const data = await res.json();
-      
+
       if (!res.ok) {
         setError(data.error || "Failed to load endpoints");
         return;
       }
-      
+
       setEndpoints(data.endpoints || []);
       setTitle(data.title || worker);
     } catch (err) {
