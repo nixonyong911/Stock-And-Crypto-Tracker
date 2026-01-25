@@ -205,58 +205,10 @@ jobs:
           done
 
   # ===========================================
-  # Cleanup caches (artifacts no longer used - direct SCP transfer)
-  # ===========================================
-  cleanup-storage:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      # NOTE: Artifacts no longer used - images transferred directly via SCP to bypass quota
-      - name: Cleanup old BuildKit caches (keep 1 per scope)
-        run: |
-          echo "Checking cache storage..."
-          
-          # Service scopes used in build job
-          SCOPES="twelvedata analysis metrics backoffice mcp telegram2 aihub2"
-          
-          for SCOPE in $SCOPES; do
-            echo "--- Processing scope: $SCOPE ---"
-            
-            # Get all caches for this scope, sorted by last accessed (newest first)
-            CACHES=$(gh cache list -R ${{ github.repository }} --key "$SCOPE" --json id,key,lastAccessedAt 2>/dev/null \
-              | jq 'sort_by(.lastAccessedAt) | reverse' 2>/dev/null || echo "[]")
-            
-            TOTAL=$(echo "$CACHES" | jq length)
-            
-            if [ "$TOTAL" -gt 1 ]; then
-              # Keep only the latest (index 0), delete the rest
-              echo "$CACHES" | jq -r '.[1:][] | .key' | while read key; do
-                echo "  Deleting: $key"
-                gh cache delete "$key" -R ${{ github.repository }} 2>/dev/null || true
-              done
-              echo "  Kept latest, deleted $((TOTAL - 1)) old caches"
-            fi
-          done
-          
-          # Clean up old buildkit blobs not accessed in last 7 days
-          echo "--- Cleaning old buildkit blobs (>7 days) ---"
-          gh cache list -R ${{ github.repository }} --json key,lastAccessedAt 2>/dev/null \
-            | jq -r '.[] | select(.key | startswith("buildkit-blob-")) | select((.lastAccessedAt | fromdateiso8601) < (now - 604800)) | .key' 2>/dev/null \
-            | while read key; do
-                echo "  Deleting old blob: $key"
-                gh cache delete "$key" -R ${{ github.repository }} 2>/dev/null || true
-              done
-          
-          echo "Cache cleanup complete"
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-  # ===========================================
   # PHASE 3: Build only changed services (parallel)
   # ===========================================
   build:
-    needs: [detect-changes, cleanup-storage]
+    needs: [detect-changes]
     runs-on: ubuntu-latest
     # Skip build job entirely if only config changed and not forcing
     if: needs.detect-changes.outputs.any_service == 'true' || github.event.inputs.force_build == 'true'
@@ -774,6 +726,9 @@ jobs:
       # ===========================================
       - name: Sync config and deploy services
         if: github.event.inputs.rollback_service == ''
+        env:
+          FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+          FORCE_BUILD: ${{ github.event.inputs.force_build }}
         run: |
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
           set -e
@@ -806,9 +761,19 @@ jobs:
           # Docker Compose detects image changes and only recreates affected containers
           ./scripts/start-services.sh up -d
           
-          echo "=== Building & Starting frontend-staging (Infisical STAGING env) ==="
-          # Build with Infisical staging secrets (NEXT_PUBLIC_* embedded at build time)
-          ./scripts/start-frontend-staging.sh --build || echo "⚠️ Frontend staging build/start failed - may need manual intervention"
+          echo "=== Starting frontend-staging (Infisical STAGING env) ==="
+          EOF
+          
+          # Build frontend only if files changed (check outside heredoc to access GHA env vars)
+          if [ "$FRONTEND_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ]; then
+            echo "Frontend changed - rebuilding with Infisical staging secrets..."
+            ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'cd /opt/stocktracker && ./scripts/start-frontend-staging.sh --build' || echo "⚠️ Frontend staging build/start failed"
+          else
+            echo "Frontend unchanged - starting existing image..."
+            ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'cd /opt/stocktracker && ./scripts/start-frontend-staging.sh' || echo "⚠️ Frontend staging start failed"
+          fi
+          
+          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
           
           echo "=== Reloading Caddy config ==="
           docker exec caddy caddy reload --config /etc/caddy/Caddyfile || docker restart caddy
@@ -990,69 +955,3 @@ jobs:
           
           echo ""
           echo "✅ Version updates complete"
-
-  # ===========================================
-  # Cleanup old caches after successful deploy
-  # ===========================================
-  cleanup-cache:
-    needs: [deploy]
-    if: needs.deploy.result == 'success'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Cleanup old BuildKit caches
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "=========================================="
-          echo "=== Cleaning up old BuildKit caches ==="
-          echo "=========================================="
-          
-          # Service scopes used in build job
-          SCOPES="twelvedata analysis metrics backoffice mcp telegram2 aihub2"
-          
-          for SCOPE in $SCOPES; do
-            echo ""
-            echo "--- Processing scope: $SCOPE ---"
-            
-            # Get all caches for this scope, sorted by last accessed (newest first)
-            CACHES=$(gh cache list -R ${{ github.repository }} --key "$SCOPE" --json id,key,lastAccessedAt,sizeInBytes 2>/dev/null \
-              | jq 'sort_by(.lastAccessedAt) | reverse' 2>/dev/null || echo "[]")
-            
-            TOTAL=$(echo "$CACHES" | jq length)
-            echo "Found $TOTAL caches for scope $SCOPE"
-            
-            if [ "$TOTAL" -gt 1 ]; then
-              # Keep only the latest (index 0), delete the rest
-              echo "$CACHES" | jq -r '.[1:][] | .key' | while read key; do
-                echo "  Deleting: $key"
-                gh cache delete "$key" -R ${{ github.repository }} 2>/dev/null || true
-              done
-              echo "  Kept latest, deleted $((TOTAL - 1)) old caches"
-            else
-              echo "  Only $TOTAL cache(s), nothing to delete"
-            fi
-          done
-          
-          # Clean up old buildkit blobs not accessed in last 24 hours
-          echo ""
-          echo "--- Cleaning old buildkit blobs ---"
-          OLD_BLOBS=$(gh cache list -R ${{ github.repository }} --json key,lastAccessedAt 2>/dev/null \
-            | jq -r '.[] | select(.key | startswith("buildkit-blob-")) | select((.lastAccessedAt | fromdateiso8601) < (now - 86400)) | .key' 2>/dev/null || true)
-          
-          if [ -n "$OLD_BLOBS" ]; then
-            echo "$OLD_BLOBS" | while read key; do
-              echo "  Deleting old blob: $key"
-              gh cache delete "$key" -R ${{ github.repository }} 2>/dev/null || true
-            done
-          else
-            echo "  No old blobs to delete"
-          fi
-          
-          echo ""
-          echo "=== Cache cleanup complete ==="
-          
-          # Log final state
-          REMAINING=$(gh cache list -R ${{ github.repository }} --json key 2>/dev/null | jq length || echo "unknown")
-          echo "Remaining caches: $REMAINING"
