@@ -33,6 +33,9 @@ export const CACHE_REGISTRY: Record<string, Partial<CacheMetadata>> = {
   "chat:*": {
     description: "Message queue locks and state",
   },
+  "twelvedata:daily:*": {
+    description: "Daily stock price data from TwelveData API",
+  },
 };
 
 /**
@@ -44,6 +47,7 @@ const OWNER_MAP: Record<string, string> = {
   "chat": "Telegram Bot",
   "mcp-analysis": "MCP Analysis",
   "telegram": "Telegram Bot",
+  "twelvedata": "TwelveData",
   "stock": "Stock Fetcher",
   "crypto": "Crypto Fetcher",
   "analysis": "Analysis Worker",
@@ -56,12 +60,12 @@ const OWNER_MAP: Record<string, string> = {
 function deriveOwnerFromKey(key: string): string {
   // Handle double underscore separator (e.g., mcp-analysis__query)
   const prefix = key.split(/[:_]{2}|:/)[0];
-  
+
   // Check if we have a custom mapping
   if (OWNER_MAP[prefix]) {
     return OWNER_MAP[prefix];
   }
-  
+
   // Auto-convert: kebab-case or snake_case → Title Case
   return prefix
     .split(/[-_]/)
