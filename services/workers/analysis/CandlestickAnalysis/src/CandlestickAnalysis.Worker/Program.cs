@@ -31,6 +31,10 @@ try
     // Bind configuration
     builder.Services.Configure<DatabaseSettings>(
         builder.Configuration.GetSection("ConnectionStrings"));
+    builder.Services.Configure<RabbitMQSettings>(
+        builder.Configuration.GetSection("RabbitMQ"));
+    builder.Services.Configure<AnalysisBackfillSettings>(
+        builder.Configuration.GetSection("AnalysisBackfill"));
 
     // Register database connection factory
     builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
@@ -43,12 +47,14 @@ try
     builder.Services.AddScoped<IDailyAggregationService, DailyAggregationService>();
     builder.Services.AddScoped<IPatternDetectionService, PatternDetectionService>();
     builder.Services.AddScoped<ICandlestickAnalysisService, CandlestickAnalysisService>();
+    builder.Services.AddScoped<IAnalysisBackfillService, AnalysisBackfillService>();
 
     // Register metrics client for pushing metrics to central metrics service
     builder.Services.AddMetricsClient(builder.Configuration);
 
-    // Register the background worker
+    // Register background workers
     builder.Services.AddHostedService<CandlestickAnalysisWorker>();
+    builder.Services.AddHostedService<AnalysisBackfillQueueConsumer>();
 
     // Add controllers
     builder.Services.AddControllers();

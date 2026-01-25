@@ -21,5 +21,11 @@ public interface IAnalysisRepository
     /// Check if analysis exists for a stock on a date.
     /// </summary>
     Task<bool> ExistsAsync(int stockTickerId, DateOnly date);
+
+    /// <summary>
+    /// Get dates that have already been analyzed for a ticker within a date range.
+    /// Used for backfill to skip dates that are already done.
+    /// </summary>
+    Task<IEnumerable<DateOnly>> GetAnalyzedDatesAsync(int stockTickerId, DateOnly startDate, DateOnly endDate);
 }
 

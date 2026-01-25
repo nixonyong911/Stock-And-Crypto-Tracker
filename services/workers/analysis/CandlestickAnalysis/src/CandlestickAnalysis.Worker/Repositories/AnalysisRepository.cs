@@ -165,5 +165,26 @@ public class AnalysisRepository : IAnalysisRepository
             AnalysisDate = date
         });
     }
+
+    public async Task<IEnumerable<DateOnly>> GetAnalyzedDatesAsync(int stockTickerId, DateOnly startDate, DateOnly endDate)
+    {
+        const string sql = @"
+            SELECT analysis_date
+            FROM analysis_stock_candlestick_pattern
+            WHERE stock_ticker_id = @StockTickerId
+              AND analysis_date >= @StartDate
+              AND analysis_date <= @EndDate
+            ORDER BY analysis_date ASC";
+
+        using var connection = _connectionFactory.CreateConnection();
+        var dates = await connection.QueryAsync<DateTime>(sql, new
+        {
+            StockTickerId = stockTickerId,
+            StartDate = startDate,
+            EndDate = endDate
+        });
+
+        return dates.Select(d => DateOnly.FromDateTime(d));
+    }
 }
 

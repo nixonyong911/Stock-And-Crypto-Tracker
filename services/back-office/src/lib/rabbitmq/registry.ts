@@ -13,6 +13,10 @@ export const QUEUE_REGISTRY: Record<string, QueueMetadata> = {
     owner: "TwelveData Worker",
     description: "Historical data backfill requests (FIFO processing)",
   },
+  "analysis-backfill-queue": {
+    owner: "Candlestick Analysis Worker",
+    description: "Candlestick pattern analysis backfill requests (triggered after price data backfill)",
+  },
   "telegram.messages": {
     owner: "Telegram Bot",
     description: "Incoming user messages awaiting AI processing",

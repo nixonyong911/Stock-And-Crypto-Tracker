@@ -37,6 +37,23 @@ public class StockPriceRepository : IStockPriceRepository
         return await connection.QueryAsync<StockTicker>(sql);
     }
 
+    public async Task<StockTicker?> GetTickerBySymbolAsync(string symbol)
+    {
+        const string sql = @"
+            SELECT 
+                id AS Id,
+                symbol AS Symbol,
+                name AS Name,
+                exchange AS Exchange,
+                is_active AS IsActive
+            FROM stock_tickers
+            WHERE symbol = @Symbol
+            LIMIT 1";
+
+        using var connection = _connectionFactory.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<StockTicker>(sql, new { Symbol = symbol.ToUpperInvariant() });
+    }
+
     public async Task<IEnumerable<StockPrice>> GetPricesForDateAsync(int stockTickerId, DateOnly date)
     {
         // Get all 15-minute candles for the given date
@@ -74,6 +91,30 @@ public class StockPriceRepository : IStockPriceRepository
             prices.Count(), stockTickerId, date);
 
         return prices;
+    }
+
+    public async Task<IEnumerable<DateOnly>> GetDistinctPriceDatesAsync(int stockTickerId, DateOnly startDate, DateOnly endDate)
+    {
+        var startDateTime = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+
+        const string sql = @"
+            SELECT DISTINCT DATE(price_time AT TIME ZONE 'UTC') as price_date
+            FROM stock_prices
+            WHERE stock_ticker_id = @StockTickerId
+              AND price_time >= @StartDate
+              AND price_time <= @EndDate
+            ORDER BY price_date ASC";
+
+        using var connection = _connectionFactory.CreateConnection();
+        var dates = await connection.QueryAsync<DateTime>(sql, new 
+        { 
+            StockTickerId = stockTickerId,
+            StartDate = startDateTime,
+            EndDate = endDateTime
+        });
+
+        return dates.Select(d => DateOnly.FromDateTime(d));
     }
 
     public async Task<AnalysisSchedule?> GetScheduleByDataSourceNameAsync(string dataSourceName)

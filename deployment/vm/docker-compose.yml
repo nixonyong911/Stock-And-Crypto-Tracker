@@ -124,10 +124,16 @@ services:
       - MetricsService__BaseUrl=http://metrics:8080
       - MetricsService__WorkerName=candlestick-analysis
       - MetricsService__Enabled=true
+      # RabbitMQ for analysis backfill queue
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=stocktracker
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - RabbitMQ__QueueName=analysis-backfill-queue
     networks:
       - stocktracker
     depends_on:
       - metrics
+      - rabbitmq
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
       interval: 30s
