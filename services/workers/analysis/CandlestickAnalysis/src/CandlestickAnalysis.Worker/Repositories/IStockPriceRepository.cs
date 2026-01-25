@@ -16,7 +16,7 @@ public interface IStockPriceRepository
     /// Get a ticker by symbol.
     /// </summary>
     Task<StockTicker?> GetTickerBySymbolAsync(string symbol);
-    
+
     /// <summary>
     /// Get 15-minute candles for a specific stock on a specific date.
     /// </summary>
@@ -27,12 +27,12 @@ public interface IStockPriceRepository
     /// Used for backfill to find which dates have data to analyze.
     /// </summary>
     Task<IEnumerable<DateOnly>> GetDistinctPriceDatesAsync(int stockTickerId, DateOnly startDate, DateOnly endDate);
-    
+
     /// <summary>
     /// Get the analysis schedule for CandlestickAnalysis.
     /// </summary>
     Task<AnalysisSchedule?> GetScheduleByDataSourceNameAsync(string dataSourceName);
-    
+
     /// <summary>
     /// Update schedule after run.
     /// </summary>

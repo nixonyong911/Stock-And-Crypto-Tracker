@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "analysis_mcp": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "http://mcp-analysis:8085/mcp", "--allow-http"]
-    }
-  }
-}

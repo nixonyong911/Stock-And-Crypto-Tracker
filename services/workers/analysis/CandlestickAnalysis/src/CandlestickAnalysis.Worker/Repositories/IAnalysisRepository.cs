@@ -11,12 +11,12 @@ public interface IAnalysisRepository
     /// Insert or update an analysis result.
     /// </summary>
     Task UpsertAnalysisAsync(AnalysisResult result);
-    
+
     /// <summary>
     /// Get analysis results for a symbol and date range.
     /// </summary>
     Task<IEnumerable<AnalysisResult>> GetAnalysisAsync(string symbol, DateOnly? startDate, DateOnly? endDate);
-    
+
     /// <summary>
     /// Check if analysis exists for a stock on a date.
     /// </summary>

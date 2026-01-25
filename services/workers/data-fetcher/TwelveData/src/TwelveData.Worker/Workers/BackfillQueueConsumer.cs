@@ -21,7 +21,7 @@ public class BackfillQueueConsumer : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly RabbitMQSettings _rabbitSettings;
     private readonly ILogger<BackfillQueueConsumer> _logger;
-    
+
     private IConnection? _connection;
     private IModel? _channel;
 
@@ -41,10 +41,10 @@ public class BackfillQueueConsumer : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("BackfillQueueConsumer starting...");
-        
+
         // Wait for RabbitMQ to be ready (with retry)
         await WaitForRabbitMQAsync(stoppingToken);
-        
+
         if (stoppingToken.IsCancellationRequested)
             return;
 
@@ -52,7 +52,7 @@ public class BackfillQueueConsumer : BackgroundService
         {
             InitializeRabbitMQ();
             StartConsuming(stoppingToken);
-            
+
             _logger.LogInformation(
                 "BackfillQueueConsumer started - listening on queue: {Queue}",
                 _rabbitSettings.QueueName);
@@ -96,7 +96,7 @@ public class BackfillQueueConsumer : BackgroundService
                 _logger.LogWarning(
                     "RabbitMQ not ready (attempt {Attempt}/{MaxRetries}): {Message}",
                     i + 1, maxRetries, ex.Message);
-                
+
                 if (i < maxRetries - 1)
                 {
                     await Task.Delay(retryDelay, stoppingToken);
@@ -125,7 +125,7 @@ public class BackfillQueueConsumer : BackgroundService
     private void InitializeRabbitMQ()
     {
         var factory = CreateConnectionFactory();
-        
+
         _connection = factory.CreateConnection();
         _channel = _connection.CreateModel();
 
@@ -149,18 +149,18 @@ public class BackfillQueueConsumer : BackgroundService
     private void StartConsuming(CancellationToken stoppingToken)
     {
         var consumer = new EventingBasicConsumer(_channel);
-        
+
         consumer.Received += async (model, ea) =>
         {
             var body = ea.Body.ToArray();
             var message = Encoding.UTF8.GetString(body);
-            
+
             _logger.LogInformation("Received backfill message: {Message}", message);
 
             try
             {
                 var request = JsonSerializer.Deserialize<BackfillRequest>(message);
-                
+
                 if (request == null || string.IsNullOrEmpty(request.Symbol))
                 {
                     _logger.LogWarning("Invalid backfill request received: {Message}", message);
@@ -174,7 +174,7 @@ public class BackfillQueueConsumer : BackgroundService
 
                 // Acknowledge successful processing
                 _channel?.BasicAck(ea.DeliveryTag, multiple: false);
-                
+
                 _logger.LogInformation(
                     "Backfill completed and acknowledged for {Symbol}",
                     request.Symbol);
@@ -188,7 +188,7 @@ public class BackfillQueueConsumer : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing backfill message: {Message}", message);
-                
+
                 // Negative acknowledge - requeue for retry
                 // In production, you might want to implement dead-letter queue for repeated failures
                 _channel?.BasicNack(ea.DeliveryTag, multiple: false, requeue: true);
@@ -227,7 +227,7 @@ public class BackfillQueueConsumer : BackgroundService
             _logger.LogError(
                 "Backfill failed for {Symbol}: {Error}",
                 result.Symbol, result.Error);
-            
+
             // Throw to trigger message requeue
             throw new InvalidOperationException($"Backfill failed for {request.Symbol}: {result.Error}");
         }
@@ -281,7 +281,7 @@ public class BackfillQueueConsumer : BackgroundService
         catch (Exception ex)
         {
             // Log but don't fail - price backfill was successful, analysis can be triggered manually
-            _logger.LogError(ex, 
+            _logger.LogError(ex,
                 "Failed to trigger analysis backfill for {Symbol} - analysis can be triggered manually",
                 priceBackfillRequest.Symbol);
         }
@@ -295,9 +295,9 @@ public class BackfillQueueConsumer : BackgroundService
         _channel?.Dispose();
         _connection?.Close();
         _connection?.Dispose();
-        
+
         _logger.LogInformation("BackfillQueueConsumer disposed");
-        
+
         base.Dispose();
     }
 }

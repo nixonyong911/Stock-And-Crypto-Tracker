@@ -23,7 +23,7 @@ public class StockPriceRepository : IStockPriceRepository
     public async Task<IEnumerable<StockTicker>> GetActiveTickersAsync()
     {
         const string sql = @"
-            SELECT 
+            SELECT
                 id AS Id,
                 symbol AS Symbol,
                 name AS Name,
@@ -40,7 +40,7 @@ public class StockPriceRepository : IStockPriceRepository
     public async Task<StockTicker?> GetTickerBySymbolAsync(string symbol)
     {
         const string sql = @"
-            SELECT 
+            SELECT
                 id AS Id,
                 symbol AS Symbol,
                 name AS Name,
@@ -62,7 +62,7 @@ public class StockPriceRepository : IStockPriceRepository
         var endOfDay = date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
 
         const string sql = @"
-            SELECT 
+            SELECT
                 id AS Id,
                 stock_ticker_id AS StockTickerId,
                 data_source_id AS DataSourceId,
@@ -80,14 +80,14 @@ public class StockPriceRepository : IStockPriceRepository
             ORDER BY price_time ASC";
 
         using var connection = _connectionFactory.CreateConnection();
-        var prices = await connection.QueryAsync<StockPrice>(sql, new 
-        { 
-            StockTickerId = stockTickerId, 
+        var prices = await connection.QueryAsync<StockPrice>(sql, new
+        {
+            StockTickerId = stockTickerId,
             StartOfDay = startOfDay,
             EndOfDay = endOfDay
         });
 
-        _logger.LogDebug("Found {Count} candles for ticker {TickerId} on {Date}", 
+        _logger.LogDebug("Found {Count} candles for ticker {TickerId} on {Date}",
             prices.Count(), stockTickerId, date);
 
         return prices;
@@ -107,8 +107,8 @@ public class StockPriceRepository : IStockPriceRepository
             ORDER BY price_date ASC";
 
         using var connection = _connectionFactory.CreateConnection();
-        var dates = await connection.QueryAsync<DateTime>(sql, new 
-        { 
+        var dates = await connection.QueryAsync<DateTime>(sql, new
+        {
             StockTickerId = stockTickerId,
             StartDate = startDateTime,
             EndDate = endDateTime
@@ -120,7 +120,7 @@ public class StockPriceRepository : IStockPriceRepository
     public async Task<AnalysisSchedule?> GetScheduleByDataSourceNameAsync(string dataSourceName)
     {
         const string sql = @"
-            SELECT 
+            SELECT
                 fs.id AS Id,
                 fs.data_source_id AS DataSourceId,
                 fs.worker_id AS WorkerId,
@@ -154,8 +154,8 @@ public class StockPriceRepository : IStockPriceRepository
             WHERE id = @ScheduleId";
 
         using var connection = _connectionFactory.CreateConnection();
-        await connection.ExecuteAsync(sql, new 
-        { 
+        await connection.ExecuteAsync(sql, new
+        {
             ScheduleId = scheduleId,
             LastRunAt = DateTime.UtcNow,
             Status = status,

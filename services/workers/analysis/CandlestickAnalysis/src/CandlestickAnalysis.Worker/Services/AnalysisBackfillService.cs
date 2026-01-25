@@ -69,12 +69,12 @@ public class AnalysisBackfillService : IAnalysisBackfillService
 
             // Get dates with price data
             var priceDates = (await _stockPriceRepository.GetDistinctPriceDatesAsync(ticker.Id, startDate, endDate)).ToHashSet();
-            
+
             if (priceDates.Count == 0)
             {
-                _logger.LogWarning("No price data found for {Symbol} in date range {Start} to {End}", 
+                _logger.LogWarning("No price data found for {Symbol} in date range {Start} to {End}",
                     request.Symbol, startDate, endDate);
-                
+
                 result.Success = true;
                 result.Duration = stopwatch.Elapsed;
                 return result;
@@ -85,7 +85,7 @@ public class AnalysisBackfillService : IAnalysisBackfillService
 
             // Calculate dates to process (price data exists but not yet analyzed)
             var datesToProcess = priceDates.Except(analyzedDates).OrderBy(d => d).ToList();
-            
+
             result.DatesSkipped = analyzedDates.Count;
 
             _logger.LogInformation(
@@ -109,7 +109,7 @@ public class AnalysisBackfillService : IAnalysisBackfillService
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogWarning("Backfill cancelled for {Symbol} after {Processed} dates", 
+                    _logger.LogWarning("Backfill cancelled for {Symbol} after {Processed} dates",
                         request.Symbol, processedCount);
                     break;
                 }

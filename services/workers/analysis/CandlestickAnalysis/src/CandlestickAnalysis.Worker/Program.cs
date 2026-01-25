@@ -84,7 +84,7 @@ try
     // Add health checks - use same connection settings as DbConnectionFactory
     var baseConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
         ?? "Host=localhost;Port=5432;Database=stocktracker;Username=postgres;Password=postgres";
-    
+
     var healthCheckConnectionString = new NpgsqlConnectionStringBuilder(baseConnectionString)
     {
         CommandTimeout = 30,

@@ -41,7 +41,7 @@ public class AnalysisRepository : IAnalysisRepository
                 @DetectedPatterns::jsonb, @CandlesAggregated, @AnalysisVersion,
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
-            ON CONFLICT (stock_ticker_id, analysis_date) 
+            ON CONFLICT (stock_ticker_id, analysis_date)
             DO UPDATE SET
                 daily_open = EXCLUDED.daily_open,
                 daily_high = EXCLUDED.daily_high,
@@ -85,7 +85,7 @@ public class AnalysisRepository : IAnalysisRepository
     public async Task<IEnumerable<AnalysisResult>> GetAnalysisAsync(string symbol, DateOnly? startDate, DateOnly? endDate)
     {
         var sql = @"
-            SELECT 
+            SELECT
                 a.stock_ticker_id AS StockTickerId,
                 st.symbol AS Symbol,
                 a.analysis_date AS AnalysisDate,
@@ -115,7 +115,7 @@ public class AnalysisRepository : IAnalysisRepository
 
         using var connection = (DbConnection)_connectionFactory.CreateConnection();
         await connection.OpenAsync();  // Explicitly open before query for Supavisor compatibility
-        
+
         // Use strongly-typed query instead of dynamic to avoid Npgsql 8.0 property name issues
         var rows = await connection.QueryAsync<AnalysisDbRow>(sql, new
         {
@@ -152,9 +152,9 @@ public class AnalysisRepository : IAnalysisRepository
     {
         const string sql = @"
             SELECT EXISTS(
-                SELECT 1 
-                FROM analysis_stock_candlestick_pattern 
-                WHERE stock_ticker_id = @StockTickerId 
+                SELECT 1
+                FROM analysis_stock_candlestick_pattern
+                WHERE stock_ticker_id = @StockTickerId
                   AND analysis_date = @AnalysisDate
             )";
 
