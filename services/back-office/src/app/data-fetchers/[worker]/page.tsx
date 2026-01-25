@@ -10,13 +10,12 @@ import {
   CheckCircle, 
   XCircle, 
   Clock, 
-  RefreshCw, 
-  Play,
   Settings,
   Database,
   Activity,
   ExternalLink
 } from "lucide-react";
+import { ApiExplorer } from "@/components/api-explorer";
 
 // Stock ticker type (not cached, loaded on demand)
 interface StockTicker {
@@ -43,8 +42,6 @@ export default function WorkerConfigPage() {
   const [schedule, setSchedule] = useState<FetchSchedule | null>(null);
   const [tickers, setTickers] = useState<StockTicker[]>([]);
   const [loading, setLoading] = useState(true);
-  const [triggerLoading, setTriggerLoading] = useState(false);
-  const [triggerResult, setTriggerResult] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadWorkerDetails() {
@@ -146,44 +143,6 @@ export default function WorkerConfigPage() {
       }
     } catch (err) {
       console.error('Failed to toggle ticker:', err);
-    }
-  };
-
-  const handleTriggerFetchAll = async () => {
-    setTriggerLoading(true);
-    setTriggerResult(null);
-    
-    try {
-      const response = await fetch(
-        `https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/api/fetch/trigger/all`,
-        { method: 'POST' }
-      );
-      
-      const result = await response.json();
-      setTriggerResult(result.message || JSON.stringify(result));
-    } catch (err) {
-      setTriggerResult(`Error: ${err}`);
-    } finally {
-      setTriggerLoading(false);
-    }
-  };
-
-  const handleTriggerFetchSymbol = async (symbol: string) => {
-    setTriggerLoading(true);
-    setTriggerResult(null);
-    
-    try {
-      const response = await fetch(
-        `https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/api/fetch/trigger/${symbol}`,
-        { method: 'POST' }
-      );
-      
-      const result = await response.json();
-      setTriggerResult(result.message || JSON.stringify(result));
-    } catch (err) {
-      setTriggerResult(`Error: ${err}`);
-    } finally {
-      setTriggerLoading(false);
     }
   };
 
@@ -341,40 +300,8 @@ export default function WorkerConfigPage() {
           </CardContent>
         </Card>
 
-        {/* Manual Trigger */}
-        <Card className="border-slate-800 bg-slate-900/50">
-          <CardHeader>
-            <CardTitle className="text-slate-100 flex items-center gap-2">
-              <Play className="w-5 h-5" />
-              Manual Trigger
-            </CardTitle>
-            <CardDescription className="text-slate-400">
-              Manually trigger data fetch operations
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-4">
-              <Button
-                onClick={handleTriggerFetchAll}
-                disabled={triggerLoading}
-                className="bg-cyan-600 hover:bg-cyan-700"
-              >
-                {triggerLoading ? (
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Play className="w-4 h-4 mr-2" />
-                )}
-                Fetch All Tickers
-              </Button>
-            </div>
-            
-            {triggerResult && (
-              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800">
-                <pre className="text-sm text-slate-300 whitespace-pre-wrap">{triggerResult}</pre>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* API Explorer */}
+        <ApiExplorer worker={workerName} />
 
         {/* Tickers Management */}
         <Card className="border-slate-800 bg-slate-900/50">
@@ -409,29 +336,17 @@ export default function WorkerConfigPage() {
                         {ticker.exchange}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleTriggerFetchSymbol(ticker.symbol)}
-                        disabled={triggerLoading}
-                        className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
-                      >
-                        <Play className="w-3 h-3 mr-1" />
-                        Fetch
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleToggleTicker(ticker)}
-                        className={ticker.is_active 
-                          ? "text-emerald-400 hover:text-emerald-300" 
-                          : "text-slate-500 hover:text-slate-400"
-                        }
-                      >
-                        {ticker.is_active ? 'Active' : 'Inactive'}
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleToggleTicker(ticker)}
+                      className={ticker.is_active 
+                        ? "text-emerald-400 hover:text-emerald-300" 
+                        : "text-slate-500 hover:text-slate-400"
+                      }
+                    >
+                      {ticker.is_active ? 'Active' : 'Inactive'}
+                    </Button>
                   </div>
                 ))}
               </div>

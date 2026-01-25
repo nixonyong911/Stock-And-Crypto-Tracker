@@ -10,13 +10,12 @@ import {
   CheckCircle, 
   XCircle, 
   Clock, 
-  RefreshCw, 
-  Play,
   Settings,
   BarChart3,
   Activity,
   ExternalLink
 } from "lucide-react";
+import { ApiExplorer } from "@/components/api-explorer";
 
 interface WorkerDetails extends WorkerRegistry {
   healthStatus?: 'healthy' | 'unhealthy' | 'unknown';
@@ -29,8 +28,6 @@ export default function AnalysisWorkerPage() {
   const [worker, setWorker] = useState<WorkerDetails | null>(null);
   const [schedule, setSchedule] = useState<FetchSchedule | null>(null);
   const [loading, setLoading] = useState(true);
-  const [triggerLoading, setTriggerLoading] = useState(false);
-  const [triggerResult, setTriggerResult] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadWorkerDetails() {
@@ -103,28 +100,6 @@ export default function AnalysisWorkerPage() {
       }
     } catch (err) {
       console.error('Failed to toggle schedule:', err);
-    }
-  };
-
-  const handleTriggerAnalysis = async () => {
-    setTriggerLoading(true);
-    setTriggerResult(null);
-    
-    try {
-      // Use the worker's trigger endpoint if available
-      const triggerEndpoint = worker?.health_endpoint?.replace('/health', '/trigger') 
-        || `/api/analysis/api/analyze/trigger/all`;
-      const response = await fetch(
-        `https://nxserver.malaysiawest.cloudapp.azure.com${triggerEndpoint}`,
-        { method: 'POST' }
-      );
-      
-      const result = await response.json();
-      setTriggerResult(result.message || JSON.stringify(result));
-    } catch (err) {
-      setTriggerResult(`Error: ${err}`);
-    } finally {
-      setTriggerLoading(false);
     }
   };
 
@@ -282,40 +257,8 @@ export default function AnalysisWorkerPage() {
           </CardContent>
         </Card>
 
-        {/* Manual Trigger */}
-        <Card className="border-slate-800 bg-slate-900/50">
-          <CardHeader>
-            <CardTitle className="text-slate-100 flex items-center gap-2">
-              <Play className="w-5 h-5" />
-              Manual Trigger
-            </CardTitle>
-            <CardDescription className="text-slate-400">
-              Manually trigger analysis operations
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-4">
-              <Button
-                onClick={handleTriggerAnalysis}
-                disabled={triggerLoading}
-                className="bg-violet-600 hover:bg-violet-700"
-              >
-                {triggerLoading ? (
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Play className="w-4 h-4 mr-2" />
-                )}
-                Run Analysis
-              </Button>
-            </div>
-            
-            {triggerResult && (
-              <div className="p-4 rounded-lg bg-slate-950 border border-slate-800">
-                <pre className="text-sm text-slate-300 whitespace-pre-wrap">{triggerResult}</pre>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* API Explorer */}
+        <ApiExplorer worker={workerName} />
 
         {/* Monitoring */}
         <Card className="border-slate-800 bg-slate-900/50">
