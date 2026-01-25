@@ -1,47 +1,92 @@
 /**
  * Queue registry for RabbitMQ monitoring UI
- * Maps queue names to their metadata for display
+ * Fully automatic discovery with optional manual overrides
  */
 
 export interface QueueMetadata {
   owner: string;
-  description: string;
+  description: string | null;
 }
 
-export const QUEUE_REGISTRY: Record<string, QueueMetadata> = {
+/**
+ * Optional registry for enhanced metadata (descriptions)
+ * Queues not in this registry will still be discovered automatically
+ */
+export const QUEUE_REGISTRY: Record<string, Partial<QueueMetadata>> = {
   "backfill-queue": {
-    owner: "TwelveData Worker",
     description: "Historical data backfill requests (FIFO processing)",
   },
   "ticker-add-queue": {
-    owner: "TwelveData Worker",
     description: "New ticker registration requests (adds stocks/crypto to tracking)",
   },
   "analysis-backfill-queue": {
-    owner: "Candlestick Analysis Worker",
     description: "Candlestick pattern analysis backfill requests (triggered after price data backfill)",
   },
   "telegram.messages": {
-    owner: "Telegram Bot",
     description: "Incoming user messages awaiting AI processing",
   },
   "telegram.dlq": {
-    owner: "Telegram Bot",
     description: "Dead letter queue - failed messages after max retries",
   },
 };
 
 /**
- * Get metadata for a queue by name
+ * Map of queue name prefixes to friendly owner names
+ * Add new services here for custom naming, otherwise auto-derived from prefix
  */
-export function getQueueMetadata(queueName: string): QueueMetadata | null {
-  return QUEUE_REGISTRY[queueName] ?? null;
+const OWNER_MAP: Record<string, string> = {
+  "backfill": "TwelveData Worker",
+  "ticker": "TwelveData Worker",
+  "analysis": "Candlestick Analysis Worker",
+  "telegram": "Telegram Bot",
+  "ai-hub": "AI Hub",
+};
+
+/**
+ * Auto-derive owner from queue name prefix
+ * Handles formats: "prefix-queue", "prefix.queue", "prefix_queue"
+ */
+function deriveOwnerFromQueue(queueName: string): string {
+  // Extract prefix (before first separator: - . or _)
+  const prefix = queueName.split(/[-._]/)[0];
+
+  // Check if we have a custom mapping
+  if (OWNER_MAP[prefix]) {
+    return OWNER_MAP[prefix];
+  }
+
+  // Auto-convert: kebab-case or snake_case → Title Case + " Worker"
+  const titleCase = prefix
+    .split(/[-_]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+  
+  return `${titleCase} Worker`;
 }
 
 /**
- * Get the owner of a queue
+ * Get metadata for a queue
+ * Fully automatic - always returns metadata (derived if not in registry)
+ */
+export function getQueueMetadata(queueName: string): QueueMetadata {
+  // Default auto-derived metadata
+  const autoMetadata: QueueMetadata = {
+    owner: deriveOwnerFromQueue(queueName),
+    description: null,
+  };
+
+  // Try exact match in registry for enhanced metadata
+  if (QUEUE_REGISTRY[queueName]) {
+    return { ...autoMetadata, ...QUEUE_REGISTRY[queueName] };
+  }
+
+  // Return auto-derived metadata (fully automatic)
+  return autoMetadata;
+}
+
+/**
+ * Get the owner of a queue (always returns a value)
  */
 export function getQueueOwner(queueName: string): string {
-  const metadata = getQueueMetadata(queueName);
-  return metadata?.owner ?? "Unknown";
+  return getQueueMetadata(queueName).owner;
 }
