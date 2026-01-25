@@ -15,7 +15,7 @@ import {
   Activity,
   ExternalLink
 } from "lucide-react";
-import { ApiExplorer } from "@/components/api-explorer";
+import { FileCode2 } from "lucide-react";
 
 // Stock ticker type (not cached, loaded on demand)
 interface StockTicker {
@@ -267,41 +267,74 @@ export default function WorkerConfigPage() {
           </Card>
         </div>
 
-        {/* Schedule Configuration */}
-        <Card className="border-slate-800 bg-slate-900/50">
-          <CardHeader>
-            <CardTitle className="text-slate-100 flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Schedule Configuration
-            </CardTitle>
-            <CardDescription className="text-slate-400">
-              Enable/disable scheduled fetching
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-200">Automatic Daily Fetch</p>
-                <p className="text-sm text-slate-500">
-                  Fetches data daily at {schedule?.schedule_time || '22:00:00'} {schedule?.schedule_timezone || 'America/New_York'}
-                </p>
+        {/* Schedule Configuration + Swagger Button */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Schedule Configuration */}
+          <Card className="border-slate-800 bg-slate-900/50">
+            <CardHeader>
+              <CardTitle className="text-slate-100 flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Schedule Configuration
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Enable/disable scheduled fetching
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-200">Automatic Daily Fetch</p>
+                  <p className="text-sm text-slate-500">
+                    Fetches data daily at {schedule?.schedule_time || '22:00:00'} {schedule?.schedule_timezone || 'America/New_York'}
+                  </p>
+                </div>
+                <Button
+                  onClick={handleToggleSchedule}
+                  variant={schedule?.is_enabled ? "default" : "secondary"}
+                  className={schedule?.is_enabled
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-slate-700 hover:bg-slate-600"
+                  }
+                >
+                  {schedule?.is_enabled ? 'Enabled' : 'Disabled'}
+                </Button>
               </div>
-              <Button
-                onClick={handleToggleSchedule}
-                variant={schedule?.is_enabled ? "default" : "secondary"}
-                className={schedule?.is_enabled
-                  ? "bg-emerald-600 hover:bg-emerald-700"
-                  : "bg-slate-700 hover:bg-slate-600"
-                }
-              >
-                {schedule?.is_enabled ? 'Enabled' : 'Disabled'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* API Explorer */}
-        <ApiExplorer worker={workerName} />
+          {/* API Documentation */}
+          <Card className="border-slate-800 bg-slate-900/50">
+            <CardHeader>
+              <CardTitle className="text-slate-100 flex items-center gap-2">
+                <FileCode2 className="w-5 h-5" />
+                API Documentation
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Explore available endpoints via Swagger UI
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-200">Swagger UI</p>
+                  <p className="text-sm text-slate-500">
+                    Interactive API documentation and testing
+                  </p>
+                </div>
+                <a
+                  href={`https://nxserver.malaysiawest.cloudapp.azure.com/${workerName}/swagger`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button className="bg-cyan-600 hover:bg-cyan-700">
+                    Open Swagger
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </Button>
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Tickers Management */}
         <Card className="border-slate-800 bg-slate-900/50">
