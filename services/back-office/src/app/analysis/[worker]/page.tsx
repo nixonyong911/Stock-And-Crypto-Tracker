@@ -284,7 +284,7 @@ export default function AnalysisWorkerPage() {
                   </p>
                 </div>
                 <a
-                  href={`https://nxserver.malaysiawest.cloudapp.azure.com${SWAGGER_PATHS[workerName] || `/${workerName}`}/swagger`}
+                  href={`https://nxserver.malaysiawest.cloudapp.azure.com${SWAGGER_PATHS[workerName] || `/${workerName}`}/swagger/`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
