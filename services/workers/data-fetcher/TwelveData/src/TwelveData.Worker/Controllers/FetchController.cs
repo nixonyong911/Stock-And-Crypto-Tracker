@@ -177,6 +177,135 @@ public class FetchController : ControllerBase
         });
     }
 
+    // ==================== CRYPTO ENDPOINTS ====================
+
+    /// <summary>
+    /// Trigger fetch for a specific crypto symbol. Creates the ticker if it doesn't exist.
+    /// </summary>
+    /// <param name="symbol">Crypto symbol (e.g., BTC/USD, ETH/USD)</param>
+    /// <param name="date">Optional date to fetch. Format: "YYYY-MM-DD" or "yesterday". Defaults to "yesterday".</param>
+    [HttpPost("crypto/trigger/{symbol}")]
+    [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<FetchResponse>> TriggerCryptoFetchSymbol(
+        string symbol,
+        [FromQuery] string? date = null)
+    {
+        if (string.IsNullOrWhiteSpace(symbol))
+        {
+            return BadRequest(new FetchResponse
+            {
+                Success = false,
+                Message = "Symbol is required."
+            });
+        }
+
+        symbol = symbol.ToUpperInvariant();
+        var fetchDate = string.IsNullOrWhiteSpace(date) ? "yesterday" : date;
+
+        _logger.LogInformation("Manual crypto fetch triggered for symbol {Symbol} with date {Date} via API", symbol, fetchDate);
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var cryptoFetchService = scope.ServiceProvider.GetRequiredService<ICryptoFetchService>();
+
+            var recordsInserted = await cryptoFetchService.FetchSymbolAsync(symbol, date);
+
+            return Ok(new FetchResponse
+            {
+                Success = true,
+                Message = $"Fetched {recordsInserted} records for crypto symbol {symbol} (date: {fetchDate}).",
+                RecordsInserted = recordsInserted,
+                Symbol = symbol,
+                Date = fetchDate
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Configuration error fetching crypto symbol {Symbol}", symbol);
+            return BadRequest(new FetchResponse
+            {
+                Success = false,
+                Message = ex.Message,
+                Symbol = symbol,
+                Date = fetchDate
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "API error fetching crypto symbol {Symbol}", symbol);
+            return BadRequest(new FetchResponse
+            {
+                Success = false,
+                Message = $"TwelveData API error: {ex.Message}",
+                Symbol = symbol,
+                Date = fetchDate
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching crypto symbol {Symbol}", symbol);
+            return StatusCode(500, new FetchResponse
+            {
+                Success = false,
+                Message = $"Internal error: {ex.Message}",
+                Symbol = symbol,
+                Date = fetchDate
+            });
+        }
+    }
+
+    /// <summary>
+    /// Trigger fetch for all active crypto tickers. Useful for cron jobs and batch operations.
+    /// </summary>
+    /// <param name="date">Optional date to fetch. Format: "YYYY-MM-DD" or "yesterday". Defaults to "yesterday".</param>
+    [HttpPost("crypto/trigger/all")]
+    [ProducesResponseType(typeof(BatchFetchResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(BatchFetchResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<BatchFetchResponse>> TriggerCryptoFetchAll([FromQuery] string? date = null)
+    {
+        var fetchDate = string.IsNullOrWhiteSpace(date) ? "yesterday" : date;
+
+        _logger.LogInformation("Crypto batch fetch triggered for all active tickers with date {Date} via API", fetchDate);
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var cryptoFetchService = scope.ServiceProvider.GetRequiredService<ICryptoFetchService>();
+
+            var result = await cryptoFetchService.FetchAllActiveTickersAsync(date);
+
+            return Ok(new BatchFetchResponse
+            {
+                Success = result.FailedCount == 0,
+                Message = $"Crypto batch fetch completed: {result.SuccessCount} succeeded, {result.FailedCount} failed, {result.TotalRecordsInserted} records inserted.",
+                Date = fetchDate,
+                SuccessCount = result.SuccessCount,
+                FailedCount = result.FailedCount,
+                TotalRecordsInserted = result.TotalRecordsInserted,
+                Results = result.SymbolResults.Select(r => new SymbolFetchResult
+                {
+                    Symbol = r.Symbol,
+                    Success = r.Success,
+                    RecordsInserted = r.RecordsInserted,
+                    Error = r.Error
+                }).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during crypto batch fetch");
+            return StatusCode(500, new BatchFetchResponse
+            {
+                Success = false,
+                Message = $"Crypto batch fetch error: {ex.Message}",
+                Date = fetchDate
+            });
+        }
+    }
+
     /// <summary>
     /// Queue a historical backfill request for a symbol.
     /// This endpoint is designed to be called by Supabase webhook when a new ticker is added.
