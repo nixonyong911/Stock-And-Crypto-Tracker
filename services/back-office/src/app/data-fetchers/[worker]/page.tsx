@@ -11,6 +11,7 @@ import {
   XCircle,
   Clock,
   Database,
+  Activity,
   ExternalLink
 } from "lucide-react";
 import { FileCode2 } from "lucide-react";
