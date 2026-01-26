@@ -454,6 +454,145 @@ public class FetchController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Webhook endpoint for Supabase database trigger on crypto_tickers table.
+    /// Called when a new row is inserted into crypto_tickers table.
+    /// </summary>
+    [HttpPost("webhook/new-crypto-ticker")]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status400BadRequest)]
+    public ActionResult<BackfillResponse> HandleNewCryptoTickerWebhook([FromBody] CryptoSupabaseWebhookPayload? payload)
+    {
+        if (payload?.Record == null)
+        {
+            _logger.LogWarning("Received crypto webhook with null or invalid payload");
+            return BadRequest(new BackfillResponse
+            {
+                Success = false,
+                Message = "Invalid webhook payload"
+            });
+        }
+
+        var symbol = payload.Record.Symbol;
+
+        if (string.IsNullOrWhiteSpace(symbol))
+        {
+            _logger.LogWarning("Received crypto webhook with empty symbol");
+            return BadRequest(new BackfillResponse
+            {
+                Success = false,
+                Message = "Symbol is required in webhook payload"
+            });
+        }
+
+        _logger.LogInformation(
+            "Crypto webhook received: New ticker {Symbol} (type: {Type})",
+            symbol, payload.Type);
+
+        // Only process INSERT events
+        if (payload.Type != "INSERT")
+        {
+            _logger.LogInformation("Ignoring non-INSERT crypto webhook event: {Type}", payload.Type);
+            return Ok(new BackfillResponse
+            {
+                Success = true,
+                Message = $"Ignored {payload.Type} event - only INSERT triggers backfill"
+            });
+        }
+
+        try
+        {
+            var request = new CryptoBackfillRequest
+            {
+                Symbol = symbol.ToUpperInvariant(),
+                RequestedAt = DateTime.UtcNow,
+                TickerId = payload.Record.Id
+            };
+
+            PublishToCryptoQueue(request);
+
+            return Accepted(new BackfillResponse
+            {
+                Success = true,
+                Message = $"Crypto backfill queued for new ticker {symbol}",
+                Symbol = symbol,
+                QueuedAt = request.RequestedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to queue crypto backfill from webhook for {Symbol}", symbol);
+
+            return StatusCode(500, new BackfillResponse
+            {
+                Success = false,
+                Message = $"Failed to queue crypto backfill: {ex.Message}",
+                Symbol = symbol
+            });
+        }
+    }
+
+    /// <summary>
+    /// Queue a crypto historical backfill request for a symbol.
+    /// </summary>
+    /// <param name="symbol">Crypto symbol (e.g., BTC/USD, ETH/USD)</param>
+    [HttpPost("crypto/backfill/{symbol}")]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status500InternalServerError)]
+    public ActionResult<BackfillResponse> QueueCryptoBackfill(string symbol)
+    {
+        if (string.IsNullOrWhiteSpace(symbol))
+        {
+            return BadRequest(new BackfillResponse
+            {
+                Success = false,
+                Message = "Symbol is required."
+            });
+        }
+
+        // Normalize symbol: btc -> BTC/USD
+        symbol = symbol.ToUpperInvariant().Trim();
+        if (!symbol.Contains('/'))
+        {
+            symbol = $"{symbol}/USD";
+        }
+
+        _logger.LogInformation(
+            "Crypto backfill request received for {Symbol} - queuing to RabbitMQ",
+            symbol);
+
+        try
+        {
+            var request = new CryptoBackfillRequest
+            {
+                Symbol = symbol,
+                RequestedAt = DateTime.UtcNow
+            };
+
+            PublishToCryptoQueue(request);
+
+            return Accepted(new BackfillResponse
+            {
+                Success = true,
+                Message = $"Crypto backfill request queued for {symbol}. Processing will begin shortly.",
+                Symbol = symbol,
+                QueuedAt = request.RequestedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to queue crypto backfill request for {Symbol}", symbol);
+
+            return StatusCode(500, new BackfillResponse
+            {
+                Success = false,
+                Message = $"Failed to queue crypto backfill request: {ex.Message}",
+                Symbol = symbol
+            });
+        }
+    }
+
     private void PublishToQueue(BackfillRequest request)
     {
         var factory = new ConnectionFactory
@@ -492,6 +631,46 @@ public class FetchController : ControllerBase
         _logger.LogInformation(
             "Published backfill request to queue: {Symbol} (queue: {Queue})",
             request.Symbol, _rabbitSettings.QueueName);
+    }
+
+    private void PublishToCryptoQueue(CryptoBackfillRequest request)
+    {
+        var factory = new ConnectionFactory
+        {
+            HostName = _rabbitSettings.HostName,
+            UserName = _rabbitSettings.UserName,
+            Password = _rabbitSettings.Password,
+            Port = _rabbitSettings.Port
+        };
+
+        using var connection = factory.CreateConnection();
+        using var channel = connection.CreateModel();
+
+        // Ensure crypto queue exists
+        channel.QueueDeclare(
+            queue: _rabbitSettings.CryptoQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null);
+
+        var message = JsonSerializer.Serialize(request);
+        var body = Encoding.UTF8.GetBytes(message);
+
+        // Publish with persistent delivery mode
+        var properties = channel.CreateBasicProperties();
+        properties.Persistent = true;
+        properties.ContentType = "application/json";
+
+        channel.BasicPublish(
+            exchange: string.Empty,
+            routingKey: _rabbitSettings.CryptoQueueName,
+            basicProperties: properties,
+            body: body);
+
+        _logger.LogInformation(
+            "Published crypto backfill request to queue: {Symbol} (queue: {Queue})",
+            request.Symbol, _rabbitSettings.CryptoQueueName);
     }
 }
 

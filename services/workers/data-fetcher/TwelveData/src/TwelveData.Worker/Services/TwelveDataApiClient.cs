@@ -343,26 +343,48 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     {
         // Resolve "yesterday" to actual date for TwelveData API
         var resolvedDate = ResolveFetchDate(config.FetchDate);
-        
+
         // Note: Crypto doesn't use exchange parameter - TwelveData aggregates across exchanges
-        return $"/time_series?symbol={Uri.EscapeDataString(symbol)}" +
+        var url = $"/time_series?symbol={Uri.EscapeDataString(symbol)}" +
                $"&interval={config.Interval}" +
-               $"&date={resolvedDate}" +
                $"&timezone={config.Timezone}" +
                $"&outputsize={config.OutputSize}" +
                $"&apikey={_settings.ApiKey}";
+
+        // Use end_date for backfill pagination, otherwise use date for daily fetch
+        if (!string.IsNullOrEmpty(config.EndDate))
+        {
+            url += $"&end_date={Uri.EscapeDataString(config.EndDate)}";
+        }
+        else
+        {
+            url += $"&date={resolvedDate}";
+        }
+
+        return url;
     }
 
     private string BuildCryptoTimeSeriesUrlForLogging(string symbol, CryptoFetchConfig config)
     {
         var resolvedDate = ResolveFetchDate(config.FetchDate);
-        
-        return $"/time_series?symbol={Uri.EscapeDataString(symbol)}" +
+
+        var url = $"/time_series?symbol={Uri.EscapeDataString(symbol)}" +
                $"&interval={config.Interval}" +
-               $"&date={resolvedDate}" +
                $"&timezone={config.Timezone}" +
                $"&outputsize={config.OutputSize}" +
                $"&apikey=***REDACTED***";
+
+        // Use end_date for backfill pagination, otherwise use date for daily fetch
+        if (!string.IsNullOrEmpty(config.EndDate))
+        {
+            url += $"&end_date={Uri.EscapeDataString(config.EndDate)}";
+        }
+        else
+        {
+            url += $"&date={resolvedDate}";
+        }
+
+        return url;
     }
 
     /// <summary>

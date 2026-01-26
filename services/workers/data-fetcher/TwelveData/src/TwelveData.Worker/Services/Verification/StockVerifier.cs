@@ -29,7 +29,7 @@ public class StockVerifier : IAssetVerifier
         _settings = settings.Value;
         _rateLimiter = rateLimiter;
         _logger = logger;
-        
+
         _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
     }
 
@@ -39,12 +39,12 @@ public class StockVerifier : IAssetVerifier
         {
             // Acquire rate limit slot (external caller)
             var rateLimitResult = await _rateLimiter.AcquireAsync("external", cancellationToken);
-            
+
             if (rateLimitResult.Status == RateLimitStatus.Queued)
             {
                 return VerificationResult.Error(AssetType, symbol, "Daily rate limit reached. Please try again tomorrow.");
             }
-            
+
             if (rateLimitResult.Status == RateLimitStatus.Failed)
             {
                 return VerificationResult.Error(AssetType, symbol, rateLimitResult.ErrorMessage ?? "Rate limit check failed");
@@ -52,33 +52,33 @@ public class StockVerifier : IAssetVerifier
 
             // Call Twelve Data /stocks endpoint with symbol filter
             var url = $"/stocks?symbol={symbol.ToUpperInvariant()}&country=us&apikey={_settings.ApiKey}";
-            
+
             _logger.LogDebug("Verifying stock symbol {Symbol} via Twelve Data", symbol);
-            
+
             var response = await _httpClient.GetAsync(url, cancellationToken);
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Twelve Data /stocks returned {StatusCode}: {Content}", response.StatusCode, content);
                 return VerificationResult.Error(AssetType, symbol, $"API error: {response.StatusCode}");
             }
-            
+
             var stocksResponse = JsonSerializer.Deserialize<StocksResponse>(content);
-            
+
             if (stocksResponse?.Data == null || stocksResponse.Data.Count == 0)
             {
                 _logger.LogInformation("Stock symbol {Symbol} not found in Twelve Data catalog", symbol);
                 return VerificationResult.NotFound(AssetType, symbol);
             }
-            
+
             // Symbol found - return first match
             var stock = stocksResponse.Data[0];
-            
+
             _logger.LogInformation(
                 "Stock symbol {Symbol} verified: {Name} on {Exchange} ({Currency})",
                 symbol, stock.Name, stock.Exchange, stock.Currency);
-            
+
             return VerificationResult.Success(
                 AssetType,
                 stock.Symbol,

@@ -35,6 +35,9 @@ public class CryptoVerifier : IAssetVerifier
 
     public async Task<VerificationResult> VerifyAsync(string symbol, CancellationToken cancellationToken = default)
     {
+        // Normalize symbol: btc -> BTC/USD, eth -> ETH/USD
+        symbol = NormalizeCryptoSymbol(symbol);
+
         try
         {
             // Acquire rate limit slot (external caller)
@@ -51,8 +54,8 @@ public class CryptoVerifier : IAssetVerifier
             }
 
             // Call Twelve Data /cryptocurrencies endpoint with symbol filter
-            // Crypto symbols are typically in format "BTC/USD"
-            var url = $"/cryptocurrencies?symbol={symbol.ToUpperInvariant()}&apikey={_settings.ApiKey}";
+            // Symbol is already normalized to BTC/USD format
+            var url = $"/cryptocurrencies?symbol={symbol}&apikey={_settings.ApiKey}";
             
             _logger.LogDebug("Verifying crypto symbol {Symbol} via Twelve Data", symbol);
             
@@ -100,5 +103,22 @@ public class CryptoVerifier : IAssetVerifier
             _logger.LogError(ex, "Error verifying crypto symbol {Symbol}", symbol);
             return VerificationResult.Error(AssetType, symbol, $"Verification error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Normalizes crypto symbol to uppercase with /USD quote currency.
+    /// Examples: btc -> BTC/USD, ETH -> ETH/USD, btc/usd -> BTC/USD
+    /// </summary>
+    private static string NormalizeCryptoSymbol(string symbol)
+    {
+        symbol = symbol.ToUpperInvariant().Trim();
+
+        // If no slash present, append /USD
+        if (!symbol.Contains('/'))
+        {
+            symbol = $"{symbol}/USD";
+        }
+
+        return symbol;
     }
 }

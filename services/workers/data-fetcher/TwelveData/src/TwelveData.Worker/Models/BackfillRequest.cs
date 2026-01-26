@@ -102,3 +102,84 @@ public class TickerRecord
     [JsonPropertyName("created_at")]
     public DateTime? CreatedAt { get; set; }
 }
+
+// ==================== CRYPTO MODELS ====================
+
+/// <summary>
+/// Message model for RabbitMQ crypto backfill queue
+/// </summary>
+public class CryptoBackfillRequest
+{
+    /// <summary>
+    /// Crypto symbol to backfill (e.g., "BTC/USD", "ETH/USD")
+    /// </summary>
+    [JsonPropertyName("symbol")]
+    public string Symbol { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Timestamp when the request was created
+    /// </summary>
+    [JsonPropertyName("requested_at")]
+    public DateTime RequestedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Optional: Crypto ticker ID from database (if known)
+    /// </summary>
+    [JsonPropertyName("ticker_id")]
+    public int? TickerId { get; set; }
+}
+
+/// <summary>
+/// Result model for crypto backfill operation
+/// </summary>
+public class CryptoBackfillResult
+{
+    public string Symbol { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public int TotalRecordsInserted { get; set; }
+    public int BatchesProcessed { get; set; }
+    public TimeSpan Duration { get; set; }
+    public string? Error { get; set; }
+}
+
+/// <summary>
+/// Supabase database webhook payload model for crypto_tickers
+/// </summary>
+public class CryptoSupabaseWebhookPayload
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = string.Empty;  // INSERT, UPDATE, DELETE
+
+    [JsonPropertyName("table")]
+    public string Table { get; set; } = string.Empty;
+
+    [JsonPropertyName("schema")]
+    public string Schema { get; set; } = string.Empty;
+
+    [JsonPropertyName("record")]
+    public CryptoTickerRecord? Record { get; set; }
+
+    [JsonPropertyName("old_record")]
+    public CryptoTickerRecord? OldRecord { get; set; }
+}
+
+/// <summary>
+/// Record from crypto_tickers table
+/// </summary>
+public class CryptoTickerRecord
+{
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+
+    [JsonPropertyName("symbol")]
+    public string Symbol { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("is_active")]
+    public bool IsActive { get; set; }
+
+    [JsonPropertyName("created_at")]
+    public DateTime? CreatedAt { get; set; }
+}

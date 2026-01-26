@@ -29,7 +29,7 @@ public class EtfVerifier : IAssetVerifier
         _settings = settings.Value;
         _rateLimiter = rateLimiter;
         _logger = logger;
-        
+
         _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
     }
 
@@ -39,12 +39,12 @@ public class EtfVerifier : IAssetVerifier
         {
             // Acquire rate limit slot (external caller)
             var rateLimitResult = await _rateLimiter.AcquireAsync("external", cancellationToken);
-            
+
             if (rateLimitResult.Status == RateLimitStatus.Queued)
             {
                 return VerificationResult.Error(AssetType, symbol, "Daily rate limit reached. Please try again tomorrow.");
             }
-            
+
             if (rateLimitResult.Status == RateLimitStatus.Failed)
             {
                 return VerificationResult.Error(AssetType, symbol, rateLimitResult.ErrorMessage ?? "Rate limit check failed");
@@ -52,33 +52,33 @@ public class EtfVerifier : IAssetVerifier
 
             // Call Twelve Data /etf endpoint with symbol filter
             var url = $"/etf?symbol={symbol.ToUpperInvariant()}&country=us&apikey={_settings.ApiKey}";
-            
+
             _logger.LogDebug("Verifying ETF symbol {Symbol} via Twelve Data", symbol);
-            
+
             var response = await _httpClient.GetAsync(url, cancellationToken);
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Twelve Data /etf returned {StatusCode}: {Content}", response.StatusCode, content);
                 return VerificationResult.Error(AssetType, symbol, $"API error: {response.StatusCode}");
             }
-            
+
             var etfResponse = JsonSerializer.Deserialize<EtfResponse>(content);
-            
+
             if (etfResponse?.Data == null || etfResponse.Data.Count == 0)
             {
                 _logger.LogInformation("ETF symbol {Symbol} not found in Twelve Data catalog", symbol);
                 return VerificationResult.NotFound(AssetType, symbol);
             }
-            
+
             // Symbol found - return first match
             var etf = etfResponse.Data[0];
-            
+
             _logger.LogInformation(
                 "ETF symbol {Symbol} verified: {Name} on {Exchange} ({Currency})",
                 symbol, etf.Name, etf.Exchange, etf.Currency);
-            
+
             return VerificationResult.Success(
                 AssetType,
                 etf.Symbol,
