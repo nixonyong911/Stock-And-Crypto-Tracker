@@ -13,7 +13,8 @@ public class SwaggerTagDescriptionsFilter : IDocumentFilter
         swaggerDoc.Tags = new List<OpenApiTag>
         {
             new() { Name = "Fetch", Description = "Endpoints for fetching stock and crypto price data from TwelveData API" },
-            new() { Name = "Ticker", Description = "Manage stock, ETF, and crypto tickers with rate-limited verification" }
+            new() { Name = "Ticker", Description = "Manage stock, ETF, and crypto tickers with rate-limited verification" },
+            new() { Name = "TwelveData.Worker", Description = "Service info and root endpoint" }
         };
     }
 }

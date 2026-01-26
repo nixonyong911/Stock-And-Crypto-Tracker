@@ -127,8 +127,10 @@ try
         // Custom CSS: align tag descriptions to the right
         c.HeadContent = @"
             <style>
-                .opblock-tag { display: flex; justify-content: space-between; align-items: center; }
-                .opblock-tag small { margin-left: auto; text-align: right; font-style: italic; color: #6b6b6b; }
+                .opblock-tag { display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; }
+                .opblock-tag > a { flex-shrink: 0; }
+                .opblock-tag > small { flex-grow: 1; text-align: right !important; padding-right: 50px; font-style: italic; color: #6b6b6b; }
+                .opblock-tag-section { width: 100%; }
             </style>";
     });
 
