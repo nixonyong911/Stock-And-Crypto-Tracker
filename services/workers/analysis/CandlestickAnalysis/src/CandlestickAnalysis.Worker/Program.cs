@@ -80,6 +80,9 @@ try
             Description = "Candlestick Analysis API (via Caddy reverse proxy)"
         });
 
+        // Add tag descriptions for endpoint groups
+        c.DocumentFilter<CandlestickAnalysis.Worker.SwaggerTagDescriptionsFilter>();
+
         // Include XML comments for endpoint descriptions
         var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
         var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);

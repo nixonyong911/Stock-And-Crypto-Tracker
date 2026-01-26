@@ -36,6 +36,8 @@ try
         builder.Configuration.GetSection("RabbitMQ"));
     builder.Services.Configure<BackfillSettings>(
         builder.Configuration.GetSection("Backfill"));
+    builder.Services.Configure<CryptoBackfillSettings>(
+        builder.Configuration.GetSection("CryptoBackfill"));
     builder.Services.Configure<RedisSettings>(
         builder.Configuration.GetSection("Redis"));
 
@@ -78,6 +80,7 @@ try
     builder.Services.AddScoped<IHistoricalBackfillService, HistoricalBackfillService>();
     builder.Services.AddScoped<ITickerManagementService, TickerManagementService>();
     builder.Services.AddScoped<ICryptoFetchService, CryptoFetchService>();
+    builder.Services.AddScoped<ICryptoBackfillService, CryptoBackfillService>();
 
     // Register crypto price repository
     builder.Services.AddScoped<ICryptoPriceRepository, CryptoPriceRepository>();
@@ -89,6 +92,7 @@ try
     builder.Services.AddHostedService<StockFetchWorker>();
     builder.Services.AddHostedService<CryptoFetchWorker>();
     builder.Services.AddHostedService<BackfillQueueConsumer>();
+    builder.Services.AddHostedService<CryptoBackfillQueueConsumer>();
     builder.Services.AddHostedService<TickerAddQueueConsumer>();
 
     // Add controllers with JSON enum string conversion
@@ -119,9 +123,8 @@ try
             Description = "TwelveData API (via Caddy reverse proxy)"
         });
 
-        // Add tag descriptions for controller groups
-        c.TagActionsBy(api => new[] { api.GroupName ?? api.ActionDescriptor.RouteValues["controller"] });
-        c.DocInclusionPredicate((_, _) => true);
+        // Add tag descriptions for endpoint groups
+        c.DocumentFilter<TwelveData.Worker.SwaggerTagDescriptionsFilter>();
 
         // Include XML comments
         var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
