@@ -144,7 +144,7 @@ export async function createLinkToken(
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-  const { error } = await supabase.from("link_tokens").insert({
+  const { error } = await supabase.from("users_link_tokens").insert({
     token,
     user_id: direction === "web_to_telegram" ? userId : null,
     telegram_user_id: null,
@@ -161,7 +161,7 @@ export async function createLinkToken(
 export async function verifyLinkToken(token: string): Promise<LinkToken | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
-    .from("link_tokens")
+    .from("users_link_tokens")
     .select("*")
     .eq("token", token)
     .is("used_at", null)
@@ -201,7 +201,7 @@ export async function linkTelegramAccount(
 
   // Mark token as used
   const { error: tokenError } = await supabase
-    .from("link_tokens")
+    .from("users_link_tokens")
     .update({ used_at: new Date().toISOString() })
     .eq("token", token);
 

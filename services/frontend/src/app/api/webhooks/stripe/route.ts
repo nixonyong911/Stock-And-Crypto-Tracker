@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   // Check for duplicate event processing
   const { data: existingEvent } = await supabase
-    .from("subscription_history")
+    .from("users_subscription_history")
     .select("id")
     .eq("stripe_event_id", event.id)
     .single();
@@ -150,7 +150,7 @@ async function handleSubscriptionChange(
 
   // Upsert subscription record
   const { error: subscriptionError } = await supabase
-    .from("subscriptions")
+    .from("users_subscriptions")
     .upsert(
       {
         user_id: user.id,
@@ -229,7 +229,7 @@ async function handleSubscriptionDeleted(
 
   // Update subscription status to canceled
   const { error: subscriptionError } = await supabase
-    .from("subscriptions")
+    .from("users_subscriptions")
     .update({
       status: "canceled",
       canceled_at: new Date().toISOString(),
@@ -380,7 +380,7 @@ async function getCurrentSubscriptionStatus(
   userId: number
 ): Promise<string | null> {
   const { data } = await supabase
-    .from("subscriptions")
+    .from("users_subscriptions")
     .select("status")
     .eq("user_id", userId)
     .single();
@@ -399,7 +399,7 @@ async function logSubscriptionHistory(
   event: Stripe.Event,
   extraMetadata?: Record<string, unknown>
 ) {
-  const { error } = await supabase.from("subscription_history").insert({
+  const { error } = await supabase.from("users_subscription_history").insert({
     user_id: userId,
     stripe_subscription_id: subscriptionId,
     event_type: eventType,

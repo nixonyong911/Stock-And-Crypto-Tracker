@@ -8,7 +8,7 @@ public class SubscriptionHistoryConfiguration : IEntityTypeConfiguration<Subscri
 {
     public void Configure(EntityTypeBuilder<SubscriptionHistory> builder)
     {
-        builder.ToTable("subscription_history");
+        builder.ToTable("users_subscription_history");
         builder.HasKey(e => e.Id);
         
         builder.Property(e => e.Id)
