@@ -14,7 +14,10 @@ export interface QueueMetadata {
  */
 export const QUEUE_REGISTRY: Record<string, Partial<QueueMetadata>> = {
   "backfill-queue": {
-    description: "Historical data backfill requests (FIFO processing)",
+    description: "Stock historical data backfill requests (FIFO processing)",
+  },
+  "crypto-backfill-queue": {
+    description: "Crypto historical data backfill requests (24/7 trading, ~17K data points per symbol)",
   },
   "ticker-add-queue": {
     description: "New ticker registration requests (adds stocks/crypto to tracking)",
@@ -36,6 +39,7 @@ export const QUEUE_REGISTRY: Record<string, Partial<QueueMetadata>> = {
  */
 const OWNER_MAP: Record<string, string> = {
   "backfill": "TwelveData Worker",
+  "crypto": "TwelveData Worker",
   "ticker": "TwelveData Worker",
   "analysis": "Candlestick Analysis Worker",
   "telegram": "Telegram Bot",
