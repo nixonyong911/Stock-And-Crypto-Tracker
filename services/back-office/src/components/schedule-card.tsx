@@ -133,6 +133,11 @@ export function ScheduleCard({
                 {schedule.schedule_time} {schedule.schedule_timezone}
               </span>
             </div>
+            {schedule.description && (
+              <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">
+                {schedule.description}
+              </p>
+            )}
           </div>
 
           {/* Last run status */}
