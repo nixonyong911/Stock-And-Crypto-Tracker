@@ -6,15 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { WorkerRegistry } from "@/lib/db/workers";
 import { FetchSchedule } from "@/lib/db/schedules";
+import { ScheduleCard } from "@/components/schedule-card";
 import {
   CheckCircle,
   XCircle,
   Clock,
   BarChart3,
   Activity,
-  ExternalLink
+  ExternalLink,
+  FileCode2,
 } from "lucide-react";
-import { FileCode2 } from "lucide-react";
 
 // Public API path mapping for swagger URLs (matches Caddyfile routing)
 const SWAGGER_PATHS: Record<string, string> = {
@@ -30,8 +31,9 @@ export default function AnalysisWorkerPage() {
   const workerName = params.worker as string;
 
   const [worker, setWorker] = useState<WorkerDetails | null>(null);
-  const [schedule, setSchedule] = useState<FetchSchedule | null>(null);
+  const [schedules, setSchedules] = useState<FetchSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     async function loadWorkerDetails() {
@@ -47,7 +49,7 @@ export default function AnalysisWorkerPage() {
         }
 
         const { workers } = await workersRes.json();
-        const { schedules } = await schedulesRes.json();
+        const { schedules: allSchedules } = await schedulesRes.json();
 
         // Find the specific worker
         const workerData = workers.find((w: WorkerRegistry) => w.name === workerName);
@@ -72,14 +74,11 @@ export default function AnalysisWorkerPage() {
 
         setWorker({ ...workerData, healthStatus });
 
-        // Find schedule for this worker using worker_id (proper relational lookup)
-        const scheduleData = schedules.find((s: FetchSchedule) =>
+        // Find ALL schedules for this worker using worker_id
+        const workerSchedules = allSchedules.filter((s: FetchSchedule) =>
           s.worker_id === workerData.id
         );
-
-        if (scheduleData) {
-          setSchedule(scheduleData);
-        }
+        setSchedules(workerSchedules);
       } catch (err) {
         console.error('Failed to load worker details:', err);
       } finally {
@@ -89,6 +88,29 @@ export default function AnalysisWorkerPage() {
 
     loadWorkerDetails();
   }, [workerName]);
+
+  const handleToggleSchedule = async (scheduleId: number) => {
+    setTogglingIds((prev) => new Set(prev).add(scheduleId));
+    try {
+      const response = await fetch(`/back-office/api/schedules?toggle=${scheduleId}`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        const { schedule: updatedSchedule } = await response.json();
+        setSchedules((prev) =>
+          prev.map((s) => (s.id === scheduleId ? updatedSchedule : s))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to toggle schedule:", err);
+    } finally {
+      setTogglingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(scheduleId);
+        return next;
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -130,19 +152,32 @@ export default function AnalysisWorkerPage() {
             </div>
             <p className="text-slate-400 mt-1">{worker.description}</p>
           </div>
-          <a
-            href={`https://stockandcryptotracker.grafana.net/d/${grafanaDashboard}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm transition-colors"
-          >
-            View in Grafana
-            <ExternalLink className="w-4 h-4" />
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href={`https://nxserver.malaysiawest.cloudapp.azure.com${SWAGGER_PATHS[workerName] || `/${workerName}`}/swagger/`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700">
+                <FileCode2 className="w-4 h-4 mr-2" />
+                Swagger
+                <ExternalLink className="w-3 h-3 ml-1" />
+              </Button>
+            </a>
+            <a
+              href={`https://stockandcryptotracker.grafana.net/d/${grafanaDashboard}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm transition-colors"
+            >
+              View in Grafana
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
         </div>
 
         {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="border-slate-800 bg-slate-900/50">
             <CardHeader className="pb-2">
               <CardDescription className="text-slate-400">Health</CardDescription>
@@ -171,64 +206,35 @@ export default function AnalysisWorkerPage() {
 
           <Card className="border-slate-800 bg-slate-900/50">
             <CardHeader className="pb-2">
-              <CardDescription className="text-slate-400">Schedule Time</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <span className="font-semibold text-slate-200">
-                {schedule?.schedule_time || 'Not set'}
-              </span>
-              <span className="text-slate-500 ml-1">{schedule?.schedule_timezone || ''}</span>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-800 bg-slate-900/50">
-            <CardHeader className="pb-2">
               <CardDescription className="text-slate-400">Last Run</CardDescription>
             </CardHeader>
             <CardContent>
               <span className={`font-semibold ${
-                schedule?.last_run_status === 'success' ? 'text-violet-400' :
-                schedule?.last_run_status === 'failed' ? 'text-red-400' :
+                schedules[0]?.last_run_status === 'success' ? 'text-violet-400' :
+                schedules[0]?.last_run_status === 'failed' ? 'text-red-400' :
                 'text-slate-500'
               }`}>
-                {schedule?.last_run_status || 'Never'}
+                {schedules[0]?.last_run_status || 'Never'}
               </span>
             </CardContent>
           </Card>
         </div>
 
-        {/* API Documentation */}
-        <Card className="border-slate-800 bg-slate-900/50">
-          <CardHeader>
-            <CardTitle className="text-slate-100 flex items-center gap-2">
-              <FileCode2 className="w-5 h-5" />
-              API Documentation
-            </CardTitle>
-            <CardDescription className="text-slate-400">
-              Explore available endpoints via Swagger UI
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-200">Swagger UI</p>
-                <p className="text-sm text-slate-500">
-                  Interactive API documentation and testing
-                </p>
-              </div>
-              <a
-                href={`https://nxserver.malaysiawest.cloudapp.azure.com${SWAGGER_PATHS[workerName] || `/${workerName}`}/swagger/`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button className="bg-cyan-600 hover:bg-cyan-700">
-                  Open Swagger
-                  <ExternalLink className="w-4 h-4 ml-2" />
-                </Button>
-              </a>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Schedules */}
+        {schedules.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold text-slate-200">Schedules</h2>
+            {schedules.map((schedule) => (
+              <ScheduleCard
+                key={schedule.id}
+                schedule={schedule}
+                onToggle={handleToggleSchedule}
+                variant="compact"
+                isToggling={togglingIds.has(schedule.id)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Monitoring */}
         <Card className="border-slate-800 bg-slate-900/50">
