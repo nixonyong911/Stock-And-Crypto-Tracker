@@ -9,7 +9,7 @@ public class StockPriceRepository : IStockPriceRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<StockPriceRepository> _logger;
-    
+
     // Batch size of 500 = 4000 parameters (8 columns * 500 rows)
     // PostgreSQL limit is 65535 parameters, so this is well within limits
     private const int BatchSize = 500;
@@ -23,39 +23,39 @@ public class StockPriceRepository : IStockPriceRepository
     public async Task<DataSource?> GetDataSourceByNameAsync(string name)
     {
         using var connection = _connectionFactory.CreateConnection();
-        
+
         const string sql = @"
-            SELECT 
-                id as Id, 
-                name as Name, 
-                description as Description, 
+            SELECT
+                id as Id,
+                name as Name,
+                description as Description,
                 base_url as BaseUrl,
                 supports_stocks as SupportsStocks,
                 supports_crypto as SupportsCrypto,
                 is_active as IsActive,
-                created_at as CreatedAt, 
+                created_at as CreatedAt,
                 updated_at as UpdatedAt
-            FROM lookup_data_sources 
+            FROM lookup_data_sources
             WHERE name = @Name AND is_active = true";
-        
+
         return await connection.QueryFirstOrDefaultAsync<DataSource>(sql, new { Name = name });
     }
 
     public async Task UpsertStockPriceAsync(StockPrice price)
     {
         using var connection = _connectionFactory.CreateConnection();
-        
+
         const string sql = @"
             INSERT INTO stock_prices (stock_ticker_id, data_source_id, price_time, open_price, high_price, low_price, close_price, volume)
             VALUES (@StockTickerId, @DataSourceId, @PriceTime, @OpenPrice, @HighPrice, @LowPrice, @ClosePrice, @Volume)
-            ON CONFLICT (stock_ticker_id, data_source_id, price_time) 
-            DO UPDATE SET 
+            ON CONFLICT (stock_ticker_id, data_source_id, price_time)
+            DO UPDATE SET
                 open_price = EXCLUDED.open_price,
                 high_price = EXCLUDED.high_price,
                 low_price = EXCLUDED.low_price,
                 close_price = EXCLUDED.close_price,
                 volume = EXCLUDED.volume";
-        
+
         await connection.ExecuteAsync(sql, price);
     }
 
@@ -81,9 +81,9 @@ public class StockPriceRepository : IStockPriceRepository
             var batch = priceList.Skip(i).Take(BatchSize).ToList();
             var batchNumber = (i / BatchSize) + 1;
             var batchStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            
+
             await UpsertBatchAsync(batch);
-            
+
             batchStopwatch.Stop();
             _logger.LogDebug(
                 "Batch {BatchNumber}/{TotalBatches}: {RecordCount} records in {ElapsedMs}ms",
@@ -93,8 +93,8 @@ public class StockPriceRepository : IStockPriceRepository
         totalStopwatch.Stop();
         _logger.LogInformation(
             "Batch upsert completed: {TotalRecords} records in {ElapsedSeconds:F1}s ({BatchCount} batches, {RecordsPerSecond:F0} records/sec)",
-            totalRecords, 
-            totalStopwatch.Elapsed.TotalSeconds, 
+            totalRecords,
+            totalStopwatch.Elapsed.TotalSeconds,
             batchCount,
             totalRecords / totalStopwatch.Elapsed.TotalSeconds);
     }
@@ -107,12 +107,12 @@ public class StockPriceRepository : IStockPriceRepository
         using var connection = _connectionFactory.CreateConnection();
 
         var sb = new StringBuilder();
-        sb.AppendLine(@"INSERT INTO stock_prices 
+        sb.AppendLine(@"INSERT INTO stock_prices
             (stock_ticker_id, data_source_id, price_time, open_price, high_price, low_price, close_price, volume)
             VALUES ");
 
         var parameters = new DynamicParameters();
-        
+
         for (int i = 0; i < batch.Count; i++)
         {
             if (i > 0) sb.Append(',');
@@ -128,8 +128,8 @@ public class StockPriceRepository : IStockPriceRepository
             parameters.Add($"vol{i}", batch[i].Volume);
         }
 
-        sb.AppendLine(@"ON CONFLICT (stock_ticker_id, data_source_id, price_time) 
-            DO UPDATE SET 
+        sb.AppendLine(@"ON CONFLICT (stock_ticker_id, data_source_id, price_time)
+            DO UPDATE SET
                 open_price = EXCLUDED.open_price,
                 high_price = EXCLUDED.high_price,
                 low_price = EXCLUDED.low_price,

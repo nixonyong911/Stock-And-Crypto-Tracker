@@ -7,7 +7,8 @@
   "runArgs": ["--name", "sct-devcontainer"],
   "remoteUser": "root",
   "containerEnv": {
-    "INFISICAL_VAULT_FILE_PASSPHRASE": "devcontainer"
+    "INFISICAL_VAULT_FILE_PASSPHRASE": "devcontainer",
+    "INFISICAL_TOKEN": "${localEnv:INFISICAL_TOKEN}"
   },
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {

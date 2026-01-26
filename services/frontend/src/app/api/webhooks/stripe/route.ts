@@ -117,7 +117,7 @@ async function handleSubscriptionChange(
   // Fallback: lookup by customer email if not found by ID
   if (!user) {
     console.log(`Stripe webhook: User not found by customer ID, trying email lookup...`);
-    
+
     // Get customer email from Stripe
     const customer = await stripe.customers.retrieve(customerId);
     if (customer && !customer.deleted && customer.email) {
@@ -126,16 +126,16 @@ async function handleSubscriptionChange(
         .select("id, tier")
         .eq("email", customer.email)
         .single();
-      
+
       if (userByEmail) {
         user = userByEmail;
-        
+
         // Link the customer ID to the user for future lookups
         await supabase
           .from("users")
           .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
           .eq("id", user.id);
-        
+
         console.log(`Stripe webhook: Linked customer ${customerId} to user ${user.id} via email`);
       }
     }
@@ -177,7 +177,7 @@ async function handleSubscriptionChange(
 
   // Update user tier based on subscription status
   const newTier = isActiveSubscription(subscription.status) ? "pro" : "free";
-  
+
   if (user.tier !== newTier) {
     const { error: tierError } = await supabase
       .from("users")

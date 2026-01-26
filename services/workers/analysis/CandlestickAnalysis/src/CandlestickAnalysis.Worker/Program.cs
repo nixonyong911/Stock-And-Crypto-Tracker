@@ -79,6 +79,14 @@ try
             Url = pathBase,
             Description = "Candlestick Analysis API (via Caddy reverse proxy)"
         });
+
+        // Include XML comments for endpoint descriptions
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            c.IncludeXmlComments(xmlPath);
+        }
     });
 
     // Add health checks - use same connection settings as DbConnectionFactory

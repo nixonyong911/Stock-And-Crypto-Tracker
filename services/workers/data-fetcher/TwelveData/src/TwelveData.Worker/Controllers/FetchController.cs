@@ -9,6 +9,10 @@ using TwelveData.Worker.Services;
 
 namespace TwelveData.Worker.Controllers;
 
+/// <summary>
+/// Endpoints for fetching stock and crypto price data from TwelveData API.
+/// Supports single symbol, batch fetch, historical backfill, and webhooks.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
@@ -38,7 +42,7 @@ public class FetchController : ControllerBase
     [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<FetchResponse>> TriggerFetchSymbol(
-        string symbol, 
+        string symbol,
         [FromQuery] string? date = null)
     {
         if (string.IsNullOrWhiteSpace(symbol))
@@ -52,7 +56,7 @@ public class FetchController : ControllerBase
 
         symbol = symbol.ToUpperInvariant();
         var fetchDate = string.IsNullOrWhiteSpace(date) ? "yesterday" : date;
-        
+
         _logger.LogInformation("Manual fetch triggered for symbol {Symbol} with date {Date} via API", symbol, fetchDate);
 
         try
@@ -116,7 +120,7 @@ public class FetchController : ControllerBase
     public async Task<ActionResult<BatchFetchResponse>> TriggerFetchAll([FromQuery] string? date = null)
     {
         var fetchDate = string.IsNullOrWhiteSpace(date) ? "yesterday" : date;
-        
+
         _logger.LogInformation("Batch fetch triggered for all active tickers with date {Date} via API", fetchDate);
 
         try
@@ -360,7 +364,7 @@ public class FetchController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to queue backfill request for {Symbol}", symbol);
-            
+
             return StatusCode(500, new BackfillResponse
             {
                 Success = false,
@@ -440,7 +444,7 @@ public class FetchController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to queue backfill from webhook for {Symbol}", symbol);
-            
+
             return StatusCode(500, new BackfillResponse
             {
                 Success = false,

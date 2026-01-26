@@ -105,6 +105,115 @@ Remove-Item .env.local
 
 ---
 
+## Dev Container Usage (Service Token)
+
+Dev containers don't have access to the system keyring (no D-Bus), so `infisical login` credentials from the host machine won't work. Use a **Service Token** instead.
+
+### Why It's Different
+
+| Environment | Authentication Method | Storage |
+|-------------|----------------------|---------|
+| Local PC | `infisical login` | System keyring |
+| Dev Container | Service Token | Environment variable |
+| VM | Machine Identity | Token on VM |
+
+### Setup Steps
+
+#### Step 1: Create a Service Token
+
+1. Go to https://app.infisical.com
+2. Navigate to **Project Access Control** → **Service Tokens**
+3. Click **Create Token**
+4. Configure:
+   - Name: `devcontainer-token`
+   - Environment: `dev` (or `prod`)
+   - Path: `/`
+5. Copy the generated token (starts with `st.`)
+
+#### Step 2: Set Token on Local Machine
+
+**Windows (PowerShell as Admin):**
+```powershell
+# Set permanently for current user
+[Environment]::SetEnvironmentVariable("INFISICAL_TOKEN", "st.xxxxx...", "User")
+```
+
+**macOS/Linux:**
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+export INFISICAL_TOKEN="st.xxxxx..."
+```
+
+#### Step 3: Configure Dev Container
+
+The `devcontainer.json` passes the token from host to container:
+
+```json
+"containerEnv": {
+  "INFISICAL_VAULT_FILE_PASSPHRASE": "devcontainer",
+  "INFISICAL_TOKEN": "${localEnv:INFISICAL_TOKEN}"
+}
+```
+
+#### Step 4: Restart Cursor and Rebuild
+
+1. **Close Cursor completely** (env vars are read at startup)
+2. Reopen the project
+3. Rebuild the dev container (Ctrl+Shift+P → "Dev Containers: Rebuild Container")
+
+#### Step 5: Verify
+
+```bash
+# In dev container terminal
+infisical run --env=dev -- echo "Token works!"
+```
+
+### Running Services in Dev Container
+
+```bash
+# Frontend
+cd /workspaces/Stock-And-Crypto-Tracker/services/frontend
+infisical run --env=dev -- npm run dev
+
+# Back-office
+cd /workspaces/Stock-And-Crypto-Tracker/services/back-office
+infisical run --env=dev -- npm run dev
+
+# Docker services
+infisical run --env=dev -- docker-compose up -d --build
+```
+
+### Troubleshooting Dev Container
+
+#### "failed to fetch credentials from keyring"
+
+**Cause**: Trying to use keyring auth in a container (no D-Bus).
+
+**Solution**: Use service token as described above.
+
+#### Token not being passed to container
+
+**Cause**: Environment variable not set on host or Cursor not restarted.
+
+**Verify on host:**
+```powershell
+# Windows
+echo $env:INFISICAL_TOKEN
+
+# macOS/Linux
+echo $INFISICAL_TOKEN
+```
+
+**If empty**: Set the variable and restart Cursor completely.
+
+#### "we couldn't find your logged in details"
+
+**Cause**: `~/.infisical` vault file not syncing properly.
+
+**Solution**: Use service token approach instead of vault file login.
+
+---
+
 ## VM Usage (Machine Identity)
 
 On the VM, Infisical uses **Machine Identity** authentication instead of user login.

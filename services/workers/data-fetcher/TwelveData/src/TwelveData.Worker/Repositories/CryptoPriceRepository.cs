@@ -9,7 +9,7 @@ public class CryptoPriceRepository : ICryptoPriceRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<CryptoPriceRepository> _logger;
-    
+
     // Batch size of 500 = 4500 parameters (9 columns * 500 rows)
     // PostgreSQL limit is 65535 parameters, so this is well within limits
     private const int BatchSize = 500;
@@ -23,21 +23,21 @@ public class CryptoPriceRepository : ICryptoPriceRepository
     public async Task<Models.DataSource?> GetDataSourceByNameAsync(string name)
     {
         using var connection = _connectionFactory.CreateConnection();
-        
+
         const string sql = @"
-            SELECT 
-                id as Id, 
-                name as Name, 
-                description as Description, 
+            SELECT
+                id as Id,
+                name as Name,
+                description as Description,
                 base_url as BaseUrl,
                 supports_stocks as SupportsStocks,
                 supports_crypto as SupportsCrypto,
                 is_active as IsActive,
-                created_at as CreatedAt, 
+                created_at as CreatedAt,
                 updated_at as UpdatedAt
-            FROM lookup_data_sources 
+            FROM lookup_data_sources
             WHERE name = @Name AND is_active = true";
-        
+
         return await connection.QueryFirstOrDefaultAsync<Models.DataSource>(sql, new { Name = name });
     }
 
@@ -62,9 +62,9 @@ public class CryptoPriceRepository : ICryptoPriceRepository
             var batch = prices.Skip(i).Take(BatchSize).ToList();
             var batchNumber = (i / BatchSize) + 1;
             var batchStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            
+
             await UpsertBatchAsync(batch);
-            
+
             batchStopwatch.Stop();
             _logger.LogDebug(
                 "Crypto batch {BatchNumber}/{TotalBatches}: {RecordCount} records in {ElapsedMs}ms",
@@ -74,8 +74,8 @@ public class CryptoPriceRepository : ICryptoPriceRepository
         totalStopwatch.Stop();
         _logger.LogInformation(
             "Crypto batch upsert completed: {TotalRecords} records in {ElapsedSeconds:F1}s ({BatchCount} batches, {RecordsPerSecond:F0} records/sec)",
-            totalRecords, 
-            totalStopwatch.Elapsed.TotalSeconds, 
+            totalRecords,
+            totalStopwatch.Elapsed.TotalSeconds,
             batchCount,
             totalRecords / totalStopwatch.Elapsed.TotalSeconds);
     }
@@ -88,12 +88,12 @@ public class CryptoPriceRepository : ICryptoPriceRepository
         using var connection = _connectionFactory.CreateConnection();
 
         var sb = new StringBuilder();
-        sb.AppendLine(@"INSERT INTO crypto_prices 
+        sb.AppendLine(@"INSERT INTO crypto_prices
             (crypto_ticker_id, data_source_id, price_time, open_price, high_price, low_price, close_price, volume, market_cap)
             VALUES ");
 
         var parameters = new DynamicParameters();
-        
+
         for (int i = 0; i < batch.Count; i++)
         {
             if (i > 0) sb.Append(',');
@@ -110,8 +110,8 @@ public class CryptoPriceRepository : ICryptoPriceRepository
             parameters.Add($"mc{i}", batch[i].MarketCap);
         }
 
-        sb.AppendLine(@"ON CONFLICT (crypto_ticker_id, data_source_id, price_time) 
-            DO UPDATE SET 
+        sb.AppendLine(@"ON CONFLICT (crypto_ticker_id, data_source_id, price_time)
+            DO UPDATE SET
                 open_price = EXCLUDED.open_price,
                 high_price = EXCLUDED.high_price,
                 low_price = EXCLUDED.low_price,

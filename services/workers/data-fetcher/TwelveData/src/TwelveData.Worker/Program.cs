@@ -118,6 +118,18 @@ try
             Url = pathBase,
             Description = "TwelveData API (via Caddy reverse proxy)"
         });
+
+        // Add tag descriptions for controller groups
+        c.TagActionsBy(api => new[] { api.GroupName ?? api.ActionDescriptor.RouteValues["controller"] });
+        c.DocInclusionPredicate((_, _) => true);
+
+        // Include XML comments
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            c.IncludeXmlComments(xmlPath);
+        }
     });
 
     // Add health checks

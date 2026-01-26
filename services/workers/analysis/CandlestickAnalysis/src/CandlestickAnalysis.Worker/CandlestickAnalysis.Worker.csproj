@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-CandlestickAnalysis.Worker-12345678-1234-1234-1234-123456789012</UserSecretsId>
     <RootNamespace>CandlestickAnalysis.Worker</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
