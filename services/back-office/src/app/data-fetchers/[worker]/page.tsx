@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ScheduleCard } from "@/components/schedule-card";
 import { WorkerRegistry } from "@/lib/db/workers";
 import { FetchSchedule } from "@/lib/db/schedules";
 import {
@@ -12,7 +11,6 @@ import {
   XCircle,
   Clock,
   Database,
-  Activity,
   ExternalLink
 } from "lucide-react";
 import { FileCode2 } from "lucide-react";
@@ -47,7 +45,6 @@ export default function WorkerConfigPage() {
   const [schedule, setSchedule] = useState<FetchSchedule | null>(null);
   const [tickers, setTickers] = useState<StockTicker[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isToggling, setIsToggling] = useState(false);
 
   useEffect(() => {
     async function loadWorkerDetails() {
@@ -119,24 +116,6 @@ export default function WorkerConfigPage() {
     loadWorkerDetails();
   }, [workerName]);
 
-  const handleToggleSchedule = async (scheduleId: number) => {
-    setIsToggling(true);
-    try {
-      const response = await fetch(`/back-office/api/schedules?toggle=${scheduleId}`, {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        const { schedule: updatedSchedule } = await response.json();
-        setSchedule(updatedSchedule);
-      }
-    } catch (err) {
-      console.error('Failed to toggle schedule:', err);
-    } finally {
-      setIsToggling(false);
-    }
-  };
-
   const handleToggleTicker = async (ticker: StockTicker) => {
     try {
       const response = await fetch(`/back-office/api/tickers?toggle=${ticker.id}`, {
@@ -205,7 +184,7 @@ export default function WorkerConfigPage() {
         </div>
 
         {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-slate-800 bg-slate-900/50">
             <CardHeader className="pb-2">
               <CardDescription className="text-slate-400">Health</CardDescription>
@@ -227,20 +206,6 @@ export default function WorkerConfigPage() {
                   {worker.healthStatus === 'healthy' ? 'Healthy' :
                    worker.healthStatus === 'unhealthy' ? 'Unhealthy' :
                    'Unknown'}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-800 bg-slate-900/50">
-            <CardHeader className="pb-2">
-              <CardDescription className="text-slate-400">Schedule</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Activity className={`w-5 h-5 ${schedule?.is_enabled ? 'text-emerald-400' : 'text-slate-600'}`} />
-                <span className={`font-semibold ${schedule?.is_enabled ? 'text-emerald-400' : 'text-slate-500'}`}>
-                  {schedule?.is_enabled ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
             </CardContent>
@@ -274,51 +239,38 @@ export default function WorkerConfigPage() {
           </Card>
         </div>
 
-        {/* Schedule Configuration + Swagger Button */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Schedule Configuration using reusable ScheduleCard */}
-          {schedule && (
-            <ScheduleCard
-              schedule={schedule}
-              onToggle={handleToggleSchedule}
-              variant="full"
-              isToggling={isToggling}
-            />
-          )}
-
-          {/* API Documentation */}
-          <Card className="border-slate-800 bg-slate-900/50">
-            <CardHeader>
-              <CardTitle className="text-slate-100 flex items-center gap-2">
-                <FileCode2 className="w-5 h-5" />
-                API Documentation
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                Explore available endpoints via Swagger UI
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-200">Swagger UI</p>
-                  <p className="text-sm text-slate-500">
-                    Interactive API documentation and testing
-                  </p>
-                </div>
-                <a
-                  href={`https://nxserver.malaysiawest.cloudapp.azure.com${SWAGGER_PATHS[workerName] || `/${workerName}`}/swagger/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button className="bg-cyan-600 hover:bg-cyan-700">
-                    Open Swagger
-                    <ExternalLink className="w-4 h-4 ml-2" />
-                  </Button>
-                </a>
+        {/* API Documentation */}
+        <Card className="border-slate-800 bg-slate-900/50">
+          <CardHeader>
+            <CardTitle className="text-slate-100 flex items-center gap-2">
+              <FileCode2 className="w-5 h-5" />
+              API Documentation
+            </CardTitle>
+            <CardDescription className="text-slate-400">
+              Explore available endpoints via Swagger UI
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-200">Swagger UI</p>
+                <p className="text-sm text-slate-500">
+                  Interactive API documentation and testing
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <a
+                href={`https://nxserver.malaysiawest.cloudapp.azure.com${SWAGGER_PATHS[workerName] || `/${workerName}`}/swagger/`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button className="bg-cyan-600 hover:bg-cyan-700">
+                  Open Swagger
+                  <ExternalLink className="w-4 h-4 ml-2" />
+                </Button>
+              </a>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tickers Management */}
         <Card className="border-slate-800 bg-slate-900/50">
