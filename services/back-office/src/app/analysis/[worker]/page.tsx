@@ -11,6 +11,7 @@ import {
   XCircle,
   Clock,
   BarChart3,
+  Activity,
   ExternalLink
 } from "lucide-react";
 import { FileCode2 } from "lucide-react";
