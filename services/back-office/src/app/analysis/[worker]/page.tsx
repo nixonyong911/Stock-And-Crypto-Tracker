@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ScheduleCard } from "@/components/schedule-card";
 import { WorkerRegistry } from "@/lib/db/workers";
 import { FetchSchedule } from "@/lib/db/schedules";
 import {
   CheckCircle,
   XCircle,
   Clock,
-  Settings,
   BarChart3,
   Activity,
   ExternalLink
@@ -33,6 +33,7 @@ export default function AnalysisWorkerPage() {
   const [worker, setWorker] = useState<WorkerDetails | null>(null);
   const [schedule, setSchedule] = useState<FetchSchedule | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isToggling, setIsToggling] = useState(false);
 
   useEffect(() => {
     async function loadWorkerDetails() {
@@ -91,11 +92,10 @@ export default function AnalysisWorkerPage() {
     loadWorkerDetails();
   }, [workerName]);
 
-  const handleToggleSchedule = async () => {
-    if (!schedule) return;
-
+  const handleToggleSchedule = async (scheduleId: number) => {
+    setIsToggling(true);
     try {
-      const response = await fetch(`/back-office/api/schedules?toggle=${schedule.id}`, {
+      const response = await fetch(`/back-office/api/schedules?toggle=${scheduleId}`, {
         method: 'POST',
       });
 
@@ -105,6 +105,8 @@ export default function AnalysisWorkerPage() {
       }
     } catch (err) {
       console.error('Failed to toggle schedule:', err);
+    } finally {
+      setIsToggling(false);
     }
   };
 
@@ -231,38 +233,15 @@ export default function AnalysisWorkerPage() {
 
         {/* Schedule Configuration + Swagger Button */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Schedule Configuration */}
-          <Card className="border-slate-800 bg-slate-900/50">
-            <CardHeader>
-              <CardTitle className="text-slate-100 flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Schedule Configuration
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                Enable/disable scheduled analysis
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-200">Automatic Daily Analysis</p>
-                  <p className="text-sm text-slate-500">
-                    Runs analysis daily at {schedule?.schedule_time || '23:00:00'} {schedule?.schedule_timezone || 'America/New_York'}
-                  </p>
-                </div>
-                <Button
-                  onClick={handleToggleSchedule}
-                  variant={schedule?.is_enabled ? "default" : "secondary"}
-                  className={schedule?.is_enabled
-                    ? "bg-violet-600 hover:bg-violet-700"
-                    : "bg-slate-700 hover:bg-slate-600"
-                  }
-                >
-                  {schedule?.is_enabled ? 'Enabled' : 'Disabled'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Schedule Configuration using reusable ScheduleCard */}
+          {schedule && (
+            <ScheduleCard
+              schedule={schedule}
+              onToggle={handleToggleSchedule}
+              variant="full"
+              isToggling={isToggling}
+            />
+          )}
 
           {/* API Documentation */}
           <Card className="border-slate-800 bg-slate-900/50">
