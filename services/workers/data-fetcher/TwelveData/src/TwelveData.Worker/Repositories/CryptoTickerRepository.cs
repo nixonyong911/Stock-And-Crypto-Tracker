@@ -1,5 +1,5 @@
 using Dapper;
-using TwelveData.Worker.Models;
+using StockTracker.Data.Entities;
 
 namespace TwelveData.Worker.Repositories;
 
@@ -146,5 +146,14 @@ public class CryptoTickerRepository : ICryptoTickerRepository
                 updated_at as UpdatedAt";
         
         return await connection.QueryFirstOrDefaultAsync<CryptoTicker>(updateSql, new { Id = id, IsActive = isActive });
+    }
+
+    public async Task<CryptoTicker> GetOrCreateTickerAsync(string symbol, string? name = null)
+    {
+        var existing = await GetBySymbolAsync(symbol);
+        if (existing != null)
+            return existing;
+
+        return await CreateTickerAsync(symbol, name);
     }
 }

@@ -283,4 +283,102 @@ public class TwelveDataApiClient : ITwelveDataApiClient
         // Format with T separator for TwelveData API
         return nextEndDate.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
     }
+
+    public async Task<TimeSeriesResponse?> GetCryptoTimeSeriesAsync(
+        string symbol, 
+        CryptoFetchConfig config, 
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var url = BuildCryptoTimeSeriesUrl(symbol, config);
+            var urlForLogging = BuildCryptoTimeSeriesUrlForLogging(symbol, config);
+            
+            _logger.LogInformation("TwelveData Crypto API Request: {Symbol} - {Url}", symbol, urlForLogging);
+            
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            
+            // Log raw response for debugging
+            _logger.LogDebug("TwelveData Crypto API Response for {Symbol}: {Response}", symbol, 
+                content.Length > 500 ? content.Substring(0, 500) + "..." : content);
+            
+            response.EnsureSuccessStatusCode();
+            
+            var timeSeriesResponse = JsonSerializer.Deserialize<TimeSeriesResponse>(content);
+            
+            if (timeSeriesResponse == null)
+            {
+                _logger.LogWarning("Failed to deserialize crypto response for {Symbol}. Raw: {Response}", symbol, content);
+                return null;
+            }
+            
+            // Check for API error responses
+            if (timeSeriesResponse.Status == "error")
+            {
+                _logger.LogWarning("TwelveData Crypto API error for {Symbol}: {Message} (Code: {Code}). Request: {Url}", 
+                    symbol, timeSeriesResponse.Message, timeSeriesResponse.Code, urlForLogging);
+                return null;
+            }
+
+            _logger.LogInformation("TwelveData Crypto API Success: {Symbol} - {Count} data points fetched", 
+                symbol, timeSeriesResponse.Values?.Count ?? 0);
+            
+            return timeSeriesResponse;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error fetching crypto time series for {Symbol}. Status: {Status}", 
+                symbol, ex.StatusCode);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching crypto time series for {Symbol}", symbol);
+            throw;
+        }
+    }
+
+    private string BuildCryptoTimeSeriesUrl(string symbol, CryptoFetchConfig config)
+    {
+        // Resolve "yesterday" to actual date for TwelveData API
+        var resolvedDate = ResolveFetchDate(config.FetchDate);
+        
+        // Note: Crypto doesn't use exchange parameter - TwelveData aggregates across exchanges
+        return $"/time_series?symbol={Uri.EscapeDataString(symbol)}" +
+               $"&interval={config.Interval}" +
+               $"&date={resolvedDate}" +
+               $"&timezone={config.Timezone}" +
+               $"&outputsize={config.OutputSize}" +
+               $"&apikey={_settings.ApiKey}";
+    }
+
+    private string BuildCryptoTimeSeriesUrlForLogging(string symbol, CryptoFetchConfig config)
+    {
+        var resolvedDate = ResolveFetchDate(config.FetchDate);
+        
+        return $"/time_series?symbol={Uri.EscapeDataString(symbol)}" +
+               $"&interval={config.Interval}" +
+               $"&date={resolvedDate}" +
+               $"&timezone={config.Timezone}" +
+               $"&outputsize={config.OutputSize}" +
+               $"&apikey=***REDACTED***";
+    }
+
+    /// <summary>
+    /// Converts a UTC datetime string to UTC DateTime object.
+    /// Used for crypto data which is returned in UTC timezone.
+    /// </summary>
+    /// <param name="datetime">Datetime string in format "yyyy-MM-dd HH:mm:ss"</param>
+    /// <returns>UTC DateTime</returns>
+    public static DateTime ConvertUtcString(string datetime)
+    {
+        var utcDateTime = DateTime.ParseExact(
+            datetime, 
+            "yyyy-MM-dd HH:mm:ss", 
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None);
+        
+        return DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc);
+    }
 }

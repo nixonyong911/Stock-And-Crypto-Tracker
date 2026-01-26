@@ -77,12 +77,17 @@ try
     builder.Services.AddScoped<IStockFetchService, StockFetchService>();
     builder.Services.AddScoped<IHistoricalBackfillService, HistoricalBackfillService>();
     builder.Services.AddScoped<ITickerManagementService, TickerManagementService>();
+    builder.Services.AddScoped<ICryptoFetchService, CryptoFetchService>();
+
+    // Register crypto price repository
+    builder.Services.AddScoped<ICryptoPriceRepository, CryptoPriceRepository>();
 
     // Register metrics client for pushing metrics to central metrics service
     builder.Services.AddMetricsClient(builder.Configuration);
 
     // Register the background workers
     builder.Services.AddHostedService<StockFetchWorker>();
+    builder.Services.AddHostedService<CryptoFetchWorker>();
     builder.Services.AddHostedService<BackfillQueueConsumer>();
     builder.Services.AddHostedService<TickerAddQueueConsumer>();
 

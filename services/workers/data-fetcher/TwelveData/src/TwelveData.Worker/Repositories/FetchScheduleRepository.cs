@@ -41,6 +41,32 @@ public class FetchScheduleRepository : IFetchScheduleRepository
         return await connection.QueryFirstOrDefaultAsync<FetchSchedule>(sql, new { DataSourceName = dataSourceName });
     }
 
+    public async Task<FetchSchedule?> GetScheduleByNameAsync(string scheduleName)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        
+        const string sql = @"
+            SELECT 
+                fs.id as Id,
+                fs.data_source_id as DataSourceId,
+                fs.worker_id as WorkerId,
+                fs.name as Name,
+                fs.description as Description,
+                fs.schedule_time as ScheduleTime,
+                fs.schedule_timezone as ScheduleTimezone,
+                fs.is_enabled as IsEnabled,
+                fs.fetch_config as FetchConfig,
+                fs.last_run_at as LastRunAt,
+                fs.last_run_status as LastRunStatus,
+                fs.last_run_message as LastRunMessage,
+                fs.created_at as CreatedAt,
+                fs.updated_at as UpdatedAt
+            FROM worker_fetch_schedules fs
+            WHERE fs.name = @ScheduleName";
+        
+        return await connection.QueryFirstOrDefaultAsync<FetchSchedule>(sql, new { ScheduleName = scheduleName });
+    }
+
     public async Task UpdateLastRunAsync(int scheduleId, string status, string? message)
     {
         using var connection = _connectionFactory.CreateConnection();

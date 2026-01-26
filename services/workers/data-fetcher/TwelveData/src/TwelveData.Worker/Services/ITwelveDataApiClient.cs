@@ -23,4 +23,16 @@ public interface ITwelveDataApiClient
         string exchange = "NASDAQ",
         string? endDate = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches cryptocurrency time series data from TwelveData API
+    /// </summary>
+    /// <param name="symbol">Crypto symbol (e.g., "BTC/USD", "ETH/USD")</param>
+    /// <param name="config">Crypto fetch configuration</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Time series response with OHLCV data</returns>
+    Task<TimeSeriesResponse?> GetCryptoTimeSeriesAsync(
+        string symbol, 
+        CryptoFetchConfig config, 
+        CancellationToken cancellationToken = default);
 }
