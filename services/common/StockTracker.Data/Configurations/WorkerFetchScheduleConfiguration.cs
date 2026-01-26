@@ -77,7 +77,7 @@ public class WorkerFetchScheduleConfiguration : IEntityTypeConfiguration<WorkerF
         builder.HasOne(e => e.DataSource)
             .WithMany()
             .HasForeignKey(e => e.DataSourceId)
-            .HasConstraintName("FK_worker_fetch_schedules_data_sources_data_source_id")
+            .HasConstraintName("FK_worker_fetch_schedules_lookup_data_sources_data_source_id")
             .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes

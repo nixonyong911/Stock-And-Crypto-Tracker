@@ -8,7 +8,7 @@ public class UniverseConfiguration : IEntityTypeConfiguration<Universe>
 {
     public void Configure(EntityTypeBuilder<Universe> builder)
     {
-        builder.ToTable("universe");
+        builder.ToTable("lookup_universe");
 
         builder.HasKey(e => e.Id);
 

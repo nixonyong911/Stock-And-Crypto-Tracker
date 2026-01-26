@@ -8,7 +8,7 @@ public class DataSourceConfiguration : IEntityTypeConfiguration<DataSource>
 {
     public void Configure(EntityTypeBuilder<DataSource> builder)
     {
-        builder.ToTable("data_sources");
+        builder.ToTable("lookup_data_sources");
 
         builder.HasKey(e => e.Id);
 

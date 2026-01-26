@@ -35,7 +35,7 @@ public class CryptoPriceRepository : ICryptoPriceRepository
                 is_active as IsActive,
                 created_at as CreatedAt, 
                 updated_at as UpdatedAt
-            FROM data_sources 
+            FROM lookup_data_sources 
             WHERE name = @Name AND is_active = true";
         
         return await connection.QueryFirstOrDefaultAsync<Models.DataSource>(sql, new { Name = name });

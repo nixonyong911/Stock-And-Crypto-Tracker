@@ -33,7 +33,7 @@ public class FetchScheduleRepository : IFetchScheduleRepository
                 fs.created_at as CreatedAt,
                 fs.updated_at as UpdatedAt
             FROM worker_fetch_schedules fs
-            INNER JOIN data_sources ds ON fs.data_source_id = ds.id
+            INNER JOIN lookup_data_sources ds ON fs.data_source_id = ds.id
             WHERE ds.name = @DataSourceName 
               AND fs.is_enabled = true
               AND ds.is_active = true";

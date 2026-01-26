@@ -134,7 +134,7 @@ public class StockPriceRepository : IStockPriceRepository
                 fs.last_run_status AS LastRunStatus,
                 fs.last_run_message AS LastRunMessage
             FROM worker_fetch_schedules fs
-            JOIN data_sources ds ON fs.data_source_id = ds.id
+            JOIN lookup_data_sources ds ON fs.data_source_id = ds.id
             WHERE ds.name = @DataSourceName
               AND fs.is_enabled = true
             LIMIT 1";
