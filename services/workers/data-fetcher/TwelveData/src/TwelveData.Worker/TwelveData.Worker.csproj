@@ -15,28 +15,28 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.0" />
-    
+
     <!-- Database -->
     <PackageReference Include="Npgsql" Version="8.0.6" />
     <PackageReference Include="Dapper" Version="2.1.28" />
-    
+
     <!-- Resilience -->
     <PackageReference Include="Polly" Version="8.2.1" />
-    
+
     <!-- Logging -->
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
-    
+
     <!-- Health Checks -->
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="8.0.1" />
-    
+
     <!-- Message Queue -->
     <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
-    
+
     <!-- Redis -->
     <PackageReference Include="StackExchange.Redis" Version="2.7.33" />
-    
+
     <!-- API Documentation -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>

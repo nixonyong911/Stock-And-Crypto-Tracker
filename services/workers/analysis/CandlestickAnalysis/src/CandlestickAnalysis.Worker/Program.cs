@@ -120,6 +120,13 @@ try
     {
         c.SwaggerEndpoint("v1/swagger.json", "Candlestick Analysis API v1");
         c.RoutePrefix = "swagger";
+
+        // Custom CSS: align tag descriptions to the right
+        c.HeadContent = @"
+            <style>
+                .opblock-tag { display: flex; justify-content: space-between; align-items: center; }
+                .opblock-tag small { margin-left: auto; text-align: right; font-style: italic; color: #6b6b6b; }
+            </style>";
     });
 
     // Health check endpoints

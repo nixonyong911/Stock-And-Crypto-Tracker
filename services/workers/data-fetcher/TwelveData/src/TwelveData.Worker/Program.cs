@@ -100,7 +100,7 @@ try
 
     // Get path base from environment (for reverse proxy)
     var pathBase = Environment.GetEnvironmentVariable("PATH_BASE") ?? "/api/twelvedata";
-    
+
     // Add Swagger/OpenAPI
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
@@ -111,7 +111,7 @@ try
             Version = "v1",
             Description = "API for controlling the TwelveData stock data fetcher and managing tickers. Includes rate-limited ticker CRUD with Twelve Data verification."
         });
-        
+
         // Add server URL for reverse proxy (Caddy routes /api/twelvedata/* to this service)
         c.AddServer(new Microsoft.OpenApi.Models.OpenApiServer
         {
@@ -147,7 +147,7 @@ try
     {
         app.UsePathBase(pathBase);
     }
-    
+
     app.UseSerilogRequestLogging();
 
     // Swagger UI (available in all environments for this service)
@@ -157,6 +157,13 @@ try
         // Use relative path for swagger.json to work behind reverse proxy
         c.SwaggerEndpoint("v1/swagger.json", "TwelveData Fetcher API v1");
         c.RoutePrefix = "swagger";
+
+        // Custom CSS: align tag descriptions to the right
+        c.HeadContent = @"
+            <style>
+                .opblock-tag { display: flex; justify-content: space-between; align-items: center; }
+                .opblock-tag small { margin-left: auto; text-align: right; font-style: italic; color: #6b6b6b; }
+            </style>";
     });
 
     // Health check endpoints
