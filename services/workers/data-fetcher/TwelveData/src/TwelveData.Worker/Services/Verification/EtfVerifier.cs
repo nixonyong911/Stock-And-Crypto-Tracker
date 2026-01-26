@@ -51,7 +51,7 @@ public class EtfVerifier : IAssetVerifier
             }
 
             // Call Twelve Data /etf endpoint with symbol filter
-            var url = $"/etf?symbol={symbol.ToUpperInvariant()}&apikey={_settings.ApiKey}";
+            var url = $"/etf?symbol={symbol.ToUpperInvariant()}&country=us&apikey={_settings.ApiKey}";
             
             _logger.LogDebug("Verifying ETF symbol {Symbol} via Twelve Data", symbol);
             

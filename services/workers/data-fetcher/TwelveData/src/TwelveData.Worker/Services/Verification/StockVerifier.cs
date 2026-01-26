@@ -51,7 +51,7 @@ public class StockVerifier : IAssetVerifier
             }
 
             // Call Twelve Data /stocks endpoint with symbol filter
-            var url = $"/stocks?symbol={symbol.ToUpperInvariant()}&apikey={_settings.ApiKey}";
+            var url = $"/stocks?symbol={symbol.ToUpperInvariant()}&country=us&apikey={_settings.ApiKey}";
             
             _logger.LogDebug("Verifying stock symbol {Symbol} via Twelve Data", symbol);
             
