@@ -142,6 +142,40 @@ services:
       start_period: 30s
 
   # ===========================================
+  # FRED Worker - Economic Indicators
+  # API at: /api/fred/*
+  # ===========================================
+  fred-worker:
+    image: stocktracker-fred:${FRED_VERSION:-latest}
+    build:
+      context: ./repo/services/workers/data-fetcher/fred-worker
+      dockerfile: Dockerfile
+    container_name: fred-worker
+    restart: unless-stopped
+    environment:
+      # Database connection (Go format)
+      - DATABASE_URL=${DATABASE_URL_GO}
+      # FRED API key
+      - FRED_API_KEY=${FRED_API_KEY}
+      # Schedule: 08:00 AM Eastern Time
+      - SCHEDULE_TIME=08:00
+      - SCHEDULE_TIMEZONE=America/New_York
+      # HTTP server port
+      - HTTP_PORT=8080
+      # Metrics service for pushing metrics
+      - METRICS_SERVICE_URL=http://metrics:8080
+    networks:
+      - stocktracker
+    depends_on:
+      - metrics
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://localhost:8080/health/live" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ===========================================
   # Metrics Service
   # Swagger at: /api/metrics/swagger
   # Prometheus metrics at: /metrics
