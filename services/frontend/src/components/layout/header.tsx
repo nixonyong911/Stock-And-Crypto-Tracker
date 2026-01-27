@@ -47,6 +47,12 @@ export function Header() {
               {t("about")}
             </Link>
             <Link
+              href="/indicators"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {t("indicators")}
+            </Link>
+            <Link
               href="/blog"
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >

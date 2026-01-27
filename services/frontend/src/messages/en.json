@@ -7,6 +7,7 @@
     "product": "Product",
     "pricing": "Pricing",
     "about": "About",
+    "indicators": "Indicators",
     "blog": "Blog"
   },
   "hero": {
@@ -574,5 +575,16 @@
     "minRead": "min read",
     "backToList": "Back to Blog",
     "tryBot": "Try Our Bot"
+  },
+  "indicatorsPage": {
+    "meta": {
+      "title": "Economic Indicators - Stock And Crypto Tracker",
+      "description": "Track key economic indicators from FRED that influence market sentiment. Fed Funds Rate, Treasury Yields, Inflation, and more."
+    },
+    "hero": {
+      "title": "Economic Indicators",
+      "subtitle": "Track key economic metrics that influence market sentiment"
+    },
+    "noData": "No economic indicators available. Check back soon!"
   }
 }

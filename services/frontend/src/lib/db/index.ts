@@ -2,3 +2,4 @@
 export * from "./supabase";
 export * from "./users";
 export * from "./user-tier";
+export * from "./indicators";

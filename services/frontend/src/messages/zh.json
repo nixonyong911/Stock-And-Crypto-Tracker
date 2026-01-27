@@ -7,6 +7,7 @@
     "product": "产品",
     "pricing": "定价",
     "about": "关于",
+    "indicators": "经济指标",
     "blog": "博客"
   },
   "hero": {
@@ -574,5 +575,16 @@
     "minRead": "分钟阅读",
     "backToList": "返回博客",
     "tryBot": "试用我们的机器人"
+  },
+  "indicatorsPage": {
+    "meta": {
+      "title": "经济指标 - Stock And Crypto Tracker",
+      "description": "追踪影响市场情绪的关键FRED经济指标。联邦基金利率、国债收益率、通胀等。"
+    },
+    "hero": {
+      "title": "经济指标",
+      "subtitle": "追踪影响市场情绪的关键经济指标"
+    },
+    "noData": "暂无经济指标数据。请稍后再来！"
   }
 }
