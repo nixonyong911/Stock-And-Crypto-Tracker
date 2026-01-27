@@ -10,3 +10,4 @@ export { IndicatorDetailCard } from "./indicator-detail-card";
 export { DetailView } from "./detail-view";
 export { ReleaseItem } from "./release-item";
 export { CalendarSidebar } from "./calendar-sidebar";
+export { IndicatorsLayout } from "./indicators-layout";
