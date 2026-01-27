@@ -418,6 +418,12 @@ services:
       - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
     networks:
       - stocktracker
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/front-end"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
 networks:
   stocktracker:

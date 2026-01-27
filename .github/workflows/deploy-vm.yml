@@ -767,6 +767,21 @@ jobs:
           # Build frontend only if files changed (check outside heredoc to access GHA env vars)
           if [ "$FRONTEND_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ]; then
             echo "Frontend changed - rebuilding with Infisical staging secrets..."
+            
+            # Write frontend version to .env.versions BEFORE building (GHA is single source of truth)
+            FRONTEND_VERSION="${{ needs.detect-changes.outputs.frontend_version }}"
+            echo "Setting FRONTEND_STAGING_VERSION=v${FRONTEND_VERSION}"
+            ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 "bash -s" << EOF
+            ENV_FILE="/opt/stocktracker/.env.versions"
+            if [ -f "\$ENV_FILE" ] && grep -q "^FRONTEND_STAGING_VERSION=" "\$ENV_FILE"; then
+                sed -i "s/^FRONTEND_STAGING_VERSION=.*/FRONTEND_STAGING_VERSION=v${FRONTEND_VERSION}/" "\$ENV_FILE"
+            else
+                echo "FRONTEND_STAGING_VERSION=v${FRONTEND_VERSION}" >> "\$ENV_FILE"
+            fi
+            echo "Updated .env.versions:"
+            cat "\$ENV_FILE"
+          EOF
+            
             ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'cd /opt/stocktracker && ./scripts/start-frontend-staging.sh --build' || echo "⚠️ Frontend staging build/start failed"
           else
             echo "Frontend unchanged - starting existing image..."
@@ -915,6 +930,21 @@ jobs:
           echo "=========================================="
           echo "=== Updating versions in Supabase ==="
           echo "=========================================="
+
+          # Log which services will be updated (helps debug spurious version increments)
+          echo ""
+          echo "=== Version Update Summary ==="
+          echo "Services marked 'true' OR force_build='true' will have versions updated:"
+          echo "  TWELVEDATA_CHANGED:  $TWELVEDATA_CHANGED"
+          echo "  ANALYSIS_CHANGED:    $ANALYSIS_CHANGED"
+          echo "  METRICS_CHANGED:     $METRICS_CHANGED"
+          echo "  BACKOFFICE_CHANGED:  $BACKOFFICE_CHANGED"
+          echo "  MCP_CHANGED:         $MCP_CHANGED"
+          echo "  TELEGRAM2_CHANGED:   $TELEGRAM2_CHANGED"
+          echo "  AIHUB2_CHANGED:      $AIHUB2_CHANGED"
+          echo "  FRONTEND_CHANGED:    $FRONTEND_CHANGED"
+          echo "  FORCE_BUILD:         $FORCE_BUILD"
+          echo ""
 
           UPDATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 

@@ -45,6 +45,20 @@ else
 fi
 
 echo "=== Starting services with secrets injected ==="
-# Run docker compose with secrets injected from Infisical
-infisical run --env=prod --projectId=$INFISICAL_PROJECT_ID --token=$TOKEN -- docker compose "$@"
+
+# Define backend services (excluding frontend-staging which uses STAGING env)
+BACKEND_SERVICES="caddy n8n twelvedata candlestick-analysis metrics alloy redis rabbitmq mcp-analysis telegram-bot-2.0 ai-hub2 back-office"
+
+# Detect if this is a generic "up -d" call (no specific service)
+# Frontend-staging must be started separately with start-frontend-staging.sh (uses STAGING secrets)
+if [[ "$*" == "up -d" ]]; then
+    echo "=== Running for backend services only (excluding frontend-staging) ==="
+    infisical run --env=prod --projectId=$INFISICAL_PROJECT_ID --token=$TOKEN -- docker compose up -d $BACKEND_SERVICES
+elif [[ "$*" == "up -d --build" ]]; then
+    echo "=== Rebuilding backend services only (excluding frontend-staging) ==="
+    infisical run --env=prod --projectId=$INFISICAL_PROJECT_ID --token=$TOKEN -- docker compose up -d --build $BACKEND_SERVICES
+else
+    # Specific service or other command - pass through as-is
+    infisical run --env=prod --projectId=$INFISICAL_PROJECT_ID --token=$TOKEN -- docker compose "$@"
+fi
 

@@ -47,6 +47,14 @@ echo "=== Loading version variables ==="
 if [ -f "$DEPLOY_PATH/.env.versions" ]; then
     export $(grep -v '^#' "$DEPLOY_PATH/.env.versions" | xargs)
     echo "Loaded versions from .env.versions"
+    # Show the frontend version being used
+    if [ -n "$FRONTEND_STAGING_VERSION" ]; then
+        echo "Using FRONTEND_STAGING_VERSION=$FRONTEND_STAGING_VERSION"
+    else
+        echo "⚠️ FRONTEND_STAGING_VERSION not set, will use :latest tag"
+    fi
+else
+    echo "⚠️ No .env.versions found, will use :latest tag"
 fi
 
 echo "=== Starting frontend-staging with STAGING secrets ==="
