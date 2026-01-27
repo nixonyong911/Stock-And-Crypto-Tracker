@@ -71,10 +71,10 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /health/live", s.handleLiveness)
 	mux.HandleFunc("GET /health/ready", s.handleReadiness)
 
-	// API endpoints
-	mux.HandleFunc("GET /api/fred/status", s.handleStatus)
-	mux.HandleFunc("POST /api/fred/trigger/all", s.handleTriggerAll)
-	mux.HandleFunc("POST /api/fred/trigger/{series_id}", s.handleTriggerSingle)
+	// API endpoints (paths without prefix - Caddy handle_path strips /api/fred)
+	mux.HandleFunc("GET /status", s.handleStatus)
+	mux.HandleFunc("POST /trigger/all", s.handleTriggerAll)
+	mux.HandleFunc("POST /trigger/{series_id}", s.handleTriggerSingle)
 
 	s.httpServer = &http.Server{
 		Addr:         ":" + s.port,
@@ -187,7 +187,7 @@ func (s *Server) handleTriggerAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTriggerSingle(w http.ResponseWriter, r *http.Request) {
-	seriesID := strings.TrimPrefix(r.URL.Path, "/api/fred/trigger/")
+	seriesID := strings.TrimPrefix(r.URL.Path, "/trigger/")
 	seriesID = strings.ToUpper(seriesID)
 
 	slog.Info("Manual trigger: single indicator", "series_id", seriesID)
