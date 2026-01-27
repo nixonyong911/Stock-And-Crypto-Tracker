@@ -8,3 +8,5 @@ export { CompactView } from "./compact-view";
 export { IndicatorsTable } from "./indicators-table";
 export { IndicatorDetailCard } from "./indicator-detail-card";
 export { DetailView } from "./detail-view";
+export { ReleaseItem } from "./release-item";
+export { CalendarSidebar } from "./calendar-sidebar";
