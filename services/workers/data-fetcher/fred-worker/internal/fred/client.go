@@ -127,3 +127,91 @@ func (c *Client) doRequest(ctx context.Context, requestURL, seriesID string) (*O
 		Value: value,
 	}, nil
 }
+
+// GetYearAgoObservation fetches the observation closest to 1 year before the given date
+func (c *Client) GetYearAgoObservation(ctx context.Context, seriesID string, currentDate time.Time) (*Observation, error) {
+	// Calculate target date (1 year ago)
+	yearAgo := currentDate.AddDate(-1, 0, 0)
+
+	// Fetch observations around that date (allow some flexibility for monthly data)
+	startDate := yearAgo.AddDate(0, -1, 0).Format("2006-01-02") // 1 month before target
+	endDate := yearAgo.AddDate(0, 1, 0).Format("2006-01-02")    // 1 month after target
+
+	params := url.Values{}
+	params.Set("series_id", seriesID)
+	params.Set("api_key", c.apiKey)
+	params.Set("file_type", "json")
+	params.Set("observation_start", startDate)
+	params.Set("observation_end", endDate)
+	params.Set("sort_order", "desc") // Get most recent first
+
+	requestURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var apiResp APIResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if len(apiResp.Observations) == 0 {
+		return nil, fmt.Errorf("no year-ago observations for series %s", seriesID)
+	}
+
+	// Find the observation closest to exactly 1 year ago
+	var closest *ObservationRecord
+	var closestDiff time.Duration = time.Hour * 24 * 365 // Max 1 year diff
+
+	for i := range apiResp.Observations {
+		record := &apiResp.Observations[i]
+		if record.Value == "." {
+			continue // Skip missing values
+		}
+
+		obsDate, err := time.Parse("2006-01-02", record.Date)
+		if err != nil {
+			continue
+		}
+
+		diff := yearAgo.Sub(obsDate)
+		if diff < 0 {
+			diff = -diff
+		}
+
+		if diff < closestDiff {
+			closestDiff = diff
+			closest = record
+		}
+	}
+
+	if closest == nil {
+		return nil, fmt.Errorf("no valid year-ago observation for series %s", seriesID)
+	}
+
+	date, _ := time.Parse("2006-01-02", closest.Date)
+	value, _ := strconv.ParseFloat(closest.Value, 64)
+
+	return &Observation{
+		Date:  date,
+		Value: value,
+	}, nil
+}

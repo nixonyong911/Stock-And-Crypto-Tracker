@@ -26,24 +26,31 @@ type Server struct {
 
 // StatusResponse represents the /api/fred/status response
 type StatusResponse struct {
-	Service        string    `json:"service"`
-	Status         string    `json:"status"`
-	Version        string    `json:"version"`
-	IndicatorCount int       `json:"indicator_count"`
-	LastUpdatedAt  *string   `json:"last_updated_at,omitempty"`
+	Service        string               `json:"service"`
+	Status         string               `json:"status"`
+	Version        string               `json:"version"`
+	Display        string               `json:"display"` // "media" or "raw"
+	IndicatorCount int                  `json:"indicator_count"`
+	LastUpdatedAt  *string              `json:"last_updated_at,omitempty"`
 	Indicators     []IndicatorStatusDTO `json:"indicators,omitempty"`
 }
 
 // IndicatorStatusDTO represents an indicator in the status response
 type IndicatorStatusDTO struct {
-	SeriesID      string   `json:"series_id"`
-	DisplayName   string   `json:"display_name"`
-	Category      string   `json:"category"`
-	CurrentValue  *float64 `json:"current_value,omitempty"`
-	PreviousValue *float64 `json:"previous_value,omitempty"`
-	ChangePercent *float64 `json:"change_percent,omitempty"`
-	Trend         *string  `json:"trend,omitempty"`
-	Signal        *string  `json:"signal,omitempty"`
+	SeriesID         string   `json:"series_id"`
+	DisplayName      string   `json:"display_name"`
+	Category         string   `json:"category"`
+	// Raw values (actual FRED data)
+	RawCurrentValue  *float64 `json:"raw_current_value,omitempty"`
+	RawPreviousValue *float64 `json:"raw_previous_value,omitempty"`
+	// Media-friendly values (for display)
+	CurrentValue     *float64 `json:"current_value,omitempty"`
+	PreviousValue    *float64 `json:"previous_value,omitempty"`
+	// Metadata
+	DisplayMode      string   `json:"display_mode"`
+	ChangePercent    *float64 `json:"change_percent,omitempty"`
+	Trend            *string  `json:"trend,omitempty"`
+	Signal           *string  `json:"signal,omitempty"`
 }
 
 // TriggerResponse represents the response for trigger endpoints
@@ -125,6 +132,12 @@ func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	// Check display mode from query param (default: media)
+	displayMode := r.URL.Query().Get("display")
+	if displayMode != "raw" {
+		displayMode = "media"
+	}
+
 	indicators, err := s.repository.GetAllIndicatorStatus(ctx)
 	if err != nil {
 		slog.Error("Failed to get indicator status", "error", err)
@@ -136,15 +149,35 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	dtos := make([]IndicatorStatusDTO, 0, len(indicators))
 	for _, ind := range indicators {
 		dto := IndicatorStatusDTO{
-			SeriesID:      ind.SeriesID,
-			DisplayName:   ind.DisplayName,
-			Category:      ind.Category,
-			CurrentValue:  ind.CurrentValue,
-			PreviousValue: ind.PreviousValue,
-			ChangePercent: ind.ChangePercent,
-			Trend:         ind.Trend,
-			Signal:        ind.CurrentSignal,
+			SeriesID:         ind.SeriesID,
+			DisplayName:      ind.DisplayName,
+			Category:         ind.Category,
+			DisplayMode:      ind.DisplayMode,
+			RawCurrentValue:  ind.CurrentValue,
+			RawPreviousValue: ind.PreviousValue,
+			ChangePercent:    ind.ChangePercent,
+			Trend:            ind.Trend,
+			Signal:           ind.CurrentSignal,
 		}
+
+		// Set current/previous based on display mode
+		if displayMode == "raw" {
+			dto.CurrentValue = ind.CurrentValue
+			dto.PreviousValue = ind.PreviousValue
+		} else {
+			// Media mode - use media values, fallback to raw if not available
+			if ind.MediaCurrentValue != nil {
+				dto.CurrentValue = ind.MediaCurrentValue
+			} else {
+				dto.CurrentValue = ind.CurrentValue
+			}
+			if ind.MediaPreviousValue != nil {
+				dto.PreviousValue = ind.MediaPreviousValue
+			} else {
+				dto.PreviousValue = ind.PreviousValue
+			}
+		}
+
 		dtos = append(dtos, dto)
 
 		if ind.LastUpdatedAt != nil {
@@ -158,7 +191,8 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	response := StatusResponse{
 		Service:        "fred-worker",
 		Status:         "Running",
-		Version:        "1.0.0",
+		Version:        "1.2.0",
+		Display:        displayMode,
 		IndicatorCount: len(indicators),
 		LastUpdatedAt:  lastUpdated,
 		Indicators:     dtos,

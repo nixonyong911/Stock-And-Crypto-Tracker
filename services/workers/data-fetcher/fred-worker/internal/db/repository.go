@@ -10,26 +10,33 @@ import (
 
 // Indicator represents an economic indicator from the database
 type Indicator struct {
-	ID          int
-	SeriesID    string
-	Category    string
-	DisplayName string
-	BullishWhen string
+	ID             int
+	SeriesID       string
+	Category       string
+	DisplayName    string
+	BullishWhen    string
+	DisplayMode    string  // rate, yoy_pct, trillions_from_billions, trillions_from_millions
+	DisplayDivisor float64 // divisor for display conversion
 }
 
 // IndicatorStatus represents the current status of an indicator
 type IndicatorStatus struct {
-	SeriesID       string
-	DisplayName    string
-	Category       string
-	CurrentValue   *float64
-	CurrentDate    *time.Time
-	PreviousValue  *float64
-	PreviousDate   *time.Time
-	ChangePercent  *float64
-	Trend          *string
-	CurrentSignal  *string
-	LastUpdatedAt  *time.Time
+	SeriesID           string
+	DisplayName        string
+	Category           string
+	CurrentValue       *float64
+	CurrentDate        *time.Time
+	PreviousValue      *float64
+	PreviousDate       *time.Time
+	ChangePercent      *float64
+	Trend              *string
+	CurrentSignal      *string
+	LastUpdatedAt      *time.Time
+	// Fields for media display
+	DisplayMode        string
+	DisplayDivisor     float64
+	MediaCurrentValue  *float64
+	MediaPreviousValue *float64
 }
 
 // Repository handles database operations for economic indicators
@@ -50,7 +57,9 @@ func (r *Repository) Ping(ctx context.Context) error {
 // GetActiveIndicators returns all active indicator definitions
 func (r *Repository) GetActiveIndicators(ctx context.Context) ([]Indicator, error) {
 	query := `
-		SELECT id, series_id, category, display_name, bullish_when
+		SELECT id, series_id, category, display_name, bullish_when,
+		       COALESCE(display_mode, 'rate') as display_mode,
+		       COALESCE(display_divisor, 1) as display_divisor
 		FROM analysis_economic_indicators
 		WHERE is_active = true
 		ORDER BY category, display_order
@@ -65,7 +74,8 @@ func (r *Repository) GetActiveIndicators(ctx context.Context) ([]Indicator, erro
 	var indicators []Indicator
 	for rows.Next() {
 		var ind Indicator
-		if err := rows.Scan(&ind.ID, &ind.SeriesID, &ind.Category, &ind.DisplayName, &ind.BullishWhen); err != nil {
+		if err := rows.Scan(&ind.ID, &ind.SeriesID, &ind.Category, &ind.DisplayName,
+			&ind.BullishWhen, &ind.DisplayMode, &ind.DisplayDivisor); err != nil {
 			return nil, fmt.Errorf("failed to scan indicator: %w", err)
 		}
 		indicators = append(indicators, ind)
@@ -82,7 +92,11 @@ func (r *Repository) GetAllIndicatorStatus(ctx context.Context) ([]IndicatorStat
 			current_value, current_observation_date,
 			previous_value, previous_observation_date,
 			change_percent, trend, current_signal,
-			last_updated_at
+			last_updated_at,
+			COALESCE(display_mode, 'rate') as display_mode,
+			COALESCE(display_divisor, 1) as display_divisor,
+			media_current_value,
+			media_previous_value
 		FROM analysis_economic_indicators
 		WHERE is_active = true
 		ORDER BY category, display_order
@@ -103,6 +117,8 @@ func (r *Repository) GetAllIndicatorStatus(ctx context.Context) ([]IndicatorStat
 			&s.PreviousValue, &s.PreviousDate,
 			&s.ChangePercent, &s.Trend, &s.CurrentSignal,
 			&s.LastUpdatedAt,
+			&s.DisplayMode, &s.DisplayDivisor,
+			&s.MediaCurrentValue, &s.MediaPreviousValue,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan status: %w", err)
 		}
@@ -183,10 +199,91 @@ func (r *Repository) UpsertIndicator(ctx context.Context, seriesID string, value
 	return nil
 }
 
+// UpsertIndicatorWithMedia updates an indicator with raw and media-friendly values
+// yoyValue and yoyDate are optional and only used for yoy_pct display mode
+func (r *Repository) UpsertIndicatorWithMedia(
+	ctx context.Context,
+	seriesID string,
+	value float64,
+	date time.Time,
+	mediaValue *float64,
+	yoyValue *float64,
+	yoyDate *time.Time,
+) error {
+	// First, check if the observation_date is newer than what we have
+	var currentObsDate *time.Time
+	checkQuery := `SELECT current_observation_date FROM analysis_economic_indicators WHERE series_id = $1`
+	err := r.pool.QueryRow(ctx, checkQuery, seriesID).Scan(&currentObsDate)
+	if err != nil {
+		return fmt.Errorf("failed to check indicator %s: %w", seriesID, err)
+	}
+
+	// If we already have this observation date, skip the update
+	if currentObsDate != nil && !date.After(*currentObsDate) {
+		return nil
+	}
+
+	// New observation_date detected - this is an actual new release
+	query := `
+		UPDATE analysis_economic_indicators
+		SET
+			-- Shift: previous = old current
+			previous_value = current_value,
+			previous_observation_date = current_observation_date,
+			media_previous_value = media_current_value,
+			-- Update current with new data
+			current_value = $2,
+			current_observation_date = $3,
+			media_current_value = $4,
+			-- Update YoY reference if provided
+			yoy_observation_value = COALESCE($5, yoy_observation_value),
+			yoy_observation_date = COALESCE($6, yoy_observation_date),
+			-- Compute change based on MEDIA values for proper comparison
+			change_value = CASE 
+				WHEN media_current_value IS NULL THEN NULL
+				ELSE $4 - media_current_value
+			END,
+			change_percent = CASE 
+				WHEN media_current_value IS NULL OR media_current_value = 0 THEN NULL
+				ELSE (($4 - media_current_value) / ABS(media_current_value)) * 100
+			END,
+			-- Compute trend based on media values
+			trend = CASE 
+				WHEN media_current_value IS NULL THEN 'flat'
+				WHEN $4 > media_current_value THEN 'up'
+				WHEN $4 < media_current_value THEN 'down'
+				ELSE 'flat'
+			END,
+			-- Compute signal based on trend vs bullish_when
+			current_signal = CASE 
+				WHEN media_current_value IS NULL THEN 'neutral'
+				WHEN $4 > media_current_value AND bullish_when = 'up' THEN 'bullish'
+				WHEN $4 < media_current_value AND bullish_when = 'down' THEN 'bullish'
+				WHEN $4 = media_current_value THEN 'neutral'
+				ELSE 'bearish'
+			END,
+			last_updated_at = NOW()
+		WHERE series_id = $1
+	`
+
+	result, err := r.pool.Exec(ctx, query, seriesID, value, date, mediaValue, yoyValue, yoyDate)
+	if err != nil {
+		return fmt.Errorf("failed to upsert indicator with media: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("indicator %s not found", seriesID)
+	}
+
+	return nil
+}
+
 // GetIndicatorBySeriesID returns a single indicator by series ID
 func (r *Repository) GetIndicatorBySeriesID(ctx context.Context, seriesID string) (*Indicator, error) {
 	query := `
-		SELECT id, series_id, category, display_name, bullish_when
+		SELECT id, series_id, category, display_name, bullish_when,
+		       COALESCE(display_mode, 'rate') as display_mode,
+		       COALESCE(display_divisor, 1) as display_divisor
 		FROM analysis_economic_indicators
 		WHERE series_id = $1 AND is_active = true
 	`
@@ -194,6 +291,7 @@ func (r *Repository) GetIndicatorBySeriesID(ctx context.Context, seriesID string
 	var ind Indicator
 	err := r.pool.QueryRow(ctx, query, seriesID).Scan(
 		&ind.ID, &ind.SeriesID, &ind.Category, &ind.DisplayName, &ind.BullishWhen,
+		&ind.DisplayMode, &ind.DisplayDivisor,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get indicator %s: %w", seriesID, err)

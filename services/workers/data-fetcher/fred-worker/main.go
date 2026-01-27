@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/stocktracker/fred-worker/internal/calc"
 	"github.com/stocktracker/fred-worker/internal/config"
 	"github.com/stocktracker/fred-worker/internal/db"
 	"github.com/stocktracker/fred-worker/internal/fred"
@@ -16,7 +17,7 @@ import (
 	"github.com/stocktracker/fred-worker/internal/server"
 )
 
-const version = "1.1.0"
+const version = "1.2.0"
 
 func main() {
 	// Setup structured logging
@@ -134,8 +135,29 @@ func runFetch(ctx context.Context, repo *db.Repository, fredClient *fred.Client,
 			continue
 		}
 
-		// Upsert to database
-		if err := repo.UpsertIndicator(ctx, ind.SeriesID, obs.Value, obs.Date); err != nil {
+		// Calculate media-friendly value
+		var mediaValue *float64
+		var yoyValue *float64
+		var yoyDate *time.Time
+
+		if calc.NeedsYearAgoData(ind.DisplayMode) {
+			// Fetch year-ago observation for YoY calculation
+			yoyObs, err := fredClient.GetYearAgoObservation(ctx, ind.SeriesID, obs.Date)
+			if err != nil {
+				slog.Warn("Failed to fetch year-ago observation, skipping YoY calc",
+					"series_id", ind.SeriesID, "error", err)
+			} else {
+				yoyValue = &yoyObs.Value
+				yoyDate = &yoyObs.Date
+				mediaValue = calc.CalculateMediaValue(ind.DisplayMode, obs.Value, yoyValue, ind.DisplayDivisor)
+			}
+		} else {
+			// For non-YoY modes, calculate directly
+			mediaValue = calc.CalculateMediaValue(ind.DisplayMode, obs.Value, nil, ind.DisplayDivisor)
+		}
+
+		// Upsert to database with media value
+		if err := repo.UpsertIndicatorWithMedia(ctx, ind.SeriesID, obs.Value, obs.Date, mediaValue, yoyValue, yoyDate); err != nil {
 			slog.Error("Failed to upsert indicator", "series_id", ind.SeriesID, "error", err)
 			errorCount++
 			_ = metricsClient.IncrementCounter(ctx, "fetch_errors_total", map[string]string{
@@ -146,12 +168,16 @@ func runFetch(ctx context.Context, repo *db.Repository, fredClient *fred.Client,
 		}
 
 		successCount++
-		slog.Info("Updated indicator", "series_id", ind.SeriesID, "value", obs.Value, "date", obs.Date)
+		slog.Info("Updated indicator",
+			"series_id", ind.SeriesID,
+			"raw_value", obs.Value,
+			"media_value", mediaValue,
+			"display_mode", ind.DisplayMode,
+			"date", obs.Date)
 	}
 
 	// Report metrics
 	_ = metricsClient.IncrementCounter(ctx, "fetch_operations_total", map[string]string{"status": "completed"})
-	_ = metricsClient.IncrementCounter(ctx, "records_inserted_total", map[string]string{"count": string(rune(successCount))})
 
 	slog.Info("Fetch completed", "success", successCount, "errors", errorCount)
 	return nil
