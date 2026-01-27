@@ -15,12 +15,13 @@ import (
 
 // Server handles HTTP requests
 type Server struct {
-	port          string
-	repository    *db.Repository
-	fredClient    *fred.Client
-	metricsClient *metrics.Client
-	triggerFunc   func() error
-	httpServer    *http.Server
+	port             string
+	repository       *db.Repository
+	fredClient       *fred.Client
+	metricsClient    *metrics.Client
+	triggerFunc      func() error
+	calendarSyncFunc func() error
+	httpServer       *http.Server
 }
 
 // StatusResponse represents the /api/fred/status response
@@ -53,13 +54,14 @@ type TriggerResponse struct {
 }
 
 // New creates a new HTTP server
-func New(port string, repo *db.Repository, fredClient *fred.Client, metricsClient *metrics.Client, triggerFunc func() error) *Server {
+func New(port string, repo *db.Repository, fredClient *fred.Client, metricsClient *metrics.Client, triggerFunc func() error, calendarSyncFunc func() error) *Server {
 	return &Server{
-		port:          port,
-		repository:    repo,
-		fredClient:    fredClient,
-		metricsClient: metricsClient,
-		triggerFunc:   triggerFunc,
+		port:             port,
+		repository:       repo,
+		fredClient:       fredClient,
+		metricsClient:    metricsClient,
+		triggerFunc:      triggerFunc,
+		calendarSyncFunc: calendarSyncFunc,
 	}
 }
 
@@ -75,6 +77,10 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /status", s.handleStatus)
 	mux.HandleFunc("POST /trigger/all", s.handleTriggerAll)
 	mux.HandleFunc("POST /trigger/{series_id}", s.handleTriggerSingle)
+
+	// Calendar endpoints
+	mux.HandleFunc("GET /calendar", s.handleGetCalendar)
+	mux.HandleFunc("POST /calendar/sync", s.handleCalendarSync)
 
 	s.httpServer = &http.Server{
 		Addr:         ":" + s.port,
@@ -241,5 +247,105 @@ func (s *Server) handleTriggerSingle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// ========================================
+// Calendar Endpoints
+// ========================================
+
+// CalendarResponse represents the /calendar response
+type CalendarResponse struct {
+	Releases []ReleaseDTO `json:"releases"`
+	Count    int          `json:"count"`
+}
+
+// ReleaseDTO represents a release in the calendar response
+type ReleaseDTO struct {
+	SeriesID            string  `json:"series_id"`
+	ReleaseName         string  `json:"release_name"`
+	NextReleaseDate     *string `json:"next_release_date,omitempty"`
+	FollowingReleaseDate *string `json:"following_release_date,omitempty"`
+	ReleaseFrequency    string  `json:"release_frequency"`
+	ReleaseLink         string  `json:"release_link,omitempty"`
+}
+
+func (s *Server) handleGetCalendar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Check for optional "days" query parameter
+	daysParam := r.URL.Query().Get("days")
+	
+	var entries []db.ReleaseCalendarEntry
+	var err error
+
+	if daysParam != "" {
+		var days int
+		if _, err := json.Number(daysParam).Int64(); err == nil {
+			days = int(json.Number(daysParam).String()[0] - '0') * 10 // Simple parse
+		}
+		if days <= 0 {
+			days = 30 // Default to 30 days
+		}
+		entries, err = s.repository.GetUpcomingReleases(ctx, days)
+	} else {
+		entries, err = s.repository.GetAllReleaseCalendar(ctx)
+	}
+
+	if err != nil {
+		slog.Error("Failed to get release calendar", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	dtos := make([]ReleaseDTO, 0, len(entries))
+	for _, e := range entries {
+		dto := ReleaseDTO{
+			SeriesID:         e.SeriesID,
+			ReleaseName:      e.ReleaseName,
+			ReleaseFrequency: e.ReleaseFrequency,
+			ReleaseLink:      e.ReleaseLink,
+		}
+		if e.NextReleaseDate != nil {
+			formatted := e.NextReleaseDate.Format("2006-01-02")
+			dto.NextReleaseDate = &formatted
+		}
+		if e.FollowingReleaseDate != nil {
+			formatted := e.FollowingReleaseDate.Format("2006-01-02")
+			dto.FollowingReleaseDate = &formatted
+		}
+		dtos = append(dtos, dto)
+	}
+
+	response := CalendarResponse{
+		Releases: dtos,
+		Count:    len(dtos),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) handleCalendarSync(w http.ResponseWriter, r *http.Request) {
+	slog.Info("Manual trigger: calendar sync")
+
+	start := time.Now()
+	err := s.calendarSyncFunc()
+	duration := time.Since(start)
+
+	_ = s.metricsClient.RecordHistogram(r.Context(), "calendar_sync_duration_seconds", duration.Seconds(), nil)
+
+	response := TriggerResponse{
+		Success: err == nil,
+		Message: "Calendar sync completed",
+	}
+	if err != nil {
+		response.Message = err.Error()
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 	json.NewEncoder(w).Encode(response)
 }
