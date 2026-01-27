@@ -1,0 +1,85 @@
+*Top News*
+
+*Trump claimed a large U.S. military buildup to Iran and a massive fleet heading towards the country, sparking a metals frenzy. Silver broke $100 for the first time, and gold approached $5,000, both marking their biggest weekly gains since 2020. The U.S. carrier strike group, USS Abraham Lincoln, has arrived in the Indian Ocean, with F-15E fighter jets and C-17 transport aircraft assembling. Israel is also poised to attack. Iran stated that any attack would be considered a "full-scale war" against it, and its armed forces are on full alert. The Iranian military warned, "We are ready to pull the trigger at any time."*
+
+*The Trump administration is reportedly using sanctions on oil sales to blackmail Iraq in an effort to curb Iranian influence, causing crude oil prices to rise over 3% intraday. Reports indicate the Trump administration is considering a complete blockade of Cuban oil imports.*
+
+*The EU announced a six-month suspension of retaliatory tariffs on the U.S. Reports also indicate Trump demanded Greenland fully lift military restrictions. Trump claimed the U.S. would acquire "sovereignty" over the area where U.S. military bases are located in Greenland, and related negotiations are "progressing well." US media: The Greenland dispute marks a "decoupling" between the US and Europe; Europe prepares to counter "US technology blockade," urgently pushing forward its "technology sovereignty" and "sovereign cloud" strategies.*
+
+*The US S&P Global Manufacturing and Services PMIs both expanded in January, but slightly missed expectations. The Eurozone Manufacturing PMI unexpectedly rose to 49.4 in January: Germany's contraction slowed, while France hit a 47-month high.*
+
+*The Fed Chair nominee is "imminent," and Blackridge reportedly received positive feedback from bond market participants during consultations with the Trump administration, with her predictions rising to the top of prediction websites.*
+
+*"The second shooting of a federal law enforcement officer in Minnesota in two weeks has significantly increased the risk of a US government shutdown at the end of the month."*
+
+*Winter storms in the US have caused power outages for over 1 million customers.*
+
+*The Bank of Japan kept interest rates unchanged, while one member supported a rate hike; the BOJ governor stated that if the economy continues to rise as expected, the government will flexibly conduct bond operations under special circumstances.*
+
+*The yen rebounded sharply during the session, raising market suspicions of government intervention. The Japanese Finance Minister denied any intervention, stating, "We are maintaining a close and urgent monitoring of the situation." Market speculation suggests a joint Japan-US intervention in the foreign exchange market is imminent, with traders reporting that the New York Fed inquired about yen exchange rates with financial institutions; Sanae Takashi signaled that the government will take all necessary measures to respond. Speculative and extremely abnormal fluctuations.*
+
+*The first trilateral meeting between Russia, the US, and Ukraine since the start of the Russia-Ukraine conflict was held in the UAE. Zelensky and the US presidential envoy called the talks "constructive." Reports indicate progress on military issues, but no consensus was reached on territorial disputes. The US stated that the trilateral talks are scheduled to continue in the UAE next week.*
+
+*Trump threatened to impose a "100% tariff" on Canadian goods if Canada reaches an agreement with relevant countries. Canadian Prime Minister Carney called on the public to "buy Canadian products."*
+
+*A former senior executive revealed that "innovation has become difficult" at OpenAI. OpenAI stated that it may take a cut of profits earned from AI in the future, sparking huge controversy. OpenAI CEO teased the upcoming Codex launch month, and the official technical blog revealed details of the intelligent agent cycle.*
+
+*A severe shortage of storage has triggered a price surge. Following a 70% increase in DRAM prices, South Korean media reported that Samsung Electronics raised NAND prices by 100% in Q1.*
+
+*Top News*
+
+*The Fed's preferred inflation gauge met expectations: US November PCE price index rose 2.8% year-on-year and 0.2% month-on-month, with personal spending showing steady growth, although the savings rate declined further.*
+
+*US Q3 real GDP growth was revised slightly upward to 4.4% quarter-on-quarter, the fastest pace in two years, while core PCE inflation remained at 2.9%.*
+
+*German Chancellor Merz: Europe should not rush to abandon transatlantic relations. After Trump lifted his tariff threats, the European Parliament plans to unfreeze the review of the US-EU trade agreement, and the Greenlandic Prime Minister reiterated his bottom line.*
+
+*Nordic pension funds are accelerating their exit: Denmark is liquidating its US Treasury bonds, Sweden is following suit, and Greenland is considering selling US stocks.*
+
+*Report: The US is attempting to "overthrow the Cuban regime by the end of the year."*
+
+*Trump sued JPMorgan Chase and its CEO Dimon over the issue of "de-banking." In response to Trump, Bank of America and Citigroup are considering launching new credit cards with interest rates as high as 10%.*
+
+*AI demand is materializing, but supply is nearing its "lowest point." Intel's Q1 guidance was disappointing, and its stock price plummeted by over 10% in after-hours trading.*
+
+*Elon Musk unveiled his blueprint at Davos: the Optimus robot will be publicly available next year, Robotaxi will be "very widespread" in the US this year, and AI may surpass humans.*
+
+*Following Baidu, Alibaba reportedly plans to IPO its T-Head Semiconductor, causing its stock price to surge over 7% intraday.*
+
+*The Qwen3-TTS suite was launched as open source.*
+
+*The second wave of computing power tax has led to CPU price increases. Storage is in high demand; Kioxia's production capacity for this year is completely sold out.*
+
+*AI and storage cycles are resonating; GigaDevice expects revenue to increase by approximately 25% year-on-year and net profit to increase by 46% in 2025.*
+
+*Top News*
+
+*Trump's Davos Speech: Greenland is a core US security interest, but the US will not seize it by force and seeks immediate negotiations. Following this, Trump stated that a "framework" for a Greenland agreement had been reached with NATO, and that tariffs on Europe and Canada would not be imposed for the time being. US stocks and cryptocurrencies rallied, while silver prices plummeted.*
+
+*Bessenter's Davos Pressure: European troop buildup in Greenland is "wishful thinking," and Denmark's investment in US Treasury bonds is "irrelevant." At a closed-door dinner in Davos, the US Commerce Secretary criticized Europe for "lack of competitiveness," prompting Lagarde to storm out.*
+
+*Canadian Prime Minister Carney's Major Speech: The rules-based order is dead; middle powers should unite and act to resist coercion from certain major powers.*
+
+*Macron Calls for Respect, Not Bullying, in Europe; Chinese Investment Should Be Introduced in Key Sectors.*
+
+*The European Parliament Announces an Indefinite Freeze on the Review of the US-EU Trade Agreement.*
+
+*Will Trump Lose His Lawsuit? The US Supreme Court is cautious about removing Federal Reserve Governor Cook, with a justice warning of "crushing" central bank independence.*
+
+*Trump says he may have chosen someone to be the Federal Reserve Chairman, hoping for someone like Greenspan, again hinting at Hassett's "out of the running."*
+
+*US aircraft carrier shuts off transponders; fighter jets take off from the UK.*
+
+*GPU leasing prices surge with demand; Jensen Huang: AI needs trillions of dollars in infrastructure support. Report: Jensen Huang plans to visit China before the Spring Festival.*
+
+*Google's TPUs are catching up strongly; inference costs have plummeted by 70%, and their cost-effectiveness is now on par with Nvidia.*
+
+*Apple plans to transform Siri into its first chatbot in the second half of the year. Reports indicate that Apple is developing the AI ​​wearable device PIN.*
+
+*Meta's Super Lab delivered its first batch of key AI models this month.*
+
+*Yi Zhongtian's first earnings forecast! Tianfu Communication: Expects full-year net profit to increase by 40%-60% year-on-year, with stable growth in demand for high-speed optical devices.*
+
+*Moore Threads: 2025 revenue is expected to increase by 230%-247%, with losses narrowing by 34.50%-41.30%.*
+
+*AI-driven demand for storage is driving Demingli's Q4 net profit to surge by 1051.59%-1262.41% year-on-year.*

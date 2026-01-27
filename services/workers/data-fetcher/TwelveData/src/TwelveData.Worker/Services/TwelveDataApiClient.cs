@@ -36,7 +36,7 @@ public class TwelveDataApiClient : ITwelveDataApiClient
         _httpClient = httpClient;
         _settings = settings.Value;
         _logger = logger;
-        
+
         _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
     }
 
@@ -46,42 +46,42 @@ public class TwelveDataApiClient : ITwelveDataApiClient
         {
             var url = BuildTimeSeriesUrl(symbol, config);
             var urlForLogging = BuildTimeSeriesUrlForLogging(symbol, config);
-            
+
             _logger.LogInformation("TwelveData API Request: {Symbol} - {Url}", symbol, urlForLogging);
-            
+
             var response = await _httpClient.GetAsync(url, cancellationToken);
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            
+
             // Log raw response for debugging
-            _logger.LogDebug("TwelveData API Response for {Symbol}: {Response}", symbol, 
+            _logger.LogDebug("TwelveData API Response for {Symbol}: {Response}", symbol,
                 content.Length > 500 ? content.Substring(0, 500) + "..." : content);
-            
+
             response.EnsureSuccessStatusCode();
-            
+
             var timeSeriesResponse = JsonSerializer.Deserialize<TimeSeriesResponse>(content);
-            
+
             if (timeSeriesResponse == null)
             {
                 _logger.LogWarning("Failed to deserialize response for {Symbol}. Raw: {Response}", symbol, content);
                 return null;
             }
-            
+
             // Check for API error responses
             if (timeSeriesResponse.Status == "error")
             {
-                _logger.LogWarning("TwelveData API error for {Symbol}: {Message} (Code: {Code}). Request: {Url}", 
+                _logger.LogWarning("TwelveData API error for {Symbol}: {Message} (Code: {Code}). Request: {Url}",
                     symbol, timeSeriesResponse.Message, timeSeriesResponse.Code, urlForLogging);
                 return null;
             }
 
-            _logger.LogInformation("TwelveData API Success: {Symbol} - {Count} data points fetched", 
+            _logger.LogInformation("TwelveData API Success: {Symbol} - {Count} data points fetched",
                 symbol, timeSeriesResponse.Values?.Count ?? 0);
-            
+
             return timeSeriesResponse;
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "HTTP error fetching time series for {Symbol}. Status: {Status}", 
+            _logger.LogError(ex, "HTTP error fetching time series for {Symbol}. Status: {Status}",
                 symbol, ex.StatusCode);
             throw;
         }
@@ -96,7 +96,7 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     {
         // Resolve "yesterday" to actual date for TwelveData API
         var resolvedDate = ResolveFetchDate(config.FetchDate);
-        
+
         return $"/time_series?symbol={symbol}" +
                $"&interval={config.Interval}" +
                $"&exchange={config.Exchange}" +
@@ -109,7 +109,7 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     private string BuildTimeSeriesUrlForLogging(string symbol, FetchConfig config)
     {
         var resolvedDate = ResolveFetchDate(config.FetchDate);
-        
+
         return $"/time_series?symbol={symbol}" +
                $"&interval={config.Interval}" +
                $"&exchange={config.Exchange}" +
@@ -126,7 +126,7 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     private static string ResolveFetchDate(string fetchDate)
     {
         var lowerDate = fetchDate.ToLowerInvariant().Trim();
-        
+
         return lowerDate switch
         {
             "yesterday" => DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd"),
@@ -143,11 +143,11 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     public static DateTime ConvertToUtc(string datetime)
     {
         var localDateTime = DateTime.ParseExact(
-            datetime, 
-            "yyyy-MM-dd HH:mm:ss", 
+            datetime,
+            "yyyy-MM-dd HH:mm:ss",
             CultureInfo.InvariantCulture,
             DateTimeStyles.None);
-        
+
         return TimeZoneInfo.ConvertTimeToUtc(localDateTime, EasternTimeZone);
     }
 
@@ -156,8 +156,8 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     /// </summary>
     public static decimal ParseDecimal(string value)
     {
-        return decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) 
-            ? result 
+        return decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result)
+            ? result
             : 0;
     }
 
@@ -166,15 +166,15 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     /// </summary>
     public static long ParseLong(string value)
     {
-        return long.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) 
-            ? result 
+        return long.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result)
+            ? result
             : 0;
     }
 
     public async Task<TimeSeriesResponse?> GetHistoricalTimeSeriesAsync(
-        string symbol, 
+        string symbol,
         string interval,
-        int outputSize, 
+        int outputSize,
         string exchange = "NASDAQ",
         string? endDate = null,
         CancellationToken cancellationToken = default)
@@ -183,42 +183,42 @@ public class TwelveDataApiClient : ITwelveDataApiClient
         {
             var url = BuildHistoricalTimeSeriesUrl(symbol, interval, outputSize, exchange, endDate);
             var urlForLogging = BuildHistoricalTimeSeriesUrlForLogging(symbol, interval, outputSize, exchange, endDate);
-            
+
             _logger.LogInformation("TwelveData Historical API Request: {Symbol} - {Url}", symbol, urlForLogging);
-            
+
             var response = await _httpClient.GetAsync(url, cancellationToken);
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            
+
             // Log raw response for debugging
-            _logger.LogDebug("TwelveData Historical API Response for {Symbol}: {Response}", symbol, 
+            _logger.LogDebug("TwelveData Historical API Response for {Symbol}: {Response}", symbol,
                 content.Length > 500 ? content.Substring(0, 500) + "..." : content);
-            
+
             response.EnsureSuccessStatusCode();
-            
+
             var timeSeriesResponse = JsonSerializer.Deserialize<TimeSeriesResponse>(content);
-            
+
             if (timeSeriesResponse == null)
             {
                 _logger.LogWarning("Failed to deserialize historical response for {Symbol}. Raw: {Response}", symbol, content);
                 return null;
             }
-            
+
             // Check for API error responses
             if (timeSeriesResponse.Status == "error")
             {
-                _logger.LogWarning("TwelveData Historical API error for {Symbol}: {Message} (Code: {Code}). Request: {Url}", 
+                _logger.LogWarning("TwelveData Historical API error for {Symbol}: {Message} (Code: {Code}). Request: {Url}",
                     symbol, timeSeriesResponse.Message, timeSeriesResponse.Code, urlForLogging);
                 return null;
             }
 
-            _logger.LogInformation("TwelveData Historical API Success: {Symbol} - {Count} data points fetched (endDate: {EndDate})", 
+            _logger.LogInformation("TwelveData Historical API Success: {Symbol} - {Count} data points fetched (endDate: {EndDate})",
                 symbol, timeSeriesResponse.Values?.Count ?? 0, endDate ?? "none");
-            
+
             return timeSeriesResponse;
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "HTTP error fetching historical time series for {Symbol}. Status: {Status}", 
+            _logger.LogError(ex, "HTTP error fetching historical time series for {Symbol}. Status: {Status}",
                 symbol, ex.StatusCode);
             throw;
         }
@@ -237,13 +237,13 @@ public class TwelveDataApiClient : ITwelveDataApiClient
                   $"&timezone=America/New_York" +
                   $"&outputsize={outputSize}" +
                   $"&apikey={_settings.ApiKey}";
-        
+
         // Add end_date only for batching (subsequent requests after first batch)
         if (!string.IsNullOrEmpty(endDate))
         {
             url += $"&end_date={endDate}";
         }
-        
+
         return url;
     }
 
@@ -255,12 +255,12 @@ public class TwelveDataApiClient : ITwelveDataApiClient
                   $"&timezone=America/New_York" +
                   $"&outputsize={outputSize}" +
                   $"&apikey=***REDACTED***";
-        
+
         if (!string.IsNullOrEmpty(endDate))
         {
             url += $"&end_date={endDate}";
         }
-        
+
         return url;
     }
 
@@ -273,62 +273,62 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     public static string CalculateNextBatchEndDate(string oldestDatetime, int intervalMinutes)
     {
         var parsed = DateTime.ParseExact(
-            oldestDatetime, 
-            "yyyy-MM-dd HH:mm:ss", 
+            oldestDatetime,
+            "yyyy-MM-dd HH:mm:ss",
             CultureInfo.InvariantCulture,
             DateTimeStyles.None);
-        
+
         var nextEndDate = parsed.AddMinutes(-intervalMinutes);
-        
+
         // Format with T separator for TwelveData API
         return nextEndDate.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
     }
 
     public async Task<TimeSeriesResponse?> GetCryptoTimeSeriesAsync(
-        string symbol, 
-        CryptoFetchConfig config, 
+        string symbol,
+        CryptoFetchConfig config,
         CancellationToken cancellationToken = default)
     {
         try
         {
             var url = BuildCryptoTimeSeriesUrl(symbol, config);
             var urlForLogging = BuildCryptoTimeSeriesUrlForLogging(symbol, config);
-            
+
             _logger.LogInformation("TwelveData Crypto API Request: {Symbol} - {Url}", symbol, urlForLogging);
-            
+
             var response = await _httpClient.GetAsync(url, cancellationToken);
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            
+
             // Log raw response for debugging
-            _logger.LogDebug("TwelveData Crypto API Response for {Symbol}: {Response}", symbol, 
+            _logger.LogDebug("TwelveData Crypto API Response for {Symbol}: {Response}", symbol,
                 content.Length > 500 ? content.Substring(0, 500) + "..." : content);
-            
+
             response.EnsureSuccessStatusCode();
-            
+
             var timeSeriesResponse = JsonSerializer.Deserialize<TimeSeriesResponse>(content);
-            
+
             if (timeSeriesResponse == null)
             {
                 _logger.LogWarning("Failed to deserialize crypto response for {Symbol}. Raw: {Response}", symbol, content);
                 return null;
             }
-            
+
             // Check for API error responses
             if (timeSeriesResponse.Status == "error")
             {
-                _logger.LogWarning("TwelveData Crypto API error for {Symbol}: {Message} (Code: {Code}). Request: {Url}", 
+                _logger.LogWarning("TwelveData Crypto API error for {Symbol}: {Message} (Code: {Code}). Request: {Url}",
                     symbol, timeSeriesResponse.Message, timeSeriesResponse.Code, urlForLogging);
                 return null;
             }
 
-            _logger.LogInformation("TwelveData Crypto API Success: {Symbol} - {Count} data points fetched", 
+            _logger.LogInformation("TwelveData Crypto API Success: {Symbol} - {Count} data points fetched",
                 symbol, timeSeriesResponse.Values?.Count ?? 0);
-            
+
             return timeSeriesResponse;
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "HTTP error fetching crypto time series for {Symbol}. Status: {Status}", 
+            _logger.LogError(ex, "HTTP error fetching crypto time series for {Symbol}. Status: {Status}",
                 symbol, ex.StatusCode);
             throw;
         }
@@ -396,11 +396,11 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     public static DateTime ConvertUtcString(string datetime)
     {
         var utcDateTime = DateTime.ParseExact(
-            datetime, 
-            "yyyy-MM-dd HH:mm:ss", 
+            datetime,
+            "yyyy-MM-dd HH:mm:ss",
             CultureInfo.InvariantCulture,
             DateTimeStyles.None);
-        
+
         return DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc);
     }
 }

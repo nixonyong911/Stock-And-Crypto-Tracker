@@ -29,7 +29,7 @@ public class CryptoVerifier : IAssetVerifier
         _settings = settings.Value;
         _rateLimiter = rateLimiter;
         _logger = logger;
-        
+
         _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
     }
 
@@ -42,12 +42,12 @@ public class CryptoVerifier : IAssetVerifier
         {
             // Acquire rate limit slot (external caller)
             var rateLimitResult = await _rateLimiter.AcquireAsync("external", cancellationToken);
-            
+
             if (rateLimitResult.Status == RateLimitStatus.Queued)
             {
                 return VerificationResult.Error(AssetType, symbol, "Daily rate limit reached. Please try again tomorrow.");
             }
-            
+
             if (rateLimitResult.Status == RateLimitStatus.Failed)
             {
                 return VerificationResult.Error(AssetType, symbol, rateLimitResult.ErrorMessage ?? "Rate limit check failed");
@@ -56,36 +56,36 @@ public class CryptoVerifier : IAssetVerifier
             // Call Twelve Data /cryptocurrencies endpoint with symbol filter
             // Symbol is already normalized to BTC/USD format
             var url = $"/cryptocurrencies?symbol={symbol}&apikey={_settings.ApiKey}";
-            
+
             _logger.LogDebug("Verifying crypto symbol {Symbol} via Twelve Data", symbol);
-            
+
             var response = await _httpClient.GetAsync(url, cancellationToken);
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Twelve Data /cryptocurrencies returned {StatusCode}: {Content}", response.StatusCode, content);
                 return VerificationResult.Error(AssetType, symbol, $"API error: {response.StatusCode}");
             }
-            
+
             var cryptoResponse = JsonSerializer.Deserialize<CryptocurrenciesResponse>(content);
-            
+
             if (cryptoResponse?.Data == null || cryptoResponse.Data.Count == 0)
             {
                 _logger.LogInformation("Crypto symbol {Symbol} not found in Twelve Data catalog", symbol);
                 return VerificationResult.NotFound(AssetType, symbol);
             }
-            
+
             // Symbol found - return first match
             var crypto = cryptoResponse.Data[0];
-            
+
             // For crypto, use currency_quote as currency and first exchange
             var exchange = crypto.AvailableExchanges?.FirstOrDefault();
-            
+
             _logger.LogInformation(
                 "Crypto symbol {Symbol} verified: {Base}/{Quote} on {Exchange}",
                 symbol, crypto.CurrencyBase, crypto.CurrencyQuote, exchange);
-            
+
             return VerificationResult.Success(
                 AssetType,
                 crypto.Symbol,

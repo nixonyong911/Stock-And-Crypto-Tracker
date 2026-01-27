@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Link } from "@/lib/i18n/routing";
 import { useTranslations } from "next-intl";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
@@ -9,12 +10,21 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import Image from "next/image";
 import { GradientText } from "@/components/ui/gradient-text";
 import { SignInButton } from "@/components/ui/sign-in-button";
+import { Menu, X } from "lucide-react";
 
 // Check if Clerk is configured
 const isClerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 export function Header() {
   const t = useTranslations("nav");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navLinks = [
+    { href: "/pricing", label: t("pricing") },
+    { href: "/about", label: t("about") },
+    { href: "/indicators", label: t("indicators") },
+    { href: "/blog", label: t("blog") },
+  ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -34,30 +44,15 @@ export function Header() {
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">
-            <Link
-              href="/pricing"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {t("pricing")}
-            </Link>
-            <Link
-              href="/about"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {t("about")}
-            </Link>
-            <Link
-              href="/indicators"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {t("indicators")}
-            </Link>
-            <Link
-              href="/blog"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {t("blog")}
-            </Link>
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
         </div>
 
@@ -71,7 +66,7 @@ export function Header() {
               </SignedOut>
               
               <SignedIn>
-                <Button asChild variant="ghost" size="sm">
+                <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
                   <Link href="/dashboard">
                     Dashboard
                   </Link>
@@ -91,8 +86,57 @@ export function Header() {
           )}
           
           <ThemeToggle />
+
+          {/* Mobile menu button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
         </div>
       </div>
+
+      {/* Mobile menu overlay */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t bg-background">
+          <nav className="container mx-auto flex flex-col px-4 py-4 space-y-4">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground py-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+            
+            {/* Mobile-only sign in button */}
+            {isClerkConfigured ? (
+              <SignedOut>
+                <SignInButton size="sm" className="w-full justify-center sm:hidden" />
+              </SignedOut>
+            ) : (
+              <SignInButton size="sm" className="w-full justify-center sm:hidden" />
+            )}
+            
+            {/* Mobile-only dashboard link */}
+            {isClerkConfigured && (
+              <SignedIn>
+                <Button asChild variant="ghost" size="sm" className="w-full justify-center sm:hidden">
+                  <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                    Dashboard
+                  </Link>
+                </Button>
+              </SignedIn>
+            )}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
