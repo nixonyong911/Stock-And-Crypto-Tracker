@@ -89,6 +89,7 @@ export function IndicatorsTableClient({ formattedCategories }: Props) {
                   <TableHead>Trend</TableHead>
                   <TableHead>Signal</TableHead>
                   <TableHead className="text-right"><SortHeader field="date">Updated</SortHeader></TableHead>
+                  <TableHead className="text-right">Next Release</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -113,6 +114,12 @@ export function IndicatorsTableClient({ formattedCategories }: Props) {
                     <TableCell className="text-right text-muted-foreground">
                       {(indicator.last_release_date ?? indicator.current_observation_date) && 
                         new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {indicator.release_frequency === "Daily"
+                        ? "Daily"
+                        : indicator.next_release_date &&
+                          new Date(indicator.next_release_date).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
                 ))}

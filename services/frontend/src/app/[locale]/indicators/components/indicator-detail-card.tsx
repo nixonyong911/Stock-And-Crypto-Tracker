@@ -41,11 +41,18 @@ export function IndicatorDetailCard({ indicator, formattedCurrent, formattedPrev
               </span>
             )}
           </div>
-          {indicator.current_observation_date && (
-            <span className="text-xs text-muted-foreground">
-              {new Date(indicator.current_observation_date).toLocaleDateString()}
-            </span>
-          )}
+          <div className="text-right text-xs text-muted-foreground">
+            {(indicator.last_release_date ?? indicator.current_observation_date) && (
+              <div>Updated: {new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString()}</div>
+            )}
+            <div>
+              Next: {indicator.release_frequency === "Daily"
+                ? "Daily"
+                : indicator.next_release_date
+                  ? new Date(indicator.next_release_date).toLocaleDateString()
+                  : "N/A"}
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>
