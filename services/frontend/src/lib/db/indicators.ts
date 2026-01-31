@@ -21,6 +21,32 @@ export interface EconomicIndicator {
   description: string | null;
   current_observation_date: string | null;
   last_release_date: string | null;
+  // From analysis_release_calendar join
+  next_release_date: string | null;
+  release_frequency: string | null;
+}
+
+// Raw response type from Supabase join query
+interface IndicatorWithCalendar {
+  series_id: string;
+  category: string;
+  display_name: string;
+  current_value: number | null;
+  previous_value: number | null;
+  media_current_value: number | null;
+  media_previous_value: number | null;
+  display_mode: EconomicIndicator["display_mode"];
+  change_percent: number | null;
+  trend: EconomicIndicator["trend"];
+  current_signal: EconomicIndicator["current_signal"];
+  units: string | null;
+  description: string | null;
+  current_observation_date: string | null;
+  last_release_date: string | null;
+  analysis_release_calendar: {
+    next_release_date: string | null;
+    release_frequency: string | null;
+  } | null;
 }
 
 export async function getEconomicIndicators(): Promise<EconomicIndicator[]> {
@@ -28,13 +54,37 @@ export async function getEconomicIndicators(): Promise<EconomicIndicator[]> {
   const { data, error } = await supabase
     .from("analysis_economic_indicators")
     .select(
-      "series_id, category, display_name, current_value, previous_value, media_current_value, media_previous_value, display_mode, change_percent, trend, current_signal, units, description, current_observation_date, last_release_date"
+      `series_id, category, display_name, current_value, previous_value, 
+       media_current_value, media_previous_value, display_mode, change_percent, 
+       trend, current_signal, units, description, current_observation_date, 
+       last_release_date,
+       analysis_release_calendar(next_release_date, release_frequency)`
     )
     .eq("is_active", true)
     .order("display_order");
 
   if (error) throw error;
-  return data ?? [];
+
+  // Flatten the joined data
+  return (data as IndicatorWithCalendar[] | null)?.map((item) => ({
+    series_id: item.series_id,
+    category: item.category,
+    display_name: item.display_name,
+    current_value: item.current_value,
+    previous_value: item.previous_value,
+    media_current_value: item.media_current_value,
+    media_previous_value: item.media_previous_value,
+    display_mode: item.display_mode,
+    change_percent: item.change_percent,
+    trend: item.trend,
+    current_signal: item.current_signal,
+    units: item.units,
+    description: item.description,
+    current_observation_date: item.current_observation_date,
+    last_release_date: item.last_release_date,
+    next_release_date: item.analysis_release_calendar?.next_release_date ?? null,
+    release_frequency: item.analysis_release_calendar?.release_frequency ?? null,
+  })) ?? [];
 }
 
 // Group indicators by category for display
