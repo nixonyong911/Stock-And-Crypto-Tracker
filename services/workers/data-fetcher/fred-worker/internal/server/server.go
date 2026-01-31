@@ -51,6 +51,9 @@ type IndicatorStatusDTO struct {
 	ChangePercent    *float64 `json:"change_percent,omitempty"`
 	Trend            *string  `json:"trend,omitempty"`
 	Signal           *string  `json:"signal,omitempty"`
+	// Dates
+	CurrentObservationDate *string `json:"current_observation_date,omitempty"`
+	LastReleaseDate        *string `json:"last_release_date,omitempty"`
 }
 
 // TriggerResponse represents the response for trigger endpoints
@@ -178,6 +181,16 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Add dates
+		if ind.CurrentDate != nil {
+			formatted := ind.CurrentDate.Format("2006-01-02")
+			dto.CurrentObservationDate = &formatted
+		}
+		if ind.LastReleaseDate != nil {
+			formatted := ind.LastReleaseDate.Format("2006-01-02")
+			dto.LastReleaseDate = &formatted
+		}
+
 		dtos = append(dtos, dto)
 
 		if ind.LastUpdatedAt != nil {
@@ -191,7 +204,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	response := StatusResponse{
 		Service:        "fred-worker",
 		Status:         "Running",
-		Version:        "1.2.0",
+		Version:        "1.3.0",
 		Display:        displayMode,
 		IndicatorCount: len(indicators),
 		LastUpdatedAt:  lastUpdated,

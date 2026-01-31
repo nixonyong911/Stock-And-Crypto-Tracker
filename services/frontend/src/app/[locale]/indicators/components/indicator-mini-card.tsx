@@ -39,8 +39,8 @@ export function IndicatorMiniCard({ indicator, formattedValue, formattedPrevious
                 </span>
               </p>
             )}
-            {indicator.current_observation_date && (
-              <p><span className="text-muted-foreground">Updated:</span> {new Date(indicator.current_observation_date).toLocaleDateString()}</p>
+            {(indicator.last_release_date ?? indicator.current_observation_date) && (
+              <p><span className="text-muted-foreground">Updated:</span> {new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString()}</p>
             )}
           </div>
         </TooltipContent>

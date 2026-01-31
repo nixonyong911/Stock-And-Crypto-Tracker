@@ -37,6 +37,8 @@ type IndicatorStatus struct {
 	DisplayDivisor     float64
 	MediaCurrentValue  *float64
 	MediaPreviousValue *float64
+	// Official release date from FRED calendar
+	LastReleaseDate    *time.Time
 }
 
 // Repository handles database operations for economic indicators
@@ -96,7 +98,8 @@ func (r *Repository) GetAllIndicatorStatus(ctx context.Context) ([]IndicatorStat
 			COALESCE(display_mode, 'rate') as display_mode,
 			COALESCE(display_divisor, 1) as display_divisor,
 			media_current_value,
-			media_previous_value
+			media_previous_value,
+			last_release_date
 		FROM analysis_economic_indicators
 		WHERE is_active = true
 		ORDER BY category, display_order
@@ -119,6 +122,7 @@ func (r *Repository) GetAllIndicatorStatus(ctx context.Context) ([]IndicatorStat
 			&s.LastUpdatedAt,
 			&s.DisplayMode, &s.DisplayDivisor,
 			&s.MediaCurrentValue, &s.MediaPreviousValue,
+			&s.LastReleaseDate,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan status: %w", err)
 		}
@@ -201,6 +205,7 @@ func (r *Repository) UpsertIndicator(ctx context.Context, seriesID string, value
 
 // UpsertIndicatorWithMedia updates an indicator with raw and media-friendly values
 // yoyValue and yoyDate are optional and only used for yoy_pct display mode
+// lastReleaseDate is the official FRED release date (when data was announced)
 func (r *Repository) UpsertIndicatorWithMedia(
 	ctx context.Context,
 	seriesID string,
@@ -209,6 +214,7 @@ func (r *Repository) UpsertIndicatorWithMedia(
 	mediaValue *float64,
 	yoyValue *float64,
 	yoyDate *time.Time,
+	lastReleaseDate *time.Time,
 ) error {
 	// First, check if the observation_date is newer than what we have
 	var currentObsDate *time.Time
@@ -218,7 +224,16 @@ func (r *Repository) UpsertIndicatorWithMedia(
 		return fmt.Errorf("failed to check indicator %s: %w", seriesID, err)
 	}
 
-	// If we already have this observation date, skip the update
+	// Always update last_release_date if provided (even if observation hasn't changed)
+	if lastReleaseDate != nil {
+		updateReleaseDateQuery := `UPDATE analysis_economic_indicators SET last_release_date = $2 WHERE series_id = $1`
+		_, err := r.pool.Exec(ctx, updateReleaseDateQuery, seriesID, lastReleaseDate)
+		if err != nil {
+			return fmt.Errorf("failed to update release date for %s: %w", seriesID, err)
+		}
+	}
+
+	// If we already have this observation date, skip the value update
 	if currentObsDate != nil && !date.After(*currentObsDate) {
 		return nil
 	}

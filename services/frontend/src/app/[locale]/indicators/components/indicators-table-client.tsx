@@ -57,7 +57,7 @@ export function IndicatorsTableClient({ formattedCategories }: Props) {
           comparison = (indA.change_percent ?? 0) - (indB.change_percent ?? 0);
           break;
         case "date":
-          comparison = (indA.current_observation_date ?? "").localeCompare(indB.current_observation_date ?? "");
+          comparison = (indA.last_release_date ?? indA.current_observation_date ?? "").localeCompare(indB.last_release_date ?? indB.current_observation_date ?? "");
           break;
       }
       return sortDirection === "asc" ? comparison : -comparison;
@@ -111,7 +111,8 @@ export function IndicatorsTableClient({ formattedCategories }: Props) {
                     <TableCell><TrendIcon trend={indicator.trend} /></TableCell>
                     <TableCell><SignalBadge signal={indicator.current_signal} /></TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      {indicator.current_observation_date && new Date(indicator.current_observation_date).toLocaleDateString()}
+                      {(indicator.last_release_date ?? indicator.current_observation_date) && 
+                        new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -153,6 +153,71 @@ func (c *Client) GetReleaseDates(ctx context.Context, releaseID int) ([]ReleaseD
 	return dates, nil
 }
 
+// GetPastReleaseDates fetches recent past release dates for a given release_id
+// Used to find when the current data was actually released (official announcement date)
+// Returns dates sorted descending (most recent first)
+func (c *Client) GetPastReleaseDates(ctx context.Context, releaseID int) ([]ReleaseDate, error) {
+	// Get dates from past 90 days to ensure we capture monthly/quarterly releases
+	today := time.Now()
+	endDate := today.Format("2006-01-02")
+	startDate := today.AddDate(0, 0, -90).Format("2006-01-02")
+
+	params := url.Values{}
+	params.Set("release_id", fmt.Sprintf("%d", releaseID))
+	params.Set("api_key", c.apiKey)
+	params.Set("file_type", "json")
+	params.Set("realtime_start", startDate)
+	params.Set("realtime_end", endDate)
+	params.Set("sort_order", "desc") // Most recent first
+	params.Set("limit", "15")
+
+	requestURL := fmt.Sprintf("%s?%s", releaseDatesURL, params.Encode())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var apiResp ReleaseDatesResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	var dates []ReleaseDate
+	for _, rd := range apiResp.ReleaseDates {
+		date, err := time.Parse("2006-01-02", rd.Date)
+		if err != nil {
+			slog.Warn("Failed to parse release date", "date", rd.Date, "error", err)
+			continue
+		}
+		// Only include dates that are today or in the past
+		if !date.After(today) {
+			dates = append(dates, ReleaseDate{
+				ReleaseID: rd.ReleaseID,
+				Date:      date,
+			})
+		}
+	}
+
+	return dates, nil
+}
+
 // GetReleaseFrequency determines the release frequency based on release dates
 // Returns human-readable frequency string
 func GetReleaseFrequency(dates []ReleaseDate) string {

@@ -20,6 +20,7 @@ export interface EconomicIndicator {
   units: string | null;
   description: string | null;
   current_observation_date: string | null;
+  last_release_date: string | null;
 }
 
 export async function getEconomicIndicators(): Promise<EconomicIndicator[]> {
@@ -27,7 +28,7 @@ export async function getEconomicIndicators(): Promise<EconomicIndicator[]> {
   const { data, error } = await supabase
     .from("analysis_economic_indicators")
     .select(
-      "series_id, category, display_name, current_value, previous_value, media_current_value, media_previous_value, display_mode, change_percent, trend, current_signal, units, description, current_observation_date"
+      "series_id, category, display_name, current_value, previous_value, media_current_value, media_previous_value, display_mode, change_percent, trend, current_signal, units, description, current_observation_date, last_release_date"
     )
     .eq("is_active", true)
     .order("display_order");
@@ -61,8 +62,11 @@ export const CATEGORY_CONFIG: Record<
   interest_rates: { displayName: "Interest Rates", order: 1 },
   inflation: { displayName: "Inflation", order: 2 },
   yield_curve: { displayName: "Yield Curve", order: 3 },
-  money_supply: { displayName: "Money Supply", order: 4 },
-  credit: { displayName: "Credit", order: 5 },
+  labor: { displayName: "Labor Market", order: 4 },
+  growth: { displayName: "Economic Growth", order: 5 },
+  sentiment: { displayName: "Consumer Sentiment", order: 6 },
+  money_supply: { displayName: "Money Supply", order: 7 },
+  credit: { displayName: "Credit", order: 8 },
 };
 
 export function getSortedCategories(

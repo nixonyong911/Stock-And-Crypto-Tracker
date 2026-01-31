@@ -17,7 +17,7 @@ import (
 	"github.com/stocktracker/fred-worker/internal/server"
 )
 
-const version = "1.2.0"
+const version = "1.3.0"
 
 func main() {
 	// Setup structured logging
@@ -80,6 +80,14 @@ func main() {
 	go dailySched.Start(ctx)
 	go weeklySched.Start(ctx)
 
+	// Run initial calendar sync on startup (ensures new indicators get calendar data immediately)
+	go func() {
+		slog.Info("Running initial calendar sync on startup")
+		if err := runCalendarSync(ctx, repository, fredClient, metricsClient); err != nil {
+			slog.Error("Initial calendar sync failed", "error", err)
+		}
+	}()
+
 	// Start HTTP server in background
 	go func() {
 		if err := srv.Start(); err != nil {
@@ -122,6 +130,9 @@ func runFetch(ctx context.Context, repo *db.Repository, fredClient *fred.Client,
 	successCount := 0
 	errorCount := 0
 
+	// Track release IDs we've already fetched to avoid duplicate API calls
+	releaseCache := make(map[int][]fred.ReleaseDate)
+
 	for _, ind := range indicators {
 		// Fetch latest observation from FRED
 		obs, err := fredClient.GetLatestObservation(ctx, ind.SeriesID)
@@ -156,8 +167,28 @@ func runFetch(ctx context.Context, repo *db.Repository, fredClient *fred.Client,
 			mediaValue = calc.CalculateMediaValue(ind.DisplayMode, obs.Value, nil, ind.DisplayDivisor)
 		}
 
-		// Upsert to database with media value
-		if err := repo.UpsertIndicatorWithMedia(ctx, ind.SeriesID, obs.Value, obs.Date, mediaValue, yoyValue, yoyDate); err != nil {
+		// Fetch official release date from FRED calendar
+		var lastReleaseDate *time.Time
+		releaseInfo, err := fredClient.GetSeriesRelease(ctx, ind.SeriesID)
+		if err == nil {
+			// Check cache first
+			pastDates, cached := releaseCache[releaseInfo.ReleaseID]
+			if !cached {
+				pastDates, err = fredClient.GetPastReleaseDates(ctx, releaseInfo.ReleaseID)
+				if err != nil {
+					slog.Warn("Failed to fetch past release dates",
+						"series_id", ind.SeriesID, "release_id", releaseInfo.ReleaseID, "error", err)
+				}
+				releaseCache[releaseInfo.ReleaseID] = pastDates
+			}
+			// Use most recent past release date
+			if len(pastDates) > 0 {
+				lastReleaseDate = &pastDates[0].Date
+			}
+		}
+
+		// Upsert to database with media value and release date
+		if err := repo.UpsertIndicatorWithMedia(ctx, ind.SeriesID, obs.Value, obs.Date, mediaValue, yoyValue, yoyDate, lastReleaseDate); err != nil {
 			slog.Error("Failed to upsert indicator", "series_id", ind.SeriesID, "error", err)
 			errorCount++
 			_ = metricsClient.IncrementCounter(ctx, "fetch_errors_total", map[string]string{
@@ -173,7 +204,8 @@ func runFetch(ctx context.Context, repo *db.Repository, fredClient *fred.Client,
 			"raw_value", obs.Value,
 			"media_value", mediaValue,
 			"display_mode", ind.DisplayMode,
-			"date", obs.Date)
+			"observation_date", obs.Date,
+			"release_date", lastReleaseDate)
 	}
 
 	// Report metrics
