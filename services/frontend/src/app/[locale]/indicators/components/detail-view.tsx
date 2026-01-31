@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { EconomicIndicator, CATEGORY_CONFIG, groupIndicatorsByCategory, getSortedCategories } from "@/lib/db/indicators";
 import { IndicatorsTable } from "./indicators-table";
@@ -10,14 +11,7 @@ interface Props {
   formatValue: (indicator: EconomicIndicator, field: "current" | "previous") => string;
 }
 
-export function DetailView({ indicators, formatValue }: Props) {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
-
-  if (isDesktop) {
-    return <IndicatorsTable indicators={indicators} formatValue={formatValue} />;
-  }
-
-  // Mobile: Stacked cards
+function MobileDetailView({ indicators, formatValue }: Props) {
   const grouped = groupIndicatorsByCategory(indicators);
   const sortedCategories = getSortedCategories(grouped);
 
@@ -42,4 +36,25 @@ export function DetailView({ indicators, formatValue }: Props) {
       ))}
     </div>
   );
+}
+
+export function DetailView({ indicators, formatValue }: Props) {
+  const [mounted, setMounted] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Render mobile view during SSR and initial hydration to avoid mismatch
+  if (!mounted) {
+    return <MobileDetailView indicators={indicators} formatValue={formatValue} />;
+  }
+
+  // After hydration, use responsive logic
+  if (isDesktop) {
+    return <IndicatorsTable indicators={indicators} formatValue={formatValue} />;
+  }
+
+  return <MobileDetailView indicators={indicators} formatValue={formatValue} />;
 }
