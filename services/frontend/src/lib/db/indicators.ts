@@ -27,6 +27,7 @@ export interface EconomicIndicator {
 }
 
 // Raw response type from Supabase join query
+// Note: Supabase returns joined tables as arrays (even for 1:1 relationships)
 interface IndicatorWithCalendar {
   series_id: string;
   category: string;
@@ -43,10 +44,10 @@ interface IndicatorWithCalendar {
   description: string | null;
   current_observation_date: string | null;
   last_release_date: string | null;
-  analysis_release_calendar: {
+  analysis_release_calendar: Array<{
     next_release_date: string | null;
     release_frequency: string | null;
-  } | null;
+  }>;
 }
 
 export async function getEconomicIndicators(): Promise<EconomicIndicator[]> {
@@ -82,8 +83,8 @@ export async function getEconomicIndicators(): Promise<EconomicIndicator[]> {
     description: item.description,
     current_observation_date: item.current_observation_date,
     last_release_date: item.last_release_date,
-    next_release_date: item.analysis_release_calendar?.next_release_date ?? null,
-    release_frequency: item.analysis_release_calendar?.release_frequency ?? null,
+    next_release_date: item.analysis_release_calendar?.[0]?.next_release_date ?? null,
+    release_frequency: item.analysis_release_calendar?.[0]?.release_frequency ?? null,
   })) ?? [];
 }
 
