@@ -66,6 +66,11 @@ public class FundamentalsRepository : IFundamentalsRepository
                 last_fetched_at = EXCLUDED.last_fetched_at,
                 updated_at = CURRENT_TIMESTAMP";
 
+        // Convert DateOnly to DateTime for Dapper compatibility
+        DateTime? exDividendDateTime = data.ExDividendDate.HasValue 
+            ? data.ExDividendDate.Value.ToDateTime(TimeOnly.MinValue) 
+            : null;
+
         await connection.ExecuteAsync(sql, new
         {
             data.StockTickerId,
@@ -90,7 +95,7 @@ public class FundamentalsRepository : IFundamentalsRepository
             data.Beta,
             data.DividendYield,
             data.DividendRate,
-            data.ExDividendDate,
+            ExDividendDate = exDividendDateTime,
             data.PayoutRatio,
             data.TargetMeanPrice,
             data.TargetHighPrice,
@@ -127,10 +132,13 @@ public class FundamentalsRepository : IFundamentalsRepository
                 eps_surprise_percent = EXCLUDED.eps_surprise_percent,
                 updated_at = CURRENT_TIMESTAMP";
 
+        // Convert DateOnly to DateTime for Dapper compatibility
+        var earningsDateTime = data.EarningsDate.ToDateTime(TimeOnly.MinValue);
+
         await connection.ExecuteAsync(sql, new
         {
             data.StockTickerId,
-            data.EarningsDate,
+            EarningsDate = earningsDateTime,
             data.IsEstimate,
             data.EpsEstimate,
             data.RevenueEstimate,
