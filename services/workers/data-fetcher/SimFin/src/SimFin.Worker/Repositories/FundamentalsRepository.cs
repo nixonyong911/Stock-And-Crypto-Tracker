@@ -72,8 +72,8 @@ public class FundamentalsRepository : IFundamentalsRepository
                 updated_at = CURRENT_TIMESTAMP";
 
         // Convert DateOnly to DateTime for Dapper compatibility
-        DateTime? reportDateTime = data.ReportDate.HasValue 
-            ? data.ReportDate.Value.ToDateTime(TimeOnly.MinValue) 
+        DateTime? reportDateTime = data.ReportDate.HasValue
+            ? data.ReportDate.Value.ToDateTime(TimeOnly.MinValue)
             : null;
 
         await connection.ExecuteAsync(sql, new
