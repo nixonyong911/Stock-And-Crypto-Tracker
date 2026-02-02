@@ -45,9 +45,11 @@ try
         {
             var settings = sp.GetRequiredService<IOptions<SimFinSettings>>().Value;
             var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("HttpClientSetup");
+            // Ensure BaseAddress ends with / for proper relative URL resolution
+            var baseUrl = settings.BaseUrl.TrimEnd('/') + "/";
             logger.LogInformation("Configuring SimFin HttpClient. BaseUrl={BaseUrl}, ApiKeyLength={KeyLen}", 
-                settings.BaseUrl, settings.ApiKey?.Length ?? 0);
-            client.BaseAddress = new Uri(settings.BaseUrl);
+                baseUrl, settings.ApiKey?.Length ?? 0);
+            client.BaseAddress = new Uri(baseUrl);
             client.DefaultRequestHeaders.Add("Authorization", $"api-key {settings.ApiKey}");
         })
         .AddPolicyHandler((sp, _) =>

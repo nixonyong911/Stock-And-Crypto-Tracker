@@ -45,7 +45,8 @@ public class SimFinClient : ISimFinClient
             // Build request URL for company statements
             // Fetches P&L, Balance Sheet, Cash Flow, and Derived metrics
             // Note: period=fy gives latest fiscal year data (ttm is no longer supported in API v3)
-            var url = $"/companies/statements/compact?ticker={symbol}&statements=pl,bs,cf,derived&period=fy";
+            // Important: No leading slash - relative to BaseAddress (which should end with /)
+            var url = $"companies/statements/compact?ticker={symbol}&statements=pl,bs,cf,derived&period=fy";
 
             var response = await _httpClient.GetAsync(url, ct);
 
