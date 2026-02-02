@@ -24,6 +24,7 @@ on:
     branches: [main]
     paths:
       - 'services/workers/data-fetcher/TwelveData/**'
+      - 'services/workers/data-fetcher/YahooFinance/**'
       - 'services/workers/data-fetcher/fred-worker/**'
       - 'services/workers/analysis/**'
       - 'services/metrics/**'
@@ -49,6 +50,7 @@ on:
         options:
           - ''
           - 'twelvedata'
+          - 'yahoofinance'
           - 'fred-worker'
           - 'candlestick-analysis'
           - 'metrics'
@@ -66,6 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       twelvedata: ${{ steps.filter.outputs.twelvedata }}
+      yahoofinance: ${{ steps.filter.outputs.yahoofinance }}
       fred: ${{ steps.filter.outputs.fred }}
       analysis: ${{ steps.filter.outputs.analysis }}
       metrics: ${{ steps.filter.outputs.metrics }}
@@ -76,9 +79,10 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       config: ${{ steps.filter.outputs.config }}
       # NOTE: frontend is NOT in any_service because it's built on VM only (needs Infisical staging secrets)
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub2 == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.yahoofinance == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub2 == 'true' }}
       # Version outputs for tagging
       twelvedata_version: ${{ steps.versions.outputs.twelvedata }}
+      yahoofinance_version: ${{ steps.versions.outputs.yahoofinance }}
       fred_version: ${{ steps.versions.outputs.fred }}
       analysis_version: ${{ steps.versions.outputs.analysis }}
       metrics_version: ${{ steps.versions.outputs.metrics }}
@@ -98,6 +102,9 @@ jobs:
           filters: |
             twelvedata:
               - 'services/workers/data-fetcher/TwelveData/**'
+              - 'services/common/**'
+            yahoofinance:
+              - 'services/workers/data-fetcher/YahooFinance/**'
               - 'services/common/**'
             fred:
               - 'services/workers/data-fetcher/fred-worker/**'
@@ -127,6 +134,7 @@ jobs:
           echo "=== Detected Changes ==="
           echo "=========================================="
           echo "TwelveData: ${{ steps.filter.outputs.twelvedata }}"
+          echo "YahooFinance: ${{ steps.filter.outputs.yahoofinance }}"
           echo "FRED Worker: ${{ steps.filter.outputs.fred }}"
           echo "Analysis: ${{ steps.filter.outputs.analysis }}"
           echo "Metrics: ${{ steps.filter.outputs.metrics }}"
@@ -145,6 +153,7 @@ jobs:
           echo "| Service | Changed |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|---------|" >> $GITHUB_STEP_SUMMARY
           echo "| TwelveData | ${{ steps.filter.outputs.twelvedata }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| YahooFinance | ${{ steps.filter.outputs.yahoofinance }} |" >> $GITHUB_STEP_SUMMARY
           echo "| FRED Worker | ${{ steps.filter.outputs.fred }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Analysis | ${{ steps.filter.outputs.analysis }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Metrics | ${{ steps.filter.outputs.metrics }} |" >> $GITHUB_STEP_SUMMARY
@@ -167,6 +176,7 @@ jobs:
           # Service name mapping (workflow name -> DB service name)
           declare -A SERVICE_MAP=(
             ["twelvedata"]="twelvedata"
+            ["yahoofinance"]="yahoofinance"
             ["fred"]="fred-worker"
             ["analysis"]="candlestick-analysis"
             ["metrics"]="metrics"
@@ -245,6 +255,20 @@ jobs:
           cache-from: type=gha,scope=twelvedata
           cache-to: type=gha,mode=max,scope=twelvedata
           outputs: type=docker,dest=/tmp/twelvedata.tar
+
+      # Build YahooFinance (only if changed or forced)
+      - name: Build YahooFinance image
+        id: build-yahoofinance
+        if: (needs.detect-changes.outputs.yahoofinance == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/
+          file: services/workers/data-fetcher/YahooFinance/Dockerfile
+          tags: stocktracker-yahoofinance:v${{ needs.detect-changes.outputs.yahoofinance_version }}
+          cache-from: type=gha,scope=yahoofinance
+          cache-to: type=gha,mode=max,scope=yahoofinance
+          outputs: type=docker,dest=/tmp/yahoofinance.tar
 
       # Build FRED Worker (only if changed or forced)
       - name: Build FRED Worker image
@@ -366,6 +390,14 @@ jobs:
             echo "⏭️ TwelveData skipped (unchanged)"
           fi
 
+          if [ -f /tmp/yahoofinance.tar ]; then
+            gzip -1 < /tmp/yahoofinance.tar > /tmp/images/yahoofinance.tar.gz
+            BUILT="${BUILT}yahoofinance,"
+            echo "✅ YahooFinance compressed"
+          else
+            echo "⏭️ YahooFinance skipped (unchanged)"
+          fi
+
           if [ -f /tmp/fred-worker.tar ]; then
             gzip -1 < /tmp/fred-worker.tar > /tmp/images/fred-worker.tar.gz
             BUILT="${BUILT}fred,"
@@ -480,7 +512,7 @@ jobs:
             cp "$ENV_FILE" "$ENV_FILE.bak"
           fi
 
-          for NAME in twelvedata fred-worker candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
+          for NAME in twelvedata yahoofinance fred-worker candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -494,6 +526,7 @@ jobs:
                 # Map service name to env var name
                 case "$NAME" in
                   "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;
+                  "yahoofinance") VAR_NAME="YAHOOFINANCE_VERSION" ;;
                   "fred-worker") VAR_NAME="FRED_VERSION" ;;
                   "candlestick-analysis") VAR_NAME="CANDLESTICK_ANALYSIS_VERSION" ;;
                   "metrics") VAR_NAME="METRICS_VERSION" ;;
@@ -536,7 +569,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
 
-            for service in twelvedata fred-worker candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
+            for service in twelvedata yahoofinance fred-worker candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -609,6 +642,7 @@ jobs:
           )
         env:
           TWELVEDATA_CHANGED: ${{ needs.detect-changes.outputs.twelvedata }}
+          YAHOOFINANCE_CHANGED: ${{ needs.detect-changes.outputs.yahoofinance }}
           FRED_CHANGED: ${{ needs.detect-changes.outputs.fred }}
           ANALYSIS_CHANGED: ${{ needs.detect-changes.outputs.analysis }}
           METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
@@ -626,6 +660,7 @@ jobs:
           # Build selective services list based on detected changes
           SERVICES=""
           [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES twelvedata"
+          [ "$YAHOOFINANCE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES yahoofinance"
           [ "$FRED_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES fred-worker"
           [ "$ANALYSIS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES candlestick-analysis"
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES metrics"
@@ -692,6 +727,7 @@ jobs:
           # Docker image name mapping
           case "$ROLLBACK_SERVICE" in
             "twelvedata") IMAGE="stocktracker-twelvedata" ;;
+            "yahoofinance") IMAGE="stocktracker-yahoofinance" ;;
             "fred-worker") IMAGE="stocktracker-fred" ;;
             "candlestick-analysis") IMAGE="stocktracker-candlestick-analysis" ;;
             "metrics") IMAGE="stocktracker-metrics" ;;
@@ -723,6 +759,7 @@ jobs:
           ENV_FILE="/opt/stocktracker/.env.versions"
           case "${ROLLBACK_SERVICE}" in
             "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;
+            "yahoofinance") VAR_NAME="YAHOOFINANCE_VERSION" ;;
             "fred-worker") VAR_NAME="FRED_VERSION" ;;
             "candlestick-analysis") VAR_NAME="CANDLESTICK_ANALYSIS_VERSION" ;;
             "metrics") VAR_NAME="METRICS_VERSION" ;;
@@ -803,7 +840,7 @@ jobs:
           # Build frontend only if files changed (check outside heredoc to access GHA env vars)
           if [ "$FRONTEND_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ]; then
             echo "Frontend changed - rebuilding with Infisical staging secrets..."
-            
+
             # Write frontend version to .env.versions BEFORE building (GHA is single source of truth)
             FRONTEND_VERSION="${{ needs.detect-changes.outputs.frontend_version }}"
             echo "Setting FRONTEND_STAGING_VERSION=v${FRONTEND_VERSION}"
@@ -817,7 +854,7 @@ jobs:
             echo "Updated .env.versions:"
             cat "\$ENV_FILE"
           EOF
-            
+
             ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'cd /opt/stocktracker && ./scripts/start-frontend-staging.sh --build' || echo "⚠️ Frontend staging build/start failed"
           else
             echo "Frontend unchanged - starting existing image..."
@@ -834,7 +871,7 @@ jobs:
 
           echo "=== Cleanup old images (keep running + 1 previous for rollback) ==="
           # Smart cleanup: keep 2 most recent versions per service (running + previous for rollback)
-          for SERVICE in twelvedata fred candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 frontend-staging; do
+          for SERVICE in twelvedata yahoofinance fred candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 frontend-staging; do
             # Get all version tags for this service, sorted by version number
             TAGS=$(docker images "stocktracker-${SERVICE}" --format '{{.Tag}}' | grep -E '^v[0-9]+\.[0-9]+$' | sort -V 2>/dev/null || true)
             if [ -n "$TAGS" ]; then
@@ -889,6 +926,7 @@ jobs:
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/ > /dev/null && echo "✅ n8n: OK" || echo "⚠️ n8n: May need login"
 
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" "TwelveData"
+          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/yahoofinance/health/live" "YahooFinance"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/health/live" "FRED Worker"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/health/live" "Candlestick Analysis"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live" "Metrics"
@@ -927,6 +965,7 @@ jobs:
           echo "### 🔗 Service URLs" >> $GITHUB_STEP_SUMMARY
           echo "- [n8n](https://nxserver.malaysiawest.cloudapp.azure.com/)" >> $GITHUB_STEP_SUMMARY
           echo "- [TwelveData Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger)" >> $GITHUB_STEP_SUMMARY
+          echo "- [YahooFinance Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/yahoofinance/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [FRED Worker Status](https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/status)" >> $GITHUB_STEP_SUMMARY
           echo "- [Candlestick Analysis Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
@@ -948,6 +987,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TWELVEDATA_CHANGED: ${{ needs.detect-changes.outputs.twelvedata }}
+          YAHOOFINANCE_CHANGED: ${{ needs.detect-changes.outputs.yahoofinance }}
           FRED_CHANGED: ${{ needs.detect-changes.outputs.fred }}
           ANALYSIS_CHANGED: ${{ needs.detect-changes.outputs.analysis }}
           METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
@@ -957,6 +997,7 @@ jobs:
           AIHUB2_CHANGED: ${{ needs.detect-changes.outputs.aihub2 }}
           FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
           TWELVEDATA_VERSION: ${{ needs.detect-changes.outputs.twelvedata_version }}
+          YAHOOFINANCE_VERSION: ${{ needs.detect-changes.outputs.yahoofinance_version }}
           FRED_VERSION: ${{ needs.detect-changes.outputs.fred_version }}
           ANALYSIS_VERSION: ${{ needs.detect-changes.outputs.analysis_version }}
           METRICS_VERSION: ${{ needs.detect-changes.outputs.metrics_version }}
@@ -976,6 +1017,7 @@ jobs:
           echo "=== Version Update Summary ==="
           echo "Services marked 'true' OR force_build='true' will have versions updated:"
           echo "  TWELVEDATA_CHANGED:  $TWELVEDATA_CHANGED"
+          echo "  YAHOOFINANCE_CHANGED: $YAHOOFINANCE_CHANGED"
           echo "  FRED_CHANGED:        $FRED_CHANGED"
           echo "  ANALYSIS_CHANGED:    $ANALYSIS_CHANGED"
           echo "  METRICS_CHANGED:     $METRICS_CHANGED"
@@ -1016,6 +1058,7 @@ jobs:
 
           # Update versions for deployed services
           [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "twelvedata" "$TWELVEDATA_VERSION"
+          [ "$YAHOOFINANCE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "yahoofinance" "$YAHOOFINANCE_VERSION"
           [ "$FRED_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "fred-worker" "$FRED_VERSION"
           [ "$ANALYSIS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "candlestick-analysis" "$ANALYSIS_VERSION"
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "metrics" "$METRICS_VERSION"

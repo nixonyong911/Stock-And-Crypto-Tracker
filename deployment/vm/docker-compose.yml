@@ -176,6 +176,39 @@ services:
       start_period: 10s
 
   # ===========================================
+  # Yahoo Finance Worker - Company Fundamentals
+  # Swagger at: /api/yahoofinance/swagger
+  # ===========================================
+  yahoofinance:
+    image: stocktracker-yahoofinance:${YAHOOFINANCE_VERSION:-latest}
+    build:
+      context: ./repo/services
+      dockerfile: workers/data-fetcher/YahooFinance/Dockerfile
+    container_name: yahoofinance
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # Path base for reverse proxy
+      - PATH_BASE=/api/yahoofinance
+      # Database connection
+      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      # Metrics service for pushing metrics
+      - MetricsService__BaseUrl=http://metrics:8080
+      - MetricsService__WorkerName=yahoofinance
+      - MetricsService__Enabled=true
+    networks:
+      - stocktracker
+    depends_on:
+      - metrics
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  # ===========================================
   # Metrics Service
   # Swagger at: /api/metrics/swagger
   # Prometheus metrics at: /metrics

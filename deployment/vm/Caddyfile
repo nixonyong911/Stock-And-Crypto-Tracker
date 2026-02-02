@@ -15,7 +15,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
     # NOTE: CaddyManager removed - use Caddy Admin API via SSH
     # SSH: curl localhost:2019/config/
     # ===========================================
-    
+
     # ===========================================
     # TwelveData Worker API
     # Swagger UI: /api/twelvedata/swagger
@@ -23,7 +23,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
     handle_path /api/twelvedata/* {
         reverse_proxy twelvedata:8080
     }
-    
+
     # ===========================================
     # Metrics Service API
     # Swagger at: /api/metrics/swagger
@@ -31,7 +31,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
     handle_path /api/metrics/* {
         reverse_proxy metrics:8080
     }
-    
+
     # ===========================================
     # Candlestick Analysis Worker API
     # Swagger UI: /api/analysis/swagger
@@ -39,7 +39,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
     handle_path /api/analysis/* {
         reverse_proxy candlestick-analysis:8080
     }
-    
+
     # ===========================================
     # FRED Worker API - Economic Indicators
     # Endpoints: /api/fred/status, /api/fred/trigger/*
@@ -47,14 +47,22 @@ nxserver.malaysiawest.cloudapp.azure.com {
     handle_path /api/fred/* {
         reverse_proxy fred-worker:8080
     }
-    
+
+    # ===========================================
+    # Yahoo Finance Worker API - Company Fundamentals
+    # Swagger UI: /api/yahoofinance/swagger
+    # ===========================================
+    handle_path /api/yahoofinance/* {
+        reverse_proxy yahoofinance:8080
+    }
+
     # ===========================================
     # Telegram Bot 2.0 Webhook
     # ===========================================
     handle_path /telegram/* {
         reverse_proxy telegram-bot-2.0:8087
     }
-    
+
     # ===========================================
     # Back Office - Admin & Testing UI
     # Uses handle (not handle_path) because Next.js basePath handles the prefix
@@ -62,7 +70,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
     handle /back-office* {
         reverse_proxy back-office:3000
     }
-    
+
     # ===========================================
     # Frontend Staging - Public Website (Staging Environment)
     # Uses handle (not handle_path) because Next.js basePath handles the prefix
@@ -71,14 +79,14 @@ nxserver.malaysiawest.cloudapp.azure.com {
     handle /front-end* {
         reverse_proxy frontend-staging:3001
     }
-    
+
     # ===========================================
     # n8n - Default/Fallback (root path)
     # ===========================================
     handle {
         reverse_proxy n8n:5678
     }
-    
+
     # ===========================================
     # Security Headers
     # ===========================================
@@ -88,7 +96,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
         X-Content-Type-Options "nosniff"
         X-XSS-Protection "1; mode=block"
     }
-    
+
     # Enable compression
     encode gzip
 }
