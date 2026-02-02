@@ -38,7 +38,6 @@ public class StockTrackerDbContext : DbContext
 
     // Analysis tables
     public DbSet<AnalysisStockCandlestickPattern> AnalysisStockCandlestickPatterns => Set<AnalysisStockCandlestickPattern>();
-    public DbSet<AnalysisStockFundamentals> AnalysisStockFundamentals => Set<AnalysisStockFundamentals>();
     public DbSet<AnalysisEarningsCalendar> AnalysisEarningsCalendars => Set<AnalysisEarningsCalendar>();
 
     // Telegram bot tables

@@ -94,7 +94,7 @@ services:
       - ai-hub2
       - rabbitmq
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -135,7 +135,7 @@ services:
       - metrics
       - rabbitmq
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -169,46 +169,11 @@ services:
     depends_on:
       - metrics
     healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://localhost:8080/health/live" ]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/live"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 10s
-
-  # ===========================================
-  # SimFin Worker - Company Fundamentals
-  # Swagger at: /api/simfin/swagger
-  # ===========================================
-  simfin:
-    image: stocktracker-simfin:${SIMFIN_VERSION:-latest}
-    build:
-      context: ./repo/services
-      dockerfile: workers/data-fetcher/SimFin/Dockerfile
-    container_name: simfin
-    restart: unless-stopped
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:8080
-      # Path base for reverse proxy
-      - PATH_BASE=/api/simfin
-      # Database connection (using direct connection for SSL support)
-      - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
-      # SimFin API key
-      - SimFin__ApiKey=${SIMFIN_API_KEY}
-      # Metrics service for pushing metrics
-      - MetricsService__BaseUrl=http://metrics:8080
-      - MetricsService__WorkerName=simfin
-      - MetricsService__Enabled=true
-    networks:
-      - stocktracker
-    depends_on:
-      - metrics
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 30s
 
   # ===========================================
   # Metrics Service
@@ -236,7 +201,7 @@ services:
     depends_on:
       - ai-hub2
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -256,7 +221,12 @@ services:
       - /var/log:/var/log:ro
       - /run/log/journal:/run/log/journal:ro
       - /etc/machine-id:/etc/machine-id:ro
-    command: [ "run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345" ]
+    command:
+      [
+        "run",
+        "/etc/alloy/config.alloy",
+        "--server.http.listen-addr=0.0.0.0:12345",
+      ]
     environment:
       - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
       # Loki user ID from Grafana Cloud > Connections > Loki
@@ -281,7 +251,7 @@ services:
     networks:
       - stocktracker
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -302,7 +272,7 @@ services:
     networks:
       - stocktracker
     healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -331,7 +301,13 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: [ "CMD", "python", "-c", "import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',8085)); s.close()" ]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',8085)); s.close()",
+        ]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -365,7 +341,7 @@ services:
       - redis
       - rabbitmq
     healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://localhost:8087/health" ]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8087/health"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -411,7 +387,7 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://localhost:8080/health/live" ]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/live"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -449,7 +425,7 @@ services:
       - redis
       - rabbitmq
     healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:3000/back-office" ]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/back-office"]
       interval: 30s
       timeout: 3s
       retries: 3

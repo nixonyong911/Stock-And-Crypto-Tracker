@@ -111,11 +111,11 @@ Dev containers don't have access to the system keyring (no D-Bus), so `infisical
 
 ### Why It's Different
 
-| Environment | Authentication Method | Storage |
-|-------------|----------------------|---------|
-| Local PC | `infisical login` | System keyring |
-| Dev Container | Service Token | Environment variable |
-| VM | Machine Identity | Token on VM |
+| Environment   | Authentication Method | Storage              |
+| ------------- | --------------------- | -------------------- |
+| Local PC      | `infisical login`     | System keyring       |
+| Dev Container | Service Token         | Environment variable |
+| VM            | Machine Identity      | Token on VM          |
 
 ### Setup Steps
 
@@ -133,12 +133,14 @@ Dev containers don't have access to the system keyring (no D-Bus), so `infisical
 #### Step 2: Set Token on Local Machine
 
 **Windows (PowerShell as Admin):**
+
 ```powershell
 # Set permanently for current user
 [Environment]::SetEnvironmentVariable("INFISICAL_TOKEN", "st.xxxxx...", "User")
 ```
 
 **macOS/Linux:**
+
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
 export INFISICAL_TOKEN="st.xxxxx..."
@@ -196,6 +198,7 @@ infisical run --env=dev -- docker-compose up -d --build
 **Cause**: Environment variable not set on host or Cursor not restarted.
 
 **Verify on host:**
+
 ```powershell
 # Windows
 echo $env:INFISICAL_TOKEN
@@ -251,6 +254,7 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 ### Step 2: Reference in Code
 
 **For frontend (Vercel)**:
+
 ```typescript
 // Use NEXT_PUBLIC_ prefix
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -261,6 +265,7 @@ Infisical auto-syncs to Vercel. No additional config needed.
 **For backend workers**:
 
 Edit `docker-compose.yml`:
+
 ```yaml
 services:
   twelvedata:
@@ -269,6 +274,7 @@ services:
 ```
 
 Then use in code:
+
 ```csharp
 var apiKey = Environment.GetEnvironmentVariable("TWELVE_DATA_API_KEY");
 ```
@@ -298,11 +304,13 @@ gh workflow run "Deploy to Azure VM"
 Infisical automatically syncs secrets to:
 
 ### 1. GitHub Secrets
+
 - Used by GitHub Actions workflows
-- Syncs all non-NEXT_PUBLIC_ secrets
+- Syncs all non-NEXT*PUBLIC* secrets
 - Example: `VM_SSH_PRIVATE_KEY`, `TWELVE_DATA_API_KEY`
 
 ### 2. Vercel
+
 - Used by frontend deployment
 - Syncs only `NEXT_PUBLIC_*` secrets
 - Example: `NEXT_PUBLIC_SUPABASE_URL`
@@ -313,18 +321,17 @@ Infisical automatically syncs secrets to:
 
 ## Key Secrets Reference
 
-| Secret Name | Used By | Synced To | Notes |
-|-------------|---------|-----------|-------|
-| `TWELVE_DATA_API_KEY` | TwelveData worker | GitHub, VM | Stock data API |
-| `SIMFIN_API_KEY` | SimFin worker | GitHub, VM | Company fundamentals API |
-| `AI_HUB_API_KEY` | Workers, n8n | GitHub, VM | AI Hub authentication |
-| `NEXT_PUBLIC_SUPABASE_URL` | Frontend | Vercel | Database URL (public) |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Frontend | Vercel | Supabase anon key (public) |
-| `DATABASE_CONNECTION_STRING` | Workers | GitHub, VM | Supabase connection string |
-| `GRAFANA_SERVICE_ACCOUNT_TOKEN` | grafanactl | Local only | Dashboard deployment |
-| `GRAFANA_CLOUD_API_KEY` | Alloy | GitHub, VM | Metrics push |
-| `VM_SSH_PRIVATE_KEY` | GitHub Actions | GitHub only | CI/CD deployment |
-| `PAT_GITHUB` | VM git clone | GitHub | Private repo access |
+| Secret Name                                    | Used By           | Synced To   | Notes                      |
+| ---------------------------------------------- | ----------------- | ----------- | -------------------------- |
+| `TWELVE_DATA_API_KEY`                          | TwelveData worker | GitHub, VM  | Stock data API             |
+| `AI_HUB_API_KEY`                               | Workers, n8n      | GitHub, VM  | AI Hub authentication      |
+| `NEXT_PUBLIC_SUPABASE_URL`                     | Frontend          | Vercel      | Database URL (public)      |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Frontend          | Vercel      | Supabase anon key (public) |
+| `DATABASE_CONNECTION_STRING`                   | Workers           | GitHub, VM  | Supabase connection string |
+| `GRAFANA_SERVICE_ACCOUNT_TOKEN`                | grafanactl        | Local only  | Dashboard deployment       |
+| `GRAFANA_CLOUD_API_KEY`                        | Alloy             | GitHub, VM  | Metrics push               |
+| `VM_SSH_PRIVATE_KEY`                           | GitHub Actions    | GitHub only | CI/CD deployment           |
+| `PAT_GITHUB`                                   | VM git clone      | GitHub      | Private repo access        |
 
 ---
 
@@ -345,6 +352,7 @@ infisical whoami
 **Cause**: Wrong environment or workspace.
 
 **Solution**:
+
 ```powershell
 # Check .infisical.json is in project root
 cat .infisical.json
@@ -358,6 +366,7 @@ infisical run --env=prod -- <command>
 **Cause**: Secret not referenced in docker-compose.yml.
 
 **Solution**:
+
 1. Check docker-compose.yml has the environment variable
 2. Ensure Infisical has the secret in `prod` environment
 3. Restart containers: `infisical run --env=prod -- docker-compose up -d`
@@ -367,6 +376,7 @@ infisical run --env=prod -- <command>
 **Cause**: Machine Identity token expired or misconfigured.
 
 **Solution**:
+
 1. Check Machine Identity in Infisical Cloud
 2. Regenerate token if needed
 3. Update token on VM (SSH to VM and re-configure)

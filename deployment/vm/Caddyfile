@@ -49,14 +49,6 @@ nxserver.malaysiawest.cloudapp.azure.com {
     }
 
     # ===========================================
-    # SimFin Worker API - Company Fundamentals
-    # Swagger UI: /api/simfin/swagger
-    # ===========================================
-    handle_path /api/simfin/* {
-        reverse_proxy simfin:8080
-    }
-
-    # ===========================================
     # Telegram Bot 2.0 Webhook
     # ===========================================
     handle_path /telegram/* {
