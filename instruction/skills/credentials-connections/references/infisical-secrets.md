@@ -316,6 +316,7 @@ Infisical automatically syncs secrets to:
 | Secret Name | Used By | Synced To | Notes |
 |-------------|---------|-----------|-------|
 | `TWELVE_DATA_API_KEY` | TwelveData worker | GitHub, VM | Stock data API |
+| `SIMFIN_API_KEY` | SimFin worker | GitHub, VM | Company fundamentals API |
 | `AI_HUB_API_KEY` | Workers, n8n | GitHub, VM | AI Hub authentication |
 | `NEXT_PUBLIC_SUPABASE_URL` | Frontend | Vercel | Database URL (public) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Frontend | Vercel | Supabase anon key (public) |
