@@ -24,6 +24,11 @@ public interface IFinnhubApiClient
     /// Gets earnings calendar for a date range.
     /// </summary>
     Task<EarningsCalendar?> GetEarningsCalendarAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets earnings calendar for a specific symbol.
+    /// </summary>
+    Task<EarningsCalendar?> GetEarningsCalendarBySymbolAsync(string symbol, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

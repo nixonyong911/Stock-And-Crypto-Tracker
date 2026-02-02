@@ -25,7 +25,7 @@ on:
     paths:
       - "services/workers/data-fetcher/TwelveData/**"
       - "services/workers/data-fetcher/fred-worker/**"
-      - "services/workers/data-fetcher/Finnhub/**"
+      - "services/workers/data-fetcher-2.0/**"
       - "services/workers/analysis/**"
       - "services/metrics/**"
       - "services/ai/ai-hub2.0/**"
@@ -106,7 +106,7 @@ jobs:
             fred:
               - 'services/workers/data-fetcher/fred-worker/**'
             finnhub:
-              - 'services/workers/data-fetcher/Finnhub/**'
+              - 'services/workers/data-fetcher-2.0/**'
               - 'services/common/**'
             analysis:
               - 'services/workers/analysis/**'
@@ -278,7 +278,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: services/
-          file: services/workers/data-fetcher/Finnhub/Dockerfile
+          file: services/workers/data-fetcher-2.0/Dockerfile
           tags: stocktracker-finnhub:v${{ needs.detect-changes.outputs.finnhub_version }}
           cache-from: type=gha,scope=finnhub
           cache-to: type=gha,mode=max,scope=finnhub

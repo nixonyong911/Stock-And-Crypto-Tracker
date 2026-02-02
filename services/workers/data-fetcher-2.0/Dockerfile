@@ -9,15 +9,15 @@ WORKDIR /src
 COPY ["common/StockTracker.Common/StockTracker.Common.csproj", "common/StockTracker.Common/"]
 
 # Copy project file and restore dependencies
-COPY ["workers/data-fetcher/Finnhub/src/Finnhub.Worker/Finnhub.Worker.csproj", "workers/data-fetcher/Finnhub/src/Finnhub.Worker/"]
-RUN dotnet restore "workers/data-fetcher/Finnhub/src/Finnhub.Worker/Finnhub.Worker.csproj"
+COPY ["workers/data-fetcher-2.0/src/Finnhub.Worker/Finnhub.Worker.csproj", "workers/data-fetcher-2.0/src/Finnhub.Worker/"]
+RUN dotnet restore "workers/data-fetcher-2.0/src/Finnhub.Worker/Finnhub.Worker.csproj"
 
 # Copy all source code
 COPY common/ common/
-COPY workers/data-fetcher/Finnhub/src/ workers/data-fetcher/Finnhub/src/
+COPY workers/data-fetcher-2.0/src/ workers/data-fetcher-2.0/src/
 
 # Build and publish
-WORKDIR "/src/workers/data-fetcher/Finnhub/src/Finnhub.Worker"
+WORKDIR "/src/workers/data-fetcher-2.0/src/Finnhub.Worker"
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - using ASP.NET runtime for web API

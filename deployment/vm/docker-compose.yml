@@ -183,7 +183,7 @@ services:
     image: stocktracker-finnhub:${FINNHUB_VERSION:-latest}
     build:
       context: ./repo/services
-      dockerfile: workers/data-fetcher/Finnhub/Dockerfile
+      dockerfile: workers/data-fetcher-2.0/Dockerfile
     container_name: finnhub
     restart: unless-stopped
     environment:

@@ -24,16 +24,17 @@ public class EarningsRepository : IEarningsRepository
 
         const string sql = @"
             INSERT INTO analysis_earnings_release_schedule (
-                stock_ticker_id, earnings_date, is_estimate,
+                stock_ticker_id, earnings_date, fiscal_year, fiscal_quarter, is_estimate,
                 eps_estimate, revenue_estimate, eps_actual, revenue_actual,
                 eps_surprise, eps_surprise_percent, updated_at
             ) VALUES (
-                @StockTickerId, @EarningsDate, @IsEstimate,
+                @StockTickerId, @EarningsDate, @FiscalYear, @FiscalQuarter, @IsEstimate,
                 @EpsEstimate, @RevenueEstimate, @EpsActual, @RevenueActual,
                 @EpsSurprise, @EpsSurprisePercent, NOW()
             )
-            ON CONFLICT (stock_ticker_id, earnings_date)
+            ON CONFLICT (stock_ticker_id, fiscal_year, fiscal_quarter)
             DO UPDATE SET
+                earnings_date = EXCLUDED.earnings_date,
                 is_estimate = EXCLUDED.is_estimate,
                 eps_estimate = EXCLUDED.eps_estimate,
                 revenue_estimate = EXCLUDED.revenue_estimate,
@@ -47,6 +48,8 @@ public class EarningsRepository : IEarningsRepository
         {
             data.StockTickerId,
             EarningsDate = data.EarningsDate.ToDateTime(TimeOnly.MinValue),
+            data.FiscalYear,
+            data.FiscalQuarter,
             data.IsEstimate,
             data.EpsEstimate,
             data.RevenueEstimate,
@@ -56,7 +59,7 @@ public class EarningsRepository : IEarningsRepository
             data.EpsSurprisePercent
         });
 
-        _logger.LogDebug("Upserted earnings for ticker {TickerId} on {Date}", data.StockTickerId, data.EarningsDate);
+        _logger.LogDebug("Upserted earnings for ticker {TickerId} Q{Quarter} {Year}", data.StockTickerId, data.FiscalQuarter, data.FiscalYear);
     }
 
     /// <inheritdoc />

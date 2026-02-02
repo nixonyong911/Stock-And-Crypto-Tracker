@@ -163,4 +163,33 @@ public class FinnhubApiClient : IFinnhubApiClient
             throw;
         }
     }
+
+    /// <inheritdoc />
+    public async Task<EarningsCalendar?> GetEarningsCalendarBySymbolAsync(string symbol, CancellationToken cancellationToken = default)
+    {
+        await RateLimitAsync(cancellationToken);
+
+        try
+        {
+            var url = $"calendar/earnings?symbol={symbol}&token={_settings.ApiKey}";
+            _logger.LogDebug("Fetching earnings calendar for {Symbol}", symbol);
+
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(content) || content == "{}")
+            {
+                _logger.LogWarning("Empty response for earnings calendar for {Symbol}", symbol);
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<EarningsCalendar>(content, _jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching earnings calendar for {Symbol}", symbol);
+            throw;
+        }
+    }
 }

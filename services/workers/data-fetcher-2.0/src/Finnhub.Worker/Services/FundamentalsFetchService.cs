@@ -73,6 +73,14 @@ public class FundamentalsFetchService : IFundamentalsFetchService
             // Extract metrics from Finnhub response
             var metrics = financials?.Metric;
 
+            // Log available metrics for debugging (only at debug level)
+            if (metrics != null && _logger.IsEnabled(LogLevel.Debug))
+            {
+                var availableKeys = metrics.Where(m => m.Value != null).Select(m => m.Key).ToList();
+                _logger.LogDebug("Available Finnhub metrics for {Symbol}: {Keys}", 
+                    ticker.Symbol, string.Join(", ", availableKeys));
+            }
+
             // Extract values from reported financials
             decimal? freeCashFlow = null;
             decimal? ebit = null;
@@ -85,19 +93,62 @@ public class FundamentalsFetchService : IFundamentalsFetchService
                 var cf = latestReport.Report.Cf;
                 var ic = latestReport.Report.Ic;
 
-                freeCashFlow = _calcService.ExtractFinancialItem(cf,
-                    "NetCashProvidedByUsedInOperatingActivities", "OperatingCashFlow") -
-                    _calcService.ExtractFinancialItem(cf,
-                    "PaymentsToAcquirePropertyPlantAndEquipment", "CapitalExpenditures");
+                // Try to extract FCF from reported financials
+                var operatingCashFlow = _calcService.ExtractFinancialItem(cf,
+                    "NetCashProvidedByUsedInOperatingActivities", 
+                    "OperatingCashFlow",
+                    "CashFlowsFromOperatingActivities");
+                var capex = _calcService.ExtractFinancialItem(cf,
+                    "PaymentsToAcquirePropertyPlantAndEquipment", 
+                    "CapitalExpenditures",
+                    "PurchaseOfPropertyPlantAndEquipment");
+                
+                if (operatingCashFlow.HasValue)
+                {
+                    freeCashFlow = operatingCashFlow - (capex ?? 0);
+                }
 
                 ebit = _calcService.ExtractFinancialItem(ic,
-                    "OperatingIncomeLoss", "OperatingIncome");
+                    "OperatingIncomeLoss", 
+                    "OperatingIncome",
+                    "IncomeLossFromContinuingOperationsBeforeIncomeTaxes");
                 interestExpense = _calcService.ExtractFinancialItem(ic,
-                    "InterestExpense", "InterestAndDebtExpense");
+                    "InterestExpense", 
+                    "InterestAndDebtExpense",
+                    "InterestPaid");
                 revenue = _calcService.ExtractFinancialItem(ic,
-                    "Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet");
+                    "Revenues", 
+                    "RevenueFromContractWithCustomerExcludingAssessedTax", 
+                    "SalesRevenueNet",
+                    "TotalRevenue");
                 eps = _calcService.ExtractFinancialItem(ic,
-                    "EarningsPerShareDiluted", "EarningsPerShareBasic");
+                    "EarningsPerShareDiluted", 
+                    "EarningsPerShareBasic",
+                    "BasicEarningsLossPerShare");
+            }
+
+            // Use Finnhub's direct FCF metric as fallback if reported financials didn't have it
+            if (!freeCashFlow.HasValue)
+            {
+                freeCashFlow = _calcService.ExtractMetric(metrics, "freeCashFlowTTM") ??
+                               _calcService.ExtractMetric(metrics, "freeCashFlowPerShareTTM");
+                if (freeCashFlow.HasValue)
+                {
+                    _logger.LogDebug("Using Finnhub freeCashFlowTTM metric for {Symbol}", ticker.Symbol);
+                }
+            }
+
+            // Extract ROIC with fallback keys
+            var roic = _calcService.ExtractMetric(metrics, "roicTTM") ??
+                       _calcService.ExtractMetric(metrics, "returnOnInvestedCapitalTTM") ??
+                       _calcService.ExtractMetric(metrics, "roicAnnual");
+
+            // Extract interest coverage from metrics if not calculable from reported financials
+            var interestCoverage = _calcService.CalculateInterestCoverage(ebit, interestExpense);
+            if (!interestCoverage.HasValue)
+            {
+                interestCoverage = _calcService.ExtractMetric(metrics, "interestCoverageTTM") ??
+                                   _calcService.ExtractMetric(metrics, "interestCoverageAnnual");
             }
 
             // Build fundamentals data
@@ -110,24 +161,32 @@ public class FundamentalsFetchService : IFundamentalsFetchService
                 // From profile
                 MarketCap = profile?.MarketCapitalization,
 
-                // From metrics
+                // From metrics (with fallbacks)
                 PeRatio = _calcService.ExtractMetric(metrics, "peBasicExclExtraTTM") ??
-                          _calcService.ExtractMetric(metrics, "peTTM"),
-                ForwardPe = _calcService.ExtractMetric(metrics, "forwardPE"),
-                Roe = _calcService.ExtractMetric(metrics, "roeTTM"),
-                Roic = _calcService.ExtractMetric(metrics, "roicTTM"),
-                OperatingMargin = _calcService.ExtractMetric(metrics, "operatingMarginTTM"),
-                DebtToEquity = _calcService.ExtractMetric(metrics, "totalDebt/totalEquityQuarterly"),
-                DividendYield = _calcService.ExtractMetric(metrics, "dividendYieldIndicatedAnnual"),
-                RevenueTtm = _calcService.ExtractMetric(metrics, "revenuePerShareTTM"),
+                          _calcService.ExtractMetric(metrics, "peTTM") ??
+                          _calcService.ExtractMetric(metrics, "peAnnual"),
+                ForwardPe = _calcService.ExtractMetric(metrics, "forwardPE") ??
+                            _calcService.ExtractMetric(metrics, "peFY1"),
+                Roe = _calcService.ExtractMetric(metrics, "roeTTM") ??
+                      _calcService.ExtractMetric(metrics, "roeAnnual"),
+                Roic = roic,
+                OperatingMargin = _calcService.ExtractMetric(metrics, "operatingMarginTTM") ??
+                                  _calcService.ExtractMetric(metrics, "operatingMarginAnnual"),
+                DebtToEquity = _calcService.ExtractMetric(metrics, "totalDebt/totalEquityQuarterly") ??
+                               _calcService.ExtractMetric(metrics, "totalDebt/totalEquityAnnual"),
+                DividendYield = _calcService.ExtractMetric(metrics, "dividendYieldIndicatedAnnual") ??
+                                _calcService.ExtractMetric(metrics, "dividendYield5Y"),
+                RevenueTtm = _calcService.ExtractMetric(metrics, "revenuePerShareTTM") ??
+                             _calcService.ExtractMetric(metrics, "revenuePerShareAnnual"),
                 EpsTtm = _calcService.ExtractMetric(metrics, "epsBasicExclExtraItemsTTM") ??
-                         _calcService.ExtractMetric(metrics, "epsTTM"),
+                         _calcService.ExtractMetric(metrics, "epsTTM") ??
+                         _calcService.ExtractMetric(metrics, "epsAnnual"),
 
-                // From reported financials
+                // From reported financials (or Finnhub metric fallback)
                 FreeCashFlow = freeCashFlow,
 
-                // Calculated metrics
-                InterestCoverage = _calcService.CalculateInterestCoverage(ebit, interestExpense),
+                // Calculated or extracted metrics
+                InterestCoverage = interestCoverage,
 
                 DataSource = "Finnhub",
                 LastFetchedAt = DateTime.UtcNow
@@ -144,6 +203,19 @@ public class FundamentalsFetchService : IFundamentalsFetchService
             // Calculate derived metrics
             data.FcfYield = _calcService.CalculateFcfYield(data.FreeCashFlow, data.MarketCap);
             data.PegRatio = _calcService.CalculatePegRatio(data.PeRatio, data.EpsGrowthYoy);
+
+            // Log NULL fields for monitoring (only important ones)
+            var nullFields = new List<string>();
+            if (!data.Roic.HasValue) nullFields.Add("roic");
+            if (!data.FreeCashFlow.HasValue) nullFields.Add("free_cash_flow");
+            if (!data.InterestCoverage.HasValue) nullFields.Add("interest_coverage");
+            if (!data.PegRatio.HasValue) nullFields.Add("peg_ratio");
+            if (!data.FcfYield.HasValue) nullFields.Add("fcf_yield");
+            
+            if (nullFields.Count > 0)
+            {
+                _logger.LogDebug("NULL fields for {Symbol}: {Fields}", ticker.Symbol, string.Join(", ", nullFields));
+            }
 
             // Store the data
             await _fundamentalsRepo.UpsertAsync(data);
