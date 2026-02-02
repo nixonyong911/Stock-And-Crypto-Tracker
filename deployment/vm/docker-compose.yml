@@ -191,8 +191,8 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       # Path base for reverse proxy
       - PATH_BASE=/api/simfin
-      # Database connection
-      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      # Database connection (using direct connection for SSL support)
+      - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
       # SimFin API key
       - SimFin__ApiKey=${SIMFIN_API_KEY}
       # Metrics service for pushing metrics
