@@ -19,14 +19,14 @@ This skill documents common bugs encountered when deploying .NET workers (data-f
 
 ## Quick Reference
 
-| Symptom | Likely Cause | Fix |
-|---------|--------------|-----|
-| `'<' is an invalid start of a value` | API URL construction wrong | Use relative URLs without leading `/` |
-| `Cannot convert to System.String` | API returns number for string field | Change model property to correct type |
-| `Cannot convert to System.Nullable<Decimal>` | API returns "N/A" or non-numeric | Use `object?` type, convert manually |
-| `column X does not exist` | Wrong column name in SQL | Query `information_schema.columns` to verify |
-| `Unable to cast TimeSpan to TimeOnly` | PostgreSQL time → .NET type mismatch | Use `TimeSpan` not `TimeOnly` |
-| Worker crashes after schedule check | Multiple issues in BackgroundService | Add try-catch, verify all DB queries |
+| Symptom                                      | Likely Cause                         | Fix                                          |
+| -------------------------------------------- | ------------------------------------ | -------------------------------------------- |
+| `'<' is an invalid start of a value`         | API URL construction wrong           | Use relative URLs without leading `/`        |
+| `Cannot convert to System.String`            | API returns number for string field  | Change model property to correct type        |
+| `Cannot convert to System.Nullable<Decimal>` | API returns "N/A" or non-numeric     | Use `object?` type, convert manually         |
+| `column X does not exist`                    | Wrong column name in SQL             | Query `information_schema.columns` to verify |
+| `Unable to cast TimeSpan to TimeOnly`        | PostgreSQL time → .NET type mismatch | Use `TimeSpan` not `TimeOnly`                |
+| Worker crashes after schedule check          | Multiple issues in BackgroundService | Add try-catch, verify all DB queries         |
 
 ## Common Bugs and Fixes
 
@@ -37,12 +37,14 @@ This skill documents common bugs encountered when deploying .NET workers (data-f
 **Cause:** When using `HttpClient.BaseAddress`, URLs starting with `/` replace the entire path instead of appending.
 
 **Wrong:**
+
 ```csharp
 _httpClient.BaseAddress = new Uri("https://api.example.com/v1");
 var url = $"/endpoint?key={apiKey}";  // Results in: https://api.example.com/endpoint
 ```
 
 **Correct:**
+
 ```csharp
 // Ensure base URL ends with /
 var baseUrl = settings.BaseUrl.TrimEnd('/') + "/";
@@ -59,6 +61,7 @@ var url = $"endpoint?key={apiKey}";  // Results in: https://api.example.com/v1/e
 **Example:** Finnhub returns `quarter` as integer `1` but model has `string? Quarter`
 
 **Fix:** Match the model property type to the actual API response:
+
 ```csharp
 // Wrong
 public string? Quarter { get; set; }
@@ -68,9 +71,10 @@ public int? Quarter { get; set; }
 ```
 
 Then convert when needed:
+
 ```csharp
-var fiscalQuarter = latestReport?.Quarter != null 
-    ? $"Q{latestReport.Quarter}" 
+var fiscalQuarter = latestReport?.Quarter != null
+    ? $"Q{latestReport.Quarter}"
     : GetFiscalQuarter(DateTime.UtcNow.Month);
 ```
 
@@ -81,6 +85,7 @@ var fiscalQuarter = latestReport?.Quarter != null
 **Cause:** Financial APIs sometimes return `"N/A"`, `"none"`, or empty strings instead of numbers.
 
 **Fix:** Use `object?` type and convert manually:
+
 ```csharp
 public class FinancialItem
 {
@@ -91,18 +96,18 @@ public class FinancialItem
 private decimal? ConvertToDecimal(object? value)
 {
     if (value == null) return null;
-    
+
     if (value is System.Text.Json.JsonElement jsonElement)
     {
         if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Number)
             return jsonElement.GetDecimal();
         return null;  // Skip string values like "N/A"
     }
-    
+
     if (value is decimal d) return d;
     if (value is double dbl) return (decimal)dbl;
     if (value is string s && decimal.TryParse(s, out var parsed)) return parsed;
-    
+
     return null;
 }
 ```
@@ -114,18 +119,20 @@ private decimal? ConvertToDecimal(object? value)
 **Cause:** SQL query uses wrong column name (assumed vs actual).
 
 **Diagnosis:** Query the schema:
+
 ```sql
-SELECT column_name, data_type 
-FROM information_schema.columns 
+SELECT column_name, data_type
+FROM information_schema.columns
 WHERE table_name = 'worker_fetch_schedules';
 ```
 
 **Fix:** Update SQL to use correct column name:
+
 ```csharp
 // Wrong
 const string sql = "SELECT fs.schedule_time_utc as ScheduleTimeUtc FROM ...";
 
-// Correct  
+// Correct
 const string sql = "SELECT fs.schedule_time as ScheduleTimeUtc FROM ...";
 ```
 
@@ -136,6 +143,7 @@ const string sql = "SELECT fs.schedule_time as ScheduleTimeUtc FROM ...";
 **Cause:** PostgreSQL `time without time zone` maps to .NET `TimeSpan`, not `TimeOnly`.
 
 **Fix:** Use `TimeSpan` in your model:
+
 ```csharp
 // Wrong
 public TimeOnly ScheduleTimeUtc { get; set; }
@@ -145,6 +153,7 @@ public TimeSpan ScheduleTimeUtc { get; set; }
 ```
 
 Update usage accordingly:
+
 ```csharp
 // Wrong (TimeOnly)
 var todaySchedule = now.Date.Add(scheduleTime.ToTimeSpan());
@@ -160,6 +169,7 @@ var todaySchedule = now.Date.Add(scheduleTime);
 **Cause:** Using pooled connection (`DATABASE_CONNECTION_STRING`) instead of direct.
 
 **Fix:** Use `DATABASE_URL_NET_DIRECT` for workers:
+
 ```yaml
 # docker-compose.yml
 environment:
@@ -172,21 +182,25 @@ environment:
 After fixing bugs, verify each component:
 
 1. **Health Check:**
+
    ```bash
    curl -sf https://server/api/worker/health/live
    ```
 
 2. **Single Ticker Test:**
+
    ```bash
    curl -X POST https://server/api/worker/api/fetch/trigger/1 | jq .
    ```
 
 3. **All Tickers Test:**
+
    ```bash
    curl -X POST https://server/api/worker/api/fetch/trigger/all | jq .
    ```
 
 4. **Database Verification:**
+
    ```sql
    SELECT symbol, COUNT(*) FROM table GROUP BY symbol HAVING COUNT(*) > 1;
    ```
@@ -216,10 +230,10 @@ docker exec worker-name curl -s "https://api.example.com/endpoint?key=xxx"
 
 ## Common Mistakes
 
-| Mistake | Consequence |
-|---------|-------------|
-| Not restarting container after deploy | Old code still running |
-| Assuming column names without checking schema | Runtime SQL errors |
-| Using `TimeOnly` for PostgreSQL time columns | Dapper cast exceptions |
-| Starting HTTP URLs with `/` when using BaseAddress | Wrong URL construction |
-| Expecting all API values to be numeric | Deserialization failures |
+| Mistake                                            | Consequence              |
+| -------------------------------------------------- | ------------------------ |
+| Not restarting container after deploy              | Old code still running   |
+| Assuming column names without checking schema      | Runtime SQL errors       |
+| Using `TimeOnly` for PostgreSQL time columns       | Dapper cast exceptions   |
+| Starting HTTP URLs with `/` when using BaseAddress | Wrong URL construction   |
+| Expecting all API values to be numeric             | Deserialization failures |

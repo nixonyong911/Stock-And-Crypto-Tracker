@@ -7,6 +7,7 @@ This document details the specific bugs encountered and fixes applied when deplo
 ### Bug 1: API URL Construction (Critical)
 
 **Error:**
+
 ```
 System.Text.Json.JsonException: '<' is an invalid start of a value
 ```
@@ -14,6 +15,7 @@ System.Text.Json.JsonException: '<' is an invalid start of a value
 **Root Cause:** HttpClient was receiving HTML error page instead of JSON because URLs were malformed.
 
 **Investigation:**
+
 ```bash
 # Test API directly from container
 docker exec finnhub curl -s "https://finnhub.io/api/v1/stock/profile2?symbol=AAPL&token=xxx"
@@ -26,6 +28,7 @@ docker exec finnhub curl -s "https://finnhub.io/api/v1/stock/profile2?symbol=AAP
 ```
 
 **Fix Applied:**
+
 ```csharp
 // Before
 _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
@@ -44,6 +47,7 @@ var url = $"stock/profile2?symbol={symbol}&token={_settings.ApiKey}";
 ### Bug 2: Quarter Field Type Mismatch
 
 **Error:**
+
 ```
 System.Text.Json.JsonException: The JSON value could not be converted to System.String. Path: $.data[0].quarter
 ```
@@ -51,6 +55,7 @@ System.Text.Json.JsonException: The JSON value could not be converted to System.
 **Root Cause:** Finnhub API returns `quarter` as integer (1, 2, 3, 4) but model expected string.
 
 **API Response:**
+
 ```json
 {
   "data": [{
@@ -62,13 +67,14 @@ System.Text.Json.JsonException: The JSON value could not be converted to System.
 ```
 
 **Fix Applied:**
+
 ```csharp
 // Model change
 public int? Quarter { get; set; }  // Was: string?
 
 // Usage change
-var fiscalQuarter = latestReport?.Quarter != null 
-    ? $"Q{latestReport.Quarter}" 
+var fiscalQuarter = latestReport?.Quarter != null
+    ? $"Q{latestReport.Quarter}"
     : _calcService.GetFiscalQuarter(DateTime.UtcNow.Month);
 ```
 
@@ -79,6 +85,7 @@ var fiscalQuarter = latestReport?.Quarter != null
 ### Bug 3: Non-Numeric Financial Values
 
 **Error:**
+
 ```
 System.Text.Json.JsonException: The JSON value could not be converted to System.Nullable`1[System.Decimal]. Path: $.data[38].report.bs[12].value
 ```
@@ -86,18 +93,20 @@ System.Text.Json.JsonException: The JSON value could not be converted to System.
 **Root Cause:** Some balance sheet items have value `"N/A"` or empty strings instead of numbers.
 
 **API Response Example:**
+
 ```json
 {
   "report": {
     "bs": [
-      { "concept": "Assets", "value": 123456789.00 },
-      { "concept": "Goodwill", "value": "N/A" }  // String, not number!
+      { "concept": "Assets", "value": 123456789.0 },
+      { "concept": "Goodwill", "value": "N/A" } // String, not number!
     ]
   }
 }
 ```
 
 **Fix Applied:**
+
 ```csharp
 // Model change
 public class FinancialItem
@@ -109,18 +118,18 @@ public class FinancialItem
 private decimal? ConvertToDecimal(object? value)
 {
     if (value == null) return null;
-    
+
     if (value is System.Text.Json.JsonElement jsonElement)
     {
         if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Number)
             return jsonElement.GetDecimal();
         return null;
     }
-    
+
     if (value is decimal d) return d;
     if (value is double dbl) return (decimal)dbl;
     if (value is string s && decimal.TryParse(s, out var parsed)) return parsed;
-    
+
     return null;
 }
 ```
@@ -132,6 +141,7 @@ private decimal? ConvertToDecimal(object? value)
 ### Bug 4: Database Column Name Mismatch
 
 **Error:**
+
 ```
 column fs.schedule_time_utc does not exist
 ```
@@ -139,15 +149,17 @@ column fs.schedule_time_utc does not exist
 **Root Cause:** Assumed column name from other workers was `schedule_time_utc` but actual column is `schedule_time`.
 
 **Diagnosis:**
+
 ```sql
-SELECT column_name, data_type 
-FROM information_schema.columns 
+SELECT column_name, data_type
+FROM information_schema.columns
 WHERE table_name = 'worker_fetch_schedules';
 
 -- Result: schedule_time (not schedule_time_utc)
 ```
 
 **Fix Applied:**
+
 ```csharp
 const string sql = @"
     SELECT
@@ -164,6 +176,7 @@ const string sql = @"
 ### Bug 5: PostgreSQL Time Type Mapping
 
 **Error:**
+
 ```
 System.Data.DataException: Error parsing column 3 (scheduletimeutc=16:28:00 - Object)
  ---> System.InvalidCastException: Unable to cast object of type 'System.TimeSpan' to type 'System.TimeOnly'.
@@ -172,6 +185,7 @@ System.Data.DataException: Error parsing column 3 (scheduletimeutc=16:28:00 - Ob
 **Root Cause:** PostgreSQL `time without time zone` maps to `TimeSpan` in .NET/Dapper, not `TimeOnly`.
 
 **Fix Applied:**
+
 ```csharp
 // Model change
 public class FetchSchedule
@@ -195,18 +209,20 @@ private TimeSpan CalculateDelay(TimeSpan scheduleTime)  // Was: TimeOnly
 ## Final Working Configuration
 
 ### docker-compose.yml
+
 ```yaml
 finnhub:
   image: stocktracker-finnhub:${FINNHUB_VERSION:-latest}
   environment:
     - PATH_BASE=/api/finnhub
-    - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}  # Direct connection
+    - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT} # Direct connection
     - Finnhub__ApiKey=${FINNHUB_API_KEY}
     - Finnhub__BaseUrl=https://finnhub.io/api/v1
     - Finnhub__RateLimitDelayMs=2000
 ```
 
 ### Verification Results
+
 - All 10 tickers fetched successfully
 - No duplicate records (upsert working)
 - Scheduled trigger executes at configured time
