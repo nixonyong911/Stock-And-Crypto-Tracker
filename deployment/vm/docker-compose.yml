@@ -176,6 +176,43 @@ services:
       start_period: 10s
 
   # ===========================================
+  # Finnhub Fundamentals Worker
+  # Swagger at: /api/finnhub/swagger
+  # ===========================================
+  finnhub:
+    image: stocktracker-finnhub:${FINNHUB_VERSION:-latest}
+    build:
+      context: ./repo/services
+      dockerfile: workers/data-fetcher/Finnhub/Dockerfile
+    container_name: finnhub
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # Path base for reverse proxy
+      - PATH_BASE=/api/finnhub
+      # Database connection
+      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      # Finnhub API
+      - Finnhub__ApiKey=${FINNHUB_API_KEY}
+      - Finnhub__BaseUrl=https://finnhub.io/api/v1
+      - Finnhub__RateLimitDelayMs=2000
+      # Metrics service
+      - MetricsService__BaseUrl=http://metrics:8080
+      - MetricsService__WorkerName=finnhub
+      - MetricsService__Enabled=true
+    networks:
+      - stocktracker
+    depends_on:
+      - metrics
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  # ===========================================
   # Metrics Service
   # Swagger at: /api/metrics/swagger
   # Prometheus metrics at: /metrics

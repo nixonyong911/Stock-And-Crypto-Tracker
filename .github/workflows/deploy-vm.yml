@@ -23,40 +23,42 @@ on:
   push:
     branches: [main]
     paths:
-      - 'services/workers/data-fetcher/TwelveData/**'
-      - 'services/workers/data-fetcher/fred-worker/**'
-      - 'services/workers/analysis/**'
-      - 'services/metrics/**'
-      - 'services/ai/ai-hub2.0/**'
-      - 'services/back-office/**'
-      - 'services/mcp/**'
-      - 'services/social-media/telegram-2.0/**'
-      - 'services/frontend/**'
-      - 'services/common/**'
-      - 'deployment/vm/**'
-      - '.github/workflows/deploy-vm.yml'
+      - "services/workers/data-fetcher/TwelveData/**"
+      - "services/workers/data-fetcher/fred-worker/**"
+      - "services/workers/data-fetcher/Finnhub/**"
+      - "services/workers/analysis/**"
+      - "services/metrics/**"
+      - "services/ai/ai-hub2.0/**"
+      - "services/back-office/**"
+      - "services/mcp/**"
+      - "services/social-media/telegram-2.0/**"
+      - "services/frontend/**"
+      - "services/common/**"
+      - "deployment/vm/**"
+      - ".github/workflows/deploy-vm.yml"
   workflow_dispatch:
     inputs:
       force_build:
-        description: 'Force rebuild all services (ignore change detection)'
+        description: "Force rebuild all services (ignore change detection)"
         required: false
-        default: 'false'
+        default: "false"
         type: boolean
       rollback_service:
-        description: 'Service to rollback (leave empty for normal deploy)'
+        description: "Service to rollback (leave empty for normal deploy)"
         required: false
         type: choice
         options:
-          - ''
-          - 'twelvedata'
-          - 'fred-worker'
-          - 'candlestick-analysis'
-          - 'metrics'
-          - 'back-office'
-          - 'mcp-analysis'
-          - 'telegram-bot-2.0'
-          - 'ai-hub2'
-          - 'frontend-staging'
+          - ""
+          - "twelvedata"
+          - "fred-worker"
+          - "finnhub"
+          - "candlestick-analysis"
+          - "metrics"
+          - "back-office"
+          - "mcp-analysis"
+          - "telegram-bot-2.0"
+          - "ai-hub2"
+          - "frontend-staging"
 
 jobs:
   # ===========================================
@@ -67,6 +69,7 @@ jobs:
     outputs:
       twelvedata: ${{ steps.filter.outputs.twelvedata }}
       fred: ${{ steps.filter.outputs.fred }}
+      finnhub: ${{ steps.filter.outputs.finnhub }}
       analysis: ${{ steps.filter.outputs.analysis }}
       metrics: ${{ steps.filter.outputs.metrics }}
       backoffice: ${{ steps.filter.outputs.backoffice }}
@@ -76,10 +79,11 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       config: ${{ steps.filter.outputs.config }}
       # NOTE: frontend is NOT in any_service because it's built on VM only (needs Infisical staging secrets)
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub2 == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.finnhub == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub2 == 'true' }}
       # Version outputs for tagging
       twelvedata_version: ${{ steps.versions.outputs.twelvedata }}
       fred_version: ${{ steps.versions.outputs.fred }}
+      finnhub_version: ${{ steps.versions.outputs.finnhub }}
       analysis_version: ${{ steps.versions.outputs.analysis }}
       metrics_version: ${{ steps.versions.outputs.metrics }}
       backoffice_version: ${{ steps.versions.outputs.backoffice }}
@@ -101,6 +105,9 @@ jobs:
               - 'services/common/**'
             fred:
               - 'services/workers/data-fetcher/fred-worker/**'
+            finnhub:
+              - 'services/workers/data-fetcher/Finnhub/**'
+              - 'services/common/**'
             analysis:
               - 'services/workers/analysis/**'
               - 'services/common/**'
@@ -128,6 +135,7 @@ jobs:
           echo "=========================================="
           echo "TwelveData: ${{ steps.filter.outputs.twelvedata }}"
           echo "FRED Worker: ${{ steps.filter.outputs.fred }}"
+          echo "Finnhub: ${{ steps.filter.outputs.finnhub }}"
           echo "Analysis: ${{ steps.filter.outputs.analysis }}"
           echo "Metrics: ${{ steps.filter.outputs.metrics }}"
           echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
@@ -146,6 +154,7 @@ jobs:
           echo "|---------|---------|" >> $GITHUB_STEP_SUMMARY
           echo "| TwelveData | ${{ steps.filter.outputs.twelvedata }} |" >> $GITHUB_STEP_SUMMARY
           echo "| FRED Worker | ${{ steps.filter.outputs.fred }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Finnhub | ${{ steps.filter.outputs.finnhub }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Analysis | ${{ steps.filter.outputs.analysis }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Metrics | ${{ steps.filter.outputs.metrics }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
@@ -168,6 +177,7 @@ jobs:
           declare -A SERVICE_MAP=(
             ["twelvedata"]="twelvedata"
             ["fred"]="fred-worker"
+            ["finnhub"]="finnhub"
             ["analysis"]="candlestick-analysis"
             ["metrics"]="metrics"
             ["backoffice"]="back-office"
@@ -259,6 +269,20 @@ jobs:
           cache-from: type=gha,scope=fred
           cache-to: type=gha,mode=max,scope=fred
           outputs: type=docker,dest=/tmp/fred-worker.tar
+
+      # Build Finnhub Worker (only if changed or forced)
+      - name: Build Finnhub Worker image
+        id: build-finnhub
+        if: (needs.detect-changes.outputs.finnhub == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: services/
+          file: services/workers/data-fetcher/Finnhub/Dockerfile
+          tags: stocktracker-finnhub:v${{ needs.detect-changes.outputs.finnhub_version }}
+          cache-from: type=gha,scope=finnhub
+          cache-to: type=gha,mode=max,scope=finnhub
+          outputs: type=docker,dest=/tmp/finnhub.tar
 
       # Build Candlestick Analysis (only if changed or forced)
       - name: Build Candlestick Analysis image
@@ -374,6 +398,14 @@ jobs:
             echo "⏭️ FRED Worker skipped (unchanged)"
           fi
 
+          if [ -f /tmp/finnhub.tar ]; then
+            gzip -1 < /tmp/finnhub.tar > /tmp/images/finnhub.tar.gz
+            BUILT="${BUILT}finnhub,"
+            echo "✅ Finnhub compressed"
+          else
+            echo "⏭️ Finnhub skipped (unchanged)"
+          fi
+
           if [ -f /tmp/candlestick-analysis.tar ]; then
             gzip -1 < /tmp/candlestick-analysis.tar > /tmp/images/candlestick-analysis.tar.gz
             BUILT="${BUILT}analysis,"
@@ -480,7 +512,7 @@ jobs:
             cp "$ENV_FILE" "$ENV_FILE.bak"
           fi
 
-          for NAME in twelvedata fred-worker candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
+          for NAME in twelvedata fred-worker finnhub candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -495,7 +527,8 @@ jobs:
                 case "$NAME" in
                   "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;
                   "fred-worker") VAR_NAME="FRED_VERSION" ;;
-                  "candlestick-analysis") VAR_NAME="CANDLESTICK_ANALYSIS_VERSION" ;;
+                  "finnhub") VAR_NAME="FINNHUB_VERSION" ;;
+                "candlestick-analysis") VAR_NAME="CANDLESTICK_ANALYSIS_VERSION" ;;
                   "metrics") VAR_NAME="METRICS_VERSION" ;;
                   "back-office") VAR_NAME="BACK_OFFICE_VERSION" ;;
                   "mcp-analysis") VAR_NAME="MCP_ANALYSIS_VERSION" ;;
@@ -536,7 +569,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
 
-            for service in twelvedata fred-worker candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
+            for service in twelvedata fred-worker finnhub candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -610,6 +643,7 @@ jobs:
         env:
           TWELVEDATA_CHANGED: ${{ needs.detect-changes.outputs.twelvedata }}
           FRED_CHANGED: ${{ needs.detect-changes.outputs.fred }}
+          FINNHUB_CHANGED: ${{ needs.detect-changes.outputs.finnhub }}
           ANALYSIS_CHANGED: ${{ needs.detect-changes.outputs.analysis }}
           METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
           BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
@@ -627,6 +661,7 @@ jobs:
           SERVICES=""
           [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES twelvedata"
           [ "$FRED_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES fred-worker"
+          [ "$FINNHUB_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES finnhub"
           [ "$ANALYSIS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES candlestick-analysis"
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES metrics"
           [ "$BACKOFFICE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES back-office"
@@ -693,6 +728,7 @@ jobs:
             case "$ROLLBACK_SERVICE" in
               "twelvedata") IMAGE="stocktracker-twelvedata" ;;
               "fred-worker") IMAGE="stocktracker-fred" ;;
+              "finnhub") IMAGE="stocktracker-finnhub" ;;
             "candlestick-analysis") IMAGE="stocktracker-candlestick-analysis" ;;
             "metrics") IMAGE="stocktracker-metrics" ;;
             "back-office") IMAGE="stocktracker-back-office" ;;
@@ -724,6 +760,7 @@ jobs:
           case "${ROLLBACK_SERVICE}" in
             "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;
             "fred-worker") VAR_NAME="FRED_VERSION" ;;
+            "finnhub") VAR_NAME="FINNHUB_VERSION" ;;
             "candlestick-analysis") VAR_NAME="CANDLESTICK_ANALYSIS_VERSION" ;;
             "metrics") VAR_NAME="METRICS_VERSION" ;;
             "back-office") VAR_NAME="BACK_OFFICE_VERSION" ;;
@@ -834,7 +871,7 @@ jobs:
 
           echo "=== Cleanup old images (keep running + 1 previous for rollback) ==="
           # Smart cleanup: keep 2 most recent versions per service (running + previous for rollback)
-          for SERVICE in twelvedata fred candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 frontend-staging; do
+          for SERVICE in twelvedata fred finnhub candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 frontend-staging; do
             # Get all version tags for this service, sorted by version number
             TAGS=$(docker images "stocktracker-${SERVICE}" --format '{{.Tag}}' | grep -E '^v[0-9]+\.[0-9]+$' | sort -V 2>/dev/null || true)
             if [ -n "$TAGS" ]; then
@@ -890,6 +927,7 @@ jobs:
 
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" "TwelveData"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/health/live" "FRED Worker"
+          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/finnhub/health/live" "Finnhub"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/health/live" "Candlestick Analysis"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live" "Metrics"
 
@@ -928,6 +966,7 @@ jobs:
           echo "- [n8n](https://nxserver.malaysiawest.cloudapp.azure.com/)" >> $GITHUB_STEP_SUMMARY
           echo "- [TwelveData Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [FRED Worker Status](https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/status)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Finnhub Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/finnhub/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Candlestick Analysis Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
@@ -949,6 +988,7 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TWELVEDATA_CHANGED: ${{ needs.detect-changes.outputs.twelvedata }}
           FRED_CHANGED: ${{ needs.detect-changes.outputs.fred }}
+          FINNHUB_CHANGED: ${{ needs.detect-changes.outputs.finnhub }}
           ANALYSIS_CHANGED: ${{ needs.detect-changes.outputs.analysis }}
           METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
           BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
@@ -958,6 +998,7 @@ jobs:
           FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
           TWELVEDATA_VERSION: ${{ needs.detect-changes.outputs.twelvedata_version }}
           FRED_VERSION: ${{ needs.detect-changes.outputs.fred_version }}
+          FINNHUB_VERSION: ${{ needs.detect-changes.outputs.finnhub_version }}
           ANALYSIS_VERSION: ${{ needs.detect-changes.outputs.analysis_version }}
           METRICS_VERSION: ${{ needs.detect-changes.outputs.metrics_version }}
           BACKOFFICE_VERSION: ${{ needs.detect-changes.outputs.backoffice_version }}
@@ -977,6 +1018,7 @@ jobs:
           echo "Services marked 'true' OR force_build='true' will have versions updated:"
           echo "  TWELVEDATA_CHANGED:  $TWELVEDATA_CHANGED"
           echo "  FRED_CHANGED:        $FRED_CHANGED"
+          echo "  FINNHUB_CHANGED:     $FINNHUB_CHANGED"
           echo "  ANALYSIS_CHANGED:    $ANALYSIS_CHANGED"
           echo "  METRICS_CHANGED:     $METRICS_CHANGED"
           echo "  BACKOFFICE_CHANGED:  $BACKOFFICE_CHANGED"
@@ -1017,6 +1059,7 @@ jobs:
           # Update versions for deployed services
           [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "twelvedata" "$TWELVEDATA_VERSION"
           [ "$FRED_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "fred-worker" "$FRED_VERSION"
+          [ "$FINNHUB_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "finnhub" "$FINNHUB_VERSION"
           [ "$ANALYSIS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "candlestick-analysis" "$ANALYSIS_VERSION"
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "metrics" "$METRICS_VERSION"
           [ "$BACKOFFICE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "back-office" "$BACKOFFICE_VERSION"

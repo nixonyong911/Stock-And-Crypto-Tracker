@@ -1,20 +1,20 @@
 # ===========================================
+
 # Caddy Reverse Proxy Configuration
-# ===========================================
-# This file is synced from the repo via CI/CD
-# Do NOT edit directly on the VM
+
 # ===========================================
 
-{
-    # Enable Admin API for CaddyManager
-    admin 0.0.0.0:2019
+# This file is synced from the repo via CI/CD
+
+# Do NOT edit directly on the VM
+
+# ===========================================
+
+{ # Enable Admin API for CaddyManager
+admin 0.0.0.0:2019
 }
 
-nxserver.malaysiawest.cloudapp.azure.com {
-    # ===========================================
-    # NOTE: CaddyManager removed - use Caddy Admin API via SSH
-    # SSH: curl localhost:2019/config/
-    # ===========================================
+nxserver.malaysiawest.cloudapp.azure.com { # =========================================== # NOTE: CaddyManager removed - use Caddy Admin API via SSH # SSH: curl localhost:2019/config/ # ===========================================
 
     # ===========================================
     # TwelveData Worker API
@@ -46,6 +46,14 @@ nxserver.malaysiawest.cloudapp.azure.com {
     # ===========================================
     handle_path /api/fred/* {
         reverse_proxy fred-worker:8080
+    }
+
+    # ===========================================
+    # Finnhub Fundamentals Worker API
+    # Swagger UI: /api/finnhub/swagger
+    # ===========================================
+    handle_path /api/finnhub/* {
+        reverse_proxy finnhub:8080
     }
 
     # ===========================================
@@ -91,12 +99,15 @@ nxserver.malaysiawest.cloudapp.azure.com {
 
     # Enable compression
     encode gzip
+
 }
 
 # ===========================================
+
 # Redirect IP to Domain
-# ===========================================
-20.17.176.1 {
-    redir https://nxserver.malaysiawest.cloudapp.azure.com{uri}
-}
 
+# ===========================================
+
+20.17.176.1 {
+redir https://nxserver.malaysiawest.cloudapp.azure.com{uri}
+}
