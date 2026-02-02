@@ -26,66 +26,65 @@ export interface EconomicIndicator {
   release_frequency: string | null;
 }
 
-// Raw response type from Supabase join query
-// Note: Supabase returns joined tables as arrays (even for 1:1 relationships)
-interface IndicatorWithCalendar {
-  series_id: string;
-  category: string;
-  display_name: string;
-  current_value: number | null;
-  previous_value: number | null;
-  media_current_value: number | null;
-  media_previous_value: number | null;
-  display_mode: EconomicIndicator["display_mode"];
-  change_percent: number | null;
-  trend: EconomicIndicator["trend"];
-  current_signal: EconomicIndicator["current_signal"];
-  units: string | null;
-  description: string | null;
-  current_observation_date: string | null;
-  last_release_date: string | null;
-  analysis_release_calendar: Array<{
-    next_release_date: string | null;
-    release_frequency: string | null;
-  }>;
-}
-
 export async function getEconomicIndicators(): Promise<EconomicIndicator[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("analysis_economic_indicators")
-    .select(
-      `series_id, category, display_name, current_value, previous_value, 
-       media_current_value, media_previous_value, display_mode, change_percent, 
-       trend, current_signal, units, description, current_observation_date, 
-       last_release_date,
-       analysis_release_calendar(next_release_date, release_frequency)`
-    )
-    .eq("is_active", true)
-    .order("display_order");
 
-  if (error) throw error;
+  // Fetch indicators and calendar data separately, then merge
+  // (Supabase embedded select wasn't detecting the FK relationship properly)
+  const [indicatorsResult, calendarResult] = await Promise.all([
+    supabase
+      .from("analysis_economic_indicators")
+      .select(
+        `series_id, category, display_name, current_value, previous_value, 
+         media_current_value, media_previous_value, display_mode, change_percent, 
+         trend, current_signal, units, description, current_observation_date, 
+         last_release_date`
+      )
+      .eq("is_active", true)
+      .order("display_order"),
+    supabase
+      .from("analysis_release_calendar")
+      .select("series_id, next_release_date, release_frequency"),
+  ]);
 
-  // Flatten the joined data
-  return (data as IndicatorWithCalendar[] | null)?.map((item) => ({
-    series_id: item.series_id,
-    category: item.category,
-    display_name: item.display_name,
-    current_value: item.current_value,
-    previous_value: item.previous_value,
-    media_current_value: item.media_current_value,
-    media_previous_value: item.media_previous_value,
-    display_mode: item.display_mode,
-    change_percent: item.change_percent,
-    trend: item.trend,
-    current_signal: item.current_signal,
-    units: item.units,
-    description: item.description,
-    current_observation_date: item.current_observation_date,
-    last_release_date: item.last_release_date,
-    next_release_date: item.analysis_release_calendar?.[0]?.next_release_date ?? null,
-    release_frequency: item.analysis_release_calendar?.[0]?.release_frequency ?? null,
-  })) ?? [];
+  if (indicatorsResult.error) throw indicatorsResult.error;
+  if (calendarResult.error) throw calendarResult.error;
+
+  // Build lookup map for calendar data
+  const calendarMap = new Map<
+    string,
+    { next_release_date: string | null; release_frequency: string | null }
+  >();
+  for (const cal of calendarResult.data ?? []) {
+    calendarMap.set(cal.series_id, {
+      next_release_date: cal.next_release_date,
+      release_frequency: cal.release_frequency,
+    });
+  }
+
+  // Merge indicators with calendar data
+  return (indicatorsResult.data ?? []).map((item) => {
+    const calendar = calendarMap.get(item.series_id);
+    return {
+      series_id: item.series_id,
+      category: item.category,
+      display_name: item.display_name,
+      current_value: item.current_value,
+      previous_value: item.previous_value,
+      media_current_value: item.media_current_value,
+      media_previous_value: item.media_previous_value,
+      display_mode: item.display_mode,
+      change_percent: item.change_percent,
+      trend: item.trend,
+      current_signal: item.current_signal,
+      units: item.units,
+      description: item.description,
+      current_observation_date: item.current_observation_date,
+      last_release_date: item.last_release_date,
+      next_release_date: calendar?.next_release_date ?? null,
+      release_frequency: calendar?.release_frequency ?? null,
+    };
+  });
 }
 
 // Group indicators by category for display
