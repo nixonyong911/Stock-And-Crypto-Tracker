@@ -99,10 +99,10 @@ public class FundamentalsFetchWorker : BackgroundService
         }
     }
 
-    private TimeSpan CalculateDelay(TimeOnly scheduleTime)
+    private TimeSpan CalculateDelay(TimeSpan scheduleTime)
     {
         var now = DateTime.UtcNow;
-        var todaySchedule = now.Date.Add(scheduleTime.ToTimeSpan());
+        var todaySchedule = now.Date.Add(scheduleTime);
 
         if (todaySchedule > now)
         {

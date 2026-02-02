@@ -8,7 +8,7 @@ public class FetchSchedule
     public int Id { get; set; }
     public int DataSourceId { get; set; }
     public string Name { get; set; } = string.Empty;
-    public TimeOnly ScheduleTimeUtc { get; set; }
+    public TimeSpan ScheduleTimeUtc { get; set; }
     public string ScheduleTimezone { get; set; } = "UTC";
     public bool IsEnabled { get; set; }
     public DateTime? LastRunAt { get; set; }
