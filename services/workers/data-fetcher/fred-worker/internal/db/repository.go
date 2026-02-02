@@ -21,24 +21,24 @@ type Indicator struct {
 
 // IndicatorStatus represents the current status of an indicator
 type IndicatorStatus struct {
-	SeriesID           string
-	DisplayName        string
-	Category           string
-	CurrentValue       *float64
-	CurrentDate        *time.Time
-	PreviousValue      *float64
-	PreviousDate       *time.Time
-	ChangePercent      *float64
-	Trend              *string
-	CurrentSignal      *string
-	LastUpdatedAt      *time.Time
+	SeriesID      string
+	DisplayName   string
+	Category      string
+	CurrentValue  *float64
+	CurrentDate   *time.Time
+	PreviousValue *float64
+	PreviousDate  *time.Time
+	ChangePercent *float64
+	Trend         *string
+	CurrentSignal *string
+	LastUpdatedAt *time.Time
 	// Fields for media display
 	DisplayMode        string
 	DisplayDivisor     float64
 	MediaCurrentValue  *float64
 	MediaPreviousValue *float64
 	// Official release date from FRED calendar
-	LastReleaseDate    *time.Time
+	LastReleaseDate *time.Time
 }
 
 // Repository handles database operations for economic indicators
@@ -89,7 +89,7 @@ func (r *Repository) GetActiveIndicators(ctx context.Context) ([]Indicator, erro
 // GetAllIndicatorStatus returns current status of all indicators
 func (r *Repository) GetAllIndicatorStatus(ctx context.Context) ([]IndicatorStatus, error) {
 	query := `
-		SELECT 
+		SELECT
 			series_id, display_name, category,
 			current_value, current_observation_date,
 			previous_value, previous_observation_date,
@@ -164,23 +164,23 @@ func (r *Repository) UpsertIndicator(ctx context.Context, seriesID string, value
 			current_value = $2,
 			current_observation_date = $3,
 			-- Compute change (comparing new value to OLD current, which is now previous)
-			change_value = CASE 
+			change_value = CASE
 				WHEN current_value IS NULL THEN NULL
 				ELSE $2 - current_value
 			END,
-			change_percent = CASE 
+			change_percent = CASE
 				WHEN current_value IS NULL OR current_value = 0 THEN NULL
 				ELSE (($2 - current_value) / current_value) * 100
 			END,
 			-- Compute trend based on change
-			trend = CASE 
+			trend = CASE
 				WHEN current_value IS NULL THEN 'flat'
 				WHEN $2 > current_value THEN 'up'
 				WHEN $2 < current_value THEN 'down'
 				ELSE 'flat'
 			END,
 			-- Compute signal based on trend vs bullish_when
-			current_signal = CASE 
+			current_signal = CASE
 				WHEN current_value IS NULL THEN 'neutral'
 				WHEN $2 > current_value AND bullish_when = 'up' THEN 'bullish'
 				WHEN $2 < current_value AND bullish_when = 'down' THEN 'bullish'
@@ -254,23 +254,23 @@ func (r *Repository) UpsertIndicatorWithMedia(
 			yoy_observation_value = COALESCE($5, yoy_observation_value),
 			yoy_observation_date = COALESCE($6, yoy_observation_date),
 			-- Compute change based on MEDIA values for proper comparison
-			change_value = CASE 
+			change_value = CASE
 				WHEN media_current_value IS NULL THEN NULL
 				ELSE $4 - media_current_value
 			END,
-			change_percent = CASE 
+			change_percent = CASE
 				WHEN media_current_value IS NULL OR media_current_value = 0 THEN NULL
 				ELSE (($4 - media_current_value) / ABS(media_current_value)) * 100
 			END,
 			-- Compute trend based on media values
-			trend = CASE 
+			trend = CASE
 				WHEN media_current_value IS NULL THEN 'flat'
 				WHEN $4 > media_current_value THEN 'up'
 				WHEN $4 < media_current_value THEN 'down'
 				ELSE 'flat'
 			END,
 			-- Compute signal based on trend vs bullish_when
-			current_signal = CASE 
+			current_signal = CASE
 				WHEN media_current_value IS NULL THEN 'neutral'
 				WHEN $4 > media_current_value AND bullish_when = 'up' THEN 'bullish'
 				WHEN $4 < media_current_value AND bullish_when = 'down' THEN 'bullish'
@@ -321,21 +321,21 @@ func (r *Repository) GetIndicatorBySeriesID(ctx context.Context, seriesID string
 
 // ReleaseCalendarEntry represents a row in analysis_release_calendar
 type ReleaseCalendarEntry struct {
-	SeriesID            string
-	ReleaseID           int
-	ReleaseName         string
-	NextReleaseDate     *time.Time
+	SeriesID             string
+	ReleaseID            int
+	ReleaseName          string
+	NextReleaseDate      *time.Time
 	FollowingReleaseDate *time.Time
-	ReleaseFrequency    string
-	ReleaseLink         string
-	LastSyncedAt        time.Time
+	ReleaseFrequency     string
+	ReleaseLink          string
+	LastSyncedAt         time.Time
 }
 
 // UpsertReleaseCalendar inserts or updates a release calendar entry
 func (r *Repository) UpsertReleaseCalendar(ctx context.Context, entry ReleaseCalendarEntry) error {
 	query := `
 		INSERT INTO analysis_release_calendar (
-			series_id, release_id, release_name, 
+			series_id, release_id, release_name,
 			next_release_date, following_release_date,
 			release_frequency, release_link, last_synced_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
@@ -368,7 +368,7 @@ func (r *Repository) UpsertReleaseCalendar(ctx context.Context, entry ReleaseCal
 // GetAllReleaseCalendar returns all release calendar entries ordered by next release date
 func (r *Repository) GetAllReleaseCalendar(ctx context.Context) ([]ReleaseCalendarEntry, error) {
 	query := `
-		SELECT 
+		SELECT
 			rc.series_id, rc.release_id, rc.release_name,
 			rc.next_release_date, rc.following_release_date,
 			rc.release_frequency, rc.release_link, rc.last_synced_at
@@ -403,7 +403,7 @@ func (r *Repository) GetAllReleaseCalendar(ctx context.Context) ([]ReleaseCalend
 // GetUpcomingReleases returns releases scheduled within the next N days
 func (r *Repository) GetUpcomingReleases(ctx context.Context, days int) ([]ReleaseCalendarEntry, error) {
 	query := `
-		SELECT 
+		SELECT
 			rc.series_id, rc.release_id, rc.release_name,
 			rc.next_release_date, rc.following_release_date,
 			rc.release_frequency, rc.release_link, rc.last_synced_at
@@ -435,4 +435,31 @@ func (r *Repository) GetUpcomingReleases(ctx context.Context, days int) ([]Relea
 	}
 
 	return entries, rows.Err()
+}
+
+// ========================================
+// Schedule Status Functions
+// ========================================
+
+// UpdateScheduleStatus updates the last run status for a worker schedule
+func (r *Repository) UpdateScheduleStatus(ctx context.Context, scheduleID int, status string, message string) error {
+	query := `
+		UPDATE worker_fetch_schedules
+		SET last_run_at = NOW(),
+		    last_run_status = $2,
+		    last_run_message = $3,
+		    updated_at = NOW()
+		WHERE id = $1
+	`
+
+	result, err := r.pool.Exec(ctx, query, scheduleID, status, message)
+	if err != nil {
+		return fmt.Errorf("failed to update schedule status: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("schedule %d not found", scheduleID)
+	}
+
+	return nil
 }

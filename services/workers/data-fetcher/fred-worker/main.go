@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -17,7 +18,10 @@ import (
 	"github.com/stocktracker/fred-worker/internal/server"
 )
 
-const version = "1.3.0"
+const version = "1.4.0"
+
+// Schedule ID for FRED Daily Macro Fetch in worker_fetch_schedules table
+const fredScheduleID = 4
 
 func main() {
 	// Setup structured logging
@@ -211,6 +215,18 @@ func runFetch(ctx context.Context, repo *db.Repository, fredClient *fred.Client,
 	// Report metrics
 	_ = metricsClient.IncrementCounter(ctx, "fetch_operations_total", map[string]string{"status": "completed"})
 
+	// Update schedule status in database
+	status := "success"
+	message := fmt.Sprintf("Fetched %d indicators, %d errors", successCount, errorCount)
+	if errorCount > 0 && successCount == 0 {
+		status = "failed"
+	} else if errorCount > 0 {
+		status = "partial"
+	}
+	if err := repo.UpdateScheduleStatus(ctx, fredScheduleID, status, message); err != nil {
+		slog.Warn("Failed to update schedule status", "error", err)
+	}
+
 	slog.Info("Fetch completed", "success", successCount, "errors", errorCount)
 	return nil
 }
@@ -231,8 +247,9 @@ func runCalendarSync(ctx context.Context, repo *db.Repository, fredClient *fred.
 	successCount := 0
 	errorCount := 0
 
-	// Track unique release IDs to avoid duplicate API calls
-	processedReleases := make(map[int]bool)
+	// Cache release dates by release_id to reuse for all series sharing the same release
+	// This fixes the bug where only the first series with a given release_id got dates
+	releaseDatesCache := make(map[int][]fred.ReleaseDate)
 
 	for _, ind := range indicators {
 		// Get release info for this series
@@ -243,15 +260,16 @@ func runCalendarSync(ctx context.Context, repo *db.Repository, fredClient *fred.
 			continue
 		}
 
-		// Get release dates (only if we haven't processed this release yet)
-		var dates []fred.ReleaseDate
-		if !processedReleases[releaseInfo.ReleaseID] {
+		// Get release dates from cache, or fetch if not cached
+		dates, cached := releaseDatesCache[releaseInfo.ReleaseID]
+		if !cached {
 			dates, err = fredClient.GetReleaseDates(ctx, releaseInfo.ReleaseID)
 			if err != nil {
 				slog.Warn("Failed to get release dates", "release_id", releaseInfo.ReleaseID, "error", err)
-				// Continue with empty dates
+				// Store empty slice to avoid retrying
+				dates = []fred.ReleaseDate{}
 			}
-			processedReleases[releaseInfo.ReleaseID] = true
+			releaseDatesCache[releaseInfo.ReleaseID] = dates
 		}
 
 		// Build calendar entry
