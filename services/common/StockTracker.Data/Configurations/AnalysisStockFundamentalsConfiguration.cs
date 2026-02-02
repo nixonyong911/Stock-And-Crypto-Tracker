@@ -29,14 +29,6 @@ public class AnalysisStockFundamentalsConfiguration : IEntityTypeConfiguration<A
             .HasColumnName("pe_ratio")
             .HasColumnType("decimal(10,4)");
 
-        builder.Property(e => e.ForwardPe)
-            .HasColumnName("forward_pe")
-            .HasColumnType("decimal(10,4)");
-
-        builder.Property(e => e.PegRatio)
-            .HasColumnName("peg_ratio")
-            .HasColumnType("decimal(10,4)");
-
         builder.Property(e => e.PriceToBook)
             .HasColumnName("price_to_book")
             .HasColumnType("decimal(10,4)");
@@ -49,27 +41,42 @@ public class AnalysisStockFundamentalsConfiguration : IEntityTypeConfiguration<A
             .HasColumnName("enterprise_value")
             .HasColumnType("decimal(18,2)");
 
-        // ===== Financial Health =====
+        // ===== Per Share Data =====
         builder.Property(e => e.EpsTtm)
             .HasColumnName("eps_ttm")
             .HasColumnType("decimal(10,4)");
 
+        builder.Property(e => e.BookValuePerShare)
+            .HasColumnName("book_value_per_share")
+            .HasColumnType("decimal(18,4)");
+
+        // ===== Revenue & Profitability =====
         builder.Property(e => e.RevenueTtm)
             .HasColumnName("revenue_ttm")
             .HasColumnType("decimal(18,2)");
 
         builder.Property(e => e.GrossMargin)
             .HasColumnName("gross_margin")
-            .HasColumnType("decimal(8,4)");
+            .HasColumnType("decimal(10,4)");
 
         builder.Property(e => e.OperatingMargin)
             .HasColumnName("operating_margin")
-            .HasColumnType("decimal(8,4)");
+            .HasColumnType("decimal(10,4)");
 
         builder.Property(e => e.ProfitMargin)
             .HasColumnName("profit_margin")
-            .HasColumnType("decimal(8,4)");
+            .HasColumnType("decimal(10,4)");
 
+        // ===== Returns =====
+        builder.Property(e => e.ReturnOnEquity)
+            .HasColumnName("return_on_equity")
+            .HasColumnType("decimal(10,4)");
+
+        builder.Property(e => e.ReturnOnAssets)
+            .HasColumnName("return_on_assets")
+            .HasColumnType("decimal(10,4)");
+
+        // ===== Financial Health =====
         builder.Property(e => e.DebtToEquity)
             .HasColumnName("debt_to_equity")
             .HasColumnType("decimal(10,4)");
@@ -78,69 +85,58 @@ public class AnalysisStockFundamentalsConfiguration : IEntityTypeConfiguration<A
             .HasColumnName("current_ratio")
             .HasColumnType("decimal(10,4)");
 
-        // ===== Price Metrics =====
-        builder.Property(e => e.FiftyTwoWeekHigh)
-            .HasColumnName("fifty_two_week_high")
-            .HasColumnType("decimal(12,4)");
-
-        builder.Property(e => e.FiftyTwoWeekLow)
-            .HasColumnName("fifty_two_week_low")
-            .HasColumnType("decimal(12,4)");
-
-        builder.Property(e => e.FiftyDayAverage)
-            .HasColumnName("fifty_day_average")
-            .HasColumnType("decimal(12,4)");
-
-        builder.Property(e => e.TwoHundredDayAverage)
-            .HasColumnName("two_hundred_day_average")
-            .HasColumnType("decimal(12,4)");
-
-        builder.Property(e => e.Beta)
-            .HasColumnName("beta")
-            .HasColumnType("decimal(8,4)");
-
-        // ===== Dividend =====
+        // ===== Dividends =====
         builder.Property(e => e.DividendYield)
             .HasColumnName("dividend_yield")
-            .HasColumnType("decimal(8,4)");
-
-        builder.Property(e => e.DividendRate)
-            .HasColumnName("dividend_rate")
             .HasColumnType("decimal(10,4)");
-
-        builder.Property(e => e.ExDividendDate)
-            .HasColumnName("ex_dividend_date")
-            .HasColumnType("date");
 
         builder.Property(e => e.PayoutRatio)
             .HasColumnName("payout_ratio")
-            .HasColumnType("decimal(8,4)");
+            .HasColumnType("decimal(10,4)");
 
-        // ===== Analyst =====
-        builder.Property(e => e.TargetMeanPrice)
-            .HasColumnName("target_mean_price")
-            .HasColumnType("decimal(12,4)");
+        // ===== Balance Sheet Summary =====
+        builder.Property(e => e.TotalAssets)
+            .HasColumnName("total_assets")
+            .HasColumnType("decimal(18,2)");
 
-        builder.Property(e => e.TargetHighPrice)
-            .HasColumnName("target_high_price")
-            .HasColumnType("decimal(12,4)");
+        builder.Property(e => e.TotalLiabilities)
+            .HasColumnName("total_liabilities")
+            .HasColumnType("decimal(18,2)");
 
-        builder.Property(e => e.TargetLowPrice)
-            .HasColumnName("target_low_price")
-            .HasColumnType("decimal(12,4)");
+        builder.Property(e => e.TotalEquity)
+            .HasColumnName("total_equity")
+            .HasColumnType("decimal(18,2)");
 
-        builder.Property(e => e.RecommendationMean)
-            .HasColumnName("recommendation_mean")
-            .HasColumnType("decimal(4,2)");
+        builder.Property(e => e.FreeCashFlow)
+            .HasColumnName("free_cash_flow")
+            .HasColumnType("decimal(18,2)");
 
-        builder.Property(e => e.NumberOfAnalysts)
-            .HasColumnName("number_of_analysts");
+        builder.Property(e => e.SharesOutstanding)
+            .HasColumnName("shares_outstanding")
+            .HasColumnType("bigint");
 
-        // ===== Metadata =====
+        // ===== Report Metadata =====
+        builder.Property(e => e.FiscalYear)
+            .HasColumnName("fiscal_year")
+            .HasColumnType("integer");
+
+        builder.Property(e => e.FiscalPeriod)
+            .HasColumnName("fiscal_period")
+            .HasMaxLength(10);
+
+        builder.Property(e => e.ReportDate)
+            .HasColumnName("report_date")
+            .HasColumnType("date");
+
+        builder.Property(e => e.DataSource)
+            .HasColumnName("data_source")
+            .HasMaxLength(50)
+            .HasDefaultValue("simfin");
+
+        // ===== Timestamps =====
         builder.Property(e => e.LastFetchedAt)
             .HasColumnName("last_fetched_at")
             .HasColumnType("timestamp with time zone")
-            .IsRequired()
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
         builder.Property(e => e.CreatedAt)

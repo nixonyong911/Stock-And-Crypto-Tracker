@@ -2,7 +2,7 @@ namespace StockTracker.Data.Entities;
 
 /// <summary>
 /// Company fundamental data for mid-to-long-term stock analysis.
-/// Single row per ticker - upserted on each daily fetch from Yahoo Finance.
+/// Single row per ticker - upserted on each fetch from SimFin.
 /// </summary>
 public class AnalysisStockFundamentals
 {
@@ -13,19 +13,13 @@ public class AnalysisStockFundamentals
     /// </summary>
     public int StockTickerId { get; set; }
 
-    // ===== Valuation Metrics (change daily with price) =====
+    // ===== Valuation Metrics =====
 
     /// <summary>Market capitalization in USD.</summary>
     public decimal? MarketCap { get; set; }
 
     /// <summary>Price-to-Earnings ratio (trailing twelve months).</summary>
     public decimal? PeRatio { get; set; }
-
-    /// <summary>Forward Price-to-Earnings ratio (based on estimates).</summary>
-    public decimal? ForwardPe { get; set; }
-
-    /// <summary>Price/Earnings to Growth ratio.</summary>
-    public decimal? PegRatio { get; set; }
 
     /// <summary>Price-to-Book ratio.</summary>
     public decimal? PriceToBook { get; set; }
@@ -36,10 +30,15 @@ public class AnalysisStockFundamentals
     /// <summary>Enterprise value in USD.</summary>
     public decimal? EnterpriseValue { get; set; }
 
-    // ===== Financial Health (change quarterly) =====
+    // ===== Per Share Data =====
 
     /// <summary>Earnings per share (trailing twelve months).</summary>
     public decimal? EpsTtm { get; set; }
+
+    /// <summary>Book value per share in USD.</summary>
+    public decimal? BookValuePerShare { get; set; }
+
+    // ===== Revenue & Profitability =====
 
     /// <summary>Revenue (trailing twelve months) in USD.</summary>
     public decimal? RevenueTtm { get; set; }
@@ -53,63 +52,62 @@ public class AnalysisStockFundamentals
     /// <summary>Net profit margin as decimal.</summary>
     public decimal? ProfitMargin { get; set; }
 
+    // ===== Returns =====
+
+    /// <summary>Return on equity as decimal (e.g., 0.15 = 15%).</summary>
+    public decimal? ReturnOnEquity { get; set; }
+
+    /// <summary>Return on assets as decimal (e.g., 0.08 = 8%).</summary>
+    public decimal? ReturnOnAssets { get; set; }
+
+    // ===== Financial Health =====
+
     /// <summary>Total debt to equity ratio.</summary>
     public decimal? DebtToEquity { get; set; }
 
     /// <summary>Current assets to current liabilities ratio.</summary>
     public decimal? CurrentRatio { get; set; }
 
-    // ===== Price Metrics =====
-
-    /// <summary>52-week high price.</summary>
-    public decimal? FiftyTwoWeekHigh { get; set; }
-
-    /// <summary>52-week low price.</summary>
-    public decimal? FiftyTwoWeekLow { get; set; }
-
-    /// <summary>50-day moving average price.</summary>
-    public decimal? FiftyDayAverage { get; set; }
-
-    /// <summary>200-day moving average price.</summary>
-    public decimal? TwoHundredDayAverage { get; set; }
-
-    /// <summary>Beta coefficient (5Y monthly vs S&P 500).</summary>
-    public decimal? Beta { get; set; }
-
-    // ===== Dividend Information =====
+    // ===== Dividends =====
 
     /// <summary>Annual dividend yield as decimal (e.g., 0.02 = 2%).</summary>
     public decimal? DividendYield { get; set; }
 
-    /// <summary>Annual dividend rate in USD per share.</summary>
-    public decimal? DividendRate { get; set; }
-
-    /// <summary>Ex-dividend date.</summary>
-    public DateOnly? ExDividendDate { get; set; }
-
     /// <summary>Dividend payout ratio as decimal.</summary>
     public decimal? PayoutRatio { get; set; }
 
-    // ===== Analyst Estimates =====
+    // ===== Balance Sheet Summary =====
 
-    /// <summary>Mean analyst 1-year target price.</summary>
-    public decimal? TargetMeanPrice { get; set; }
+    /// <summary>Total assets in USD.</summary>
+    public decimal? TotalAssets { get; set; }
 
-    /// <summary>Highest analyst 1-year target price.</summary>
-    public decimal? TargetHighPrice { get; set; }
+    /// <summary>Total liabilities in USD.</summary>
+    public decimal? TotalLiabilities { get; set; }
 
-    /// <summary>Lowest analyst 1-year target price.</summary>
-    public decimal? TargetLowPrice { get; set; }
+    /// <summary>Total shareholders' equity in USD.</summary>
+    public decimal? TotalEquity { get; set; }
 
-    /// <summary>
-    /// Mean analyst recommendation (1=Strong Buy, 2=Buy, 3=Hold, 4=Sell, 5=Strong Sell).
-    /// </summary>
-    public decimal? RecommendationMean { get; set; }
+    /// <summary>Free cash flow in USD.</summary>
+    public decimal? FreeCashFlow { get; set; }
 
-    /// <summary>Number of analysts covering this stock.</summary>
-    public int? NumberOfAnalysts { get; set; }
+    /// <summary>Number of shares outstanding.</summary>
+    public long? SharesOutstanding { get; set; }
 
-    // ===== Metadata =====
+    // ===== Report Metadata =====
+
+    /// <summary>Fiscal year of the most recent report (e.g., 2024).</summary>
+    public int? FiscalYear { get; set; }
+
+    /// <summary>Fiscal period (e.g., "FY", "Q1", "Q2", "Q3", "Q4").</summary>
+    public string? FiscalPeriod { get; set; }
+
+    /// <summary>Date of the financial report.</summary>
+    public DateOnly? ReportDate { get; set; }
+
+    /// <summary>Data source identifier (default: "simfin").</summary>
+    public string DataSource { get; set; } = "simfin";
+
+    // ===== Timestamps =====
 
     /// <summary>Timestamp of last successful data fetch.</summary>
     public DateTime LastFetchedAt { get; set; }

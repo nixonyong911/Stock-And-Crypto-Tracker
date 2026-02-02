@@ -49,11 +49,11 @@ nxserver.malaysiawest.cloudapp.azure.com {
     }
 
     # ===========================================
-    # Yahoo Finance Worker API - Company Fundamentals
-    # Swagger UI: /api/yahoofinance/swagger
+    # SimFin Worker API - Company Fundamentals
+    # Swagger UI: /api/simfin/swagger
     # ===========================================
-    handle_path /api/yahoofinance/* {
-        reverse_proxy yahoofinance:8080
+    handle_path /api/simfin/* {
+        reverse_proxy simfin:8080
     }
 
     # ===========================================

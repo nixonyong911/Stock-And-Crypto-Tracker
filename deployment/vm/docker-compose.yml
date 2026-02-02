@@ -176,26 +176,28 @@ services:
       start_period: 10s
 
   # ===========================================
-  # Yahoo Finance Worker - Company Fundamentals
-  # Swagger at: /api/yahoofinance/swagger
+  # SimFin Worker - Company Fundamentals
+  # Swagger at: /api/simfin/swagger
   # ===========================================
-  yahoofinance:
-    image: stocktracker-yahoofinance:${YAHOOFINANCE_VERSION:-latest}
+  simfin:
+    image: stocktracker-simfin:${SIMFIN_VERSION:-latest}
     build:
       context: ./repo/services
-      dockerfile: workers/data-fetcher/YahooFinance/Dockerfile
-    container_name: yahoofinance
+      dockerfile: workers/data-fetcher/SimFin/Dockerfile
+    container_name: simfin
     restart: unless-stopped
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       # Path base for reverse proxy
-      - PATH_BASE=/api/yahoofinance
+      - PATH_BASE=/api/simfin
       # Database connection
       - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      # SimFin API key
+      - SimFin__ApiKey=${SIMFIN_API_KEY}
       # Metrics service for pushing metrics
       - MetricsService__BaseUrl=http://metrics:8080
-      - MetricsService__WorkerName=yahoofinance
+      - MetricsService__WorkerName=simfin
       - MetricsService__Enabled=true
     networks:
       - stocktracker
