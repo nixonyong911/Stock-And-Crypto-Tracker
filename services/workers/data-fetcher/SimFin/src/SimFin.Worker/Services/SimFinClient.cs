@@ -37,7 +37,10 @@ public class SimFinClient : ISimFinClient
     {
         try
         {
-            _logger.LogDebug("Fetching fundamentals for {Symbol} from SimFin", symbol);
+            // Debug: Log API key presence (not the actual key for security)
+            var hasApiKey = _httpClient.DefaultRequestHeaders.Contains("Authorization");
+            _logger.LogInformation("Fetching fundamentals for {Symbol}. HasAuth={HasAuth}, BaseAddr={Base}", 
+                symbol, hasApiKey, _httpClient.BaseAddress);
 
             // Build request URL for company statements
             // Fetches P&L, Balance Sheet, Cash Flow, and Derived metrics
