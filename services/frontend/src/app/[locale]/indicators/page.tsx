@@ -9,6 +9,9 @@ import {
   EconomicIndicator,
   ReleaseCalendarEntry,
 } from "@/lib/db/indicators";
+
+// Force dynamic rendering to ensure fresh data from Supabase
+export const dynamic = "force-dynamic";
 import {
   ViewToggle,
   DataToggle,
