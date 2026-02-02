@@ -35,9 +35,9 @@ export async function getEconomicIndicators(): Promise<EconomicIndicator[]> {
     supabase
       .from("analysis_economic_indicators")
       .select(
-        `series_id, category, display_name, current_value, previous_value, 
-         media_current_value, media_previous_value, display_mode, change_percent, 
-         trend, current_signal, units, description, current_observation_date, 
+        `series_id, category, display_name, current_value, previous_value,
+         media_current_value, media_previous_value, display_mode, change_percent,
+         trend, current_signal, units, description, current_observation_date,
          last_release_date`
       )
       .eq("is_active", true)
