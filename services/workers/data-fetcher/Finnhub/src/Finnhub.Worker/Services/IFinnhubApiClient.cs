@@ -97,7 +97,7 @@ public class FinancialItem
     public string? Concept { get; set; }
     public string? Label { get; set; }
     public string? Unit { get; set; }
-    public decimal? Value { get; set; }
+    public object? Value { get; set; } // Can be decimal or string (e.g., "N/A")
 }
 
 /// <summary>

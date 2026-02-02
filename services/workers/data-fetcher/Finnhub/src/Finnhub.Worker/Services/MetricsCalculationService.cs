@@ -112,9 +112,43 @@ public class MetricsCalculationService
             var item = items.FirstOrDefault(i =>
                 i.Concept?.Equals(concept, StringComparison.OrdinalIgnoreCase) == true);
             if (item?.Value != null)
-                return item.Value;
+            {
+                var value = ConvertToDecimal(item.Value);
+                if (value.HasValue)
+                    return value;
+            }
         }
 
         return null;
+    }
+
+    private decimal? ConvertToDecimal(object? value)
+    {
+        if (value == null) return null;
+
+        try
+        {
+            if (value is System.Text.Json.JsonElement jsonElement)
+            {
+                if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Number)
+                {
+                    return jsonElement.GetDecimal();
+                }
+                // Skip string values like "N/A"
+                return null;
+            }
+
+            if (value is decimal d) return d;
+            if (value is double dbl) return (decimal)dbl;
+            if (value is long l) return l;
+            if (value is int i) return i;
+            if (value is string s && decimal.TryParse(s, out var parsed)) return parsed;
+
+            return Convert.ToDecimal(value);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
