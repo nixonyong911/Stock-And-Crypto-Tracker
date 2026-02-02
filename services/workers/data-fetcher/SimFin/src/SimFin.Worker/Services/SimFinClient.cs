@@ -16,7 +16,6 @@ public class SimFinClient : ISimFinClient
     private readonly SimFinSettings _settings;
     private readonly ILogger<SimFinClient> _logger;
 
-    // Column name to index mapping for SimFin response
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -42,7 +41,8 @@ public class SimFinClient : ISimFinClient
 
             // Build request URL for company statements
             // Fetches P&L, Balance Sheet, Cash Flow, and Derived metrics
-            var url = $"/companies/statements/compact?ticker={symbol}&statements=pl,bs,cf,derived&period=ttm&fyear=0";
+            // Note: period=fy gives latest fiscal year data (ttm is no longer supported in API v3)
+            var url = $"/companies/statements/compact?ticker={symbol}&statements=pl,bs,cf,derived&period=fy";
 
             var response = await _httpClient.GetAsync(url, ct);
 
@@ -53,23 +53,31 @@ public class SimFinClient : ISimFinClient
             }
 
             var content = await response.Content.ReadAsStringAsync(ct);
-            var simFinResponse = JsonSerializer.Deserialize<SimFinResponse>(content, JsonOptions);
+            var companies = JsonSerializer.Deserialize<List<SimFinCompanyResponse>>(content, JsonOptions);
 
-            if (simFinResponse?.Columns == null || simFinResponse.Data == null || simFinResponse.Data.Count == 0)
+            if (companies == null || companies.Count == 0)
             {
-                _logger.LogWarning("No data returned from SimFin for {Symbol}", symbol);
+                _logger.LogWarning("No company data returned from SimFin for {Symbol}", symbol);
                 return null;
             }
 
-            // Create column index lookup
-            var columnIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < simFinResponse.Columns.Count; i++)
+            var company = companies[0];
+            if (company.Statements == null || company.Statements.Count == 0)
             {
-                columnIndex[simFinResponse.Columns[i]] = i;
+                _logger.LogWarning("No statements returned from SimFin for {Symbol}", symbol);
+                return null;
             }
 
-            // Get the first row of data (most recent)
-            var row = simFinResponse.Data[0];
+            // Merge all statements into a combined column/data lookup
+            // Each statement has columns/data for a specific type (PL, BS, CF, DERIVED)
+            var combinedData = MergeStatements(company.Statements);
+            if (combinedData == null)
+            {
+                _logger.LogWarning("Failed to merge statements for {Symbol}", symbol);
+                return null;
+            }
+
+            var (columnIndex, row) = combinedData.Value;
 
             var data = new FundamentalsData
             {
@@ -77,47 +85,46 @@ public class SimFinClient : ISimFinClient
                 LastFetchedAt = DateTime.UtcNow,
                 DataSource = "simfin",
 
-                // Valuation Metrics (from derived)
-                MarketCap = GetDecimalValue(row, columnIndex, "Market Capitalisation"),
-                PeRatio = GetDecimalValue(row, columnIndex, "Price to Earnings Ratio (ttm)"),
-                PriceToBook = GetDecimalValue(row, columnIndex, "Price to Book Value"),
-                PriceToSales = GetDecimalValue(row, columnIndex, "Price to Sales Ratio (ttm)"),
-                EnterpriseValue = GetDecimalValue(row, columnIndex, "Enterprise Value"),
-                EpsTtm = GetDecimalValue(row, columnIndex, "Earnings Per Share, Diluted"),
-
-                // Profitability Margins (from derived)
+                // From DERIVED statement - profitability margins
                 GrossMargin = GetDecimalValue(row, columnIndex, "Gross Profit Margin"),
                 OperatingMargin = GetDecimalValue(row, columnIndex, "Operating Margin"),
                 ProfitMargin = GetDecimalValue(row, columnIndex, "Net Profit Margin"),
                 ReturnOnEquity = GetDecimalValue(row, columnIndex, "Return on Equity"),
                 ReturnOnAssets = GetDecimalValue(row, columnIndex, "Return on Assets"),
+                CurrentRatio = GetDecimalValue(row, columnIndex, "Current Ratio"),
+                FreeCashFlow = GetDecimalValue(row, columnIndex, "Free Cash Flow"),
+                EpsTtm = GetDecimalValue(row, columnIndex, "Earnings Per Share, Diluted"),
+                PayoutRatio = GetDecimalValue(row, columnIndex, "Dividend Payout Ratio"),
+                DebtToEquity = GetDecimalValue(row, columnIndex, "Liabilities to Equity Ratio"),
 
-                // Balance Sheet metrics
+                // From PL (Income Statement)
+                RevenueTtm = GetDecimalValue(row, columnIndex, "Revenue"),
+
+                // From BS (Balance Sheet)
                 TotalAssets = GetDecimalValue(row, columnIndex, "Total Assets"),
                 TotalLiabilities = GetDecimalValue(row, columnIndex, "Total Liabilities"),
                 TotalEquity = GetDecimalValue(row, columnIndex, "Total Equity"),
-                CurrentRatio = GetDecimalValue(row, columnIndex, "Current Ratio"),
-                DebtToEquity = GetDecimalValue(row, columnIndex, "Total Debt / Total Equity"),
-
-                // Other metrics
-                BookValuePerShare = GetDecimalValue(row, columnIndex, "Book Value per Share"),
-                DividendYield = GetDecimalValue(row, columnIndex, "Dividend Yield"),
-                PayoutRatio = GetDecimalValue(row, columnIndex, "Payout Ratio"),
-                RevenueTtm = GetDecimalValue(row, columnIndex, "Revenue"),
-                FreeCashFlow = GetDecimalValue(row, columnIndex, "Free Cash Flow"),
-
-                // Shares outstanding (as long)
                 SharesOutstanding = GetLongValue(row, columnIndex, "Common Shares Outstanding"),
 
-                // Fiscal period info
+                // Fiscal period info (from any statement)
                 FiscalYear = GetIntValue(row, columnIndex, "Fiscal Year"),
                 FiscalPeriod = GetStringValue(row, columnIndex, "Fiscal Period"),
-                ReportDate = GetDateOnlyValue(row, columnIndex, "Report Date")
+                ReportDate = GetDateOnlyValue(row, columnIndex, "Report Date"),
+
+                // These fields require price data not in statements API - will be null
+                // Can be enriched from a separate price API call if needed
+                MarketCap = null,
+                PeRatio = null,
+                PriceToBook = null,
+                PriceToSales = null,
+                EnterpriseValue = null,
+                BookValuePerShare = GetDecimalValue(row, columnIndex, "Equity Per Share"), // Use Equity Per Share as proxy
+                DividendYield = null
             };
 
             _logger.LogInformation(
-                "Successfully fetched fundamentals for {Symbol}: MarketCap={MarketCap:N0}, PE={PE:N2}, ROE={ROE:P2}",
-                symbol, data.MarketCap, data.PeRatio, data.ReturnOnEquity);
+                "Successfully fetched fundamentals for {Symbol}: FY={FY}, ROE={ROE:P2}, Margin={Margin:P2}",
+                symbol, data.FiscalYear, data.ReturnOnEquity, data.ProfitMargin);
 
             return data;
         }
@@ -131,6 +138,48 @@ public class SimFinClient : ISimFinClient
             _logger.LogError(ex, "Error fetching fundamentals for {Symbol}", symbol);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Merge all statement types into a single column/data lookup.
+    /// Gets the most recent fiscal year data from each statement.
+    /// </summary>
+    private (Dictionary<string, int> columnIndex, List<object?> row)? MergeStatements(List<SimFinStatement> statements)
+    {
+        var mergedColumns = new List<string>();
+        var mergedData = new List<object?>();
+
+        foreach (var stmt in statements)
+        {
+            if (stmt.Columns == null || stmt.Data == null || stmt.Data.Count == 0)
+                continue;
+
+            // Get the most recent data row (last row is usually most recent fiscal year)
+            var latestRow = stmt.Data[^1];
+
+            for (int i = 0; i < stmt.Columns.Count; i++)
+            {
+                var colName = stmt.Columns[i];
+                // Skip duplicate common columns (Fiscal Period, Fiscal Year, Report Date)
+                // Keep the first occurrence
+                if (!mergedColumns.Contains(colName, StringComparer.OrdinalIgnoreCase))
+                {
+                    mergedColumns.Add(colName);
+                    mergedData.Add(i < latestRow.Count ? latestRow[i] : null);
+                }
+            }
+        }
+
+        if (mergedColumns.Count == 0)
+            return null;
+
+        var columnIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < mergedColumns.Count; i++)
+        {
+            columnIndex[mergedColumns[i]] = i;
+        }
+
+        return (columnIndex, mergedData);
     }
 
     private static decimal? GetDecimalValue(List<object?> row, Dictionary<string, int> columnIndex, string columnName)
@@ -242,9 +291,20 @@ public class SimFinClient : ISimFinClient
 
 /// <summary>
 /// SimFin API response model for compact statements endpoint.
+/// Response structure: [{name, ticker, statements: [{statement, columns, data}]}]
 /// </summary>
-internal class SimFinResponse
+internal class SimFinCompanyResponse
 {
+    public string Name { get; set; } = string.Empty;
+    public string Ticker { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public List<SimFinStatement> Statements { get; set; } = new();
+}
+
+internal class SimFinStatement
+{
+    public string Statement { get; set; } = string.Empty; // PL, BS, CF, DERIVED
     public List<string> Columns { get; set; } = new();
     public List<List<object?>> Data { get; set; } = new();
 }
