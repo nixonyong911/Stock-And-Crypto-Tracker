@@ -24,7 +24,9 @@ public class FinnhubApiClient : IFinnhubApiClient
         _httpClient = httpClient;
         _settings = settings.Value;
         _logger = logger;
-        _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
+        // Ensure base URL ends with / for proper relative URL resolution
+        var baseUrl = _settings.BaseUrl.TrimEnd('/') + "/";
+        _httpClient.BaseAddress = new Uri(baseUrl);
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
@@ -53,7 +55,7 @@ public class FinnhubApiClient : IFinnhubApiClient
 
         try
         {
-            var url = $"/stock/profile2?symbol={symbol}&token={_settings.ApiKey}";
+            var url = $"stock/profile2?symbol={symbol}&token={_settings.ApiKey}";
             _logger.LogDebug("Fetching company profile for {Symbol}", symbol);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -82,7 +84,7 @@ public class FinnhubApiClient : IFinnhubApiClient
 
         try
         {
-            var url = $"/stock/metric?symbol={symbol}&metric=all&token={_settings.ApiKey}";
+            var url = $"stock/metric?symbol={symbol}&metric=all&token={_settings.ApiKey}";
             _logger.LogDebug("Fetching basic financials for {Symbol}", symbol);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -111,7 +113,7 @@ public class FinnhubApiClient : IFinnhubApiClient
 
         try
         {
-            var url = $"/stock/financials-reported?symbol={symbol}&freq={freq}&token={_settings.ApiKey}";
+            var url = $"stock/financials-reported?symbol={symbol}&freq={freq}&token={_settings.ApiKey}";
             _logger.LogDebug("Fetching financials reported for {Symbol}", symbol);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -140,7 +142,7 @@ public class FinnhubApiClient : IFinnhubApiClient
 
         try
         {
-            var url = $"/calendar/earnings?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&token={_settings.ApiKey}";
+            var url = $"calendar/earnings?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&token={_settings.ApiKey}";
             _logger.LogDebug("Fetching earnings calendar from {From} to {To}", from, to);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
