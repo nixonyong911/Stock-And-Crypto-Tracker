@@ -191,8 +191,8 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       # Path base for reverse proxy
       - PATH_BASE=/api/finnhub
-      # Database connection
-      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
+      # Database connection (direct, bypasses pooler for best performance)
+      - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
       # Finnhub API
       - Finnhub__ApiKey=${FINNHUB_API_KEY}
       - Finnhub__BaseUrl=https://finnhub.io/api/v1
