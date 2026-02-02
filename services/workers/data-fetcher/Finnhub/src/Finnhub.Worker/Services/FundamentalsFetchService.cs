@@ -63,7 +63,9 @@ public class FundamentalsFetchService : IFundamentalsFetchService
             // Determine fiscal period from latest reported financials
             var latestReport = reported?.Data?.FirstOrDefault();
             var fiscalYear = latestReport?.Year ?? DateTime.UtcNow.Year;
-            var fiscalQuarter = latestReport?.Quarter ?? _calcService.GetFiscalQuarter(DateTime.UtcNow.Month);
+            var fiscalQuarter = latestReport?.Quarter != null 
+                ? $"Q{latestReport.Quarter}" 
+                : _calcService.GetFiscalQuarter(DateTime.UtcNow.Month);
 
             // Get previous year data for YoY calculations
             var prevYearData = await _fundamentalsRepo.GetPreviousYearQuarterAsync(ticker.Id, fiscalYear, fiscalQuarter);

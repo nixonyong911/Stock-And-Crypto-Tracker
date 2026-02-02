@@ -70,7 +70,7 @@ public class FinancialReport
     public string? Symbol { get; set; }
     public string? Cik { get; set; }
     public int? Year { get; set; }
-    public string? Quarter { get; set; }
+    public int? Quarter { get; set; }
     public string? Form { get; set; }
     public string? StartDate { get; set; }
     public string? EndDate { get; set; }
