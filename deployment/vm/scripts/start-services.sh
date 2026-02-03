@@ -47,7 +47,7 @@ fi
 echo "=== Starting services with secrets injected ==="
 
 # Define backend services (excluding frontend-staging which uses STAGING env)
-BACKEND_SERVICES="caddy n8n twelvedata fred-worker candlestick-analysis metrics alloy redis rabbitmq mcp-analysis telegram-bot-2.0 ai-hub2 back-office"
+BACKEND_SERVICES="caddy n8n twelvedata fred-worker candlestick-analysis metrics alloy redis rabbitmq mcp-analysis telegram-bot-2.0 ai-hub2 back-office finnhub"
 
 # Detect if this is a generic "up -d" call (no specific service)
 # Frontend-staging must be started separately with start-frontend-staging.sh (uses STAGING secrets)
