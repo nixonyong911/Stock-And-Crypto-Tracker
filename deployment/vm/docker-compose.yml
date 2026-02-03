@@ -176,21 +176,21 @@ services:
       start_period: 10s
 
   # ===========================================
-  # Finnhub Fundamentals Worker
-  # Swagger at: /api/finnhub/swagger
+  # Data Fetcher 2.0 - Finnhub Fundamentals Worker
+  # Swagger at: /api/data-fetcher-2.0/swagger
   # ===========================================
-  finnhub:
-    image: stocktracker-finnhub:${FINNHUB_VERSION:-latest}
+  data-fetcher-2.0:
+    image: stocktracker-data-fetcher-2.0:${DATA_FETCHER_2_VERSION:-latest}
     build:
       context: ./repo/services
       dockerfile: workers/data-fetcher-2.0/Dockerfile
-    container_name: finnhub
+    container_name: data-fetcher-2.0
     restart: unless-stopped
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       # Path base for reverse proxy
-      - PATH_BASE=/api/finnhub
+      - PATH_BASE=/api/data-fetcher-2.0
       # Database connection (direct, bypasses pooler for best performance)
       - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
       # Finnhub API
@@ -199,7 +199,7 @@ services:
       - Finnhub__RateLimitDelayMs=2000
       # Metrics service
       - MetricsService__BaseUrl=http://metrics:8080
-      - MetricsService__WorkerName=finnhub
+      - MetricsService__WorkerName=data-fetcher-2.0
       - MetricsService__Enabled=true
     networks:
       - stocktracker

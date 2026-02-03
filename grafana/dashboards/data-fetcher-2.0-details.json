@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "Detailed monitoring for Finnhub Fundamentals worker",
+  "description": "Detailed monitoring for Data Fetcher 2.0 (Finnhub Fundamentals) worker",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -69,7 +69,7 @@
         },
         "textMode": "auto"
       },
-      "targets": [{ "expr": "finnhub_worker_up", "refId": "A" }],
+      "targets": [{ "expr": "data_fetcher_2_worker_up", "refId": "A" }],
       "title": "Worker Status",
       "type": "stat"
     },
@@ -95,7 +95,7 @@
       },
       "targets": [
         {
-          "expr": "increase(finnhub_fetch_operations_total[24h])",
+          "expr": "increase(data_fetcher_2_fetch_operations_total[24h])",
           "refId": "A"
         }
       ],
@@ -134,7 +134,7 @@
         "textMode": "auto"
       },
       "targets": [
-        { "expr": "increase(finnhub_fetch_errors_total[24h])", "refId": "A" }
+        { "expr": "increase(data_fetcher_2_fetch_errors_total[24h])", "refId": "A" }
       ],
       "title": "Errors (24h)",
       "type": "stat"
@@ -156,7 +156,7 @@
         "textMode": "auto"
       },
       "targets": [
-        { "expr": "avg(finnhub_fetch_duration_seconds)", "refId": "A" }
+        { "expr": "avg(data_fetcher_2_fetch_duration_seconds)", "refId": "A" }
       ],
       "title": "Avg Fetch Duration",
       "type": "stat"
@@ -183,7 +183,7 @@
       },
       "targets": [
         {
-          "expr": "increase(finnhub_records_upserted_total[24h])",
+          "expr": "increase(data_fetcher_2_records_upserted_total[24h])",
           "refId": "A"
         }
       ],
@@ -211,7 +211,7 @@
         "textMode": "auto"
       },
       "targets": [
-        { "expr": "increase(finnhub_earnings_synced_total[24h])", "refId": "A" }
+        { "expr": "increase(data_fetcher_2_earnings_synced_total[24h])", "refId": "A" }
       ],
       "title": "Earnings Synced (24h)",
       "type": "stat"
@@ -265,7 +265,7 @@
       },
       "targets": [
         {
-          "expr": "rate(finnhub_fetch_operations_total[5m])",
+          "expr": "rate(data_fetcher_2_fetch_operations_total[5m])",
           "legendFormat": "Fetch Rate",
           "refId": "A"
         }
@@ -314,7 +314,7 @@
       },
       "targets": [
         {
-          "expr": "rate(finnhub_fetch_errors_total[5m])",
+          "expr": "rate(data_fetcher_2_fetch_errors_total[5m])",
           "legendFormat": "Error Rate",
           "refId": "A"
         }
@@ -363,7 +363,7 @@
       },
       "targets": [
         {
-          "expr": "finnhub_fetch_duration_seconds",
+          "expr": "data_fetcher_2_fetch_duration_seconds",
           "legendFormat": "Duration",
           "refId": "A"
         }
@@ -375,7 +375,7 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["finnhub", "worker", "fundamentals"],
+  "tags": ["data-fetcher-2.0", "worker", "fundamentals"],
   "templating": {
     "list": [
       {
@@ -402,8 +402,8 @@
   "time": { "from": "now-24h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "Finnhub Fundamentals Details",
-  "uid": "finnhub-details",
+  "title": "Data Fetcher 2.0 Details",
+  "uid": "data-fetcher-2.0-details",
   "version": 1,
   "weekStart": ""
 }

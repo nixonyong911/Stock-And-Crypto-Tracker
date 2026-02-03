@@ -211,12 +211,13 @@ private TimeSpan CalculateDelay(TimeSpan scheduleTime)  // Was: TimeOnly
 ### docker-compose.yml
 
 ```yaml
-finnhub:
-  image: stocktracker-finnhub:${FINNHUB_VERSION:-latest}
+# Note: Service renamed from "finnhub" to "data-fetcher-2.0" in Feb 2026
+data-fetcher-2.0:
+  image: stocktracker-data-fetcher-2.0:${DATA_FETCHER_2_VERSION:-latest}
   environment:
-    - PATH_BASE=/api/finnhub
+    - PATH_BASE=/api/data-fetcher-2.0
     - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT} # Direct connection
-    - Finnhub__ApiKey=${FINNHUB_API_KEY}
+    - Finnhub__ApiKey=${FINNHUB_API_KEY}  # External API config (unchanged)
     - Finnhub__BaseUrl=https://finnhub.io/api/v1
     - Finnhub__RateLimitDelayMs=2000
 ```

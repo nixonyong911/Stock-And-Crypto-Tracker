@@ -49,11 +49,11 @@ nxserver.malaysiawest.cloudapp.azure.com { # ===================================
     }
 
     # ===========================================
-    # Finnhub Fundamentals Worker API
-    # Swagger UI: /api/finnhub/swagger
+    # Data Fetcher 2.0 - Finnhub Fundamentals Worker API
+    # Swagger UI: /api/data-fetcher-2.0/swagger
     # ===========================================
-    handle_path /api/finnhub/* {
-        reverse_proxy finnhub:8080
+    handle_path /api/data-fetcher-2.0/* {
+        reverse_proxy data-fetcher-2.0:8080
     }
 
     # ===========================================
