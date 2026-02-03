@@ -120,8 +120,7 @@ public class EarningsSyncWorker : BackgroundService
     }
 
     /// <summary>
-    /// Calculates the delay until the target time.
-    /// TEMPORARY: Modified to run any day for testing (normally runs 1st of month only).
+    /// Calculates the delay until the 1st of next month at the specified time.
     /// </summary>
     private static (TimeSpan delay, DateTime nextRunUtc) CalculateDelayUntilFirstOfMonth(TimeSpan? scheduleTime, string? scheduleTimezone)
     {
@@ -141,17 +140,18 @@ public class EarningsSyncWorker : BackgroundService
         var now = DateTime.UtcNow;
         var nowInTz = TimeZoneInfo.ConvertTimeFromUtc(now, tz);
 
-        // TEMPORARY: Allow running any day for testing
+        // Calculate 1st of next month at target time
         DateTime nextRun;
-        if (nowInTz.TimeOfDay < targetTime)
+        if (nowInTz.Day == 1 && nowInTz.TimeOfDay < targetTime)
         {
-            // Before target time, run today
+            // It's currently the 1st and before target time, run today
             nextRun = nowInTz.Date.Add(targetTime);
         }
         else
         {
-            // After target time, run tomorrow
-            nextRun = nowInTz.Date.AddDays(1).Add(targetTime);
+            // Schedule for 1st of next month
+            var nextMonth = nowInTz.AddMonths(1);
+            nextRun = new DateTime(nextMonth.Year, nextMonth.Month, 1, 0, 0, 0).Add(targetTime);
         }
 
         // Convert back to UTC
