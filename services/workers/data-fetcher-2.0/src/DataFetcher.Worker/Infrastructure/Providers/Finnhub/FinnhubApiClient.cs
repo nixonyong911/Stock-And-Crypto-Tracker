@@ -191,4 +191,33 @@ public class FinnhubApiClient : IFinnhubApiClient
             throw;
         }
     }
+
+    /// <inheritdoc />
+    public async Task<List<StockEarning>?> GetStockEarningsAsync(string symbol, CancellationToken cancellationToken = default)
+    {
+        await RateLimitAsync(cancellationToken);
+
+        try
+        {
+            var url = $"stock/earnings?symbol={symbol}&token={_settings.ApiKey}";
+            _logger.LogDebug("Fetching stock earnings for {Symbol}", symbol);
+
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(content) || content == "[]")
+            {
+                _logger.LogWarning("Empty response for stock earnings for {Symbol}", symbol);
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<List<StockEarning>>(content, _jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching stock earnings for {Symbol}", symbol);
+            throw;
+        }
+    }
 }

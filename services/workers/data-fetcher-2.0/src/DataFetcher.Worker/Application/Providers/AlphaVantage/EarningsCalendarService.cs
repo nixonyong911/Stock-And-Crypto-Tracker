@@ -102,7 +102,7 @@ public class EarningsCalendarService : IEarningsCalendarService
 
             // Look up ticker ID from symbol
             var tickers = await _tickerRepo.GetActiveTickersAsync();
-            var ticker = tickers.FirstOrDefault(t => 
+            var ticker = tickers.FirstOrDefault(t =>
                 t.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
 
             if (ticker == null)
@@ -162,16 +162,12 @@ public class EarningsCalendarService : IEarningsCalendarService
         var fiscalYear = item.FiscalDateEnding.Year;
         var fiscalQuarter = GetFiscalQuarter(item.FiscalDateEnding.Month);
 
-        // Future dates are estimates
-        var isEstimate = item.ReportDate > DateOnly.FromDateTime(DateTime.UtcNow);
-
         return new EarningsReleaseSchedule
         {
             StockTickerId = tickerId,
             EarningsDate = item.ReportDate,
             FiscalYear = fiscalYear,
             FiscalQuarter = fiscalQuarter,
-            IsEstimate = isEstimate,
             EpsEstimate = item.Estimate,
             // Alpha Vantage doesn't provide revenue estimate or actuals
             RevenueEstimate = null,

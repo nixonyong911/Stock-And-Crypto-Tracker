@@ -29,6 +29,12 @@ public interface IFinnhubApiClient
     /// Gets earnings calendar for a specific symbol.
     /// </summary>
     Task<EarningsCalendar?> GetEarningsCalendarBySymbolAsync(string symbol, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets historical earnings data for a symbol (actuals + estimates).
+    /// Uses /stock/earnings endpoint which provides past earnings with actuals.
+    /// </summary>
+    Task<List<StockEarning>?> GetStockEarningsAsync(string symbol, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -131,4 +137,24 @@ public class EarningsEvent
     public decimal? RevenueEstimate { get; set; }
     public string? Symbol { get; set; }
     public int? Year { get; set; }
+}
+
+/// <summary>
+/// Historical stock earnings from /stock/earnings endpoint.
+/// Contains actual EPS and estimates for past quarters.
+/// </summary>
+public class StockEarning
+{
+    public decimal? Actual { get; set; }
+    public decimal? Estimate { get; set; }
+    public string? Period { get; set; }
+    public int? Quarter { get; set; }
+    public decimal? Surprise { get; set; }
+    public decimal? SurprisePercent { get; set; }
+    public string? Symbol { get; set; }
+    public int Year { get; set; }
+
+    // Convenience properties that map to standard names
+    public decimal? EpsActual => Actual;
+    public decimal? EpsEstimate => Estimate;
 }

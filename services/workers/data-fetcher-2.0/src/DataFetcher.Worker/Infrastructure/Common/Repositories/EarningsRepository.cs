@@ -25,20 +25,19 @@ public class EarningsRepository : IEarningsRepository
 
         const string sql = @"
             INSERT INTO analysis_earnings_release_schedule (
-                stock_ticker_id, earnings_date, fiscal_year, fiscal_quarter, is_estimate,
+                stock_ticker_id, earnings_date, fiscal_year, fiscal_quarter,
                 eps_estimate, revenue_estimate, eps_actual, revenue_actual,
                 eps_surprise, eps_surprise_percent, updated_at
             ) VALUES (
-                @StockTickerId, @EarningsDate, @FiscalYear, @FiscalQuarter, @IsEstimate,
+                @StockTickerId, @EarningsDate, @FiscalYear, @FiscalQuarter,
                 @EpsEstimate, @RevenueEstimate, @EpsActual, @RevenueActual,
                 @EpsSurprise, @EpsSurprisePercent, NOW()
             )
             ON CONFLICT (stock_ticker_id, fiscal_year, fiscal_quarter)
             DO UPDATE SET
-                earnings_date = EXCLUDED.earnings_date,
-                is_estimate = EXCLUDED.is_estimate,
-                eps_estimate = EXCLUDED.eps_estimate,
-                revenue_estimate = EXCLUDED.revenue_estimate,
+                earnings_date = COALESCE(EXCLUDED.earnings_date, analysis_earnings_release_schedule.earnings_date),
+                eps_estimate = COALESCE(EXCLUDED.eps_estimate, analysis_earnings_release_schedule.eps_estimate),
+                revenue_estimate = COALESCE(EXCLUDED.revenue_estimate, analysis_earnings_release_schedule.revenue_estimate),
                 eps_actual = COALESCE(EXCLUDED.eps_actual, analysis_earnings_release_schedule.eps_actual),
                 revenue_actual = COALESCE(EXCLUDED.revenue_actual, analysis_earnings_release_schedule.revenue_actual),
                 eps_surprise = COALESCE(EXCLUDED.eps_surprise, analysis_earnings_release_schedule.eps_surprise),
@@ -51,7 +50,6 @@ public class EarningsRepository : IEarningsRepository
             EarningsDate = data.EarningsDate.ToDateTime(TimeOnly.MinValue),
             data.FiscalYear,
             data.FiscalQuarter,
-            data.IsEstimate,
             data.EpsEstimate,
             data.RevenueEstimate,
             data.EpsActual,
@@ -73,7 +71,7 @@ public class EarningsRepository : IEarningsRepository
             FROM analysis_earnings_release_schedule
             WHERE earnings_date >= CURRENT_DATE - @Days
               AND earnings_date <= CURRENT_DATE
-              AND is_estimate = false";
+              AND eps_actual IS NOT NULL";
 
         return await connection.QueryAsync<int>(sql, new { Days = withinDays });
     }
@@ -88,7 +86,8 @@ public class EarningsRepository : IEarningsRepository
                 id as Id,
                 stock_ticker_id as StockTickerId,
                 earnings_date as EarningsDate,
-                is_estimate as IsEstimate,
+                fiscal_year as FiscalYear,
+                fiscal_quarter as FiscalQuarter,
                 eps_estimate as EpsEstimate,
                 revenue_estimate as RevenueEstimate,
                 eps_actual as EpsActual,
@@ -116,7 +115,8 @@ public class EarningsRepository : IEarningsRepository
                 id as Id,
                 stock_ticker_id as StockTickerId,
                 earnings_date as EarningsDate,
-                is_estimate as IsEstimate,
+                fiscal_year as FiscalYear,
+                fiscal_quarter as FiscalQuarter,
                 eps_estimate as EpsEstimate,
                 revenue_estimate as RevenueEstimate,
                 eps_actual as EpsActual,

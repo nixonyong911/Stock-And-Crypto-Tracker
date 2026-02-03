@@ -13,6 +13,11 @@ public interface IFetchScheduleRepository
     Task<FetchSchedule?> GetScheduleByDataSourceNameAsync(string dataSourceName);
 
     /// <summary>
+    /// Gets the schedule by its name (for orchestrated schedules without a single data source).
+    /// </summary>
+    Task<FetchSchedule?> GetScheduleByNameAsync(string scheduleName);
+
+    /// <summary>
     /// Updates the last run details for a schedule.
     /// </summary>
     Task UpdateLastRunAsync(int scheduleId, string status, string? message);

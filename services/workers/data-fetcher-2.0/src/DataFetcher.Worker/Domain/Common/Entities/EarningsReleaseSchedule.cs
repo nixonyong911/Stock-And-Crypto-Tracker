@@ -12,7 +12,6 @@ public class EarningsReleaseSchedule
     public DateOnly EarningsDate { get; set; }
     public int? FiscalYear { get; set; }
     public string? FiscalQuarter { get; set; }
-    public bool? IsEstimate { get; set; }
     public decimal? EpsEstimate { get; set; }
     public decimal? RevenueEstimate { get; set; }
     public decimal? EpsActual { get; set; }

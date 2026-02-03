@@ -1,5 +1,6 @@
 using DataFetcher.Worker.Application.Providers.AlphaVantage;
 using DataFetcher.Worker.Application.Providers.Finnhub;
+using DataFetcher.Worker.Application.Scheduling;
 using DataFetcher.Worker.Configuration;
 using DataFetcher.Worker.Configuration.Providers;
 using DataFetcher.Worker.Infrastructure.Common;
@@ -7,8 +8,8 @@ using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.AlphaVantage;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub.Repositories;
-using DataFetcher.Worker.Workers.AlphaVantage;
 using DataFetcher.Worker.Workers.Finnhub;
+using DataFetcher.Worker.Workers.Scheduling;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using Polly;
@@ -65,12 +66,16 @@ try
     // Application - AlphaVantage Provider
     builder.Services.AddScoped<IEarningsCalendarService, EarningsCalendarService>();
 
+    // Application - Scheduling (orchestrated multi-provider services)
+    builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();
+
     // Metrics client
     builder.Services.AddMetricsClient(builder.Configuration);
 
     // Background workers
     builder.Services.AddHostedService<FinnhubFetchWorker>();
-    builder.Services.AddHostedService<AlphaVantageFetchWorker>();
+    // Note: AlphaVantageFetchWorker replaced by EarningsSyncWorker which combines AV + Finnhub
+    builder.Services.AddHostedService<EarningsSyncWorker>();
 
     // Controllers
     builder.Services.AddControllers();
@@ -92,7 +97,7 @@ try
         {
             Title = "Data Fetcher 2.0 API",
             Version = "v1",
-            Description = "Centralized multi-provider data fetcher service. Supports Finnhub for stock fundamentals and Alpha Vantage for earnings calendar."
+            Description = "Centralized multi-provider data fetcher service. Supports Finnhub for stock fundamentals and combined earnings sync (Alpha Vantage + Finnhub)."
         });
         c.AddServer(new OpenApiServer { Url = pathBase });
 
