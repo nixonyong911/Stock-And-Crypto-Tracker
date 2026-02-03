@@ -169,7 +169,7 @@ public class EarningsSyncService : IEarningsSyncService
                 var record = new EarningsReleaseSchedule
                 {
                     StockTickerId = tickerId,
-                    EarningsDate = DateOnly.MinValue, // Finnhub doesn't provide report date, will be preserved if exists
+                    EarningsDate = null, // Finnhub doesn't provide report date, COALESCE preserves existing
                     FiscalYear = earning.Year,
                     FiscalQuarter = fiscalQuarter,
                     EpsEstimate = earning.EpsEstimate,

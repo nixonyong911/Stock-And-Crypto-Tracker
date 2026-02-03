@@ -6,8 +6,6 @@ using DataFetcher.Worker.Infrastructure.Providers.Finnhub;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub.Repositories;
 using StockTracker.Common.Metrics;
 
-// Note: IEarningsRepository is now in Infrastructure.Common.Repositories (shared across providers)
-
 namespace DataFetcher.Worker.Application.Providers.Finnhub;
 
 /// <summary>

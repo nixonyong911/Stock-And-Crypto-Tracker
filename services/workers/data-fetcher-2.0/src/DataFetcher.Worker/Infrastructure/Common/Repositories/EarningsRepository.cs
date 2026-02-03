@@ -47,7 +47,7 @@ public class EarningsRepository : IEarningsRepository
         await connection.ExecuteAsync(sql, new
         {
             data.StockTickerId,
-            EarningsDate = data.EarningsDate.ToDateTime(TimeOnly.MinValue),
+            EarningsDate = data.EarningsDate?.ToDateTime(TimeOnly.MinValue),
             data.FiscalYear,
             data.FiscalQuarter,
             data.EpsEstimate,
