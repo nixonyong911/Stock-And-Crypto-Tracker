@@ -176,8 +176,9 @@ services:
       start_period: 10s
 
   # ===========================================
-  # Data Fetcher 2.0 - Finnhub Fundamentals Worker
+  # Data Fetcher 2.0 - Centralized Multi-Provider Data Fetcher
   # Swagger at: /api/data-fetcher-2.0/swagger
+  # Providers: Finnhub (future: Yahoo Finance, Alpha Vantage)
   # ===========================================
   data-fetcher-2.0:
     image: stocktracker-data-fetcher-2.0:${DATA_FETCHER_2_VERSION:-latest}
@@ -193,10 +194,10 @@ services:
       - PATH_BASE=/api/data-fetcher-2.0
       # Database connection (direct, bypasses pooler for best performance)
       - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
-      # Finnhub API
-      - Finnhub__ApiKey=${FINNHUB_API_KEY}
-      - Finnhub__BaseUrl=https://finnhub.io/api/v1
-      - Finnhub__RateLimitDelayMs=2000
+      # Finnhub Provider
+      - Providers__Finnhub__ApiKey=${FINNHUB_API_KEY}
+      - Providers__Finnhub__BaseUrl=https://finnhub.io/api/v1
+      - Providers__Finnhub__RateLimitDelayMs=2000
       # Metrics service
       - MetricsService__BaseUrl=http://metrics:8080
       - MetricsService__WorkerName=data-fetcher-2.0

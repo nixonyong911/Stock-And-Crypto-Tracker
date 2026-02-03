@@ -1,4 +1,4 @@
-# Finnhub Fundamentals Fetcher Service (.NET Web API + Worker)
+# Data Fetcher 2.0 - Centralized Multi-Provider Data Fetcher (.NET Web API + Worker)
 # Multi-stage build for optimized image size
 
 # Build stage
@@ -9,15 +9,15 @@ WORKDIR /src
 COPY ["common/StockTracker.Common/StockTracker.Common.csproj", "common/StockTracker.Common/"]
 
 # Copy project file and restore dependencies
-COPY ["workers/data-fetcher-2.0/src/Finnhub.Worker/Finnhub.Worker.csproj", "workers/data-fetcher-2.0/src/Finnhub.Worker/"]
-RUN dotnet restore "workers/data-fetcher-2.0/src/Finnhub.Worker/Finnhub.Worker.csproj"
+COPY ["workers/data-fetcher-2.0/src/DataFetcher.Worker/DataFetcher.Worker.csproj", "workers/data-fetcher-2.0/src/DataFetcher.Worker/"]
+RUN dotnet restore "workers/data-fetcher-2.0/src/DataFetcher.Worker/DataFetcher.Worker.csproj"
 
 # Copy all source code
 COPY common/ common/
 COPY workers/data-fetcher-2.0/src/ workers/data-fetcher-2.0/src/
 
 # Build and publish
-WORKDIR "/src/workers/data-fetcher-2.0/src/Finnhub.Worker"
+WORKDIR "/src/workers/data-fetcher-2.0/src/DataFetcher.Worker"
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - using ASP.NET runtime for web API
@@ -40,4 +40,4 @@ EXPOSE 8080
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD curl -f http://localhost:8080/health/live || exit 1
 
-ENTRYPOINT ["dotnet", "Finnhub.Worker.dll"]
+ENTRYPOINT ["dotnet", "DataFetcher.Worker.dll"]
