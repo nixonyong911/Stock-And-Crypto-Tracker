@@ -110,6 +110,10 @@ public class FinancialItem
 /// </summary>
 public class EarningsCalendar
 {
+    /// <summary>
+    /// The earnings calendar data from Finnhub API (JSON: "earningsCalendar").
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("earningsCalendar")]
     public List<EarningsEvent>? EarningsCalendarData { get; set; }
 }
 
