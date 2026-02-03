@@ -1,11 +1,11 @@
 using Dapper;
-using DataFetcher.Worker.Domain.Providers.Finnhub.Entities;
-using DataFetcher.Worker.Infrastructure.Common;
+using DataFetcher.Worker.Domain.Common.Entities;
 
-namespace DataFetcher.Worker.Infrastructure.Providers.Finnhub.Repositories;
+namespace DataFetcher.Worker.Infrastructure.Common.Repositories;
 
 /// <summary>
 /// Repository implementation for earnings release schedule operations.
+/// Shared across providers (Alpha Vantage, etc.).
 /// </summary>
 public class EarningsRepository : IEarningsRepository
 {

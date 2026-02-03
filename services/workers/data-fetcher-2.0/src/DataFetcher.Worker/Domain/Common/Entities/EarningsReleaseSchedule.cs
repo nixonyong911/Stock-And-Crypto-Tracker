@@ -1,8 +1,9 @@
-namespace DataFetcher.Worker.Domain.Providers.Finnhub.Entities;
+namespace DataFetcher.Worker.Domain.Common.Entities;
 
 /// <summary>
 /// Earnings release schedule for a stock ticker.
 /// Maps to analysis_earnings_release_schedule table.
+/// Shared across providers (Alpha Vantage, etc.).
 /// </summary>
 public class EarningsReleaseSchedule
 {

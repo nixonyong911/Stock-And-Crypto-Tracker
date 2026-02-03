@@ -6,6 +6,7 @@ namespace DataFetcher.Worker.Workers.Finnhub;
 
 /// <summary>
 /// Background worker that fetches stock fundamentals from Finnhub on a schedule.
+/// Note: Earnings calendar functionality has been moved to AlphaVantage provider.
 /// </summary>
 public class FinnhubFetchWorker : BackgroundService
 {
@@ -44,7 +45,6 @@ public class FinnhubFetchWorker : BackgroundService
                 using var scope = _serviceProvider.CreateScope();
                 var scheduleRepo = scope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
                 var fundamentalsService = scope.ServiceProvider.GetRequiredService<IFundamentalsFetchService>();
-                var earningsService = scope.ServiceProvider.GetRequiredService<IEarningsFetchService>();
 
                 // Get schedule from database
                 var schedule = await scheduleRepo.GetScheduleByDataSourceNameAsync(DataSourceName);
@@ -80,14 +80,12 @@ public class FinnhubFetchWorker : BackgroundService
                 {
                     _logger.LogInformation("Starting scheduled fundamentals fetch");
 
-                    // First sync the earnings calendar
-                    var earningsCount = await earningsService.SyncEarningsCalendarAsync(cancellationToken: stoppingToken);
-
-                    // Then fetch fundamentals for tickers with recent earnings
+                    // Fetch fundamentals for tickers with recent earnings
+                    // Note: Earnings calendar is now synced by AlphaVantage provider (monthly)
                     var fundamentalsCount = await fundamentalsService.FetchFundamentalsForRecentEarningsAsync(
                         withinDays: 2, cancellationToken: stoppingToken);
 
-                    message = $"Synced {earningsCount} earnings, fetched {fundamentalsCount} fundamentals";
+                    message = $"Fetched {fundamentalsCount} fundamentals for tickers with recent earnings";
 
                     await _metrics.IncrementCounterAsync($"{MetricsPrefix}_job_executions_total", 1,
                         new Dictionary<string, string> { ["status"] = "completed" });

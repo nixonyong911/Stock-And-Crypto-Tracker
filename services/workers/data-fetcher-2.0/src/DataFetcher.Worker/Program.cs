@@ -1,10 +1,13 @@
+using DataFetcher.Worker.Application.Providers.AlphaVantage;
 using DataFetcher.Worker.Application.Providers.Finnhub;
 using DataFetcher.Worker.Configuration;
 using DataFetcher.Worker.Configuration.Providers;
 using DataFetcher.Worker.Infrastructure.Common;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
+using DataFetcher.Worker.Infrastructure.Providers.AlphaVantage;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub.Repositories;
+using DataFetcher.Worker.Workers.AlphaVantage;
 using DataFetcher.Worker.Workers.Finnhub;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
@@ -32,6 +35,8 @@ try
         builder.Configuration.GetSection("ConnectionStrings"));
     builder.Services.Configure<FinnhubSettings>(
         builder.Configuration.GetSection("Providers:Finnhub"));
+    builder.Services.Configure<AlphaVantageSettings>(
+        builder.Configuration.GetSection("Providers:AlphaVantage"));
 
     // Infrastructure - Common
     builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
@@ -40,22 +45,32 @@ try
 
     // Infrastructure - Finnhub Provider
     builder.Services.AddScoped<IFundamentalsRepository, FundamentalsRepository>();
+
+    // Infrastructure - Common (shared across providers)
     builder.Services.AddScoped<IEarningsRepository, EarningsRepository>();
 
     // Application - Finnhub Provider
     builder.Services.AddSingleton<MetricsCalculationService>();
     builder.Services.AddScoped<IFundamentalsFetchService, FundamentalsFetchService>();
-    builder.Services.AddScoped<IEarningsFetchService, EarningsFetchService>();
+    // Note: IEarningsFetchService removed - earnings calendar now handled by AlphaVantage provider
 
     // HTTP Client with Polly retry policy for Finnhub
     builder.Services.AddHttpClient<IFinnhubApiClient, FinnhubApiClient>()
         .AddPolicyHandler(GetRetryPolicy());
+
+    // Infrastructure - AlphaVantage Provider
+    builder.Services.AddHttpClient<IAlphaVantageApiClient, AlphaVantageApiClient>()
+        .AddPolicyHandler(GetRetryPolicy());
+
+    // Application - AlphaVantage Provider
+    builder.Services.AddScoped<IEarningsCalendarService, EarningsCalendarService>();
 
     // Metrics client
     builder.Services.AddMetricsClient(builder.Configuration);
 
     // Background workers
     builder.Services.AddHostedService<FinnhubFetchWorker>();
+    builder.Services.AddHostedService<AlphaVantageFetchWorker>();
 
     // Controllers
     builder.Services.AddControllers();
@@ -77,7 +92,7 @@ try
         {
             Title = "Data Fetcher 2.0 API",
             Version = "v1",
-            Description = "Centralized multi-provider data fetcher service. Currently supports Finnhub for stock fundamentals."
+            Description = "Centralized multi-provider data fetcher service. Supports Finnhub for stock fundamentals and Alpha Vantage for earnings calendar."
         });
         c.AddServer(new OpenApiServer { Url = pathBase });
 

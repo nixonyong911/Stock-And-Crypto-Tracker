@@ -8,6 +8,7 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 
 /// <summary>
 /// API controller for Finnhub fundamentals fetch operations.
+/// Note: Earnings calendar functionality has been moved to AlphaVantage provider.
 /// </summary>
 [ApiController]
 [Route("api/finnhub")]
@@ -15,7 +16,6 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 public class FinnhubController : ControllerBase
 {
     private readonly IFundamentalsFetchService _fundamentalsService;
-    private readonly IEarningsFetchService _earningsService;
     private readonly IStockTickerRepository _tickerRepo;
     private readonly IFetchScheduleRepository _scheduleRepo;
     private readonly FinnhubSettings _settings;
@@ -23,14 +23,12 @@ public class FinnhubController : ControllerBase
 
     public FinnhubController(
         IFundamentalsFetchService fundamentalsService,
-        IEarningsFetchService earningsService,
         IStockTickerRepository tickerRepo,
         IFetchScheduleRepository scheduleRepo,
         IOptions<FinnhubSettings> settings,
         ILogger<FinnhubController> logger)
     {
         _fundamentalsService = fundamentalsService;
-        _earningsService = earningsService;
         _tickerRepo = tickerRepo;
         _scheduleRepo = scheduleRepo;
         _settings = settings.Value;
@@ -140,36 +138,6 @@ public class FinnhubController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Manually triggers an earnings calendar sync.
-    /// </summary>
-    [HttpPost("trigger/earnings")]
-    [ProducesResponseType(typeof(TriggerResponse), 200)]
-    public async Task<IActionResult> TriggerEarningsSync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Manual trigger for earnings calendar sync");
-
-        try
-        {
-            var count = await _earningsService.SyncEarningsCalendarAsync(cancellationToken: cancellationToken);
-            return Ok(new TriggerResponse
-            {
-                Success = true,
-                Message = $"Successfully synced {count} earnings events",
-                RecordsProcessed = count
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during earnings calendar sync");
-            return Ok(new TriggerResponse
-            {
-                Success = false,
-                Message = $"Error syncing earnings calendar: {ex.Message}",
-                RecordsProcessed = 0
-            });
-        }
-    }
 }
 
 /// <summary>
