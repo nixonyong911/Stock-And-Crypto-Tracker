@@ -77,7 +77,7 @@ public class AlphaVantageFetchWorker : BackgroundService
                 if (stoppingToken.IsCancellationRequested) break;
 
                 // Execute the work
-                var status = "completed";
+                var status = "success";
                 string? message = null;
 
                 try
