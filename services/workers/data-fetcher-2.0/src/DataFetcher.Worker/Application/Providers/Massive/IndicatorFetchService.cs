@@ -240,7 +240,7 @@ public class IndicatorFetchService : IIndicatorFetchService
 
                 if (values.Count == 0)
                 {
-                    _logger.LogDebug("Page {Page} for {Symbol}/{Indicator}: 0 raw results, ending pagination",
+                    _logger.LogInformation("Page {Page} for {Symbol}/{Indicator}: 0 raw results, ending pagination",
                         pageNumber, ticker.Symbol, indicatorType);
                     break;
                 }
@@ -248,7 +248,7 @@ public class IndicatorFetchService : IIndicatorFetchService
                 // Filter to 15-min boundaries
                 var filtered = FilterTo15MinBoundaries(values, v => v.Timestamp);
 
-                _logger.LogDebug(
+                _logger.LogInformation(
                     "Page {Page} for {Symbol}/{Indicator}: {Raw} raw → {Filtered} filtered",
                     pageNumber, ticker.Symbol, indicatorType, values.Count, filtered.Count);
 

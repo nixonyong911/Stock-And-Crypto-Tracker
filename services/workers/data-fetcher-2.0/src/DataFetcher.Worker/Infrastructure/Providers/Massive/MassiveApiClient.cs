@@ -182,19 +182,25 @@ public class MassiveApiClient : IMassiveApiClient
     {
         try
         {
-            _logger.LogDebug("Fetching indicator page: {Url}", url.Split("apiKey")[0]);
+            // For absolute URLs (next_url), use a new HttpRequestMessage to bypass BaseAddress
+            // For relative URLs (initial call), let HttpClient resolve against BaseAddress
+            var urlPreview = url.Contains("apiKey") ? url.Split("apiKey")[0] + "apiKey=***" : url;
+            _logger.LogInformation("Fetching indicator page: {Url}", urlPreview);
 
-            // Use full URL directly (may be absolute next_url or relative initial URL)
             HttpResponseMessage response;
-            if (url.StartsWith("http"))
+            if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             {
-                response = await _httpClient.GetAsync(url, cancellationToken);
+                // Absolute URL from next_url: use HttpRequestMessage to avoid BaseAddress interference
+                using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(url));
+                response = await _httpClient.SendAsync(request, cancellationToken);
             }
             else
             {
+                // Relative URL from Build*Url: resolve against BaseAddress
                 response = await _httpClient.GetAsync(url, cancellationToken);
             }
 
+            _logger.LogInformation("Page response status: {Status}", response.StatusCode);
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
