@@ -176,4 +176,77 @@ public class MassiveApiClient : IMassiveApiClient
             throw;
         }
     }
+
+    /// <inheritdoc />
+    public async Task<(List<T> Values, string? NextUrl)> FetchPageAsync<T>(string url, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Fetching indicator page: {Url}", url.Split("apiKey")[0]);
+
+            // Use full URL directly (may be absolute next_url or relative initial URL)
+            HttpResponseMessage response;
+            if (url.StartsWith("http"))
+            {
+                response = await _httpClient.GetAsync(url, cancellationToken);
+            }
+            else
+            {
+                response = await _httpClient.GetAsync(url, cancellationToken);
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(content) || content == "{}")
+            {
+                return (new List<T>(), null);
+            }
+
+            var parsed = JsonSerializer.Deserialize<MassiveIndicatorResponse<T>>(content, _jsonOptions);
+            var values = parsed?.Results?.Values ?? new List<T>();
+
+            // next_url from the API does NOT include the apiKey — append it
+            string? nextUrl = null;
+            if (!string.IsNullOrEmpty(parsed?.NextUrl))
+            {
+                nextUrl = parsed.NextUrl.Contains("apiKey")
+                    ? parsed.NextUrl
+                    : $"{parsed.NextUrl}&apiKey={_settings.ApiKey}";
+            }
+
+            return (values, nextUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching indicator page");
+            throw;
+        }
+    }
+
+    private const int BackfillLimit = 5000;
+
+    /// <inheritdoc />
+    public string BuildSmaUrl(string symbol, long timestampGte, long timestampLte, int window)
+    {
+        return $"indicators/sma/{symbol}?timespan={_settings.Timespan}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+    }
+
+    /// <inheritdoc />
+    public string BuildEmaUrl(string symbol, long timestampGte, long timestampLte, int window)
+    {
+        return $"indicators/ema/{symbol}?timespan={_settings.Timespan}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+    }
+
+    /// <inheritdoc />
+    public string BuildMacdUrl(string symbol, long timestampGte, long timestampLte, int shortWindow, int longWindow, int signalWindow)
+    {
+        return $"indicators/macd/{symbol}?timespan={_settings.Timespan}&short_window={shortWindow}&long_window={longWindow}&signal_window={signalWindow}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+    }
+
+    /// <inheritdoc />
+    public string BuildRsiUrl(string symbol, long timestampGte, long timestampLte, int window)
+    {
+        return $"indicators/rsi/{symbol}?timespan={_settings.Timespan}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+    }
 }

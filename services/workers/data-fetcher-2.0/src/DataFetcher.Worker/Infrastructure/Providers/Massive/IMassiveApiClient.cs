@@ -82,4 +82,26 @@ public interface IMassiveApiClient
         int window,
         int limit,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches a single page of indicator results from a URL (initial or next_url).
+    /// Returns the deserialized values and the next_url for pagination (null if no more pages).
+    /// </summary>
+    /// <typeparam name="T">The indicator value type.</typeparam>
+    /// <param name="url">The full URL to fetch (initial parameterized URL or next_url with apiKey appended).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A tuple of (values list, next URL or null).</returns>
+    Task<(List<T> Values, string? NextUrl)> FetchPageAsync<T>(string url, CancellationToken cancellationToken = default);
+
+    /// <summary>Builds the initial parameterized URL for SMA with limit=5000.</summary>
+    string BuildSmaUrl(string symbol, long timestampGte, long timestampLte, int window);
+
+    /// <summary>Builds the initial parameterized URL for EMA with limit=5000.</summary>
+    string BuildEmaUrl(string symbol, long timestampGte, long timestampLte, int window);
+
+    /// <summary>Builds the initial parameterized URL for MACD with limit=5000.</summary>
+    string BuildMacdUrl(string symbol, long timestampGte, long timestampLte, int shortWindow, int longWindow, int signalWindow);
+
+    /// <summary>Builds the initial parameterized URL for RSI with limit=5000.</summary>
+    string BuildRsiUrl(string symbol, long timestampGte, long timestampLte, int window);
 }

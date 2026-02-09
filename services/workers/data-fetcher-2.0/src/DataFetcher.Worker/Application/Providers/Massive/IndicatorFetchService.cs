@@ -157,34 +157,31 @@ public class IndicatorFetchService : IIndicatorFetchService
     /// <inheritdoc />
     public async Task<int> FetchBackfillIndicatorsAsync(StockTicker ticker, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default)
     {
+        // Legacy wrapper: calls the new per-indicator method for all 4 indicators sequentially.
         _logger.LogInformation(
-            "Starting backfill for {Symbol} from {StartDate} to {EndDate}",
+            "Starting legacy backfill for {Symbol} from {StartDate} to {EndDate}",
             ticker.Symbol, startDate, endDate);
 
         var totalUpserted = 0;
+        var indicatorTypes = new[] { "sma", "ema", "macd", "rsi" };
 
-        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        foreach (var indicatorType in indicatorTypes)
         {
-            if (cancellationToken.IsCancellationRequested)
-                break;
-
-            // Skip weekends — no market data
-            if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
-                continue;
+            if (cancellationToken.IsCancellationRequested) break;
 
             try
             {
-                var count = await FetchDailyIndicatorsAsync(ticker, date, cancellationToken);
+                var count = await FetchBackfillSingleIndicatorAsync(ticker, indicatorType, startDate, endDate, cancellationToken);
                 totalUpserted += count;
             }
             catch (OperationCanceledException)
             {
-                _logger.LogWarning("Backfill cancelled for {Symbol} on {Date}", ticker.Symbol, date);
+                _logger.LogWarning("Backfill cancelled for {Symbol}/{Indicator}", ticker.Symbol, indicatorType);
                 break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to fetch indicators for {Symbol} on {Date}, continuing", ticker.Symbol, date);
+                _logger.LogError(ex, "Failed backfill for {Symbol}/{Indicator}, continuing", ticker.Symbol, indicatorType);
             }
         }
 
@@ -193,6 +190,193 @@ public class IndicatorFetchService : IIndicatorFetchService
             ticker.Symbol, totalUpserted, startDate, endDate);
 
         return totalUpserted;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> FetchBackfillSingleIndicatorAsync(StockTicker ticker, string indicatorType, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var labels = new Dictionary<string, string> { ["symbol"] = ticker.Symbol, ["indicator"] = indicatorType };
+
+        try
+        {
+            _logger.LogInformation(
+                "Starting paginated backfill for {Symbol}/{Indicator} from {StartDate} to {EndDate}",
+                ticker.Symbol, indicatorType, startDate, endDate);
+
+            // 1. Convert date range to millisecond epoch timestamps (market open first day to market close last day)
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+            var marketOpenFirst = new DateTime(startDate.Year, startDate.Month, startDate.Day, 0, 0, 0);
+            var marketCloseLast = new DateTime(endDate.Year, endDate.Month, endDate.Day, 23, 59, 59);
+            var openUtc = TimeZoneInfo.ConvertTimeToUtc(marketOpenFirst, tz);
+            var closeUtc = TimeZoneInfo.ConvertTimeToUtc(marketCloseLast, tz);
+            long timestampGte = new DateTimeOffset(openUtc).ToUnixTimeMilliseconds();
+            long timestampLte = new DateTimeOffset(closeUtc).ToUnixTimeMilliseconds();
+
+            // 2. Build the initial parameterized URL
+            var url = indicatorType switch
+            {
+                "sma" => _massiveClient.BuildSmaUrl(ticker.Symbol, timestampGte, timestampLte, _settings.SmaWindow),
+                "ema" => _massiveClient.BuildEmaUrl(ticker.Symbol, timestampGte, timestampLte, _settings.EmaWindow),
+                "macd" => _massiveClient.BuildMacdUrl(ticker.Symbol, timestampGte, timestampLte,
+                    _settings.MacdShortWindow, _settings.MacdLongWindow, _settings.MacdSignalWindow),
+                "rsi" => _massiveClient.BuildRsiUrl(ticker.Symbol, timestampGte, timestampLte, _settings.RsiWindow),
+                _ => throw new ArgumentException($"Unknown indicator type: {indicatorType}")
+            };
+
+            var dataSourceId = await GetMassiveDataSourceIdAsync();
+            var totalUpserted = 0;
+            var pageNumber = 0;
+
+            // 3. Stream-process-upsert loop: fetch page → filter → upsert → next page
+            while (url != null && !cancellationToken.IsCancellationRequested)
+            {
+                pageNumber++;
+
+                // Fetch one page
+                var (values, nextUrl) = indicatorType == "macd"
+                    ? await FetchMacdPageAsync(url, cancellationToken)
+                    : await FetchIndicatorPageAsync(url, indicatorType, cancellationToken);
+
+                if (values.Count == 0)
+                {
+                    _logger.LogDebug("Page {Page} for {Symbol}/{Indicator}: 0 raw results, ending pagination",
+                        pageNumber, ticker.Symbol, indicatorType);
+                    break;
+                }
+
+                // Filter to 15-min boundaries
+                var filtered = FilterTo15MinBoundaries(values, v => v.Timestamp);
+
+                _logger.LogDebug(
+                    "Page {Page} for {Symbol}/{Indicator}: {Raw} raw → {Filtered} filtered",
+                    pageNumber, ticker.Symbol, indicatorType, values.Count, filtered.Count);
+
+                if (filtered.Count > 0)
+                {
+                    // Convert to StockIndicator entities and upsert immediately
+                    var indicators = ConvertToIndicators(filtered, indicatorType, ticker.Id, dataSourceId);
+                    await _indicatorRepo.BulkUpsertAsync(indicators);
+                    totalUpserted += filtered.Count;
+                }
+
+                // Move to next page or end
+                url = nextUrl;
+                if (url != null)
+                {
+                    // Rate limit delay before next API call
+                    await Task.Delay(_settings.RateLimitDelayMs, cancellationToken);
+                }
+            }
+
+            // 4. Cleanup old records
+            await _indicatorRepo.DeleteOldRecordsAsync(ticker.Id, RetentionDays);
+
+            // 5. Metrics
+            stopwatch.Stop();
+            await _metrics.IncrementCounterAsync($"{MetricsPrefix}_backfill_pages_total", pageNumber, labels);
+            await _metrics.IncrementCounterAsync($"{MetricsPrefix}_backfill_records_upserted_total", totalUpserted, labels);
+            await _metrics.ObserveHistogramAsync($"{MetricsPrefix}_backfill_duration_seconds", stopwatch.Elapsed.TotalSeconds, labels);
+
+            _logger.LogInformation(
+                "Paginated backfill complete for {Symbol}/{Indicator}: {Pages} pages, {Count} records upserted in {Duration:F1}s",
+                ticker.Symbol, indicatorType, pageNumber, totalUpserted, stopwatch.Elapsed.TotalSeconds);
+
+            return totalUpserted;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "Error in paginated backfill for {Symbol}/{Indicator}", ticker.Symbol, indicatorType);
+            await _metrics.IncrementCounterAsync($"{MetricsPrefix}_backfill_errors_total", 1, labels);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Fetches a single page of SMA/EMA/RSI indicator values and returns them with timestamp accessors.
+    /// </summary>
+    private async Task<(List<TimestampedValue> Values, string? NextUrl)> FetchIndicatorPageAsync(
+        string url, string indicatorType, CancellationToken ct)
+    {
+        var (values, nextUrl) = await _massiveClient.FetchPageAsync<MassiveIndicatorValue>(url, ct);
+        var result = values.Select(v => new TimestampedValue
+        {
+            Timestamp = v.Timestamp,
+            Value = v.Value,
+            IndicatorType = indicatorType
+        }).ToList();
+        return (result, nextUrl);
+    }
+
+    /// <summary>
+    /// Fetches a single page of MACD indicator values and returns them with timestamp accessors.
+    /// </summary>
+    private async Task<(List<TimestampedValue> Values, string? NextUrl)> FetchMacdPageAsync(
+        string url, CancellationToken ct)
+    {
+        var (values, nextUrl) = await _massiveClient.FetchPageAsync<MassiveMacdValue>(url, ct);
+        var result = values.Select(v => new TimestampedValue
+        {
+            Timestamp = v.Timestamp,
+            MacdValue = v.Value,
+            MacdSignal = v.Signal,
+            MacdHistogram = v.Histogram,
+            IndicatorType = "macd"
+        }).ToList();
+        return (result, nextUrl);
+    }
+
+    /// <summary>
+    /// Converts filtered timestamped values into StockIndicator entities, filling only the relevant column.
+    /// </summary>
+    private static List<StockIndicator> ConvertToIndicators(
+        List<TimestampedValue> values, string indicatorType, int tickerId, int dataSourceId)
+    {
+        return values.Select(v =>
+        {
+            var indicator = new StockIndicator
+            {
+                StockTickerId = tickerId,
+                DataSourceId = dataSourceId,
+                IndicatorTime = DateTimeOffset.FromUnixTimeMilliseconds(v.Timestamp).UtcDateTime
+            };
+
+            switch (indicatorType)
+            {
+                case "sma":
+                    indicator.Sma = v.Value;
+                    break;
+                case "ema":
+                    indicator.Ema = v.Value;
+                    break;
+                case "macd":
+                    indicator.MacdValue = v.MacdValue;
+                    indicator.MacdSignal = v.MacdSignal;
+                    indicator.MacdHistogram = v.MacdHistogram;
+                    break;
+                case "rsi":
+                    indicator.Rsi = v.Value;
+                    break;
+            }
+
+            return indicator;
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Internal value type for the stream-process-upsert loop, unifying SMA/EMA/RSI and MACD values.
+    /// </summary>
+    private class TimestampedValue
+    {
+        public long Timestamp { get; set; }
+        public string IndicatorType { get; set; } = string.Empty;
+        // For SMA/EMA/RSI
+        public decimal? Value { get; set; }
+        // For MACD
+        public decimal? MacdValue { get; set; }
+        public decimal? MacdSignal { get; set; }
+        public decimal? MacdHistogram { get; set; }
     }
 
     /// <summary>

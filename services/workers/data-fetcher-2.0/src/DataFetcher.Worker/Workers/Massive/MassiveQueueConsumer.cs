@@ -277,11 +277,27 @@ public class MassiveQueueConsumer : BackgroundService
 
                 var startDate = DateOnly.Parse(request.StartDate);
                 var endDate = DateOnly.Parse(request.EndDate);
-                var count = await indicatorService.FetchBackfillIndicatorsAsync(ticker, startDate, endDate, ct);
 
-                _logger.LogInformation(
-                    "Backfill indicator fetch for {Symbol} ({Start} to {End}): {Count} records upserted",
-                    ticker.Symbol, startDate, endDate, count);
+                int count;
+                if (!string.IsNullOrEmpty(request.IndicatorType))
+                {
+                    // New per-indicator paginated backfill
+                    count = await indicatorService.FetchBackfillSingleIndicatorAsync(
+                        ticker, request.IndicatorType, startDate, endDate, ct);
+
+                    _logger.LogInformation(
+                        "Backfill indicator fetch for {Symbol}/{Indicator} ({Start} to {End}): {Count} records upserted",
+                        ticker.Symbol, request.IndicatorType, startDate, endDate, count);
+                }
+                else
+                {
+                    // Legacy: backfill all 4 indicators in one message
+                    count = await indicatorService.FetchBackfillIndicatorsAsync(ticker, startDate, endDate, ct);
+
+                    _logger.LogInformation(
+                        "Backfill indicator fetch for {Symbol} ({Start} to {End}): {Count} records upserted",
+                        ticker.Symbol, startDate, endDate, count);
+                }
                 break;
             }
 

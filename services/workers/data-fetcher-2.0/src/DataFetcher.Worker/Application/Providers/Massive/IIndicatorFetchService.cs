@@ -26,4 +26,16 @@ public interface IIndicatorFetchService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The total number of indicator records upserted across all days.</returns>
     Task<int> FetchBackfillIndicatorsAsync(StockTicker ticker, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches a single indicator type across the full date range using paginated bulk fetch.
+    /// Streams page-by-page: fetch 5000 results → filter to 15-min boundaries → upsert → next page.
+    /// </summary>
+    /// <param name="ticker">The stock ticker to fetch indicators for.</param>
+    /// <param name="indicatorType">Indicator type: "sma", "ema", "macd", or "rsi".</param>
+    /// <param name="startDate">The first date in the backfill range (inclusive).</param>
+    /// <param name="endDate">The last date in the backfill range (inclusive).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of indicator records upserted across all pages.</returns>
+    Task<int> FetchBackfillSingleIndicatorAsync(StockTicker ticker, string indicatorType, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default);
 }

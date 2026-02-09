@@ -26,6 +26,13 @@ public class MassiveIndicatorRequest
     public int TickerId { get; set; }
 
     /// <summary>
+    /// Indicator type for per-indicator backfill: "sma", "ema", "macd", "rsi".
+    /// Null for daily requests (which fetch all 4 indicators in one message).
+    /// </summary>
+    [JsonPropertyName("indicatorType")]
+    public string? IndicatorType { get; set; }
+
+    /// <summary>
     /// Target date for daily fetch in ISO format (e.g. "2026-02-06"). Null for backfill requests.
     /// </summary>
     [JsonPropertyName("targetDate")]

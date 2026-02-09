@@ -169,29 +169,34 @@ public class MassiveController : ControllerBase
 
             var endDate = DateTime.UtcNow.Date.AddDays(-1);
             var startDate = DateTime.UtcNow.Date.AddDays(-days);
+            var startDateStr = startDate.ToString("yyyy-MM-dd");
+            var endDateStr = endDate.ToString("yyyy-MM-dd");
 
-            var request = new MassiveIndicatorRequest
+            // Publish 4 messages per ticker (one per indicator type) for granular processing
+            var indicatorTypes = new[] { "sma", "ema", "macd", "rsi" };
+            var requests = indicatorTypes.Select(indicatorType => new MassiveIndicatorRequest
             {
                 Type = "backfill",
                 Symbol = ticker.Symbol,
                 TickerId = ticker.Id,
-                StartDate = startDate.ToString("yyyy-MM-dd"),
-                EndDate = endDate.ToString("yyyy-MM-dd"),
+                IndicatorType = indicatorType,
+                StartDate = startDateStr,
+                EndDate = endDateStr,
                 RequestedAt = DateTime.UtcNow
-            };
+            }).ToList();
 
-            PublishToQueue(request);
+            PublishBatchToQueue(requests);
 
             _logger.LogInformation(
-                "Published Massive indicator backfill request for {Symbol}, {StartDate} to {EndDate} ({Days} days)",
-                ticker.Symbol, request.StartDate, request.EndDate, days);
+                "Published {Count} Massive indicator backfill requests for {Symbol}, {StartDate} to {EndDate} ({Days} days)",
+                requests.Count, ticker.Symbol, startDateStr, endDateStr, days);
 
             return Ok(new MassiveBackfillResponse
             {
-                Message = "Published backfill request",
+                Message = $"Published {requests.Count} backfill requests (sma, ema, macd, rsi)",
                 Symbol = ticker.Symbol,
-                StartDate = request.StartDate,
-                EndDate = request.EndDate,
+                StartDate = startDateStr,
+                EndDate = endDateStr,
                 Days = days
             });
         }
@@ -199,6 +204,47 @@ public class MassiveController : ControllerBase
         {
             _logger.LogError(ex, "Error publishing Massive indicator backfill request for {Symbol}", symbol);
             return StatusCode(500, new { message = $"Error publishing backfill request: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
+    /// Purges all pending messages from the massive-indicator-queue.
+    /// Use this to stop/clear the queue when you need to cancel queued work.
+    /// </summary>
+    [HttpPost("queue/purge")]
+    [ProducesResponseType(typeof(MassiveQueuePurgeResponse), 200)]
+    [ProducesResponseType(500)]
+    public IActionResult PurgeQueue()
+    {
+        try
+        {
+            var factory = new ConnectionFactory
+            {
+                HostName = _rabbitSettings.HostName,
+                UserName = _rabbitSettings.UserName,
+                Password = _rabbitSettings.Password,
+                Port = _rabbitSettings.Port
+            };
+
+            using var connection = factory.CreateConnection();
+            using var channel = connection.CreateModel();
+
+            var purgedCount = channel.QueuePurge(_rabbitSettings.MassiveQueueName);
+
+            _logger.LogWarning(
+                "Purged {Count} messages from queue {Queue}",
+                purgedCount, _rabbitSettings.MassiveQueueName);
+
+            return Ok(new MassiveQueuePurgeResponse
+            {
+                Message = $"Purged {purgedCount} messages from {_rabbitSettings.MassiveQueueName}",
+                PurgedCount = purgedCount
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error purging massive indicator queue");
+            return StatusCode(500, new { message = $"Error purging queue: {ex.Message}" });
         }
     }
 
@@ -318,4 +364,13 @@ public class MassiveBackfillResponse
     public string StartDate { get; set; } = string.Empty;
     public string EndDate { get; set; } = string.Empty;
     public int Days { get; set; }
+}
+
+/// <summary>
+/// Response for queue purge endpoint.
+/// </summary>
+public class MassiveQueuePurgeResponse
+{
+    public string Message { get; set; } = string.Empty;
+    public uint PurgedCount { get; set; }
 }
