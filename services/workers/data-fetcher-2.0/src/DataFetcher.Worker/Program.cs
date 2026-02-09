@@ -1,7 +1,6 @@
 using DataFetcher.Worker.Application;
 using DataFetcher.Worker.Application.Providers.AlphaVantage;
 using DataFetcher.Worker.Application.Providers.Finnhub;
-using DataFetcher.Worker.Application.Providers.Massive;
 using DataFetcher.Worker.Application.Scheduling;
 using DataFetcher.Worker.Configuration;
 using DataFetcher.Worker.Configuration.Providers;
@@ -10,10 +9,7 @@ using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.AlphaVantage;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub.Repositories;
-using DataFetcher.Worker.Infrastructure.Providers.Massive;
-using DataFetcher.Worker.Infrastructure.Providers.Massive.Repositories;
 using DataFetcher.Worker.Workers.Finnhub;
-using DataFetcher.Worker.Workers.Massive;
 using DataFetcher.Worker.Workers.Scheduling;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
@@ -43,10 +39,6 @@ try
         builder.Configuration.GetSection("Providers:Finnhub"));
     builder.Services.Configure<AlphaVantageSettings>(
         builder.Configuration.GetSection("Providers:AlphaVantage"));
-    builder.Services.Configure<MassiveSettings>(
-        builder.Configuration.GetSection("Providers:Massive"));
-    builder.Services.Configure<RabbitMQSettings>(
-        builder.Configuration.GetSection("RabbitMQ"));
 
     // Infrastructure - Common
     builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
@@ -72,18 +64,8 @@ try
     builder.Services.AddHttpClient<IAlphaVantageApiClient, AlphaVantageApiClient>()
         .AddPolicyHandler(GetRetryPolicy());
 
-    // Infrastructure - Massive Provider
-    builder.Services.AddScoped<IStockIndicatorRepository, StockIndicatorRepository>();
-
-    // HTTP Client with Polly retry policy for Massive
-    builder.Services.AddHttpClient<IMassiveApiClient, MassiveApiClient>()
-        .AddPolicyHandler(GetRetryPolicy());
-
     // Application - AlphaVantage Provider
     builder.Services.AddScoped<IEarningsCalendarService, EarningsCalendarService>();
-
-    // Application - Massive Provider
-    builder.Services.AddScoped<IIndicatorFetchService, IndicatorFetchService>();
 
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();
@@ -95,10 +77,6 @@ try
     builder.Services.AddHostedService<FinnhubFetchWorker>();
     // Note: AlphaVantageFetchWorker replaced by EarningsSyncWorker which combines AV + Finnhub
     builder.Services.AddHostedService<EarningsSyncWorker>();
-
-    // Massive workers
-    builder.Services.AddHostedService<MassiveQueueConsumer>();
-    builder.Services.AddHostedService<MassiveFetchWorker>();
 
     // Controllers
     builder.Services.AddControllers();
@@ -166,7 +144,7 @@ try
         {
             Title = "General / Discovery",
             Version = "v1",
-            Description = "Centralized multi-provider data fetcher service. Supports Finnhub for stock fundamentals, combined earnings sync (Alpha Vantage + Finnhub), and Massive for technical indicators (SMA, EMA, MACD, RSI)."
+            Description = "Provider discovery and general endpoints"
         });
         c.AddServer(new OpenApiServer { Url = pathBase });
 
