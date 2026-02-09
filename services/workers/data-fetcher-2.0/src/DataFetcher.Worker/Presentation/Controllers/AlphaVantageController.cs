@@ -12,6 +12,7 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 [ApiController]
 [Route("api/alphavantage")]
 [Produces("application/json")]
+[ApiExplorerSettings(GroupName = "alphavantage")]
 public class AlphaVantageController : ControllerBase
 {
     private readonly IEarningsCalendarService _earningsService;

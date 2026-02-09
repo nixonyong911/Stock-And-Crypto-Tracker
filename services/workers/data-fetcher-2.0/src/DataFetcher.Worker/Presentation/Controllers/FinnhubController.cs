@@ -13,6 +13,7 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 [ApiController]
 [Route("api/finnhub")]
 [Produces("application/json")]
+[ApiExplorerSettings(GroupName = "finnhub")]
 public class FinnhubController : ControllerBase
 {
     private readonly IFundamentalsFetchService _fundamentalsService;

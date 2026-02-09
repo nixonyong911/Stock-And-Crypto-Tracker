@@ -1,5 +1,7 @@
+using DataFetcher.Worker.Application;
 using DataFetcher.Worker.Application.Providers.AlphaVantage;
 using DataFetcher.Worker.Application.Providers.Finnhub;
+using DataFetcher.Worker.Application.Providers.Massive;
 using DataFetcher.Worker.Application.Scheduling;
 using DataFetcher.Worker.Configuration;
 using DataFetcher.Worker.Configuration.Providers;
@@ -8,7 +10,10 @@ using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.AlphaVantage;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub.Repositories;
+using DataFetcher.Worker.Infrastructure.Providers.Massive;
+using DataFetcher.Worker.Infrastructure.Providers.Massive.Repositories;
 using DataFetcher.Worker.Workers.Finnhub;
+using DataFetcher.Worker.Workers.Massive;
 using DataFetcher.Worker.Workers.Scheduling;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
@@ -38,6 +43,10 @@ try
         builder.Configuration.GetSection("Providers:Finnhub"));
     builder.Services.Configure<AlphaVantageSettings>(
         builder.Configuration.GetSection("Providers:AlphaVantage"));
+    builder.Services.Configure<MassiveSettings>(
+        builder.Configuration.GetSection("Providers:Massive"));
+    builder.Services.Configure<RabbitMQSettings>(
+        builder.Configuration.GetSection("RabbitMQ"));
 
     // Infrastructure - Common
     builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
@@ -63,8 +72,18 @@ try
     builder.Services.AddHttpClient<IAlphaVantageApiClient, AlphaVantageApiClient>()
         .AddPolicyHandler(GetRetryPolicy());
 
+    // Infrastructure - Massive Provider
+    builder.Services.AddScoped<IStockIndicatorRepository, StockIndicatorRepository>();
+
+    // HTTP Client with Polly retry policy for Massive
+    builder.Services.AddHttpClient<IMassiveApiClient, MassiveApiClient>()
+        .AddPolicyHandler(GetRetryPolicy());
+
     // Application - AlphaVantage Provider
     builder.Services.AddScoped<IEarningsCalendarService, EarningsCalendarService>();
+
+    // Application - Massive Provider
+    builder.Services.AddScoped<IIndicatorFetchService, IndicatorFetchService>();
 
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();
@@ -77,6 +96,10 @@ try
     // Note: AlphaVantageFetchWorker replaced by EarningsSyncWorker which combines AV + Finnhub
     builder.Services.AddHostedService<EarningsSyncWorker>();
 
+    // Massive workers
+    builder.Services.AddHostedService<MassiveQueueConsumer>();
+    builder.Services.AddHostedService<MassiveFetchWorker>();
+
     // Controllers
     builder.Services.AddControllers();
 
@@ -87,17 +110,63 @@ try
     builder.Services.AddHealthChecks()
         .AddNpgSql(connectionString, name: "postgresql", tags: ["db", "ready"]);
 
+    // Provider Registry
+    var registry = new ProviderRegistry();
+    registry.Register(new ProviderInfo
+    {
+        Name = "Finnhub",
+        Description = "Stock fundamentals and metrics calculation",
+        StatusEndpoint = "/api/finnhub/status",
+        SwaggerGroup = "finnhub",
+        Capabilities = new List<string> { "fundamentals", "metrics", "trigger" }
+    });
+    registry.Register(new ProviderInfo
+    {
+        Name = "AlphaVantage",
+        Description = "Earnings calendar data",
+        StatusEndpoint = "/api/alphavantage/status",
+        SwaggerGroup = "alphavantage",
+        Capabilities = new List<string> { "earnings-calendar", "sync" }
+    });
+    registry.Register(new ProviderInfo
+    {
+        Name = "Earnings Sync",
+        Description = "Combined earnings sync (Alpha Vantage + Finnhub)",
+        StatusEndpoint = "/api/earnings/status",
+        SwaggerGroup = "earnings",
+        Capabilities = new List<string> { "earnings-sync", "multi-provider" }
+    });
+    builder.Services.AddSingleton<IProviderRegistry>(registry);
+
     // Swagger
     var pathBase = Environment.GetEnvironmentVariable("PATH_BASE") ?? "/api/data-fetcher-2.0";
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
     {
-        c.SwaggerDoc("v1", new OpenApiInfo
+        c.SwaggerDoc("finnhub", new OpenApiInfo
         {
-            Title = "Data Fetcher 2.0 API",
+            Title = "Finnhub Provider",
             Version = "v1",
-            Description = "Centralized multi-provider data fetcher service. Supports Finnhub for stock fundamentals and combined earnings sync (Alpha Vantage + Finnhub)."
+            Description = "Stock fundamentals and metrics from Finnhub API"
+        });
+        c.SwaggerDoc("alphavantage", new OpenApiInfo
+        {
+            Title = "AlphaVantage Provider",
+            Version = "v1",
+            Description = "Earnings calendar data from Alpha Vantage API"
+        });
+        c.SwaggerDoc("earnings", new OpenApiInfo
+        {
+            Title = "Earnings Sync Service",
+            Version = "v1",
+            Description = "Combined earnings sync using Alpha Vantage (upcoming dates) + Finnhub (historical actuals)"
+        });
+        c.SwaggerDoc("general", new OpenApiInfo
+        {
+            Title = "General / Discovery",
+            Version = "v1",
+            Description = "Centralized multi-provider data fetcher service. Supports Finnhub for stock fundamentals, combined earnings sync (Alpha Vantage + Finnhub), and Massive for technical indicators (SMA, EMA, MACD, RSI)."
         });
         c.AddServer(new OpenApiServer { Url = pathBase });
 
@@ -122,7 +191,10 @@ try
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("v1/swagger.json", "Data Fetcher 2.0 API v1");
+        c.SwaggerEndpoint("finnhub/swagger.json", "Finnhub Provider");
+        c.SwaggerEndpoint("alphavantage/swagger.json", "AlphaVantage Provider");
+        c.SwaggerEndpoint("earnings/swagger.json", "Earnings Sync Service");
+        c.SwaggerEndpoint("general/swagger.json", "General / Discovery");
         c.RoutePrefix = "swagger";
     });
 

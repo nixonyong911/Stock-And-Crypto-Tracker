@@ -20,6 +20,7 @@ import {
 // Public API path mapping for swagger URLs (matches Caddyfile routing)
 const SWAGGER_PATHS: Record<string, string> = {
   'twelvedata': '/api/twelvedata',
+  'data-fetcher-2.0': '/api/data-fetcher-2.0',
 };
 
 // Stock ticker type (not cached, loaded on demand)
@@ -35,6 +36,14 @@ interface StockTicker {
   updated_at: string;
 }
 
+interface Provider {
+  name: string;
+  description: string;
+  statusEndpoint: string;
+  swaggerGroup: string;
+  capabilities: string[];
+}
+
 interface WorkerDetails extends WorkerRegistry {
   healthStatus?: 'healthy' | 'unhealthy' | 'unknown';
 }
@@ -46,6 +55,7 @@ export default function WorkerConfigPage() {
   const [worker, setWorker] = useState<WorkerDetails | null>(null);
   const [schedules, setSchedules] = useState<FetchSchedule[]>([]);
   const [tickers, setTickers] = useState<StockTicker[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
 
@@ -95,7 +105,7 @@ export default function WorkerConfigPage() {
         setSchedules(workerSchedules);
 
         // Load tickers via API route (for data fetcher workers)
-        if (workerData.service_type === 'data-fetcher') {
+        if (workerData.service_type === 'data-fetcher' && workerData.name !== 'data-fetcher-2.0') {
           try {
             const tickersRes = await fetch("/back-office/api/tickers");
             if (tickersRes.ok) {
@@ -104,6 +114,19 @@ export default function WorkerConfigPage() {
             }
           } catch (err) {
             console.error('Failed to load tickers:', err);
+          }
+        }
+
+        // Load providers (for centralized data-fetcher workers)
+        if (workerData.name === 'data-fetcher-2.0') {
+          try {
+            const providersRes = await fetch(`/back-office/api/providers?worker=${workerData.name}`);
+            if (providersRes.ok) {
+              const { providers: providersData } = await providersRes.json();
+              setProviders(providersData || []);
+            }
+          } catch (err) {
+            console.error('Failed to load providers:', err);
           }
         }
       } catch (err) {
@@ -279,56 +302,96 @@ export default function WorkerConfigPage() {
           </div>
         )}
 
-        {/* Tickers Management */}
-        <Card className="border-slate-800 bg-slate-900/50">
-          <CardHeader>
-            <CardTitle className="text-slate-100 flex items-center gap-2">
-              <Database className="w-5 h-5" />
-              Tickers
-            </CardTitle>
-            <CardDescription className="text-slate-400">
-              Manage which tickers to fetch data for
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {tickers.length === 0 ? (
-              <p className="text-slate-500 text-center py-4">No tickers configured</p>
-            ) : (
-              <div className="space-y-2">
-                {tickers.map((ticker) => (
-                  <div
-                    key={ticker.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-950/50"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-2 h-2 rounded-full ${ticker.is_active ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-                      <div>
-                        <span className="font-mono font-semibold text-slate-200">{ticker.symbol}</span>
-                        {ticker.name && (
-                          <span className="text-slate-500 ml-2 text-sm">{ticker.name}</span>
-                        )}
+        {/* Providers (for data-fetcher-2.0) or Tickers (for other workers) */}
+        {worker.name === 'data-fetcher-2.0' ? (
+          <Card className="border-slate-800 bg-slate-900/50">
+            <CardHeader>
+              <CardTitle className="text-slate-100 flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Providers
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Dynamically discovered data providers
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {providers.length === 0 ? (
+                <p className="text-slate-500 text-center py-4">No providers discovered</p>
+              ) : (
+                <div className="space-y-2">
+                  {providers.map((provider) => (
+                    <div key={provider.name} className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-950/50">
+                      <div className="flex items-center gap-4">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <div>
+                          <span className="font-semibold text-slate-200">{provider.name}</span>
+                          <span className="text-slate-500 ml-2 text-sm">{provider.description}</span>
+                        </div>
                       </div>
-                      <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">
-                        {ticker.exchange}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {provider.capabilities.map((cap) => (
+                          <span key={cap} className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                            {cap}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleToggleTicker(ticker)}
-                      className={ticker.is_active
-                        ? "text-emerald-400 hover:text-emerald-300"
-                        : "text-slate-500 hover:text-slate-400"
-                      }
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-slate-800 bg-slate-900/50">
+            <CardHeader>
+              <CardTitle className="text-slate-100 flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Tickers
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Manage which tickers to fetch data for
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {tickers.length === 0 ? (
+                <p className="text-slate-500 text-center py-4">No tickers configured</p>
+              ) : (
+                <div className="space-y-2">
+                  {tickers.map((ticker) => (
+                    <div
+                      key={ticker.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-950/50"
                     >
-                      {ticker.is_active ? 'Active' : 'Inactive'}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-2 h-2 rounded-full ${ticker.is_active ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                        <div>
+                          <span className="font-mono font-semibold text-slate-200">{ticker.symbol}</span>
+                          {ticker.name && (
+                            <span className="text-slate-500 ml-2 text-sm">{ticker.name}</span>
+                          )}
+                        </div>
+                        <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                          {ticker.exchange}
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleToggleTicker(ticker)}
+                        className={ticker.is_active
+                          ? "text-emerald-400 hover:text-emerald-300"
+                          : "text-slate-500 hover:text-slate-400"
+                        }
+                      >
+                        {ticker.is_active ? 'Active' : 'Inactive'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Grafana Panels */}
         {grafanaPanels.length > 0 && (

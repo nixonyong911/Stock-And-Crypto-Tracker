@@ -11,6 +11,7 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 [ApiController]
 [Route("api/earnings")]
 [Produces("application/json")]
+[ApiExplorerSettings(GroupName = "earnings")]
 public class EarningsController : ControllerBase
 {
     private readonly IEarningsSyncService _earningsSyncService;
