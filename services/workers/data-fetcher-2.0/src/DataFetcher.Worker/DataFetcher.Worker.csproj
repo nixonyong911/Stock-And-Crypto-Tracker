@@ -22,6 +22,7 @@
 
     <!-- Resilience -->
     <PackageReference Include="Polly" Version="8.2.1" />
+    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
 
     <!-- Logging -->
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />

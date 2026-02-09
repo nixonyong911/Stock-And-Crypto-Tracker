@@ -203,6 +203,19 @@ services:
       - Providers__AlphaVantage__BaseUrl=https://www.alphavantage.co
       - Providers__AlphaVantage__RateLimitDelayMs=12000
       - Providers__AlphaVantage__Horizon=6month
+      # Massive Provider (technical indicators: SMA, EMA, MACD, RSI)
+      - Providers__Massive__ApiKey=${MASSIVE_API_KEY}
+      - Providers__Massive__BaseUrl=https://api.massive.com/v1
+      - Providers__Massive__RateLimitDelayMs=12000
+      - Providers__Massive__Timespan=minute
+      - Providers__Massive__Limit=390
+      - Providers__Massive__BackfillLimit=5000
+      - Providers__Massive__BackfillDays=90
+      # RabbitMQ connection (for Massive indicator queue)
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=stocktracker
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - RabbitMQ__MassiveQueueName=massive-indicator-queue
       # Metrics service
       - MetricsService__BaseUrl=http://metrics:8080
       - MetricsService__WorkerName=data-fetcher-2.0
@@ -210,7 +223,10 @@ services:
     networks:
       - stocktracker
     depends_on:
-      - metrics
+      metrics:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
       interval: 30s

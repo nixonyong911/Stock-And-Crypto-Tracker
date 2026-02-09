@@ -221,6 +221,9 @@ public class BackfillQueueConsumer : BackgroundService
 
             // Trigger analysis backfill for the newly backfilled ticker
             await TriggerAnalysisBackfillAsync(request);
+
+            // Trigger indicator backfill via data-fetcher-2.0 HTTP endpoint
+            await TriggerIndicatorBackfillAsync(request);
         }
         else
         {
@@ -287,6 +290,34 @@ public class BackfillQueueConsumer : BackgroundService
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// HTTP-calls the data-fetcher-2.0 backfill endpoint to trigger massive indicator backfill
+    /// for the ticker that just had its price data backfilled.
+    /// Non-fatal: if data-fetcher-2.0 is down, price backfill still succeeds.
+    /// </summary>
+    private async Task TriggerIndicatorBackfillAsync(BackfillRequest priceBackfillRequest)
+    {
+        try
+        {
+            // data-fetcher-2.0 runs on port 8080 with path base /api/data-fetcher-2.0
+            var url = $"http://data-fetcher-2.0:8080/api/data-fetcher-2.0/api/massive/indicators/backfill/{priceBackfillRequest.Symbol}?days=90";
+
+            using var httpClient = new HttpClient();
+            var response = await httpClient.PostAsync(url, null);
+
+            _logger.LogInformation(
+                "Triggered indicator backfill for {Symbol}: {StatusCode}",
+                priceBackfillRequest.Symbol, response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal: indicator backfill failure should not affect price backfill success
+            _logger.LogWarning(ex,
+                "Failed to trigger indicator backfill for {Symbol} (non-fatal, can be triggered manually)",
+                priceBackfillRequest.Symbol);
+        }
     }
 
     public override void Dispose()
