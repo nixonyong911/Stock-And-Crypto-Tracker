@@ -31,10 +31,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install cursor-agent CLI
-RUN curl -fsSL https://cursor.com/install | bash || true
-# Verify installation (non-fatal if not available in build environment)
-RUN which cursor-agent && cursor-agent --version || echo "cursor-agent will be available at runtime"
+# cursor-agent CLI is volume-mounted from VM host at:
+#   /home/azureuser/.local/share/cursor-agent/versions/<ver>/cursor-agent
+# Create a wrapper script that finds the latest mounted version at runtime.
+RUN printf '#!/bin/bash\nset -euo pipefail\nVERDIR="/home/azureuser/.local/share/cursor-agent/versions"\nLATEST=$(ls -1d "$VERDIR"/*/ 2>/dev/null | sort -V | tail -1)\nif [ -z "$LATEST" ]; then echo "cursor-agent not mounted" >&2; exit 1; fi\nexec "$LATEST/cursor-agent" "$@"\n' > /usr/local/bin/cursor-agent \
+    && chmod +x /usr/local/bin/cursor-agent
 
 # Copy built application
 COPY --from=builder /app/dist ./dist

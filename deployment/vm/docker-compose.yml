@@ -524,10 +524,10 @@ services:
       - TELEGRAM_WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram-2/webhook
       - PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
-      # cursor-agent CLI (self-contained Node.js app with its own node binary)
-      # The entire share directory is mounted so the shell script can find $SCRIPT_DIR/node
+      # cursor-agent CLI: mount the entire versions dir (contains node binary + JS chunks)
+      # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing
+      # the script must also contain 'node', 'index.js', etc.
       - /home/azureuser/.local/share/cursor-agent:/home/azureuser/.local/share/cursor-agent:ro
-      - /home/azureuser/.local/bin/cursor-agent:/home/azureuser/.local/bin/cursor-agent:ro
       # cursor-agent OAuth token (read-only, symlinked into tier-homes)
       - /home/azureuser/.config/cursor:/root/.config/cursor:ro
     networks:
