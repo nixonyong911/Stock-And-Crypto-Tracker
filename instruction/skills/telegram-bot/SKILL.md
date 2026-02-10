@@ -1,46 +1,45 @@
 ---
 name: telegram-bot
-description: Guide for the Telegram AI Financial Assistant bot. Use when working with Telegram bot registration, authentication, session management, rate limiting, or extending bot capabilities. The bot uses Yes/No registration via /start, single-session policy (new login invalidates other devices), and rate limiting for security.
+description: Guide for the Telegram AI Financial Assistant bot (TypeScript/grammY, telegram-2.0). Use when working with Telegram bot registration, authentication, session management, rate limiting, or extending bot capabilities. The bot uses Yes/No registration via /start, single-session policy (new login invalidates other devices), webhooks via Caddy, and the Gateway for AI responses.
 ---
 
-# Telegram Bot Skill
+# Telegram Bot Skill (telegram-2.0)
 
 ## Overview
 
-The Telegram AI Financial Assistant is a multi-component system that allows authenticated users to interact with an AI assistant for financial queries. The assistant is strictly governed to only respond to stock, crypto, and financial market questions.
+The Telegram AI Financial Assistant is a TypeScript bot built with grammY, using webhooks for reliability. It allows authenticated users to interact with an AI assistant for financial queries via the Gateway service.
 
 ## Quick Reference
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| Telegram Bot Service | `services/social-media/telegram/` | Bot handlers and services |
-| Session Service | `services/social-media/telegram/services/session.py` | Auth, rate limiting |
-| Command Handlers | `services/social-media/telegram/handlers/commands.py` | /start, /login, etc. |
-| AI Hub Endpoint | `services/ai/ai-hub/main.py` | Governed AI endpoint |
+| Telegram Bot Service | `services/social-media/telegram-2.0/` | Bot composers, middleware, services |
+| Config | `services/social-media/telegram-2.0/src/config.ts` | Environment configuration |
+| Gateway Client | `services/social-media/telegram-2.0/src/services/gateway-client.ts` | AI Gateway integration |
+| Session Middleware | `services/social-media/telegram-2.0/src/middleware/session.ts` | Auth, session hydration |
+| Rate Limiter | `services/social-media/telegram-2.0/src/middleware/rate-limiter.ts` | Rate limiting |
+| Command Composers | `services/social-media/telegram-2.0/src/composers/` | /start, /login, /logout, etc. |
+| Gateway Service | `services/ai/gateway/` | AI request routing |
 | MCP Server | `services/mcp/` | Read-only DB queries |
-| Architecture Doc | `instruction/architecture/telegram-bot-architecture.md` | System overview |
 
 ## Setup Guide
 
 ### Prerequisites
 
 1. **Telegram Bot** (created via @BotFather)
-   - Main bot for user interaction
 
 2. **Environment Variables in Infisical**
    - `TELEGRAM_BOT_TOKEN` - Bot token from @BotFather
-   - `DATABASE_URL_PYTHON` - PostgreSQL DSN for asyncpg (see format below)
-   - `AI_HUB_URL` - AI Hub endpoint (default: `http://ai-hub2:8080`)
-   - `AI_HUB_API_KEY` - AI Hub authentication key
-
-**Important:**
-- Use Session Pooler (port 5432), NOT direct connection (IPv6 only)
-- URL-encode special characters in password (`*` → `%2A`, `@` → `%40`)
-- User format: `postgres.<project-ref>` (not just `postgres`)
+   - `WEBHOOK_URL` - Full webhook URL (e.g. `https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook`)
+   - `DATABASE_URL` - PostgreSQL connection string
+   - `REDIS_URL` - Redis connection URL (default: `redis://localhost:6379`)
+   - `GATEWAY_URL` - Gateway service URL
+   - `GATEWAY_API_KEY` - Gateway authentication key
+   - `BOT_PORT` - HTTP server port (default: `8087`)
 
 3. **Database Tables** (already applied)
    - `telegram_users` - Registered users
-   - `telegram_sessions` - Active sessions with device_info
+   - `telegram_sessions` - Active sessions with device_info, cursor_chat_id
    - `telegram_rate_limits` - Rate limiting
 
 ### Testing
@@ -57,7 +56,7 @@ The Telegram AI Financial Assistant is a multi-component system that allows auth
 "Show me AAPL candlestick patterns for last week"
 
 # 4. Test single-session policy
-# Login from another device → first device session invalidated
+# Login from another device -> first device session invalidated
 ```
 
 ### Rate Limits
@@ -71,38 +70,38 @@ The Telegram AI Financial Assistant is a multi-component system that allows auth
 
 ### Adding New Commands
 
-1. Add handler function in `handlers/commands.py`
-2. Register in `setup_command_handlers()` at bottom of file
-3. Import any needed services
+1. Create a new composer file in `src/composers/`
+2. Register it in `src/index.ts`
 
 Example:
-```python
-async def mycommand_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /mycommand."""
-    await update.message.reply_text("Response here")
+```typescript
+import { Composer } from 'grammy';
+import type { BotContext } from '../types/context.js';
 
-# In setup_command_handlers():
-application.add_handler(CommandHandler("mycommand", mycommand_command))
+const composer = new Composer<BotContext>();
+
+composer.command('mycommand', async (ctx) => {
+  await ctx.reply('Response here');
+});
+
+export default composer;
 ```
 
-### Adding AI Capabilities
+### AI Integration
 
-The AI is governed by a system prompt in `services/ai/ai-hub/main.py`. To modify allowed topics:
-
-```python
-TELEGRAM_AGENT_SYSTEM_PROMPT = """..."""
-```
-
-**Warning:** Be careful not to allow code execution or system commands.
+AI requests go through the Gateway service via `src/services/gateway-client.ts`. The client includes:
+- Progress indicator (typing action every 4 seconds)
+- Circuit breaker pattern (3 failures -> open, 30s reset)
+- 300s timeout for long-running AI requests
 
 ### Modifying Rate Limits
 
-Update `RATE_LIMITS` in `services/session.py`:
-```python
-RATE_LIMITS = {
-    "register": {"max_attempts": 3, "window_minutes": 60},
-    "login": {"max_attempts": 5, "window_minutes": 15},
-}
+Update `rateLimits` in `src/config.ts`:
+```typescript
+rateLimits: {
+  register: { maxAttempts: 3, windowMinutes: 60 },
+  login: { maxAttempts: 5, windowMinutes: 15 },
+},
 ```
 
 ### Adding MCP Tools
@@ -111,49 +110,33 @@ RATE_LIMITS = {
 2. Register tool in `services/mcp/server.py`
 3. Update `services/mcp/tools/__init__.py`
 
-Example tool pattern:
-
-```python
-@mcp.tool(
-    name="analysis_new_tool",
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-    }
-)
-async def analysis_new_tool(params: InputModel) -> str:
-    """Tool description."""
-    return await query_function(params)
-```
-
 ## Troubleshooting
 
 ### Bot Not Responding
 
-1. Check Docker container: `docker logs telegram-bot`
+1. Check Docker container: `docker logs telegram-bot-2.0`
 2. Verify `TELEGRAM_BOT_TOKEN` is set
 3. Check health endpoint: `curl http://localhost:8087/health`
+4. Verify webhook is set: `curl https://api.telegram.org/bot<TOKEN>/getWebhookInfo`
 
 ### Database Connection Errors
 
-Common error: `invalid DSN: scheme is expected to be either "postgresql" or "postgres"`
-
-1. Check `DATABASE_URL_PYTHON` is set: `docker exec telegram-bot env | grep DATABASE`
-2. Verify format starts with `postgresql://` (not `.NET` connection string)
-3. Use Session Pooler host (`pooler.supabase.com:5432`), not direct (`db.xxx.supabase.co`)
+1. Check `DATABASE_URL` is set: `docker exec telegram-bot-2.0 env | grep DATABASE`
+2. Verify format starts with `postgresql://`
+3. Use Session Pooler host (`pooler.supabase.com:5432`)
 4. URL-encode special characters in password
 
-### AI Hub Errors
+### Gateway Errors
 
-1. Check Docker status: `docker ps --filter name=ai-hub2`
-2. View logs: `docker logs ai-hub2 -f`
-3. Verify `AI_HUB_API_KEY` is set
+1. Check Gateway status: `docker ps --filter name=gateway`
+2. View logs: `docker logs gateway -f`
+3. Verify `GATEWAY_API_KEY` is set
 
 ### Rate Limit Issues
 
 1. Check `telegram_rate_limits` table
 2. Reset limits: `DELETE FROM telegram_rate_limits WHERE telegram_user_id = X`
-3. Adjust limits in `services/session.py` if needed
+3. Adjust limits in `src/config.ts`
 
 ### Session Issues
 
@@ -169,7 +152,4 @@ Common error: `invalid DSN: scheme is expected to be either "postgresql" or "pos
 
 ## Related Documentation
 
-- [Architecture Overview](../../architecture/telegram-bot-architecture.md)
 - [Database Schema](../../database/schema.md)
-- [AI Hub Integration](../../reference/ai-hub-integration.md)
-

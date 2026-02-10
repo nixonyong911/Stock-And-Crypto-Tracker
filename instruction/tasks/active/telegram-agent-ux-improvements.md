@@ -68,16 +68,13 @@ cursor-agent -p "what are bullish stocks today?" --resume abc123-uuid --model so
 ## Files to Modify
 
 ### Progress Indicator (Option B - Streaming)
-- `services/ai/ai-hub/services/cli_executor.py` - Add `execute_stream()` method
-- `services/ai/ai-hub/main.py` - Add streaming endpoint
-- `services/social-media/telegram/services/ai_hub.py` - Add `chat_stream()` method
-- `services/social-media/telegram/handlers/messages.py` - Handle streaming response
+- `services/ai/gateway/` - Add streaming endpoint
+- `services/social-media/telegram-2.0/src/services/gateway-client.ts` - Add streaming support
+- `services/social-media/telegram-2.0/src/composers/messages.ts` - Handle streaming response
 
 ### Session Management
-- `services/ai/ai-hub/schemas.py` - Add `session_id` to `CLIMessageRequest`
-- `services/ai/ai-hub/services/cli_executor.py` - Add `--resume` flag support
-- `services/ai/ai-hub/main.py` - Pass session_id to executor
-- `services/social-media/telegram/handlers/commands.py` - Generate session on `/start`
+- `services/ai/gateway/` - Add `session_id` / `--resume` flag support
+- `services/social-media/telegram-2.0/src/composers/start.ts` - Generate session on `/start`
 - Database migration for `cursor_chat_id` column
 
 ## References

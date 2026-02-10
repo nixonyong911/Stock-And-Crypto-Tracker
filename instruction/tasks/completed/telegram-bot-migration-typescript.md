@@ -1,12 +1,13 @@
 # Telegram Bot Migration: Python to TypeScript (grammY)
 
-**Status:** Pending
+**Status:** Done
 **Priority:** High
 **Created:** 2026-01-12
+**Completed:** 2026-02-10
 
 ## Overview
 
-Migrate the Telegram bot from Python (`python-telegram-bot`) to TypeScript (`grammY`) with webhooks for improved reliability. Retire the existing Python service at `services/social-media/telegram/`.
+Migrated the Telegram bot from Python (`python-telegram-bot`) to TypeScript (`grammY`) with webhooks. The old Python service at `services/social-media/telegram/` has been retired and deleted.
 
 ## Why Migrate?
 
