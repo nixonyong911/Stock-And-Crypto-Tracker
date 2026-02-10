@@ -57,10 +57,23 @@ nxserver.malaysiawest.cloudapp.azure.com { # ===================================
     }
 
     # ===========================================
-    # Telegram Bot 2.0 Webhook
+    # Telegram Bot 2.0 Webhook (legacy - routes to old standalone bot)
     # ===========================================
     handle_path /telegram/* {
         reverse_proxy telegram-bot-2.0:8087
+    }
+
+    # ===========================================
+    # Gateway 2.0 - Telegram webhook + API
+    # /telegram-2/webhook -> gateway-2.0 Telegram extension
+    # /api/gateway-2/* -> gateway-2.0 REST API
+    # ===========================================
+    handle_path /telegram-2/* {
+        reverse_proxy gateway-2.0:8080
+    }
+
+    handle_path /api/gateway-2/* {
+        reverse_proxy gateway-2.0:8080
     }
 
     # ===========================================

@@ -499,6 +499,44 @@ services:
       start_period: 15s
 
   # ===========================================
+  # Gateway 2.0 - TypeScript AI Gateway (replaces gateway + ai-hub2 + telegram-bot-2.0)
+  # Self-contained: cursor-agent + agent-context + tier-homes baked in
+  # Port: 8083 (external), 8080 (internal)
+  # ===========================================
+  gateway-2.0:
+    image: stocktracker-gateway-2.0:${GATEWAY_2_VERSION:-latest}
+    build:
+      context: ./repo/services/ai/gateway-2.0
+      dockerfile: Dockerfile
+    container_name: gateway-2.0
+    restart: unless-stopped
+    ports:
+      - "8083:8080"
+    environment:
+      - PORT=8080
+      - GATEWAY_API_KEY=${GATEWAY_API_KEY}
+      - GATEWAY_DEFAULT_MODEL=sonnet-4.5
+      - GATEWAY_CONTEXT_PATH=/app/agent-context
+      - GATEWAY_TIER_HOMES_PATH=/app/tier-homes
+      - DATABASE_URL=${DATABASE_URL_GO}
+      - REDIS_URL=redis://redis:6379
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram-2/webhook
+    volumes:
+      # cursor-agent OAuth token (read-only, symlinked into tier-homes)
+      - /home/azureuser/.config/cursor:/root/.config/cursor:ro
+    networks:
+      - stocktracker
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+
+  # ===========================================
   # Back Office - Admin & Testing UI
   # Access at: /back-office
   # ===========================================
