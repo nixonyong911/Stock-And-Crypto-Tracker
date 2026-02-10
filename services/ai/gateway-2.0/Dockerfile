@@ -60,7 +60,7 @@ EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:8080/health/live || exit 1
+  CMD curl -sf http://localhost:8080/health/live || exit 1
 
 # Start the gateway
 CMD ["node", "dist/index.js"]
