@@ -1,8 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getUserByClerkId, createLinkToken } from "@/lib/db/users";
-
-const TELEGRAM_BOT_USERNAME = "StockAndCryptoAdvisorBot";
+import { getUserByClerkId, createPairingCode } from "@/lib/db/users";
 
 export async function POST() {
   try {
@@ -27,19 +25,16 @@ export async function POST() {
       );
     }
 
-    // Create a link token
-    const token = await createLinkToken(user.id, "web_to_telegram");
-
-    // Generate deep link
-    const deepLink = `https://t.me/${TELEGRAM_BOT_USERNAME}?start=link_${token}`;
+    // Generate 6-digit pairing code
+    const code = await createPairingCode(user.id);
 
     return NextResponse.json({
       success: true,
-      deepLink,
-      expiresIn: 15 * 60, // 15 minutes in seconds
+      code,
+      expiresIn: 5 * 60, // 5 minutes in seconds
     });
   } catch (error) {
-    console.error("Error creating link token:", error);
+    console.error("Error creating pairing code:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -47,7 +42,7 @@ export async function POST() {
   }
 }
 
-// GET to check link status
+// GET to check link status (used for polling)
 export async function GET() {
   try {
     const { userId } = await auth();

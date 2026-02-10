@@ -5,8 +5,7 @@ import type { BotContext } from './types/context.js';
 import { config } from './config.js';
 import { getDatabase } from './infrastructure/database.js';
 import { getRedis } from './infrastructure/redis.js';
-import { getRabbitMQ } from './infrastructure/rabbitmq.js';
-import { getMessageConsumer } from './services/message-consumer.js';
+import { getGatewayClient } from './services/gateway-client.js';
 import { applyMiddleware, errorHandler, logger } from './middleware/index.js';
 
 // Import composers
@@ -16,6 +15,7 @@ import loginComposer from './composers/login.js';
 import logoutComposer from './composers/logout.js';
 import refreshComposer from './composers/refresh.js';
 import statusComposer from './composers/status.js';
+import pairComposer from './composers/pair.js';
 import messagesComposer from './composers/messages.js';
 
 /**
@@ -49,13 +49,17 @@ async function main() {
     logger.warn({ error: (error as Error).message }, 'Redis connection failed, continuing without Redis');
   }
 
-  // Connect to RabbitMQ
-  const rabbitmq = getRabbitMQ();
+  // Verify Gateway connectivity
+  const gateway = getGatewayClient();
   try {
-    await rabbitmq.connect();
-    logger.info('RabbitMQ connected');
+    const gatewayHealthy = await gateway.healthCheck();
+    if (gatewayHealthy) {
+      logger.info('Gateway connected');
+    } else {
+      logger.warn('Gateway health check failed, AI features may be unavailable');
+    }
   } catch (error) {
-    logger.warn({ error: (error as Error).message }, 'RabbitMQ connection failed, queue functionality disabled');
+    logger.warn({ error: (error as Error).message }, 'Gateway connection check failed');
   }
 
   // Create bot instance
@@ -79,6 +83,7 @@ async function main() {
   bot.use(logoutComposer);
   bot.use(refreshComposer);
   bot.use(statusComposer);
+  bot.use(pairComposer);
   
   // Messages composer last (catches all text messages)
   bot.use(messagesComposer);
@@ -95,7 +100,7 @@ async function main() {
   app.get('/health', async (c) => {
     const dbHealthy = await db.healthCheck();
     const redisHealthy = await redis.healthCheck();
-    const rabbitmqHealthy = await rabbitmq.healthCheck();
+    const gatewayHealthy = await gateway.healthCheck();
 
     const status = dbHealthy ? 'healthy' : 'unhealthy';
     const statusCode = dbHealthy ? 200 : 503;
@@ -106,7 +111,7 @@ async function main() {
       version: '2.1.0',
       database: dbHealthy ? 'connected' : 'disconnected',
       redis: redisHealthy ? 'connected' : 'disconnected',
-      rabbitmq: rabbitmqHealthy ? 'connected' : 'disconnected',
+      gateway: gatewayHealthy ? 'connected' : 'disconnected',
       timestamp: new Date().toISOString(),
     }, statusCode);
   });
@@ -130,15 +135,8 @@ async function main() {
     // Continue anyway - webhook might already be set
   }
 
-  // Start message consumer (processes queued messages)
-  const messageConsumer = getMessageConsumer();
-  messageConsumer.setApi(bot.api);
-  try {
-    await messageConsumer.start();
-    logger.info('Message consumer started');
-  } catch (error) {
-    logger.warn({ error: (error as Error).message }, 'Failed to start message consumer, queue processing disabled');
-  }
+  // Note: Gateway handles message queuing internally.
+  // Telegram bot only handles webhook dedup via Redis.
 
   // Start HTTP server
   const port = config.port;
@@ -153,8 +151,7 @@ async function main() {
   const shutdown = async () => {
     logger.info('Shutting down...');
     
-    // Stop message consumer first
-    messageConsumer.stop();
+    // No message consumer to stop (Gateway handles queuing)
     
     try {
       await bot.api.deleteWebhook();
@@ -164,7 +161,7 @@ async function main() {
     }
 
     // Close connections
-    await rabbitmq.close();
+    // RabbitMQ removed (Gateway handles queuing)
     await redis.close();
     await db.close();
     

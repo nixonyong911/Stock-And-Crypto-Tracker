@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "analysis_mcp": {
+      "url": "http://mcp-analysis:8085/mcp",
+      "transport": "sse",
+      "timeout": 5000,
+      "keepAlive": true,
+      "maxRetries": 1
+    }
+  }
+}

@@ -11,7 +11,7 @@ export interface User {
   email: string;
   display_name: string;
   avatar_url: string | null;
-  tier: "free" | "pro";
+  tier: "free" | "pro" | "max" | "dev";
   created_at: string;
   updated_at: string;
 }
@@ -28,7 +28,9 @@ export interface LinkToken {
 }
 
 // Get user by Clerk ID
-export async function getUserByClerkId(clerkUserId: string): Promise<User | null> {
+export async function getUserByClerkId(
+  clerkUserId: string
+): Promise<User | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("users")
@@ -57,7 +59,9 @@ interface ClerkUserData {
  * Ensures user exists in Supabase - creates if missing (fallback for webhook failure)
  * This is useful for local development where webhooks can't reach localhost
  */
-export async function ensureUserExists(clerkUser: ClerkUserData): Promise<User> {
+export async function ensureUserExists(
+  clerkUser: ClerkUserData
+): Promise<User> {
   const supabase = getSupabaseAdmin();
 
   // Try to find existing user
@@ -67,7 +71,9 @@ export async function ensureUserExists(clerkUser: ClerkUserData): Promise<User> 
   }
 
   // User doesn't exist - create them (webhook likely failed)
-  console.log(`Creating user in Supabase (webhook fallback) for Clerk user: ${clerkUser.id}`);
+  console.log(
+    `Creating user in Supabase (webhook fallback) for Clerk user: ${clerkUser.id}`
+  );
 
   const email = clerkUser.email || undefined;
   const displayName =
@@ -83,7 +89,9 @@ export async function ensureUserExists(clerkUser: ClerkUserData): Promise<User> 
         clerk_user_id: clerkUser.id,
       });
       stripeCustomerId = stripeCustomer.id;
-      console.log(`Stripe customer created: ${stripeCustomerId} for Clerk user ${clerkUser.id}`);
+      console.log(
+        `Stripe customer created: ${stripeCustomerId} for Clerk user ${clerkUser.id}`
+      );
     } catch (stripeError) {
       console.error("Error creating Stripe customer (fallback):", stripeError);
       // Continue without Stripe customer - can be created later
@@ -106,7 +114,8 @@ export async function ensureUserExists(clerkUser: ClerkUserData): Promise<User> 
 
   if (error) {
     // Handle race condition - user might have been created by webhook in parallel
-    if (error.code === "23505") { // Unique constraint violation
+    if (error.code === "23505") {
+      // Unique constraint violation
       const user = await getUserByClerkId(clerkUser.id);
       if (user) return user;
     }
@@ -157,8 +166,98 @@ export async function createLinkToken(
   return token;
 }
 
+// Generate a 6-digit numeric pairing code (for web → telegram linking)
+export async function createPairingCode(userId: number): Promise<string> {
+  const supabase = getSupabaseAdmin();
+
+  // Delete any existing unused codes for this user first
+  await supabase
+    .from("users_link_tokens")
+    .delete()
+    .eq("user_id", userId)
+    .eq("direction", "web_to_telegram")
+    .is("used_at", null);
+
+  // Generate 6-digit code (100000-999999)
+  const code = String(crypto.randomInt(100000, 999999));
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+  const { error } = await supabase.from("users_link_tokens").insert({
+    token: code,
+    user_id: userId,
+    telegram_user_id: null,
+    direction: "web_to_telegram",
+    expires_at: expiresAt.toISOString(),
+  });
+
+  if (error) throw error;
+  return code;
+}
+
+// Verify a pairing code and get the associated link token
+export async function verifyPairingCode(
+  code: string
+): Promise<LinkToken | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("users_link_tokens")
+    .select("*")
+    .eq("token", code)
+    .eq("direction", "web_to_telegram")
+    .is("used_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null; // Not found
+    throw error;
+  }
+
+  return data;
+}
+
+// Complete pairing: link Telegram user to Clerk user via pairing code
+export async function completePairing(
+  code: string,
+  telegramUserId: number
+): Promise<{ success: boolean; userId?: number }> {
+  const linkToken = await verifyPairingCode(code);
+
+  if (!linkToken || !linkToken.user_id) {
+    return { success: false };
+  }
+
+  const supabase = getSupabaseAdmin();
+
+  // Update the user with telegram_user_id
+  const { error: userError } = await supabase
+    .from("users")
+    .update({
+      telegram_user_id: telegramUserId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", linkToken.user_id);
+
+  if (userError) throw userError;
+
+  // Mark token as used
+  const { error: tokenError } = await supabase
+    .from("users_link_tokens")
+    .update({
+      used_at: new Date().toISOString(),
+      telegram_user_id: telegramUserId,
+    })
+    .eq("token", code);
+
+  if (tokenError) throw tokenError;
+
+  return { success: true, userId: linkToken.user_id };
+}
+
 // Verify and consume a link token
-export async function verifyLinkToken(token: string): Promise<LinkToken | null> {
+export async function verifyLinkToken(
+  token: string
+): Promise<LinkToken | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("users_link_tokens")
@@ -184,7 +283,11 @@ export async function linkTelegramAccount(
   const supabase = getSupabaseAdmin();
   const linkToken = await verifyLinkToken(token);
 
-  if (!linkToken || linkToken.direction !== "web_to_telegram" || !linkToken.user_id) {
+  if (
+    !linkToken ||
+    linkToken.direction !== "web_to_telegram" ||
+    !linkToken.user_id
+  ) {
     return false;
   }
 
@@ -212,7 +315,10 @@ export async function linkTelegramAccount(
 
 // Update user's tier
 // @deprecated Use setUserTierById from user-tier.ts instead (has caching)
-export async function updateUserTier(userId: number, tier: "free" | "pro"): Promise<void> {
+export async function updateUserTier(
+  userId: number,
+  tier: "free" | "pro" | "max" | "dev"
+): Promise<void> {
   // Import and use the cached version
   const { setUserTierById } = await import("./user-tier");
   await setUserTierById(userId, tier);

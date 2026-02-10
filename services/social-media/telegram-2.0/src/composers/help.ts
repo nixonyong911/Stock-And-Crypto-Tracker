@@ -12,6 +12,7 @@ composer.command('help', async (ctx) => {
     '/logout - End your current session\n' +
     '/refresh - Reset your AI conversation context\n' +
     '/status - Check your session status\n' +
+    '/pair <code> - Link your web account (get code from dashboard)\n' +
     '/help - Show this help message\n\n' +
     '**How to use:**\n' +
     '1. Register with /start\n' +
