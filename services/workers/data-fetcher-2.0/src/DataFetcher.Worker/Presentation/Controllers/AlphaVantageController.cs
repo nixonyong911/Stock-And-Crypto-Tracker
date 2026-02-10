@@ -113,7 +113,7 @@ public class AlphaVantageController : ControllerBase
 
         // Validate symbol exists
         var tickers = await _tickerRepo.GetActiveTickersAsync();
-        var ticker = tickers.FirstOrDefault(t => 
+        var ticker = tickers.FirstOrDefault(t =>
             t.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
 
         if (ticker == null)

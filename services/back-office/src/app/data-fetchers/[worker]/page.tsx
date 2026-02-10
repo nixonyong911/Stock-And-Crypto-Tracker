@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WorkerRegistry } from "@/lib/db/workers";
 import { FetchSchedule } from "@/lib/db/schedules";
@@ -19,8 +25,8 @@ import {
 
 // Public API path mapping for swagger URLs (matches Caddyfile routing)
 const SWAGGER_PATHS: Record<string, string> = {
-  'twelvedata': '/api/twelvedata',
-  'data-fetcher-2.0': '/api/data-fetcher-2.0',
+  twelvedata: "/api/twelvedata",
+  "data-fetcher-2.0": "/api/data-fetcher-2.0",
 };
 
 // Stock ticker type (not cached, loaded on demand)
@@ -45,7 +51,7 @@ interface Provider {
 }
 
 interface WorkerDetails extends WorkerRegistry {
-  healthStatus?: 'healthy' | 'unhealthy' | 'unknown';
+  healthStatus?: "healthy" | "unhealthy" | "unknown";
 }
 
 export default function WorkerConfigPage() {
@@ -76,36 +82,41 @@ export default function WorkerConfigPage() {
         const { schedules: allSchedules } = await schedulesRes.json();
 
         // Find the specific worker
-        const workerData = workers.find((w: WorkerRegistry) => w.name === workerName);
+        const workerData = workers.find(
+          (w: WorkerRegistry) => w.name === workerName
+        );
 
         if (!workerData) {
-          console.error('Worker not found');
+          console.error("Worker not found");
           setLoading(false);
           return;
         }
 
         // Check health
-        let healthStatus: 'healthy' | 'unhealthy' | 'unknown' = 'unknown';
+        let healthStatus: "healthy" | "unhealthy" | "unknown" = "unknown";
         if (workerData.health_endpoint) {
           try {
             const healthUrl = `https://nxserver.malaysiawest.cloudapp.azure.com${workerData.health_endpoint}`;
-            const response = await fetch(healthUrl, { cache: 'no-store' });
-            healthStatus = response.ok ? 'healthy' : 'unhealthy';
+            const response = await fetch(healthUrl, { cache: "no-store" });
+            healthStatus = response.ok ? "healthy" : "unhealthy";
           } catch {
-            healthStatus = 'unhealthy';
+            healthStatus = "unhealthy";
           }
         }
 
         setWorker({ ...workerData, healthStatus });
 
         // Find ALL schedules for this worker using worker_id
-        const workerSchedules = allSchedules.filter((s: FetchSchedule) =>
-          s.worker_id === workerData.id
+        const workerSchedules = allSchedules.filter(
+          (s: FetchSchedule) => s.worker_id === workerData.id
         );
         setSchedules(workerSchedules);
 
         // Load tickers via API route (for data fetcher workers)
-        if (workerData.service_type === 'data-fetcher' && workerData.name !== 'data-fetcher-2.0') {
+        if (
+          workerData.service_type === "data-fetcher" &&
+          workerData.name !== "data-fetcher-2.0"
+        ) {
           try {
             const tickersRes = await fetch("/back-office/api/tickers");
             if (tickersRes.ok) {
@@ -113,24 +124,26 @@ export default function WorkerConfigPage() {
               setTickers(tickersData || []);
             }
           } catch (err) {
-            console.error('Failed to load tickers:', err);
+            console.error("Failed to load tickers:", err);
           }
         }
 
         // Load providers (for centralized data-fetcher workers)
-        if (workerData.name === 'data-fetcher-2.0') {
+        if (workerData.name === "data-fetcher-2.0") {
           try {
-            const providersRes = await fetch(`/back-office/api/providers?worker=${workerData.name}`);
+            const providersRes = await fetch(
+              `/back-office/api/providers?worker=${workerData.name}`
+            );
             if (providersRes.ok) {
               const { providers: providersData } = await providersRes.json();
               setProviders(providersData || []);
             }
           } catch (err) {
-            console.error('Failed to load providers:', err);
+            console.error("Failed to load providers:", err);
           }
         }
       } catch (err) {
-        console.error('Failed to load worker details:', err);
+        console.error("Failed to load worker details:", err);
       } finally {
         setLoading(false);
       }
@@ -142,9 +155,12 @@ export default function WorkerConfigPage() {
   const handleToggleSchedule = async (scheduleId: number) => {
     setTogglingIds((prev) => new Set(prev).add(scheduleId));
     try {
-      const response = await fetch(`/back-office/api/schedules?toggle=${scheduleId}`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/back-office/api/schedules?toggle=${scheduleId}`,
+        {
+          method: "POST",
+        }
+      );
       if (response.ok) {
         const { schedule: updatedSchedule } = await response.json();
         setSchedules((prev) =>
@@ -164,17 +180,22 @@ export default function WorkerConfigPage() {
 
   const handleToggleTicker = async (ticker: StockTicker) => {
     try {
-      const response = await fetch(`/back-office/api/tickers?toggle=${ticker.id}`, {
-        method: 'POST',
-      });
+      const response = await fetch(
+        `/back-office/api/tickers?toggle=${ticker.id}`,
+        {
+          method: "POST",
+        }
+      );
 
       if (response.ok) {
-        setTickers(tickers.map(t =>
-          t.id === ticker.id ? { ...t, is_active: !t.is_active } : t
-        ));
+        setTickers(
+          tickers.map((t) =>
+            t.id === ticker.id ? { ...t, is_active: !t.is_active } : t
+          )
+        );
       }
     } catch (err) {
-      console.error('Failed to toggle ticker:', err);
+      console.error("Failed to toggle ticker:", err);
     }
   };
 
@@ -193,14 +214,21 @@ export default function WorkerConfigPage() {
       <div className="p-8">
         <div className="max-w-6xl mx-auto text-center py-16">
           <Database className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-500">Worker &apos;{workerName}&apos; not found</p>
+          <p className="text-slate-500">
+            Worker &apos;{workerName}&apos; not found
+          </p>
         </div>
       </div>
     );
   }
 
   const configSchema = worker.config_schema as Record<string, unknown> | null;
-  const grafanaPanels = (configSchema?.grafana_panels as Array<{name: string; panelId: string; dashboardUid: string}>) || [];
+  const grafanaPanels =
+    (configSchema?.grafana_panels as Array<{
+      name: string;
+      panelId: string;
+      dashboardUid: string;
+    }>) || [];
 
   return (
     <div className="p-8">
@@ -209,18 +237,26 @@ export default function WorkerConfigPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <div className={`w-4 h-4 rounded-full ${
-                worker.healthStatus === 'healthy' ? 'bg-emerald-400' :
-                worker.healthStatus === 'unhealthy' ? 'bg-red-400' :
-                'bg-slate-600'
-              }`} />
-              <h1 className="text-3xl font-bold text-slate-100">{worker.display_name}</h1>
+              <div
+                className={`w-4 h-4 rounded-full ${
+                  worker.healthStatus === "healthy"
+                    ? "bg-emerald-400"
+                    : worker.healthStatus === "unhealthy"
+                    ? "bg-red-400"
+                    : "bg-slate-600"
+                }`}
+              />
+              <h1 className="text-3xl font-bold text-slate-100">
+                {worker.display_name}
+              </h1>
             </div>
             <p className="text-slate-400 mt-1">{worker.description}</p>
           </div>
           <div className="flex items-center gap-2">
             <a
-              href={`https://nxserver.malaysiawest.cloudapp.azure.com${SWAGGER_PATHS[workerName] || `/${workerName}`}/swagger/`}
+              href={`https://nxserver.malaysiawest.cloudapp.azure.com${
+                SWAGGER_PATHS[workerName] || `/${workerName}`
+              }/swagger/`}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -246,25 +282,33 @@ export default function WorkerConfigPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="border-slate-800 bg-slate-900/50">
             <CardHeader className="pb-2">
-              <CardDescription className="text-slate-400">Health</CardDescription>
+              <CardDescription className="text-slate-400">
+                Health
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                {worker.healthStatus === 'healthy' ? (
+                {worker.healthStatus === "healthy" ? (
                   <CheckCircle className="w-5 h-5 text-emerald-400" />
-                ) : worker.healthStatus === 'unhealthy' ? (
+                ) : worker.healthStatus === "unhealthy" ? (
                   <XCircle className="w-5 h-5 text-red-400" />
                 ) : (
                   <Clock className="w-5 h-5 text-slate-600" />
                 )}
-                <span className={`font-semibold ${
-                  worker.healthStatus === 'healthy' ? 'text-emerald-400' :
-                  worker.healthStatus === 'unhealthy' ? 'text-red-400' :
-                  'text-slate-500'
-                }`}>
-                  {worker.healthStatus === 'healthy' ? 'Healthy' :
-                   worker.healthStatus === 'unhealthy' ? 'Unhealthy' :
-                   'Unknown'}
+                <span
+                  className={`font-semibold ${
+                    worker.healthStatus === "healthy"
+                      ? "text-emerald-400"
+                      : worker.healthStatus === "unhealthy"
+                      ? "text-red-400"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {worker.healthStatus === "healthy"
+                    ? "Healthy"
+                    : worker.healthStatus === "unhealthy"
+                    ? "Unhealthy"
+                    : "Unknown"}
                 </span>
               </div>
             </CardContent>
@@ -272,15 +316,21 @@ export default function WorkerConfigPage() {
 
           <Card className="border-slate-800 bg-slate-900/50">
             <CardHeader className="pb-2">
-              <CardDescription className="text-slate-400">Last Run</CardDescription>
+              <CardDescription className="text-slate-400">
+                Last Run
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <span className={`font-semibold ${
-                schedules[0]?.last_run_status === 'success' ? 'text-emerald-400' :
-                schedules[0]?.last_run_status === 'failed' ? 'text-red-400' :
-                'text-slate-500'
-              }`}>
-                {schedules[0]?.last_run_status || 'Never'}
+              <span
+                className={`font-semibold ${
+                  schedules[0]?.last_run_status === "success"
+                    ? "text-emerald-400"
+                    : schedules[0]?.last_run_status === "failed"
+                    ? "text-red-400"
+                    : "text-slate-500"
+                }`}
+              >
+                {schedules[0]?.last_run_status || "Never"}
               </span>
             </CardContent>
           </Card>
@@ -303,7 +353,7 @@ export default function WorkerConfigPage() {
         )}
 
         {/* Providers (for data-fetcher-2.0) or Tickers (for other workers) */}
-        {worker.name === 'data-fetcher-2.0' ? (
+        {worker.name === "data-fetcher-2.0" ? (
           <Card className="border-slate-800 bg-slate-900/50">
             <CardHeader>
               <CardTitle className="text-slate-100 flex items-center gap-2">
@@ -316,21 +366,33 @@ export default function WorkerConfigPage() {
             </CardHeader>
             <CardContent>
               {providers.length === 0 ? (
-                <p className="text-slate-500 text-center py-4">No providers discovered</p>
+                <p className="text-slate-500 text-center py-4">
+                  No providers discovered
+                </p>
               ) : (
                 <div className="space-y-2">
                   {providers.map((provider) => (
-                    <div key={provider.name} className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-950/50">
+                    <div
+                      key={provider.name}
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-950/50"
+                    >
                       <div className="flex items-center gap-4">
                         <div className="w-2 h-2 rounded-full bg-emerald-400" />
                         <div>
-                          <span className="font-semibold text-slate-200">{provider.name}</span>
-                          <span className="text-slate-500 ml-2 text-sm">{provider.description}</span>
+                          <span className="font-semibold text-slate-200">
+                            {provider.name}
+                          </span>
+                          <span className="text-slate-500 ml-2 text-sm">
+                            {provider.description}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {provider.capabilities.map((cap) => (
-                          <span key={cap} className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                          <span
+                            key={cap}
+                            className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400"
+                          >
                             {cap}
                           </span>
                         ))}
@@ -354,7 +416,9 @@ export default function WorkerConfigPage() {
             </CardHeader>
             <CardContent>
               {tickers.length === 0 ? (
-                <p className="text-slate-500 text-center py-4">No tickers configured</p>
+                <p className="text-slate-500 text-center py-4">
+                  No tickers configured
+                </p>
               ) : (
                 <div className="space-y-2">
                   {tickers.map((ticker) => (
@@ -363,11 +427,19 @@ export default function WorkerConfigPage() {
                       className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-950/50"
                     >
                       <div className="flex items-center gap-4">
-                        <div className={`w-2 h-2 rounded-full ${ticker.is_active ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            ticker.is_active ? "bg-emerald-400" : "bg-slate-600"
+                          }`}
+                        />
                         <div>
-                          <span className="font-mono font-semibold text-slate-200">{ticker.symbol}</span>
+                          <span className="font-mono font-semibold text-slate-200">
+                            {ticker.symbol}
+                          </span>
                           {ticker.name && (
-                            <span className="text-slate-500 ml-2 text-sm">{ticker.name}</span>
+                            <span className="text-slate-500 ml-2 text-sm">
+                              {ticker.name}
+                            </span>
                           )}
                         </div>
                         <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">
@@ -378,12 +450,13 @@ export default function WorkerConfigPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => handleToggleTicker(ticker)}
-                        className={ticker.is_active
-                          ? "text-emerald-400 hover:text-emerald-300"
-                          : "text-slate-500 hover:text-slate-400"
+                        className={
+                          ticker.is_active
+                            ? "text-emerald-400 hover:text-emerald-300"
+                            : "text-slate-500 hover:text-slate-400"
                         }
                       >
-                        {ticker.is_active ? 'Active' : 'Inactive'}
+                        {ticker.is_active ? "Active" : "Inactive"}
                       </Button>
                     </div>
                   ))}
@@ -408,7 +481,10 @@ export default function WorkerConfigPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {grafanaPanels.map((panel, index) => (
-                  <div key={index} className="rounded-lg border border-slate-800 overflow-hidden">
+                  <div
+                    key={index}
+                    className="rounded-lg border border-slate-800 overflow-hidden"
+                  >
                     <div className="bg-slate-800 px-3 py-2 text-sm text-slate-300">
                       {panel.name}
                     </div>
@@ -442,4 +518,3 @@ export default function WorkerConfigPage() {
     </div>
   );
 }
-

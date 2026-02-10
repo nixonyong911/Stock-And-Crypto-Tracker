@@ -10,7 +10,7 @@ public interface IProviderRegistry
     /// </summary>
     /// <param name="info">The provider information to register.</param>
     void Register(ProviderInfo info);
-    
+
     /// <summary>
     /// Gets all registered providers.
     /// </summary>

@@ -49,7 +49,9 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: `Failed to fetch providers from worker (status ${response.status})` },
+        {
+          error: `Failed to fetch providers from worker (status ${response.status})`,
+        },
         { status: response.status }
       );
     }

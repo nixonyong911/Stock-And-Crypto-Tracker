@@ -11,16 +11,16 @@ The Telegram AI Financial Assistant is a TypeScript bot built with grammY, using
 
 ## Quick Reference
 
-| Component | Path | Purpose |
-|-----------|------|---------|
-| Telegram Bot Service | `services/social-media/telegram-2.0/` | Bot composers, middleware, services |
-| Config | `services/social-media/telegram-2.0/src/config.ts` | Environment configuration |
-| Gateway Client | `services/social-media/telegram-2.0/src/services/gateway-client.ts` | AI Gateway integration |
-| Session Middleware | `services/social-media/telegram-2.0/src/middleware/session.ts` | Auth, session hydration |
-| Rate Limiter | `services/social-media/telegram-2.0/src/middleware/rate-limiter.ts` | Rate limiting |
-| Command Composers | `services/social-media/telegram-2.0/src/composers/` | /start, /login, /logout, etc. |
-| Gateway Service | `services/ai/gateway/` | AI request routing |
-| MCP Server | `services/mcp/` | Read-only DB queries |
+| Component            | Path                                                                | Purpose                             |
+| -------------------- | ------------------------------------------------------------------- | ----------------------------------- |
+| Telegram Bot Service | `services/social-media/telegram-2.0/`                               | Bot composers, middleware, services |
+| Config               | `services/social-media/telegram-2.0/src/config.ts`                  | Environment configuration           |
+| Gateway Client       | `services/social-media/telegram-2.0/src/services/gateway-client.ts` | AI Gateway integration              |
+| Session Middleware   | `services/social-media/telegram-2.0/src/middleware/session.ts`      | Auth, session hydration             |
+| Rate Limiter         | `services/social-media/telegram-2.0/src/middleware/rate-limiter.ts` | Rate limiting                       |
+| Command Composers    | `services/social-media/telegram-2.0/src/composers/`                 | /start, /login, /logout, etc.       |
+| Gateway Service      | `services/ai/gateway/`                                              | AI request routing                  |
+| MCP Server           | `services/mcp/`                                                     | Read-only DB queries                |
 
 ## Setup Guide
 
@@ -29,6 +29,7 @@ The Telegram AI Financial Assistant is a TypeScript bot built with grammY, using
 1. **Telegram Bot** (created via @BotFather)
 
 2. **Environment Variables in Infisical**
+
    - `TELEGRAM_BOT_TOKEN` - Bot token from @BotFather
    - `WEBHOOK_URL` - Full webhook URL (e.g. `https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook`)
    - `DATABASE_URL` - PostgreSQL connection string
@@ -61,10 +62,10 @@ The Telegram AI Financial Assistant is a TypeScript bot built with grammY, using
 
 ### Rate Limits
 
-| Action | Limit | Window |
-|--------|-------|--------|
+| Action       | Limit      | Window     |
+| ------------ | ---------- | ---------- |
 | Registration | 3 attempts | 60 minutes |
-| Login | 5 attempts | 15 minutes |
+| Login        | 5 attempts | 15 minutes |
 
 ## Extending the Bot
 
@@ -74,14 +75,15 @@ The Telegram AI Financial Assistant is a TypeScript bot built with grammY, using
 2. Register it in `src/index.ts`
 
 Example:
+
 ```typescript
-import { Composer } from 'grammy';
-import type { BotContext } from '../types/context.js';
+import { Composer } from "grammy";
+import type { BotContext } from "../types/context.js";
 
 const composer = new Composer<BotContext>();
 
-composer.command('mycommand', async (ctx) => {
-  await ctx.reply('Response here');
+composer.command("mycommand", async (ctx) => {
+  await ctx.reply("Response here");
 });
 
 export default composer;
@@ -90,6 +92,7 @@ export default composer;
 ### AI Integration
 
 AI requests go through the Gateway service via `src/services/gateway-client.ts`. The client includes:
+
 - Progress indicator (typing action every 4 seconds)
 - Circuit breaker pattern (3 failures -> open, 30s reset)
 - 300s timeout for long-running AI requests
@@ -97,6 +100,7 @@ AI requests go through the Gateway service via `src/services/gateway-client.ts`.
 ### Modifying Rate Limits
 
 Update `rateLimits` in `src/config.ts`:
+
 ```typescript
 rateLimits: {
   register: { maxAttempts: 3, windowMinutes: 60 },
