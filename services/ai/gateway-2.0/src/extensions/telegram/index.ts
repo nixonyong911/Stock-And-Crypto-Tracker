@@ -68,6 +68,10 @@ export function createTelegramExtension(): IChannelExtension {
         api?.logger.error({ err: err.error, update: err.ctx?.update?.update_id }, 'Telegram bot error');
       });
 
+      // Initialize bot (required before handleUpdate works)
+      await bot.init();
+      api.logger.info({ botId: bot.botInfo.id, username: bot.botInfo.username }, 'Telegram bot initialized');
+
       // Set webhook
       try {
         await bot.api.setWebhook(telegramConfig.webhookUrl, {
