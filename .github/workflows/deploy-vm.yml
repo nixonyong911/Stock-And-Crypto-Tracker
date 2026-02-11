@@ -28,12 +28,9 @@ on:
       - "services/workers/data-fetcher-2.0/**"
       - "services/workers/analysis/**"
       - "services/metrics/**"
-      - "services/ai/ai-hub2.0/**"
-      - "services/ai/gateway/**"
       - "services/ai/gateway-2.0/**"
       - "services/back-office/**"
       - "services/mcp/**"
-      - "services/social-media/telegram-2.0/**"
       - "services/frontend/**"
       - "services/common/**"
       - "deployment/vm/**"
@@ -58,9 +55,6 @@ on:
           - "metrics"
           - "back-office"
           - "mcp-analysis"
-          - "telegram-bot-2.0"
-          - "ai-hub2"
-          - "gateway"
           - "gateway-2.0"
           - "frontend-staging"
 
@@ -78,14 +72,11 @@ jobs:
       metrics: ${{ steps.filter.outputs.metrics }}
       backoffice: ${{ steps.filter.outputs.backoffice }}
       mcp: ${{ steps.filter.outputs.mcp }}
-      telegram2: ${{ steps.filter.outputs.telegram2 }}
-      aihub2: ${{ steps.filter.outputs.aihub2 }}
-      gateway: ${{ steps.filter.outputs.gateway }}
       gateway2: ${{ steps.filter.outputs.gateway2 }}
       frontend: ${{ steps.filter.outputs.frontend }}
       config: ${{ steps.filter.outputs.config }}
       # NOTE: frontend is NOT in any_service because it's built on VM only (needs Infisical staging secrets)
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.datafetcher2 == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.telegram2 == 'true' || steps.filter.outputs.aihub2 == 'true' || steps.filter.outputs.gateway == 'true' || steps.filter.outputs.gateway2 == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.datafetcher2 == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.gateway2 == 'true' }}
       # Version outputs for tagging
       twelvedata_version: ${{ steps.versions.outputs.twelvedata }}
       fred_version: ${{ steps.versions.outputs.fred }}
@@ -94,9 +85,6 @@ jobs:
       metrics_version: ${{ steps.versions.outputs.metrics }}
       backoffice_version: ${{ steps.versions.outputs.backoffice }}
       mcp_version: ${{ steps.versions.outputs.mcp }}
-      telegram2_version: ${{ steps.versions.outputs.telegram2 }}
-      aihub2_version: ${{ steps.versions.outputs.aihub2 }}
-      gateway_version: ${{ steps.versions.outputs.gateway }}
       gateway2_version: ${{ steps.versions.outputs.gateway2 }}
       frontend_version: ${{ steps.versions.outputs.frontend }}
     steps:
@@ -126,12 +114,6 @@ jobs:
               - 'services/back-office/**'
             mcp:
               - 'services/mcp/**'
-            telegram2:
-              - 'services/social-media/telegram-2.0/**'
-            aihub2:
-              - 'services/ai/ai-hub2.0/**'
-            gateway:
-              - 'services/ai/gateway/**'
             gateway2:
               - 'services/ai/gateway-2.0/**'
             frontend:
@@ -152,9 +134,6 @@ jobs:
           echo "Metrics: ${{ steps.filter.outputs.metrics }}"
           echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
           echo "MCP Analysis: ${{ steps.filter.outputs.mcp }}"
-          echo "Telegram Bot 2.0: ${{ steps.filter.outputs.telegram2 }}"
-          echo "AI Hub 2.0: ${{ steps.filter.outputs.aihub2 }}"
-          echo "Gateway: ${{ steps.filter.outputs.gateway }}"
           echo "Gateway 2.0: ${{ steps.filter.outputs.gateway2 }}"
           echo "Frontend Staging: ${{ steps.filter.outputs.frontend }}"
           echo "Config: ${{ steps.filter.outputs.config }}"
@@ -173,9 +152,6 @@ jobs:
           echo "| Metrics | ${{ steps.filter.outputs.metrics }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
           echo "| MCP Analysis | ${{ steps.filter.outputs.mcp }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Telegram Bot 2.0 | ${{ steps.filter.outputs.telegram2 }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| AI Hub 2.0 | ${{ steps.filter.outputs.aihub2 }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Gateway | ${{ steps.filter.outputs.gateway }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Gateway 2.0 | ${{ steps.filter.outputs.gateway2 }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend Staging | ${{ steps.filter.outputs.frontend }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Config | ${{ steps.filter.outputs.config }} |" >> $GITHUB_STEP_SUMMARY
@@ -198,9 +174,6 @@ jobs:
             ["metrics"]="metrics"
             ["backoffice"]="back-office"
             ["mcp"]="mcp-analysis"
-            ["telegram2"]="telegram-bot-2.0"
-            ["aihub2"]="ai-hub2"
-            ["gateway"]="gateway"
             ["gateway2"]="gateway-2.0"
             ["frontend"]="frontend-staging"
           )
@@ -361,48 +334,6 @@ jobs:
           cache-to: type=gha,mode=max,scope=mcp
           outputs: type=docker,dest=/tmp/mcp-analysis.tar
 
-      # Build Telegram Bot 2.0 (only if changed or forced)
-      - name: Build Telegram Bot 2.0 image
-        id: build-telegram2
-        if: (needs.detect-changes.outputs.telegram2 == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
-        continue-on-error: true
-        uses: docker/build-push-action@v5
-        with:
-          context: services/social-media/telegram-2.0/
-          file: services/social-media/telegram-2.0/Dockerfile
-          tags: stocktracker-telegram-bot-2.0:v${{ needs.detect-changes.outputs.telegram2_version }}
-          cache-from: type=gha,scope=telegram2
-          cache-to: type=gha,mode=max,scope=telegram2
-          outputs: type=docker,dest=/tmp/telegram-bot-2.0.tar
-
-      # Build AI Hub 2.0 (Go) (only if changed or forced)
-      - name: Build AI Hub 2.0 image
-        id: build-aihub2
-        if: (needs.detect-changes.outputs.aihub2 == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
-        continue-on-error: true
-        uses: docker/build-push-action@v5
-        with:
-          context: services/ai/ai-hub2.0/
-          file: services/ai/ai-hub2.0/Dockerfile
-          tags: stocktracker-ai-hub2:v${{ needs.detect-changes.outputs.aihub2_version }}
-          cache-from: type=gha,scope=aihub2
-          cache-to: type=gha,mode=max,scope=aihub2
-          outputs: type=docker,dest=/tmp/ai-hub2.tar
-
-      # Build Gateway (Go) (only if changed or forced)
-      - name: Build Gateway image
-        id: build-gateway
-        if: (needs.detect-changes.outputs.gateway == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
-        continue-on-error: true
-        uses: docker/build-push-action@v5
-        with:
-          context: services/ai/gateway/
-          file: services/ai/gateway/Dockerfile
-          tags: stocktracker-gateway:v${{ needs.detect-changes.outputs.gateway_version }}
-          cache-from: type=gha,scope=gateway
-          cache-to: type=gha,mode=max,scope=gateway
-          outputs: type=docker,dest=/tmp/gateway.tar
-
       # Build Gateway 2.0 (TypeScript) (only if changed or forced)
       - name: Build Gateway 2.0 image
         id: build-gateway2
@@ -484,30 +415,6 @@ jobs:
             echo "⏭️ MCP Analysis skipped (unchanged)"
           fi
 
-          if [ -f /tmp/telegram-bot-2.0.tar ]; then
-            gzip -1 < /tmp/telegram-bot-2.0.tar > /tmp/images/telegram-bot-2.0.tar.gz
-            BUILT="${BUILT}telegram2,"
-            echo "✅ Telegram Bot 2.0 compressed"
-          else
-            echo "⏭️ Telegram Bot 2.0 skipped (unchanged)"
-          fi
-
-          if [ -f /tmp/ai-hub2.tar ]; then
-            gzip -1 < /tmp/ai-hub2.tar > /tmp/images/ai-hub2.tar.gz
-            BUILT="${BUILT}aihub2,"
-            echo "✅ AI Hub 2.0 compressed"
-          else
-            echo "⏭️ AI Hub 2.0 skipped (unchanged)"
-          fi
-
-          if [ -f /tmp/gateway.tar ]; then
-            gzip -1 < /tmp/gateway.tar > /tmp/images/gateway.tar.gz
-            BUILT="${BUILT}gateway,"
-            echo "✅ Gateway compressed"
-          else
-            echo "⏭️ Gateway skipped (unchanged)"
-          fi
-
           if [ -f /tmp/gateway-2.0.tar ]; then
             gzip -1 < /tmp/gateway-2.0.tar > /tmp/images/gateway-2.0.tar.gz
             BUILT="${BUILT}gateway2,"
@@ -574,7 +481,7 @@ jobs:
             cp "$ENV_FILE" "$ENV_FILE.bak"
           fi
 
-          for NAME in twelvedata fred-worker data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 gateway gateway-2.0; do
+          for NAME in twelvedata fred-worker data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis gateway-2.0; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -594,9 +501,6 @@ jobs:
                   "metrics") VAR_NAME="METRICS_VERSION" ;;
                   "back-office") VAR_NAME="BACK_OFFICE_VERSION" ;;
                   "mcp-analysis") VAR_NAME="MCP_ANALYSIS_VERSION" ;;
-                  "telegram-bot-2.0") VAR_NAME="TELEGRAM_BOT_VERSION" ;;
-                  "ai-hub2") VAR_NAME="AI_HUB2_VERSION" ;;
-                  "gateway") VAR_NAME="GATEWAY_VERSION" ;;
                   "gateway-2.0") VAR_NAME="GATEWAY_2_VERSION" ;;
                 esac
 
@@ -633,7 +537,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
 
-            for service in twelvedata fred-worker data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 gateway gateway-2.0; do
+            for service in twelvedata fred-worker data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis gateway-2.0; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -712,9 +616,6 @@ jobs:
           METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
           BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
           MCP_CHANGED: ${{ needs.detect-changes.outputs.mcp }}
-          TELEGRAM2_CHANGED: ${{ needs.detect-changes.outputs.telegram2 }}
-          AIHUB2_CHANGED: ${{ needs.detect-changes.outputs.aihub2 }}
-          GATEWAY_CHANGED: ${{ needs.detect-changes.outputs.gateway }}
           GATEWAY2_CHANGED: ${{ needs.detect-changes.outputs.gateway2 }}
           FORCE_BUILD: ${{ github.event.inputs.force_build }}
         run: |
@@ -732,9 +633,6 @@ jobs:
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES metrics"
           [ "$BACKOFFICE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES back-office"
           [ "$MCP_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES mcp-analysis"
-          [ "$TELEGRAM2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES telegram-bot-2.0"
-          [ "$AIHUB2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES ai-hub2"
-          [ "$GATEWAY_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES gateway"
           [ "$GATEWAY2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES gateway-2.0"
 
           # Trim whitespace
@@ -801,9 +699,6 @@ jobs:
             "metrics") IMAGE="stocktracker-metrics" ;;
             "back-office") IMAGE="stocktracker-back-office" ;;
             "mcp-analysis") IMAGE="stocktracker-mcp-analysis" ;;
-            "telegram-bot-2.0") IMAGE="stocktracker-telegram-bot-2.0" ;;
-            "ai-hub2") IMAGE="stocktracker-ai-hub2" ;;
-            "gateway") IMAGE="stocktracker-gateway" ;;
             "gateway-2.0") IMAGE="stocktracker-gateway-2.0" ;;
             "frontend-staging") IMAGE="stocktracker-frontend-staging" ;;
             *) echo "::error::Unknown service: $ROLLBACK_SERVICE"; exit 1 ;;
@@ -835,9 +730,6 @@ jobs:
             "metrics") VAR_NAME="METRICS_VERSION" ;;
             "back-office") VAR_NAME="BACK_OFFICE_VERSION" ;;
             "mcp-analysis") VAR_NAME="MCP_ANALYSIS_VERSION" ;;
-            "telegram-bot-2.0") VAR_NAME="TELEGRAM_BOT_VERSION" ;;
-            "ai-hub2") VAR_NAME="AI_HUB2_VERSION" ;;
-            "gateway") VAR_NAME="GATEWAY_VERSION" ;;
             "gateway-2.0") VAR_NAME="GATEWAY_2_VERSION" ;;
             "frontend-staging") VAR_NAME="FRONTEND_STAGING_VERSION" ;;
           esac
@@ -885,16 +777,6 @@ jobs:
           cd $DEPLOY_PATH/repo
           git fetch origin main
           git reset --hard origin/main
-
-          echo "=== Syncing agent-context to stock-tracker ==="
-          rsync -av --delete \
-            $DEPLOY_PATH/repo/services/ai/ai-hub2.0/agent-context/stock-tracker/ \
-            /home/azureuser/stock-tracker/
-
-          echo "=== Syncing Gateway agent-context ==="
-          rsync -av --delete \
-            $DEPLOY_PATH/repo/services/ai/gateway/agent-context/ \
-            /home/azureuser/gateway-context/ 2>/dev/null || echo "(Gateway agent-context sync skipped)"
 
           echo "=== Copying config files ==="
           cp $DEPLOY_PATH/repo/deployment/vm/docker-compose.yml $DEPLOY_PATH/
@@ -948,7 +830,7 @@ jobs:
 
           echo "=== Cleanup old images (keep running + 1 previous for rollback) ==="
           # Smart cleanup: keep 2 most recent versions per service (running + previous for rollback)
-          for SERVICE in twelvedata fred data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis telegram-bot-2.0 ai-hub2 gateway gateway-2.0 frontend-staging; do
+          for SERVICE in twelvedata fred data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis gateway-2.0 frontend-staging; do
             # Get all version tags for this service, sorted by version number
             TAGS=$(docker images "stocktracker-${SERVICE}" --format '{{.Tag}}' | grep -E '^v[0-9]+\.[0-9]+$' | sort -V 2>/dev/null || true)
             if [ -n "$TAGS" ]; then
@@ -1013,20 +895,13 @@ jobs:
           # Frontend Staging - check via public URL
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/front-end > /dev/null && echo "✅ Frontend Staging: OK" || echo "⚠️ Frontend Staging: Starting..."
 
-          # AI Hub 2.0 (Go) container - check via SSH
-          ssh azureuser@20.17.176.1 'docker exec ai-hub2 wget -qO- http://localhost:8080/health/live' > /dev/null && echo "✅ AI Hub 2.0: OK" || echo "⚠️ AI Hub 2.0: Check Docker logs"
-
-          # Gateway (Go) container - check via SSH
-          ssh azureuser@20.17.176.1 'docker exec gateway wget -qO- http://localhost:8080/health/live' > /dev/null && echo "✅ Gateway: OK" || echo "⚠️ Gateway: Check Docker logs"
-
           # Gateway 2.0 (TypeScript) container - check via SSH
-          ssh azureuser@20.17.176.1 'docker exec gateway-2.0 wget -qO- http://localhost:8080/health/live' > /dev/null && echo "✅ Gateway 2.0: OK" || echo "⚠️ Gateway 2.0: Check Docker logs"
+          ssh azureuser@20.17.176.1 'docker exec gateway-2.0 curl -sf http://localhost:8080/health/live' > /dev/null && echo "✅ Gateway 2.0: OK" || echo "⚠️ Gateway 2.0: Check Docker logs"
 
           # MCP Analysis runs on internal port 8085 - check via SSH
           ssh azureuser@20.17.176.1 'curl -sf http://localhost:8085/health' > /dev/null && echo "✅ MCP Analysis: OK" || echo "⚠️ MCP Analysis: Check Docker logs"
 
-          # Telegram Bot 2.0 (webhook mode) - check via SSH
-          ssh azureuser@20.17.176.1 'docker exec telegram-bot-2.0 wget -qO- http://localhost:8087/health' > /dev/null && echo "✅ Telegram Bot 2.0: OK" || echo "⚠️ Telegram Bot 2.0: Check Docker logs"
+          # Telegram is handled by Gateway 2.0 (in-process extension)
 
           ssh azureuser@20.17.176.1 'docker ps --filter name=alloy --format "{{.Status}}"' || echo "⚠️ Alloy: Check logs"
 
@@ -1054,8 +929,7 @@ jobs:
           echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
           echo "- [Frontend Staging](https://nxserver.malaysiawest.cloudapp.azure.com/front-end)" >> $GITHUB_STEP_SUMMARY
-          echo "- AI Hub 2.0: Go container (ai-hub2:8080)" >> $GITHUB_STEP_SUMMARY
-          echo "- Gateway 2.0: TypeScript container (gateway-2.0:8080)" >> $GITHUB_STEP_SUMMARY
+          echo "- Gateway 2.0: TypeScript container (gateway-2.0:8080, includes Telegram)" >> $GITHUB_STEP_SUMMARY
 
           echo ""
           echo "=========================================="
@@ -1077,9 +951,6 @@ jobs:
           METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
           BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
           MCP_CHANGED: ${{ needs.detect-changes.outputs.mcp }}
-          TELEGRAM2_CHANGED: ${{ needs.detect-changes.outputs.telegram2 }}
-          AIHUB2_CHANGED: ${{ needs.detect-changes.outputs.aihub2 }}
-          GATEWAY_CHANGED: ${{ needs.detect-changes.outputs.gateway }}
           GATEWAY2_CHANGED: ${{ needs.detect-changes.outputs.gateway2 }}
           FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
           TWELVEDATA_VERSION: ${{ needs.detect-changes.outputs.twelvedata_version }}
@@ -1089,9 +960,6 @@ jobs:
           METRICS_VERSION: ${{ needs.detect-changes.outputs.metrics_version }}
           BACKOFFICE_VERSION: ${{ needs.detect-changes.outputs.backoffice_version }}
           MCP_VERSION: ${{ needs.detect-changes.outputs.mcp_version }}
-          TELEGRAM2_VERSION: ${{ needs.detect-changes.outputs.telegram2_version }}
-          AIHUB2_VERSION: ${{ needs.detect-changes.outputs.aihub2_version }}
-          GATEWAY_VERSION: ${{ needs.detect-changes.outputs.gateway_version }}
           GATEWAY2_VERSION: ${{ needs.detect-changes.outputs.gateway2_version }}
           FRONTEND_VERSION: ${{ needs.detect-changes.outputs.frontend_version }}
           FORCE_BUILD: ${{ github.event.inputs.force_build }}
@@ -1112,7 +980,6 @@ jobs:
           echo "  BACKOFFICE_CHANGED:  $BACKOFFICE_CHANGED"
           echo "  MCP_CHANGED:         $MCP_CHANGED"
           echo "  TELEGRAM2_CHANGED:   $TELEGRAM2_CHANGED"
-          echo "  AIHUB2_CHANGED:      $AIHUB2_CHANGED"
           echo "  GATEWAY2_CHANGED:    $GATEWAY2_CHANGED"
           echo "  FRONTEND_CHANGED:    $FRONTEND_CHANGED"
           echo "  FORCE_BUILD:         $FORCE_BUILD"
@@ -1153,9 +1020,6 @@ jobs:
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "metrics" "$METRICS_VERSION"
           [ "$BACKOFFICE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "back-office" "$BACKOFFICE_VERSION"
           [ "$MCP_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "mcp-analysis" "$MCP_VERSION"
-          [ "$TELEGRAM2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "telegram-bot-2.0" "$TELEGRAM2_VERSION"
-          [ "$AIHUB2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "ai-hub2" "$AIHUB2_VERSION"
-          [ "$GATEWAY_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "gateway" "$GATEWAY_VERSION"
           [ "$GATEWAY2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "gateway-2.0" "$GATEWAY2_VERSION"
           [ "$FRONTEND_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "frontend-staging" "$FRONTEND_VERSION"
 
