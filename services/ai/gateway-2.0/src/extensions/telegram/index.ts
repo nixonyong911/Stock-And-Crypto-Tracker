@@ -1,37 +1,39 @@
-import { Bot, webhookCallback as _webhookCallback } from 'grammy';
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { IChannelExtension, GatewayAPI } from '../../extension/types.js';
-import { getTelegramConfig, type TelegramConfig } from './config.js';
-import { createBot, type TelegramBotContext } from './bot.js';
+import { Bot, webhookCallback as _webhookCallback } from "grammy";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { IChannelExtension, GatewayAPI } from "../../extension/types.js";
+import { getTelegramConfig, type TelegramConfig } from "./config.js";
+import { createBot, type TelegramBotContext } from "./bot.js";
+import { UserMessageQueue } from "./queue.js";
 
 // Middleware
-import { dedupMiddleware } from './middleware/dedup.js';
-import { sessionMiddleware } from './middleware/session.js';
+import { dedupMiddleware } from "./middleware/dedup.js";
+import { sessionMiddleware } from "./middleware/session.js";
 
 // Commands
-import startComposer from './commands/start.js';
-import helpComposer from './commands/help.js';
-import loginComposer from './commands/login.js';
-import logoutComposer from './commands/logout.js';
-import refreshComposer from './commands/refresh.js';
-import statusComposer from './commands/status.js';
-import pairComposer from './commands/pair.js';
-import messagesComposer from './commands/messages.js';
+import startComposer from "./commands/start.js";
+import helpComposer from "./commands/help.js";
+import loginComposer from "./commands/login.js";
+import logoutComposer from "./commands/logout.js";
+import refreshComposer from "./commands/refresh.js";
+import statusComposer from "./commands/status.js";
+import pairComposer from "./commands/pair.js";
+import messagesComposer from "./commands/messages.js";
 
 export function createTelegramExtension(): IChannelExtension {
   let bot: Bot<TelegramBotContext> | null = null;
   let api: GatewayAPI | null = null;
   let telegramConfig: TelegramConfig | null = null;
+  let messageQueue: UserMessageQueue | null = null;
 
   return {
-    id: 'telegram',
+    id: "telegram",
     meta: {
-      label: 'Telegram',
-      description: 'Telegram Bot channel via grammY',
-      aliases: ['tg'],
+      label: "Telegram",
+      description: "Telegram Bot channel via grammY",
+      aliases: ["tg"],
     },
     capabilities: {
-      chatTypes: ['direct'],
+      chatTypes: ["direct"],
       media: false,
       streaming: false,
     },
@@ -41,11 +43,12 @@ export function createTelegramExtension(): IChannelExtension {
       telegramConfig = getTelegramConfig(gatewayAPI.config);
       bot = createBot(telegramConfig.botToken);
 
-      // Inject gateway API and config into every context
+      // Inject gateway API, config, and message queue into every context
       bot.use(async (ctx, next) => {
         ctx.gatewayAPI = api!;
         ctx.telegramConfig = telegramConfig!;
         ctx.activeSession = null;
+        ctx.messageQueue = messageQueue!;
         return next();
       });
 
@@ -65,44 +68,68 @@ export function createTelegramExtension(): IChannelExtension {
 
       // Error handler
       bot.catch((err) => {
-        api?.logger.error({ err: err.error, update: err.ctx?.update?.update_id }, 'Telegram bot error');
+        api?.logger.error(
+          { err: err.error, update: err.ctx?.update?.update_id },
+          "Telegram bot error"
+        );
       });
 
       // Initialize bot (required before handleUpdate works)
       await bot.init();
-      api.logger.info({ botId: bot.botInfo.id, username: bot.botInfo.username }, 'Telegram bot initialized');
+
+      // Create per-user message queue (needs bot.api)
+      messageQueue = new UserMessageQueue(bot.api);
+
+      api.logger.info(
+        { botId: bot.botInfo.id, username: bot.botInfo.username },
+        "Telegram bot initialized"
+      );
 
       // Set webhook
       try {
         await bot.api.setWebhook(telegramConfig.webhookUrl, {
-          allowed_updates: ['message', 'callback_query'],
+          allowed_updates: ["message", "callback_query"],
           drop_pending_updates: true,
         });
-        api.logger.info({ webhookUrl: telegramConfig.webhookUrl }, 'Telegram webhook set');
+        api.logger.info(
+          { webhookUrl: telegramConfig.webhookUrl },
+          "Telegram webhook set"
+        );
       } catch (err) {
-        api.logger.error({ err }, 'Failed to set Telegram webhook');
+        api.logger.error({ err }, "Failed to set Telegram webhook");
       }
 
-      api.logger.info('Telegram extension started');
+      api.logger.info("Telegram extension started");
     },
 
     async stop(): Promise<void> {
+      if (messageQueue) {
+        messageQueue.clear();
+        messageQueue = null;
+      }
       if (bot) {
-        try { await bot.api.deleteWebhook(); } catch { /* ignore */ }
+        try {
+          await bot.api.deleteWebhook();
+        } catch {
+          /* ignore */
+        }
         bot = null;
       }
-      api?.logger.info('Telegram extension stopped');
+      api?.logger.info("Telegram extension stopped");
     },
 
     async sendText(params): Promise<{ ok: boolean }> {
       if (!bot) return { ok: false };
       try {
         await bot.api.sendMessage(Number(params.platformChatId), params.text, {
-          parse_mode: (params.parseMode as 'Markdown' | 'HTML') ?? 'Markdown',
+          parse_mode: (params.parseMode as "Markdown" | "HTML") ?? "Markdown",
         });
         return { ok: true };
       } catch (err) {
-        api?.logger.error({ err, chatId: params.platformChatId }, 'Failed to send Telegram message');
+        api?.logger.error(
+          { err, chatId: params.platformChatId },
+          "Failed to send Telegram message"
+        );
         return { ok: false };
       }
     },
@@ -110,7 +137,10 @@ export function createTelegramExtension(): IChannelExtension {
     async sendProcessingIndicator(params): Promise<{ messageId?: string }> {
       if (!bot) return {};
       try {
-        const msg = await bot.api.sendMessage(Number(params.platformChatId), '⏳ Processing your request...');
+        const msg = await bot.api.sendMessage(
+          Number(params.platformChatId),
+          "⏳ Processing your request..."
+        );
         return { messageId: String(msg.message_id) };
       } catch {
         return {};
@@ -120,25 +150,40 @@ export function createTelegramExtension(): IChannelExtension {
     async deleteMessage(params): Promise<void> {
       if (!bot) return;
       try {
-        await bot.api.deleteMessage(Number(params.platformChatId), Number(params.messageId));
-      } catch { /* ignore */ }
+        await bot.api.deleteMessage(
+          Number(params.platformChatId),
+          Number(params.messageId)
+        );
+      } catch {
+        /* ignore */
+      }
     },
 
     registerRoutes(fastify: FastifyInstance): void {
       // Webhook endpoint: POST /webhook
       // Caddy's handle_path strips the /telegram prefix, so Telegram sends
       // POST /telegram/webhook → Caddy forwards POST /webhook here.
-      fastify.post('/webhook', async (request: FastifyRequest, reply: FastifyReply) => {
-        if (!bot) return reply.status(503).send({ error: 'Telegram extension not started' });
-        try {
-          // Use handleUpdate directly with the parsed body
-          await bot.handleUpdate(request.body as Parameters<typeof bot.handleUpdate>[0]);
-          return reply.send({ ok: true });
-        } catch (err) {
-          api?.logger.error({ err }, 'Webhook handler error');
-          return reply.status(500).send({ error: 'Webhook processing failed' });
+      fastify.post(
+        "/webhook",
+        async (request: FastifyRequest, reply: FastifyReply) => {
+          if (!bot)
+            return reply
+              .status(503)
+              .send({ error: "Telegram extension not started" });
+          try {
+            // Use handleUpdate directly with the parsed body
+            await bot.handleUpdate(
+              request.body as Parameters<typeof bot.handleUpdate>[0]
+            );
+            return reply.send({ ok: true });
+          } catch (err) {
+            api?.logger.error({ err }, "Webhook handler error");
+            return reply
+              .status(500)
+              .send({ error: "Webhook processing failed" });
+          }
         }
-      });
+      );
     },
   };
 }

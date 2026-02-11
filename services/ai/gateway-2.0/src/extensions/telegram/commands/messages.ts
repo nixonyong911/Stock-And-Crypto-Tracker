@@ -17,30 +17,28 @@ composer.on('message:text', async (ctx) => {
     return;
   }
 
-  // Send processing indicator
-  let processingMsgId: number | undefined;
+  const session = ctx.activeSession;
+
+  // Enqueue the message — the queue handles position feedback and FIFO processing
   try {
-    const msg = await ctx.reply('⏳ Processing your request...');
-    processingMsgId = msg.message_id;
-  } catch { /* continue */ }
+    const chunks = await ctx.messageQueue.enqueue(
+      chatId,
+      userId,
+      messageText,
+      async (): Promise<string[]> => {
+        // This runs when it's this message's turn in the queue
+        const result = await ctx.gatewayAPI.processMessage({
+          channelType: 'telegram',
+          platformUserId: String(userId),
+          platformChatId: String(chatId),
+          message: messageText,
+          metadata: { cliSessionId: session.cliSessionId },
+        });
+        return splitMessage(result.response);
+      },
+    );
 
-  try {
-    // Call processMessage directly (in-process, no HTTP!)
-    const result = await ctx.gatewayAPI.processMessage({
-      channelType: 'telegram',
-      platformUserId: String(userId),
-      platformChatId: String(chatId),
-      message: messageText,
-      metadata: { cliSessionId: ctx.activeSession.cliSessionId },
-    });
-
-    // Delete processing indicator
-    if (processingMsgId) {
-      ctx.api.deleteMessage(chatId, processingMsgId).catch(() => {});
-    }
-
-    // Split and send response
-    const chunks = splitMessage(result.response);
+    // Send the response chunks
     for (const chunk of chunks) {
       try {
         await ctx.reply(chunk, { parse_mode: 'Markdown' });
@@ -49,19 +47,16 @@ composer.on('message:text', async (ctx) => {
       }
     }
   } catch (err) {
-    // Delete processing indicator
-    if (processingMsgId) {
-      ctx.api.deleteMessage(chatId, processingMsgId).catch(() => {});
-    }
-
     const errMsg = err instanceof Error ? err.message : String(err);
 
     if (errMsg.includes('No messages remaining')) {
       await ctx.reply(`⚠️ ${errMsg}\n\nUpgrade to Pro for unlimited messages.`, { parse_mode: 'Markdown' });
     } else if (errMsg.includes('blocked')) {
       await ctx.reply('⚠️ Your message was blocked by our safety system. Please rephrase your request.');
-    } else if (errMsg.includes('still processing')) {
-      await ctx.reply('⏳ Your previous message is still processing. Please wait...');
+    } else if (errMsg.includes('queue full')) {
+      await ctx.reply('⚠️ Too many messages queued. Please wait for your current messages to finish.');
+    } else if (errMsg.includes('Queue cleared')) {
+      // Shutdown — silently ignore
     } else {
       ctx.gatewayAPI.logger.error({ err, userId }, 'Message processing failed');
       await ctx.reply('⚠️ **Something went wrong**\n\nUnable to process your request. Please try again.\n\nIf this persists, use /refresh to reset your conversation.', { parse_mode: 'Markdown' });

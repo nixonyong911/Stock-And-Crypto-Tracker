@@ -1,6 +1,7 @@
 import { Bot, type Context } from 'grammy';
 import type { GatewayAPI, GatewaySession } from '../../extension/types.js';
 import type { TelegramConfig } from './config.js';
+import type { UserMessageQueue } from './queue.js';
 
 /** Extended session with display info from JOIN */
 export interface TelegramSession extends GatewaySession {
@@ -13,6 +14,7 @@ export interface TelegramBotContext extends Context {
   gatewayAPI: GatewayAPI;
   telegramConfig: TelegramConfig;
   activeSession: TelegramSession | null;
+  messageQueue: UserMessageQueue;
 }
 
 /** Create a new grammY bot instance */
