@@ -121,8 +121,10 @@ export function createTelegramExtension(): IChannelExtension {
     },
 
     registerRoutes(fastify: FastifyInstance): void {
-      // Webhook endpoint: POST /webhook/telegram
-      fastify.post('/webhook/telegram', async (request: FastifyRequest, reply: FastifyReply) => {
+      // Webhook endpoint: POST /webhook
+      // Caddy's handle_path strips the /telegram prefix, so Telegram sends
+      // POST /telegram/webhook → Caddy forwards POST /webhook here.
+      fastify.post('/webhook', async (request: FastifyRequest, reply: FastifyReply) => {
         if (!bot) return reply.status(503).send({ error: 'Telegram extension not started' });
         try {
           // Use handleUpdate directly with the parsed body

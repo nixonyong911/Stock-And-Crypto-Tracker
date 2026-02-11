@@ -16,7 +16,7 @@ export function registerAuthMiddleware(app: FastifyInstance, config: GatewayConf
     }
 
     // Skip auth for webhook paths (extensions handle their own auth)
-    if (request.url.startsWith('/webhook/')) {
+    if (request.url.startsWith('/webhook')) {
       return;
     }
 
