@@ -47,15 +47,15 @@ services:
       - N8N_PROTOCOL=https
       - N8N_EDITOR_BASE_URL=https://nxserver.malaysiawest.cloudapp.azure.com
       - TZ=Asia/Singapore
-      # AI Hub 2.0 (Go) access (Docker internal - faster than host.docker.internal)
-      - AI_HUB_URL=http://ai-hub2:8080
+      # Gateway 2.0 (TypeScript) access (Docker internal)
+      - AI_HUB_URL=http://gateway-2.0:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     volumes:
       - ./n8n-data:/home/node/.n8n
     networks:
       - stocktracker
     depends_on:
-      - ai-hub2
+      - gateway-2.0
 
   # ===========================================
   # TwelveData Worker
@@ -85,13 +85,13 @@ services:
       - RabbitMQ__UserName=stocktracker
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
       - RabbitMQ__QueueName=backfill-queue
-      # AI Hub 2.0 (Go) access (Docker internal)
-      - AI_HUB_URL=http://ai-hub2:8080
+      # Gateway 2.0 (TypeScript) access (Docker internal)
+      - AI_HUB_URL=http://gateway-2.0:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
     depends_on:
-      - ai-hub2
+      - gateway-2.0
       - rabbitmq
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
@@ -252,13 +252,13 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - PATH_BASE=/api/metrics
-      # AI Hub 2.0 (Go) access (Docker internal)
-      - AI_HUB_URL=http://ai-hub2:8080
+      # Gateway 2.0 (TypeScript) access (Docker internal)
+      - AI_HUB_URL=http://gateway-2.0:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     networks:
       - stocktracker
     depends_on:
-      - ai-hub2
+      - gateway-2.0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
       interval: 30s
@@ -388,7 +388,7 @@ services:
       - "8083:8080"
     environment:
       - PORT=8080
-      - GATEWAY_API_KEY=${GATEWAY_API_KEY}
+      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
       - GATEWAY_DEFAULT_MODEL=sonnet-4.5
       - GATEWAY_CONTEXT_PATH=/app/agent-context
       - GATEWAY_TIER_HOMES_PATH=/app/tier-homes
@@ -429,8 +429,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      # AI Hub 2.0 (Go) access (Docker internal - faster than host.docker.internal)
-      - AI_HUB_URL=http://ai-hub2:8080
+      # Gateway 2.0 (TypeScript) access (Docker internal)
+      - AI_HUB_URL=http://gateway-2.0:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
       # Supabase (server-side, service role key)
       - SUPABASE_URL=${SUPABASE_URL}
@@ -443,7 +443,7 @@ services:
     networks:
       - stocktracker
     depends_on:
-      - ai-hub2
+      - gateway-2.0
       - redis
       - rabbitmq
     healthcheck:
@@ -481,9 +481,9 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
-      # Gateway (for admin dashboard proxy)
-      - GATEWAY_URL=http://gateway:8080
-      - GATEWAY_API_KEY=${GATEWAY_API_KEY}
+      # Gateway 2.0 (for admin dashboard proxy)
+      - GATEWAY_URL=http://gateway-2.0:8080
+      - GATEWAY_API_KEY=${AI_HUB_API_KEY}
       - UPSTASH_REDIS_REST_URL=${UPSTASH_REDIS_REST_URL}
       - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
     networks:

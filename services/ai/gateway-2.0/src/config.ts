@@ -75,7 +75,7 @@ function envOptional(key: string): string | undefined {
 export function loadConfig(): GatewayConfig {
   return {
     port: envInt("PORT", 8080),
-    apiKey: envStr("GATEWAY_API_KEY", ""),
+    apiKey: envStr("AI_HUB_API_KEY", ""),
     contextPath: envStr(
       "GATEWAY_CONTEXT_PATH",
       "/app/agent-context",

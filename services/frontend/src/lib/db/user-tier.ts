@@ -2,7 +2,7 @@ import { getSupabaseAdmin } from "./supabase";
 import { getCache, setCache, deleteCache } from "@/lib/redis/client";
 import { cacheKeys, cacheTTL } from "@/lib/redis/keys";
 
-export type UserTier = "free" | "pro";
+export type UserTier = "free" | "pro" | "max" | "dev";
 
 /**
  * Get user tier by Clerk ID with Redis caching
