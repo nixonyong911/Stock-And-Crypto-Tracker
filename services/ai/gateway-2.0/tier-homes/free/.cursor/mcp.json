@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "analysis_mcp": {
-      "url": "http://mcp-analysis:8085/mcp/free",
+      "url": "http://mcp-analysis:8085/mcp/free/",
       "transport": "sse",
       "timeout": 5000,
       "keepAlive": true,

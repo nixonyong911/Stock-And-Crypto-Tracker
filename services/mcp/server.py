@@ -299,37 +299,6 @@ def setup_middleware(app: FastMCP) -> None:
 
 
 # ===========================================
-# Lifespan (shared DB pool for all tiers)
-# ===========================================
-
-@asynccontextmanager
-async def app_lifespan(app):
-    """Manage database pool lifecycle for all tier endpoints."""
-    print("=" * 50)
-    print("MCP Analysis Server Starting Up")
-    print("=" * 50)
-
-    setup_signal_handlers()
-    print("Signal handlers registered (SIGTERM, SIGINT)")
-
-    print("Initializing database connection pool...")
-    await init_pool()
-    print("Database pool initialized successfully")
-
-    try:
-        yield
-    finally:
-        print("=" * 50)
-        print("MCP Analysis Server Shutting Down")
-        print("=" * 50)
-
-        print("Closing database connection pool...")
-        await close_pool(timeout=10.0)
-
-        print("Shutdown complete")
-
-
-# ===========================================
 # ASGI Application Builder
 # ===========================================
 
@@ -341,7 +310,11 @@ def build_asgi_app():
       /mcp/free -> free tier (2 tools)
       /mcp/pro  -> pro tier (5 tools)
       /mcp      -> full (max/dev, all tools, backward compatible)
+
+    Uses SSE transport because cursor-agent CLI connects via SSE
+    (mcp.json files specify "transport": "sse").
     """
+    from contextlib import AsyncExitStack
     from starlette.applications import Starlette
     from starlette.routing import Mount
 
@@ -359,20 +332,60 @@ def build_asgi_app():
     print(f"  /mcp/pro  -> {len(TIER_TOOLS['pro'])} tools: {TIER_TOOLS['pro']}")
     print(f"  /mcp      -> {len(_TOOL_REGISTRY)} tools (all)")
 
-    # Create ASGI sub-apps with path="/" so Starlette Mount handles prefixes.
-    # See: https://gofastmcp.com/v2/deployment/http#mounting-in-starlette
-    free_http = mcp_free.http_app(path="/")
-    pro_http = mcp_pro.http_app(path="/")
-    full_http = mcp_full.http_app(path="/")
+    # Create SSE transport ASGI sub-apps.
+    # path="/" so Starlette Mount handles the prefix (e.g., /mcp/free).
+    # SSE transport exposes GET / (SSE endpoint) and POST /messages.
+    # The MCP SSE protocol uses scope['root_path'] to build the correct
+    # message endpoint URL for the client, so mounted paths work correctly.
+    free_sse = mcp_free.http_app(path="/", transport="sse")
+    pro_sse = mcp_pro.http_app(path="/", transport="sse")
+    full_sse = mcp_full.http_app(path="/", transport="sse")
+
+    sse_apps = [free_sse, pro_sse, full_sse]
+
+    @asynccontextmanager
+    async def combined_lifespan(starlette_app):
+        """
+        Combine our DB pool lifecycle with each FastMCP SSE app's lifespan.
+
+        Each SSE app's lifespan initialises the FastMCP server's internal
+        state (e.g., _started event). The parent Starlette app does not
+        propagate nested lifespans automatically, so we invoke them here.
+        """
+        print("=" * 50)
+        print("MCP Analysis Server Starting Up")
+        print("=" * 50)
+
+        setup_signal_handlers()
+        print("Signal handlers registered (SIGTERM, SIGINT)")
+
+        print("Initializing database connection pool...")
+        await init_pool()
+        print("Database pool initialized successfully")
+
+        try:
+            async with AsyncExitStack() as stack:
+                for sse_app in sse_apps:
+                    await stack.enter_async_context(sse_app.lifespan(sse_app))
+                yield
+        finally:
+            print("=" * 50)
+            print("MCP Analysis Server Shutting Down")
+            print("=" * 50)
+
+            print("Closing database connection pool...")
+            await close_pool(timeout=10.0)
+
+            print("Shutdown complete")
 
     # Assemble Starlette app.
     # Route order: most specific first to avoid prefix conflicts.
     app = Starlette(
-        lifespan=app_lifespan,
+        lifespan=combined_lifespan,
         routes=[
-            Mount("/mcp/free", app=free_http),
-            Mount("/mcp/pro", app=pro_http),
-            Mount("/mcp", app=full_http),
+            Mount("/mcp/free", app=free_sse),
+            Mount("/mcp/pro", app=pro_sse),
+            Mount("/mcp", app=full_sse),
         ],
     )
 
