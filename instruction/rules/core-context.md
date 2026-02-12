@@ -17,7 +17,7 @@ A microservices-based stock and cryptocurrency tracking application with:
 | Frontend | Next.js 15, TypeScript, Supabase Client (Vercel) |
 | Back-office | Next.js 16, TypeScript, Tailwind, shadcn/ui (VM) |
 | Backend Workers | .NET 8, Dapper, ASP.NET Core |
-| AI Services | Python 3, FastAPI (ai-hub as systemd service) |
+| AI Services | TypeScript, Fastify (gateway-2.0 in Docker) |
 | Database | PostgreSQL (Supabase), EF Core for migrations |
 | Shared Library | StockTracker.Data (entities), StockTracker.Common (utilities) |
 | CI/CD | GitHub Actions → SSH → Azure VM |
@@ -53,7 +53,7 @@ A microservices-based stock and cryptocurrency tracking application with:
 │   └── ai-agent/             # AI trading guides
 ├── services/
 │   ├── ai/
-│   │   └── ai-hub/           # Python/FastAPI AI gateway (systemd on host)
+│   │   └── gateway-2.0/      # TypeScript AI gateway (Docker on VM)
 │   ├── back-office/          # Next.js admin UI (Docker on VM)
 │   ├── common/
 │   │   ├── StockTracker.Data/           # EF Core entities & DbContext
@@ -83,6 +83,6 @@ A microservices-based stock and cryptocurrency tracking application with:
 9. **Caddy worker endpoints** - When adding new Caddy reverse proxy routes, update `instruction/skills/cli-caddy/SKILL.md`
 10. **VM deployment** - Backend services run on Azure VM (`nx-linux-server-azure`), not Container Apps
 11. **CLI documentation** - Detailed commands in `instruction/cli/` (PowerShell, Docker, Azure CLI)
-12. **AI Hub in Docker** - Python service as Docker container with volume mounts to access host CLIs; containers use `ai-hub2:8080`
+12. **Gateway 2.0 in Docker** - TypeScript AI gateway as Docker container with volume mounts to access host CLIs; containers use `gateway-2.0:8080`
 13. **Grafana Cloud** - Metrics/logs forwarded via Alloy; dashboards in `grafana/dashboards/`
 14. **Back-office** - Admin UI at `/back-office` on VM; uses Supabase for data display + AI Hub integration

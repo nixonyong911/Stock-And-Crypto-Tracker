@@ -60,7 +60,11 @@ export async function getUserTierById(userId: number): Promise<UserTier> {
 
   // Also cache by clerk_user_id if available
   if (data?.clerk_user_id) {
-    await setCache(cacheKeys.userTier(data.clerk_user_id), tier, cacheTTL.userTier);
+    await setCache(
+      cacheKeys.userTier(data.clerk_user_id),
+      tier,
+      cacheTTL.userTier
+    );
   }
 
   return tier;
@@ -70,7 +74,9 @@ export async function getUserTierById(userId: number): Promise<UserTier> {
  * Invalidate tier cache for a user
  * Call this when subscription changes (subscribe/unsubscribe)
  */
-export async function invalidateUserTierCache(clerkUserId: string): Promise<void> {
+export async function invalidateUserTierCache(
+  clerkUserId: string
+): Promise<void> {
   await deleteCache(cacheKeys.userTier(clerkUserId));
   console.log(`Invalidated tier cache for user ${clerkUserId}`);
 }
@@ -143,10 +149,12 @@ export async function isProUser(clerkUserId: string): Promise<boolean> {
  * Refresh user tier cache - fetch from DB and update cache
  * Use this after subscription changes to ensure cache is fresh
  */
-export async function refreshUserTierCache(clerkUserId: string): Promise<UserTier> {
+export async function refreshUserTierCache(
+  clerkUserId: string
+): Promise<UserTier> {
   // Delete existing cache
   await deleteCache(cacheKeys.userTier(clerkUserId));
-  
+
   // Fetch fresh from database and re-cache
   return getUserTier(clerkUserId);
 }

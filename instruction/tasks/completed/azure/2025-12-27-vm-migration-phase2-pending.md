@@ -1,14 +1,14 @@
 # VM Migration Phase 2 - PENDING
 
 **Date**: December 27, 2025  
-**Status**: 🟡 PENDING - Metrics Complete, AI-Hub & Others Pending
+**Status**: 🟡 PENDING - Metrics Complete, gateway-2.0 & Others Pending
 
 > **Metrics Service Completed**: See `instruction/completed/azure/2025-12-27-vm-migration-metrics-complete.md`  
 > **Phase 1 Completed**: See `instruction/completed/azure/2025-12-27-vm-migration-phase1-complete.md`
 
 ## Remaining Tasks
 
-### 1. AI-Hub Service
+### 1. gateway-2.0 (AI Gateway)
 
 **Status**: ⏸️ Disabled, needs API keys
 
@@ -19,12 +19,12 @@
 - [ ] Add secrets to Infisical
 
 **Deployment**:
-- [ ] Uncomment `ai-hub` service in `deployment/vm/docker-compose.yml`
-- [ ] Uncomment `/api/ai-hub*` route in `deployment/vm/Caddyfile`
+- [ ] Enable `gateway-2.0` service in `deployment/vm/docker-compose.yml`
+- [ ] Ensure Caddy routes for gateway-2.0 are configured
 - [ ] Add secrets to `deploy-vm.yml` env section
 - [ ] Add trigger path: `services/ai/**`
 - [ ] Test deployment
-- [ ] Verify docs at `/api/ai-hub/docs`
+- [ ] Verify docs at gateway-2.0 health/API endpoints
 
 ---
 
@@ -55,12 +55,12 @@
 
 ## Quick Reference
 
-### Enable AI-Hub Service
+### Enable gateway-2.0 (AI Gateway)
 
 ```bash
 # After adding API keys to Infisical/GitHub:
-# 1. Edit docker-compose.yml - uncomment ai-hub service
-# 2. Edit Caddyfile - uncomment /api/ai-hub* route
+# 1. Edit docker-compose.yml - ensure gateway-2.0 service is enabled
+# 2. Edit Caddyfile - ensure gateway-2.0 routes are configured
 # 3. Update deploy-vm.yml with new secrets
 # 4. Push changes - GitHub Actions will deploy
 ```

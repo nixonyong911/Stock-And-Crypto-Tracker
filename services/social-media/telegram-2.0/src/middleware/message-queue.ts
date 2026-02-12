@@ -16,13 +16,13 @@ async function tryClaimMessage(redis: BotContext['redis'], messageId: number): P
 
 /**
  * Message deduplication middleware.
- * 
+ *
  * Simplified from the previous queue middleware:
  * - REMOVED: RabbitMQ queuing (Gateway handles queuing internally)
  * - REMOVED: Per-chat Redis lock (Gateway has per-user lock)
  * - REMOVED: Pending counter (Gateway manages queue depth)
  * - KEPT: Webhook deduplication (prevents Telegram retry duplicates)
- * 
+ *
  * Gateway now handles: per-user locking, priority queuing, CLI concurrency.
  * Telegram bot only needs to prevent duplicate webhook deliveries.
  */

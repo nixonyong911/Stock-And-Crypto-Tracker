@@ -40,6 +40,7 @@ instruction/
 ### KNOWLEDGE.md (Project Memory)
 
 Living document tracking:
+
 - Active components and their status
 - Recent learnings and gotchas
 - Pending patterns to document
@@ -49,17 +50,20 @@ Living document tracking:
 Self-contained instructions following the [Agent Skills spec](https://agentskills.io/specification):
 
 **Core Skills:**
+
 - [knowledge-keeper](skills/knowledge-keeper/SKILL.md) - Maintain project knowledge
 - [skill-creator](skills/skill-creator/SKILL.md) - Create new spec-compliant skills
 - [rules-keeper](skills/rules-keeper/SKILL.md) - Maintain project rules when code changes
 - [worker-requirements](skills/worker-requirements/SKILL.md) - Worker standard (create & review)
 
 **CLI Skills:**
+
 - [cli](skills/cli/SKILL.md) - Unified CLI skill with references for docker, caddy, grafana, etc.
 
 ### Rules (Project Laws)
 
 Project-wide constraints that ALL agents must follow:
+
 - [core-context.md](rules/core-context.md) - Project overview & structure
 - [cicd-deployment.md](rules/cicd-deployment.md) - CI/CD pipeline
 - [secrets-infisical.md](rules/secrets-infisical.md) - Secrets management
@@ -72,23 +76,24 @@ Project-wide constraints that ALL agents must follow:
 
 ## Commands
 
-| Command | Purpose |
-|---------|---------|
-| `/finish-task` | Move completed tasks to `tasks/completed/` |
+| Command             | Purpose                                                   |
+| ------------------- | --------------------------------------------------------- |
+| `/finish-task`      | Move completed tasks to `tasks/completed/`                |
 | `/knowledge-update` | Extract learnings from conversation → update KNOWLEDGE.md |
 
 ## Service Endpoints
 
-| Service | URL |
-|---------|-----|
-| n8n Dashboard | https://nxserver.malaysiawest.cloudapp.azure.com/ |
+| Service            | URL                                                                     |
+| ------------------ | ----------------------------------------------------------------------- |
+| n8n Dashboard      | https://nxserver.malaysiawest.cloudapp.azure.com/                       |
 | TwelveData Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger |
-| Back-Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office |
-| Frontend | https://stock-tracker.vercel.app/ |
+| Back-Office        | https://nxserver.malaysiawest.cloudapp.azure.com/back-office            |
+| Frontend           | https://stock-tracker.vercel.app/                                       |
 
 ## Quick Links
 
 ### Rules (Project Laws)
+
 - [Project Overview](rules/core-context.md)
 - [CI/CD Pipeline](rules/cicd-deployment.md)
 - [Secrets Management](rules/secrets-infisical.md)
@@ -96,25 +101,30 @@ Project-wide constraints that ALL agents must follow:
 - [Coding Conventions](rules/conventions/)
 
 ### Architecture (Service-Specific)
+
 - [VM Deployment](architecture/vm-deployment-architecture.md)
 - [TwelveData Worker](architecture/twelvedata-architecture.md)
-- [AI Hub](architecture/ai-hub-architecture.md)
+
 - [Infisical Secrets](architecture/infisical-secrets-management.md)
 
 ### Reference
+
 - [Metrics Specification](reference/metrics-specification.md)
 - [Infrastructure Config](reference/infrastructure-config.md)
 
 ### Database
+
 - [Schema Reference](database/schema.md)
 
 ### Skills (Core)
+
 - [knowledge-keeper](skills/knowledge-keeper/SKILL.md) - Maintain project knowledge
 - [skill-creator](skills/skill-creator/SKILL.md) - Create spec-compliant skills
 - [rules-keeper](skills/rules-keeper/SKILL.md) - Update rules when code changes
 - [worker-requirements](skills/worker-requirements/SKILL.md) - Worker standard (create & review)
 
 ### Skills (CLI)
+
 - [cli](skills/cli/SKILL.md) - Unified CLI skill
   - [docker](skills/cli/References/docker/REFERENCE.md) - Docker/compose commands
   - [caddy](skills/cli/References/caddy/REFERENCE.md) - Worker endpoints & proxy
@@ -139,8 +149,9 @@ Project-wide constraints that ALL agents must follow:
 ### Updating Documentation
 
 When code changes affect documentation:
+
 1. `knowledge-keeper` → updates KNOWLEDGE.md, creates skills
-2. `rules-keeper` → updates rules/*.md, archives obsolete rules
+2. `rules-keeper` → updates rules/\*.md, archives obsolete rules
 
 ### Creating or Reviewing Workers
 

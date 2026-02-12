@@ -1,5 +1,5 @@
-const AI_HUB_URL = process.env.AI_HUB_URL || "http://ai-hub2:8080";
-const AI_HUB_API_KEY = process.env.AI_HUB_API_KEY || "";
+const GATEWAY_URL = process.env.GATEWAY_URL || "http://gateway-2.0:8080";
+const GATEWAY_API_KEY = process.env.GATEWAY_API_KEY || "";
 
 export async function POST(req: Request) {
   try {
@@ -15,25 +15,27 @@ export async function POST(req: Request) {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    
+
     // Add API key if configured
-    if (AI_HUB_API_KEY) {
-      headers["X-API-Key"] = AI_HUB_API_KEY;
+    if (GATEWAY_API_KEY) {
+      headers["X-API-Key"] = GATEWAY_API_KEY;
     }
 
-    const response = await fetch(
-      `${AI_HUB_URL}/cli/stock-tracker/cursor/opus-4.5`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ message }),
-      }
-    );
+    const response = await fetch(`${GATEWAY_URL}/api/v1/chat`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        message,
+        user_id: "back-office",
+        tier: "dev",
+        channel_type: "back-office",
+      }),
+    });
 
     if (!response.ok) {
       const error = await response.text();
       return new Response(
-        JSON.stringify({ error: `AI Hub error: ${error}` }),
+        JSON.stringify({ error: `Gateway error: ${error}` }),
         {
           status: response.status,
           headers: { "Content-Type": "application/json" },
@@ -41,14 +43,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const text = await response.text();
-    return new Response(text, {
+    const data = await response.json();
+    return new Response(data.response ?? "", {
       headers: { "Content-Type": "text/plain" },
     });
   } catch (error) {
     console.error("Cursor API error:", error);
     return new Response(
-      JSON.stringify({ error: "Failed to connect to AI Hub" }),
+      JSON.stringify({ error: "Failed to connect to Gateway" }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
@@ -56,4 +58,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

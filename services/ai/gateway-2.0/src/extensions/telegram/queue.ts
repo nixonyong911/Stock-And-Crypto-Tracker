@@ -63,7 +63,7 @@ export class UserMessageQueue {
     chatId: number,
     userId: number,
     message: string,
-    processFn: () => Promise<string[]>,
+    processFn: () => Promise<string[]>
   ): Promise<string[]> {
     let queue = this.queues.get(userId);
     if (!queue) {
@@ -128,9 +128,7 @@ export class UserMessageQueue {
 
       // Delete the status message for the completed item
       if (item.statusMsgId) {
-        this.api
-          .deleteMessage(item.chatId, item.statusMsgId)
-          .catch(() => {});
+        this.api.deleteMessage(item.chatId, item.statusMsgId).catch(() => {});
       }
 
       // Process next in queue (or clean up)
@@ -147,7 +145,7 @@ export class UserMessageQueue {
   private async sendQueueStatus(
     item: QueuedMessage,
     position: number,
-    total: number,
+    total: number
   ): Promise<void> {
     try {
       const preview =
@@ -157,7 +155,7 @@ export class UserMessageQueue {
       const msg = await this.api.sendMessage(
         item.chatId,
         `📋 *Queued (${position} of ${total})*\n_"${preview}"_\n\nYour message is in line. Please wait...`,
-        { parse_mode: "Markdown" },
+        { parse_mode: "Markdown" }
       );
       item.statusMsgId = msg.message_id;
     } catch {
@@ -172,8 +170,12 @@ export class UserMessageQueue {
         await this.api.editMessageText(
           item.chatId,
           item.statusMsgId,
-          `⏳ *Processing your request...*\n_"${item.message.length > 40 ? item.message.slice(0, 40) + "..." : item.message}"_`,
-          { parse_mode: "Markdown" },
+          `⏳ *Processing your request...*\n_"${
+            item.message.length > 40
+              ? item.message.slice(0, 40) + "..."
+              : item.message
+          }"_`,
+          { parse_mode: "Markdown" }
         );
       } catch {
         // Message may have been deleted
@@ -183,7 +185,7 @@ export class UserMessageQueue {
       try {
         const msg = await this.api.sendMessage(
           item.chatId,
-          "⏳ Processing your request...",
+          "⏳ Processing your request..."
         );
         item.statusMsgId = msg.message_id;
       } catch {
@@ -206,8 +208,10 @@ export class UserMessageQueue {
           await this.api.editMessageText(
             waiting.chatId,
             waiting.statusMsgId,
-            `📋 *Queued (${i} of ${total - 1})*\n_"${preview}"_\n\nYour message is in line. Please wait...`,
-            { parse_mode: "Markdown" },
+            `📋 *Queued (${i} of ${
+              total - 1
+            })*\n_"${preview}"_\n\nYour message is in line. Please wait...`,
+            { parse_mode: "Markdown" }
           );
         } catch {
           // Telegram may reject if text hasn't changed

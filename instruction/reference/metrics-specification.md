@@ -10,7 +10,7 @@ Standardized metrics specification for all Stock and Crypto Tracker workers. All
 ┌─────────────────┐         ┌──────────────────┐         ┌─────────┐         ┌──────────────┐
 │     Worker      │  HTTP   │  Metrics Service │  Scrape │  Alloy  │  Push   │ Grafana Cloud│
 │  (TwelveData,   │ ──────► │                  │ ◄────── │         │ ──────► │              │
-│   AI-Hub, etc)  │  POST   │  /api/metrics    │         │         │         │  Dashboards  │
+│   gateway-2.0,  │  POST   │  /api/metrics    │         │         │         │  Dashboards  │
 └─────────────────┘         └──────────────────┘         └─────────┘         └──────────────┘
 ```
 
@@ -37,7 +37,7 @@ Standardized metrics specification for all Stock and Crypto Tracker workers. All
 ### Rules
 
 1. **All lowercase** with underscores
-2. **Worker prefix** identifies the source (e.g., `twelvedata_`, `aihub_`)
+2. **Worker prefix** identifies the source (e.g., `twelvedata_`, `gateway_`)
 3. **Unit suffix** for clarity:
    - `_total` for counters
    - `_seconds` for durations
@@ -50,7 +50,7 @@ Standardized metrics specification for all Stock and Crypto Tracker workers. All
 | Good | Bad |
 |------|-----|
 | `twelvedata_fetch_operations_total` | `TwelveDataFetchOps` |
-| `aihub_analysis_duration_seconds` | `ai-hub.analysis.time` |
+| `gateway_analysis_duration_seconds` | `gateway.analysis.time` |
 | `worker_last_activity_timestamp` | `lastActivityTime` |
 
 ---
@@ -100,15 +100,6 @@ Workers MAY emit additional metrics specific to their function.
 | `api_quota_remaining` | Gauge | - | TwelveData API calls remaining |
 | `symbols_processed_total` | Counter | `exchange` | Symbols processed per exchange |
 | `batch_duration_seconds` | Histogram | - | Total batch job duration |
-
-### AI-Hub Worker
-
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `llm_requests_total` | Counter | `model`, `status` | LLM API calls |
-| `tokens_used_total` | Counter | `model`, `type` | Token usage (`type`: input/output) |
-| `analysis_duration_seconds` | Histogram | `analysis_type` | Time per analysis |
-| `analysis_requests_total` | Counter | `analysis_type`, `status` | Analysis requests |
 
 ### Background Jobs (Cron)
 

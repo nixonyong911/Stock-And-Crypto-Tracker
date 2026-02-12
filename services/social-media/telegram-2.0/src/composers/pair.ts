@@ -53,10 +53,10 @@ composer.command('pair', async (ctx) => {
       expires_at: string;
       used_at: string | null;
     }>(
-      `SELECT * FROM users_link_tokens 
-       WHERE token = $1 
+      `SELECT * FROM users_link_tokens
+       WHERE token = $1
          AND direction = 'web_to_telegram'
-         AND used_at IS NULL 
+         AND used_at IS NULL
          AND expires_at > NOW()`,
       code
     );

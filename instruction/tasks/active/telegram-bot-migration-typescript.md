@@ -176,11 +176,10 @@ ON telegram_sessions(cursor_chat_id)
 WHERE cursor_chat_id IS NOT NULL;
 ```
 
-### Phase 11: AI Hub Changes
+### Phase 11: gateway-2.0 Changes
 
-- [ ] Update `schemas.py` - Add `session_id` to `CLIMessageRequest`
-- [ ] Update `telegram_versions.py` - Pass `--resume` flag when `session_id` provided
-- [ ] Update endpoint handlers in `main.py` to pass `session_id` to executor
+- [ ] Add `session_id` support to chat/session endpoints
+- [ ] Pass `--resume` flag to cursor-agent when `session_id` provided
 
 ### Phase 12: Docker Compose Updates
 
@@ -199,13 +198,13 @@ telegram-bot-ts:
     - WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook
     - DATABASE_URL_TS=${DATABASE_URL_TS}
     - REDIS_URL=redis://redis:6379
-    - AI_HUB_URL=http://ai-hub2:8080
+    - AI_HUB_URL=http://gateway-2.0:8080
     - AI_HUB_API_KEY=${AI_HUB_API_KEY}
     - BOT_PORT=8087
   networks:
     - stocktracker
   depends_on:
-    - ai-hub2
+    - gateway-2.0
     - redis
 ```
 
@@ -265,9 +264,7 @@ File: `.github/workflows/deploy-vm.yml`
 
 | File                                               | Action                                       |
 | -------------------------------------------------- | -------------------------------------------- |
-| `services/ai/ai-hub/schemas.py`                    | Add `session_id` field                       |
-| `services/ai/ai-hub/services/telegram_versions.py` | Add `--resume` flag support                  |
-| `services/ai/ai-hub/main.py`                       | Pass `session_id` to executor                |
+| `services/ai/gateway-2.0/`                         | Add `session_id` / `--resume` support        |
 | `deployment/vm/docker-compose.yml`                 | Add `telegram-bot-ts`, remove `telegram-bot` |
 | `deployment/vm/Caddyfile`                          | Add webhook route                            |
 | `.github/workflows/deploy-vm.yml`                  | Add CI/CD for new service                    |
@@ -395,6 +392,6 @@ CREATE TABLE telegram_rate_limits (
 
 - grammY documentation: https://grammy.dev/
 - Current Python bot: `services/social-media/telegram/`
-- AI Hub service: `services/ai/ai-hub/`
+- gateway-2.0: `services/ai/gateway-2.0/`
 - Docker deployment: `deployment/vm/docker-compose.yml`
 - Related task: `instruction/tasks/active/telegram-agent-ux-improvements.md`

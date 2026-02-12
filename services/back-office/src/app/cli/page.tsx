@@ -21,8 +21,8 @@ interface HistoryEntry {
 }
 
 const AGENT_DISPLAY_NAMES: Record<AgentType, string> = {
-  "claude": "Claude (Opus 4.5)",
-  "cursor": "Cursor (Opus 4.5)",
+  claude: "Claude (Opus 4.5)",
+  cursor: "Cursor (Opus 4.5)",
   "telegram-agent": "Telegram Agent (Sonnet 4.5)",
   "telegram-agent-test": "Telegram Agent Test (Sonnet 4.5)",
 };
@@ -33,12 +33,12 @@ export default function CliTestingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgent, setActiveAgent] = useState<AgentType | null>(null);
   const [lastUsedAgent, setLastUsedAgent] = useState<AgentType | null>(null);
-  
+
   // Stopwatch state
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // History state
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const historyIdRef = useRef(0);
@@ -104,15 +104,18 @@ export default function CliTestingPage() {
       const duration = Date.now() - startTime;
       setIsLoading(false);
       setActiveAgent(null);
-      
+
       // Add to history
       historyIdRef.current += 1;
-      setHistory(prev => [{
-        id: historyIdRef.current,
-        agent,
-        duration,
-        timestamp: new Date(),
-      }, ...prev]);
+      setHistory((prev) => [
+        {
+          id: historyIdRef.current,
+          agent,
+          duration,
+          timestamp: new Date(),
+        },
+        ...prev,
+      ]);
     }
   };
 
@@ -132,7 +135,8 @@ export default function CliTestingPage() {
           <CardHeader>
             <CardTitle className="text-slate-100">Send Message</CardTitle>
             <CardDescription className="text-slate-400">
-              Enter your message to send to Claude, Cursor, or Telegram AI agents
+              Enter your message to send to Claude, Cursor, or Telegram AI
+              agents
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -146,10 +150,12 @@ export default function CliTestingPage() {
             {isLoading && (
               <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-cyan-500/10 border border-cyan-500/30">
                 <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span className="text-cyan-400 font-mono text-lg">{formatTime(elapsedTime)}</span>
+                <span className="text-cyan-400 font-mono text-lg">
+                  {formatTime(elapsedTime)}
+                </span>
               </div>
             )}
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Button
                 onClick={() => sendToAgent("claude")}
@@ -223,9 +229,13 @@ export default function CliTestingPage() {
               </div>
               {finalTime !== null && !isLoading && lastUsedAgent && (
                 <div className="flex items-center gap-2 py-1 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                  <span className="text-emerald-400 text-sm">{AGENT_DISPLAY_NAMES[lastUsedAgent]}</span>
+                  <span className="text-emerald-400 text-sm">
+                    {AGENT_DISPLAY_NAMES[lastUsedAgent]}
+                  </span>
                   <span className="text-emerald-500/50">•</span>
-                  <span className="text-emerald-400 font-mono font-semibold">{formatTime(finalTime)}</span>
+                  <span className="text-emerald-400 font-mono font-semibold">
+                    {formatTime(finalTime)}
+                  </span>
                 </div>
               )}
             </div>
@@ -257,18 +267,35 @@ export default function CliTestingPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-700">
-                      <th className="text-left py-2 px-3 text-slate-400 font-medium">#</th>
-                      <th className="text-left py-2 px-3 text-slate-400 font-medium">Endpoint</th>
-                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Duration</th>
-                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Time</th>
+                      <th className="text-left py-2 px-3 text-slate-400 font-medium">
+                        #
+                      </th>
+                      <th className="text-left py-2 px-3 text-slate-400 font-medium">
+                        Endpoint
+                      </th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">
+                        Duration
+                      </th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">
+                        Time
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.map((entry, index) => (
-                      <tr key={entry.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
-                        <td className="py-2 px-3 text-slate-500 font-mono">{history.length - index}</td>
-                        <td className="py-2 px-3 text-slate-100">{AGENT_DISPLAY_NAMES[entry.agent]}</td>
-                        <td className="py-2 px-3 text-right font-mono text-emerald-400">{formatTime(entry.duration)}</td>
+                      <tr
+                        key={entry.id}
+                        className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
+                      >
+                        <td className="py-2 px-3 text-slate-500 font-mono">
+                          {history.length - index}
+                        </td>
+                        <td className="py-2 px-3 text-slate-100">
+                          {AGENT_DISPLAY_NAMES[entry.agent]}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-400">
+                          {formatTime(entry.duration)}
+                        </td>
                         <td className="py-2 px-3 text-right text-slate-400 font-mono">
                           {entry.timestamp.toLocaleTimeString()}
                         </td>
@@ -296,7 +323,7 @@ export default function CliTestingPage() {
                 </span>
                 <span className="text-slate-300">/back-office/api/claude</span>
                 <span className="text-slate-500">
-                  → /cli/stock-tracker/claude/opus-4.5
+                  → gateway-2.0 /api/v1/chat
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -305,25 +332,29 @@ export default function CliTestingPage() {
                 </span>
                 <span className="text-slate-300">/back-office/api/cursor</span>
                 <span className="text-slate-500">
-                  → /cli/stock-tracker/cursor/opus-4.5
+                  → gateway-2.0 /api/v1/chat
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="rounded bg-violet-500/20 px-2 py-0.5 text-violet-400">
                   POST
                 </span>
-                <span className="text-slate-300">/back-office/api/telegram-agent</span>
+                <span className="text-slate-300">
+                  /back-office/api/telegram-agent
+                </span>
                 <span className="text-slate-500">
-                  → /cli/telegram-agent/cursor/sonnet-4.5
+                  → gateway-2.0 /api/v1/chat
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="rounded bg-pink-500/20 px-2 py-0.5 text-pink-400">
                   POST
                 </span>
-                <span className="text-slate-300">/back-office/api/telegram-agent-test</span>
+                <span className="text-slate-300">
+                  /back-office/api/telegram-agent-test
+                </span>
                 <span className="text-slate-500">
-                  → /cli/telegram-agent-test/cursor/sonnet-4.5
+                  → gateway-2.0 /api/v1/chat
                 </span>
               </div>
             </div>
@@ -333,4 +364,3 @@ export default function CliTestingPage() {
     </div>
   );
 }
-

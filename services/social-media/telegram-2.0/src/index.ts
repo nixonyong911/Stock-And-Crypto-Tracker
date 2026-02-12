@@ -84,7 +84,7 @@ async function main() {
   bot.use(refreshComposer);
   bot.use(statusComposer);
   bot.use(pairComposer);
-  
+
   // Messages composer last (catches all text messages)
   bot.use(messagesComposer);
 
@@ -150,9 +150,9 @@ async function main() {
   // Graceful shutdown
   const shutdown = async () => {
     logger.info('Shutting down...');
-    
+
     // No message consumer to stop (Gateway handles queuing)
-    
+
     try {
       await bot.api.deleteWebhook();
       logger.info('Webhook deleted');
@@ -164,7 +164,7 @@ async function main() {
     // RabbitMQ removed (Gateway handles queuing)
     await redis.close();
     await db.close();
-    
+
     logger.info('Shutdown complete');
     process.exit(0);
   };

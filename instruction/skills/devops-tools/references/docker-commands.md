@@ -108,37 +108,6 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd 
 
 ---
 
-## AI Hub 2.0 (Standalone Container)
-
-AI Hub runs as a standalone Docker container, **NOT** in docker-compose.
-
-### Check Status
-
-```powershell
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker ps --filter name=ai-hub2"
-```
-
-### View Logs
-
-```powershell
-# Last 50 lines
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker logs ai-hub2 --tail 50"
-
-# Follow logs
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker logs ai-hub2 -f"
-
-# Recent logs (last 10 minutes)
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker logs ai-hub2 --since '10m'"
-```
-
-### Restart
-
-```powershell
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker restart ai-hub2"
-```
-
----
-
 ## Container Management
 
 ```powershell

@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByClerkId } from "@/lib/db/users";
 
-const GATEWAY_URL = process.env.GATEWAY_URL || "http://gateway:8080";
+const GATEWAY_URL = process.env.GATEWAY_URL || "http://gateway-2.0:8080";
 const GATEWAY_API_KEY = process.env.GATEWAY_API_KEY || "";
 
 /**
@@ -19,13 +19,19 @@ export async function GET(request: NextRequest) {
     // Check user is dev tier
     const user = await getUserByClerkId(userId);
     if (!user || user.tier !== "dev") {
-      return NextResponse.json({ error: "Forbidden: dev tier required" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Forbidden: dev tier required" },
+        { status: 403 }
+      );
     }
 
     // Get the endpoint from query param
     const endpoint = request.nextUrl.searchParams.get("endpoint");
     if (!endpoint) {
-      return NextResponse.json({ error: "Missing endpoint parameter" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing endpoint parameter" },
+        { status: 400 }
+      );
     }
 
     // Whitelist allowed endpoints

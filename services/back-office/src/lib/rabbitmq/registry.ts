@@ -17,13 +17,16 @@ export const QUEUE_REGISTRY: Record<string, Partial<QueueMetadata>> = {
     description: "Stock historical data backfill requests (FIFO processing)",
   },
   "crypto-backfill-queue": {
-    description: "Crypto historical data backfill requests (24/7 trading, ~17K data points per symbol)",
+    description:
+      "Crypto historical data backfill requests (24/7 trading, ~17K data points per symbol)",
   },
   "ticker-add-queue": {
-    description: "New ticker registration requests (adds stocks/crypto to tracking)",
+    description:
+      "New ticker registration requests (adds stocks/crypto to tracking)",
   },
   "analysis-backfill-queue": {
-    description: "Candlestick pattern analysis backfill requests (triggered after price data backfill)",
+    description:
+      "Candlestick pattern analysis backfill requests (triggered after price data backfill)",
   },
   "telegram.messages": {
     description: "Incoming user messages awaiting AI processing",
@@ -38,12 +41,11 @@ export const QUEUE_REGISTRY: Record<string, Partial<QueueMetadata>> = {
  * Add new services here for custom naming, otherwise auto-derived from prefix
  */
 const OWNER_MAP: Record<string, string> = {
-  "backfill": "TwelveData Worker",
-  "crypto": "TwelveData Worker",
-  "ticker": "TwelveData Worker",
-  "analysis": "Candlestick Analysis Worker",
-  "telegram": "Telegram Bot",
-  "ai-hub": "AI Hub",
+  backfill: "TwelveData Worker",
+  crypto: "TwelveData Worker",
+  ticker: "TwelveData Worker",
+  analysis: "Candlestick Analysis Worker",
+  telegram: "Telegram Bot",
 };
 
 /**
@@ -62,7 +64,7 @@ function deriveOwnerFromQueue(queueName: string): string {
   // Auto-convert: kebab-case or snake_case → Title Case + " Worker"
   const titleCase = prefix
     .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 
   return `${titleCase} Worker`;

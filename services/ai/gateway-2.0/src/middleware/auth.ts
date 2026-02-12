@@ -2,21 +2,24 @@
  * API key authentication middleware for Fastify.
  */
 
-import type { FastifyInstance } from 'fastify';
-import type { GatewayConfig } from '../config.js';
+import type { FastifyInstance } from "fastify";
+import type { GatewayConfig } from "../config.js";
 
-export function registerAuthMiddleware(app: FastifyInstance, config: GatewayConfig): void {
+export function registerAuthMiddleware(
+  app: FastifyInstance,
+  config: GatewayConfig
+): void {
   // Skip auth for health endpoints
-  const publicPaths = ['/health', '/health/live', '/health/ready'];
+  const publicPaths = ["/health", "/health/live", "/health/ready"];
 
-  app.addHook('onRequest', async (request, reply) => {
+  app.addHook("onRequest", async (request, reply) => {
     // Skip auth for public paths
-    if (publicPaths.some(p => request.url.startsWith(p))) {
+    if (publicPaths.some((p) => request.url.startsWith(p))) {
       return;
     }
 
     // Skip auth for webhook paths (extensions handle their own auth)
-    if (request.url.startsWith('/webhook')) {
+    if (request.url.startsWith("/webhook")) {
       return;
     }
 
@@ -25,9 +28,9 @@ export function registerAuthMiddleware(app: FastifyInstance, config: GatewayConf
       return;
     }
 
-    const apiKey = request.headers['x-api-key'] as string | undefined;
+    const apiKey = request.headers["x-api-key"] as string | undefined;
     if (!apiKey || apiKey !== config.apiKey) {
-      return reply.status(401).send({ error: 'Unauthorized' });
+      return reply.status(401).send({ error: "Unauthorized" });
     }
   });
 }

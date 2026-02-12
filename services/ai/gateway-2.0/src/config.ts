@@ -50,7 +50,7 @@ function envInt(key: string, fallback: number): number {
   const parsed = parseInt(raw, 10);
   if (Number.isNaN(parsed)) {
     throw new Error(
-      `Environment variable ${key} must be a valid integer, got "${raw}"`,
+      `Environment variable ${key} must be a valid integer, got "${raw}"`
     );
   }
   return parsed;
@@ -76,27 +76,15 @@ export function loadConfig(): GatewayConfig {
   return {
     port: envInt("PORT", 8080),
     apiKey: envStr("AI_HUB_API_KEY", ""),
-    contextPath: envStr(
-      "GATEWAY_CONTEXT_PATH",
-      "/app/agent-context",
-    ),
-    tierHomesPath: envStr(
-      "GATEWAY_TIER_HOMES_PATH",
-      "/app/tier-homes",
-    ),
+    contextPath: envStr("GATEWAY_CONTEXT_PATH", "/app/agent-context"),
+    tierHomesPath: envStr("GATEWAY_TIER_HOMES_PATH", "/app/tier-homes"),
     maxConcurrent: envInt("GATEWAY_MAX_CONCURRENT", 3),
     defaultModel: envStr("GATEWAY_DEFAULT_MODEL", "sonnet-4.5"),
     freeMaxMessages: envInt("GATEWAY_FREE_MAX_MESSAGES", 5),
     freeRechargeHours: envInt("GATEWAY_FREE_RECHARGE_HOURS", 5),
     sessionExpiryDays: envInt("GATEWAY_SESSION_EXPIRY_DAYS", 7),
-    sessionPruneIntervalMinutes: envInt(
-      "GATEWAY_SESSION_PRUNE_MINUTES",
-      30,
-    ),
-    defaultCLITimeoutSeconds: envInt(
-      "GATEWAY_CLI_TIMEOUT_SECONDS",
-      120,
-    ),
+    sessionPruneIntervalMinutes: envInt("GATEWAY_SESSION_PRUNE_MINUTES", 30),
+    defaultCLITimeoutSeconds: envInt("GATEWAY_CLI_TIMEOUT_SECONDS", 120),
     databaseURL: envStr("DATABASE_URL"),
     redisURL: envStr("REDIS_URL", "redis://redis:6379"),
     maxMessageLength: envInt("GATEWAY_MAX_MESSAGE_LENGTH", 4000),

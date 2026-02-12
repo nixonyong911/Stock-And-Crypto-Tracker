@@ -30,7 +30,6 @@ https://nxserver.malaysiawest.cloudapp.azure.com
 
 | Service | Internal URL | Purpose |
 |---------|--------------|---------|
-| **AI Hub 2.0** | `http://ai-hub2:8080` | AI Gateway (Docker network) |
 | **Alloy** | `http://localhost:12345` | Grafana Alloy metrics collector |
 | **Caddy Admin** | `http://localhost:2019` | Caddy admin API (SSH only) |
 
@@ -58,19 +57,6 @@ https://nxserver.malaysiawest.cloudapp.azure.com
 | `/api/metrics/api/metrics/batch` | POST | Record batch metrics |
 | `/api/metrics/swagger` | GET | Swagger UI |
 | `/metrics` | GET | Prometheus scrape endpoint |
-
----
-
-## AI Hub 2.0 API Endpoints (Internal Only)
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health/live` | GET | Liveness check |
-| `/api/chat` | POST | Main AI interaction endpoint |
-| `/api/models` | GET | List registered CLI models |
-| `/docs` | GET | FastAPI Swagger documentation |
-
-**Access**: Via Docker network only (`http://ai-hub2:8080`) or via SSH to VM.
 
 ---
 

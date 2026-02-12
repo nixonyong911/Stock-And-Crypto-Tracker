@@ -9,10 +9,12 @@ Guide to configuring service account tokens, API keys, and cloud CLI credentials
 ### Configuration
 
 **Config file locations**:
+
 - Windows: `%LOCALAPPDATA%\grafanactl\config.yaml`
 - Linux: `~/.config/grafanactl/config.yaml`
 
 **Config format**:
+
 ```yaml
 contexts:
   stocktracker:
@@ -40,10 +42,12 @@ current-context: stocktracker
 - ❌ **WRONG**: `glc_...` (cloud access policy token)
 
 **Why it matters**:
+
 - Cloud access policy tokens (`glc_*`) will return **401 Unauthorized** with grafanactl
 - Only service account tokens (`glsa_*`) work with grafanactl
 
 **How to identify**:
+
 ```bash
 # Good token (service account)
 glsa_abcd1234efgh5678ijkl9012mnop3456
@@ -74,22 +78,24 @@ grafanactl resources list
 
 ### Resource IDs (Singapore Region)
 
-| Resource | OCID |
-|----------|------|
-| **Tenancy** | `ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq` |
-| **VCN** | `ocid1.vcn.oc1.ap-singapore-1.amaaaaaaon7blmaaqcfngttgglgutct7upw3dhnao644nvtfabl2t6qmqjkq` |
-| **Subnet** | `ocid1.subnet.oc1.ap-singapore-1.aaaaaaaaxu4zjelejutodjy2h56zkjt3xkoq46amnz4josoevlr53te2mw6a` |
-| **Compartment** | `ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq` |
-| **Availability Domain** | `ZtqO:AP-SINGAPORE-1-AD-1` |
-| **Region** | `ap-singapore-1` |
+| Resource                | OCID                                                                                           |
+| ----------------------- | ---------------------------------------------------------------------------------------------- |
+| **Tenancy**             | `ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq`              |
+| **VCN**                 | `ocid1.vcn.oc1.ap-singapore-1.amaaaaaaon7blmaaqcfngttgglgutct7upw3dhnao644nvtfabl2t6qmqjkq`    |
+| **Subnet**              | `ocid1.subnet.oc1.ap-singapore-1.aaaaaaaaxu4zjelejutodjy2h56zkjt3xkoq46amnz4josoevlr53te2mw6a` |
+| **Compartment**         | `ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq`              |
+| **Availability Domain** | `ZtqO:AP-SINGAPORE-1-AD-1`                                                                     |
+| **Region**              | `ap-singapore-1`                                                                               |
 
 ### Instance Templates
 
 **ARM Instance (Free Tier - 4 OCPU, 24GB)**:
+
 - Shape: `VM.Standard.A1.Flex`
 - Image ID: `ocid1.image.oc1.ap-singapore-1.aaaaaaaamhhpqoyiobauojy3m2huj6tusesizrggbpek2wo4tksiwwv43ihq`
 
 **AMD Instance (Always Available - 1/8 OCPU, 1GB)**:
+
 - Shape: `VM.Standard.E2.1.Micro`
 - Image ID: `ocid1.image.oc1.ap-singapore-1.aaaaaaaaaor2ppotfqkory4rhl25opnzpgqjhgzeovebmegnkedm6fhbl7ka`
 
@@ -118,34 +124,33 @@ key_file=~/.oci/oci_api_key.pem
 
 ---
 
-## AI Hub API Key
+## Gateway API Key (AI_HUB_API_KEY)
 
 ### Purpose
-Used by:
+
+Used by gateway-2.0 and consuming services:
+
+- gateway-2.0 (authentication)
 - n8n workflows
 - TwelveData worker
 - Metrics service
 - Back-office UI
 
 ### Storage
+
 - **Infisical**: `AI_HUB_API_KEY`
 - **Docker Compose**: Injected as environment variable
 
 ### Usage in Code
 
-```csharp
-// .NET services
-var apiKey = Environment.GetEnvironmentVariable("AI_HUB_API_KEY");
-```
-
 ```typescript
 // Next.js (Back-office)
-const apiKey = process.env.AI_HUB_API_KEY;
+const apiKey = process.env.GATEWAY_API_KEY;
 ```
 
 ### Generating New Key
 
-AI Hub API keys are managed by the AI Hub 2.0 service itself. Contact the service admin to generate new keys.
+Gateway API keys are managed via Infisical. Update the `AI_HUB_API_KEY` secret in Infisical to rotate.
 
 ---
 
@@ -155,20 +160,21 @@ AI Hub API keys are managed by the AI Hub 2.0 service itself. Contact the servic
 
 Stored with `NEXT_PUBLIC_` prefix (safe to expose to browser):
 
-| Variable | Used By | Stored In |
-|----------|---------|-----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Frontend | Infisical → Vercel |
+| Variable                                       | Used By  | Stored In          |
+| ---------------------------------------------- | -------- | ------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`                     | Frontend | Infisical → Vercel |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Frontend | Infisical → Vercel |
 
 **Auto-syncs to Vercel** via Infisical integration.
 
 ### Private Keys (Backend)
 
-| Variable | Used By | Stored In |
-|----------|---------|-----------|
+| Variable                     | Used By | Stored In      |
+| ---------------------------- | ------- | -------------- |
 | `DATABASE_CONNECTION_STRING` | Workers | Infisical → VM |
 
 **Format**:
+
 ```
 postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 ```
@@ -178,14 +184,17 @@ postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.co
 ## GitHub Personal Access Token
 
 ### Purpose
+
 - VM git clone of private repository
 - GitHub Actions authentication (if needed)
 
 ### Storage
+
 - **Infisical**: `PAT_GITHUB`
 - **GitHub Secrets**: Synced from Infisical
 
 ### Permissions Required
+
 - `repo` (full control of private repositories)
 
 ### Creating New Token
@@ -205,6 +214,7 @@ postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.co
 **Cause**: Using cloud policy token (`glc_*`) instead of service account token (`glsa_*`).
 
 **Solution**:
+
 1. Go to https://stockandcryptotracker.grafana.net/org/serviceaccounts
 2. Create new service account token (starts with `glsa_`)
 3. Update config file with new token
@@ -214,6 +224,7 @@ postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.co
 **Cause**: API key fingerprint mismatch.
 
 **Solution**:
+
 ```powershell
 # Check fingerprint
 openssl rsa -pubout -outform DER -in ~/.oci/oci_api_key.pem | openssl md5 -c
@@ -227,6 +238,7 @@ cat ~/.oci/config
 **Cause**: Wrong connection string or database not accessible.
 
 **Solution**:
+
 1. Check connection string in Infisical
 2. Ensure using **pooler** port `6543`, not direct port `5432`
 3. Verify Supabase project is not paused

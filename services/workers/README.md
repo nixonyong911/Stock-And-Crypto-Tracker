@@ -14,14 +14,15 @@ services/workers/
 
 ## Worker Types
 
-| Type | Location | Purpose |
-|------|----------|---------|
-| `data-fetcher` | `services/workers/data-fetcher/{name}/` | Fetches external API data |
-| `data-fetcher-2.0` | `services/workers/data-fetcher-2.0/` | Multi-provider fetcher + analysis (Finnhub, Massive, CandlestickAnalysis, etc.) |
+| Type               | Location                                | Purpose                                                                         |
+| ------------------ | --------------------------------------- | ------------------------------------------------------------------------------- |
+| `data-fetcher`     | `services/workers/data-fetcher/{name}/` | Fetches external API data                                                       |
+| `data-fetcher-2.0` | `services/workers/data-fetcher-2.0/`    | Multi-provider fetcher + analysis (Finnhub, Massive, CandlestickAnalysis, etc.) |
 
 ## Architecture
 
 Each worker is an independent .NET 8 ASP.NET Core service that:
+
 - Runs on a configurable schedule using `BackgroundService`
 - Stores data in the shared PostgreSQL database
 - Pushes metrics to the central Metrics Service
@@ -62,18 +63,18 @@ Each worker is an independent .NET 8 ASP.NET Core service that:
 
 ### Data Fetchers
 
-| Worker | Description | Status |
-|--------|-------------|--------|
+| Worker                                 | Description                        | Status |
+| -------------------------------------- | ---------------------------------- | ------ |
 | [TwelveData](data-fetcher/TwelveData/) | Stock market data (15-min candles) | Active |
 
 ### Multi-Provider Workers (data-fetcher-2.0)
 
-| Provider | Description | Status |
-|----------|-------------|--------|
-| Finnhub | Stock fundamentals and metrics | Active |
-| Massive | Technical indicators (SMA, EMA, MACD, RSI) | Active |
+| Provider            | Description                                      | Status |
+| ------------------- | ------------------------------------------------ | ------ |
+| Finnhub             | Stock fundamentals and metrics                   | Active |
+| Massive             | Technical indicators (SMA, EMA, MACD, RSI)       | Active |
 | CandlestickAnalysis | Daily candlestick pattern detection (8 patterns) | Active |
-| AlphaVantage | Earnings calendar data | Active |
+| AlphaVantage        | Earnings calendar data                           | Active |
 
 ## Creating a New Worker
 
@@ -82,6 +83,7 @@ See: [Worker Requirements Skill](../../instruction/skills/worker-requirements/SK
 ### Quick Start
 
 1. **Create directory structure:**
+
    ```bash
    # For data-fetcher
    mkdir -p services/workers/data-fetcher/NewService/src/NewService.Worker/{Configuration,Controllers,Models,Repositories,Services,Workers}
@@ -90,6 +92,7 @@ See: [Worker Requirements Skill](../../instruction/skills/worker-requirements/SK
 2. **Copy template from existing worker**
 
 3. **Update paths in:**
+
    - Dockerfile (COPY paths)
    - `.github/workflows/deploy-vm.yml` (trigger paths)
    - `deployment/vm/docker-compose.yml` (build paths)
@@ -101,22 +104,26 @@ See: [Worker Requirements Skill](../../instruction/skills/worker-requirements/SK
 ## Best Practices
 
 ### Shared Components
+
 - **Always use** `StockTracker.Common` for metrics and worker state
 - **Never** add prometheus-net directly to workers
 - **Never** duplicate metrics/worker state code
 
 ### API Rate Limiting
+
 - Respect API rate limits with appropriate delays
 - Use `Polly` for retry policies
 - Log rate limit errors for monitoring
 
 ### Error Handling
+
 - Log all errors with context
 - Use fetch_logs table for operation tracking
 - Continue processing other items on partial failures
 - Report errors to metrics service
 
 ### Database Operations
+
 - Use upsert (ON CONFLICT) for idempotent operations
 - Batch inserts when possible for performance
 - Use transactions for related operations
@@ -124,17 +131,22 @@ See: [Worker Requirements Skill](../../instruction/skills/worker-requirements/SK
 ## Monitoring
 
 ### Via Metrics Service
+
 All worker metrics are aggregated at the central Metrics Service:
+
 - http://localhost:8082/metrics (Prometheus format)
 - http://localhost:8082/api/metrics/workers (worker status)
 
 ### Via Worker API
+
 Each worker exposes control endpoints:
+
 - `GET /api/{worker}/status` - Worker status
 - `POST /api/{worker}/trigger/{id}` - Manual trigger (single)
 - `POST /api/{worker}/trigger/all` - Manual trigger (batch)
 
 ### Via Grafana
+
 - Worker Overview dashboard
 - Worker-specific detail dashboards
 

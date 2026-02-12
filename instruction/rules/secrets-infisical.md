@@ -32,9 +32,9 @@ Infisical Cloud (source of truth)
 
 | Secret | Synced To | Used By |
 |--------|-----------|---------|
-| `DATABASE_CONNECTION_STRING` | GitHub | TwelveData, AI-Hub (local) |
+| `DATABASE_CONNECTION_STRING` | GitHub | TwelveData, Gateway 2.0 |
 | `TWELVE_DATA_API_KEY` | GitHub | TwelveData Worker |
-| `AI_HUB_API_KEY` | GitHub | n8n, TwelveData, Metrics, Back-office |
+| `AI_HUB_API_KEY` | GitHub | gateway-2.0, n8n, TwelveData, Metrics, Back-office |
 | `NEXT_PUBLIC_SUPABASE_URL` | GitHub, Vercel | Frontend, Back-office |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | GitHub, Vercel | Frontend, Back-office |
 

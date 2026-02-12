@@ -4,7 +4,7 @@
 
 ## Overview
 
-All backend services run on a single Azure VM using Docker Compose, with Caddy as the reverse proxy providing automatic HTTPS. AI Hub runs as a Docker container with volume mounts to access CLIs installed on the host.
+All backend services run on a single Azure VM using Docker Compose, with Caddy as the reverse proxy providing automatic HTTPS. Gateway 2.0 (TypeScript AI gateway) runs as a Docker container with volume mounts to access CLIs installed on the host.
 
 ## Architecture Diagram
 
@@ -39,7 +39,7 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │   │      ├── /api/metrics/*       → metrics:8080                     │    │  │
 │   │   │      └── /back-office*        → back-office:3000                 │    │  │
 │   │   │                                                                  │    │  │
-│   │   │      NOTE: AI Hub NOT exposed (internal Docker network only)    │    │  │
+│   │   │      NOTE: Gateway 2.0 NOT exposed (internal Docker network only) │    │  │
 │   │   └─────────────────────────────────────────────────────────────────┘    │  │
 │   │                                         │                                 │  │
 │   │   ┌─────────────────────────────────────┼───────────────────────────┐    │  │
@@ -49,9 +49,9 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │   │   :5678      │    :8080     │    :8080     │    :3000     │     │    │  │
 │   │   │  Workflows   │  Stock Data  │  Aggregates  │   Admin UI   │Logs │    │  │
 │   │   ├──────────────┴──────────────┴──────────────┴──────────────┴─────┤    │  │
-│   │   │                        AI HUB (Docker)                          │    │  │
-│   │   │                        ai-hub2:8080                       │    │  │
-│   │   │              FastAPI + Claude CLI + Cursor-agent CLI            │    │  │
+│   │   │                   Gateway 2.0 (TypeScript)                    │    │  │
+│   │   │                     gateway-2.0:8080                           │    │  │
+│   │   │              Claude + Cursor-agent CLI + Telegram bot           │    │  │
 │   │   │              (CLIs mounted via Docker volumes)                  │    │  │
 │   │   └─────────────────────────────────────────────────────────────────┘    │  │
 │   │                                                                           │  │
@@ -85,7 +85,7 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   Trigger Paths:                                                                 │
 │   - services/workers/data-fetcher/TwelveData/**                                 │
 │   - services/metrics/**                                                          │
-│   - services/ai/ai-hub/**                                                        │
+│   - services/ai/gateway-2.0/**                                                   │
 │   - services/back-office/**                                                      │
 │   - services/common/**                                                           │
 │   - deployment/vm/**                                                             │
@@ -119,9 +119,9 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   ┌────────────────────────────────────┬───────────────────────────────────┐    │
 │   │ Secret                             │ Used By                           │    │
 │   ├────────────────────────────────────┼───────────────────────────────────┤    │
-│   │ DATABASE_CONNECTION_STRING         │ TwelveData, AI-Hub (local)        │    │
+│   │ DATABASE_CONNECTION_STRING         │ TwelveData, Gateway 2.0           │    │
 │   │ TWELVE_DATA_API_KEY                │ TwelveData Worker                 │    │
-│   │ AI_HUB_API_KEY                     │ n8n, TwelveData, Metrics, Back-office │ │
+│   │ AI_HUB_API_KEY                     │ gateway-2.0, n8n, TwelveData, Metrics, Back-office │
 │   │ GRAFANA_CLOUD_API_KEY              │ Alloy (metrics forwarder)         │    │
 │   │ GRAFANA_CLOUD_LOKI_USER            │ Alloy (logs forwarder)            │    │
 │   │ NEXT_PUBLIC_SUPABASE_URL           │ Frontend, Back-office             │    │
@@ -158,9 +158,9 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 | Metrics | 8080 | `/api/metrics/*` | Metrics aggregation |
 | Back-office | 3000 | `/back-office*` | Admin UI |
 | Alloy | 12345 | — (internal) | Metrics/logs forwarder to Grafana Cloud |
-| AI Hub | 8080 | — (internal) | AI CLI gateway (claude, cursor-agent) |
+| Gateway 2.0 | 8080 | — (internal) | TypeScript AI gateway (Claude, cursor-agent, Telegram) |
 
-**AI Hub Docker Container**: Accesses CLIs (claude, cursor-agent) installed on the VM host via volume mounts. Other containers access it via `ai-hub2:8080` with `X-API-Key` header.
+**Gateway 2.0 Docker Container**: Accesses CLIs (cursor-agent) installed on the VM host via volume mounts. Other containers access it via `gateway-2.0:8080` with `X-API-Key` header.
 
 ## File Structure on VM
 
@@ -206,8 +206,8 @@ nxserver.malaysiawest.cloudapp.azure.com {
     }
 }
 
-# NOTE: AI Hub is NOT exposed via Caddy
-# Internal access only via Docker network: ai-hub2:8080
+# NOTE: Gateway 2.0 is NOT exposed via Caddy (except /api/gateway-2/* proxy routes)
+# Internal access via Docker network: gateway-2.0:8080
 ```
 
 ## Public URLs
@@ -220,7 +220,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
 | Metrics Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger | API docs |
 | Metrics Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live | Health check |
 | Back Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ | Admin UI |
-| AI Hub | ai-hub2:8080 (Docker network) | Internal only |
+| Gateway 2.0 | gateway-2.0:8080 (Docker network) | Internal only |
 
 ## Health Check Commands
 
@@ -233,8 +233,8 @@ curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/
 # Docker container status
 ssh azureuser@20.17.176.1 "docker ps"
 
-# AI Hub health (via Docker)
-ssh azureuser@20.17.176.1 "docker exec ai-hub2 curl -sf http://localhost:8080/health/live"
+# Gateway 2.0 health (via Docker)
+ssh azureuser@20.17.176.1 "docker exec gateway-2.0 curl -sf http://localhost:8080/health/live"
 ```
 
 ## Related Documents
@@ -242,5 +242,5 @@ ssh azureuser@20.17.176.1 "docker exec ai-hub2 curl -sf http://localhost:8080/he
 - [Core Context](../rules/core-context.md) - Project overview and tech stack
 - [CI/CD Deployment](../rules/cicd-deployment.md) - Pipeline details
 - [Secrets Management](../rules/secrets-infisical.md) - Infisical workflow
-- [AI Hub Architecture](ai-hub-architecture.md) - AI service details
+- [AI Hub Architecture](ai-hub-architecture.md) - Legacy AI service details (superseded by gateway-2.0)
 - [Worker Endpoints](../cli/caddy/worker-endpoints.md) - Caddy routes reference

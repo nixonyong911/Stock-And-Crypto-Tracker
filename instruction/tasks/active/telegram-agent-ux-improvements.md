@@ -17,13 +17,13 @@ Improve the Telegram AI agent user experience with progress indicators and sessi
 **Options:**
 
 - **Option A (Consumer-side):** Back-office/Telegram bot shows "Processing..." while waiting
-- **Option B (AI Hub streaming):** Use `--stream-partial-output` with `stream-json` format
+- **Option B (gateway-2.0 streaming):** Use `--stream-partial-output` with `stream-json` format
 
 **Implementation Notes:**
 
 - cursor-agent supports: `--output-format stream-json --stream-partial-output`
 - This streams partial output as individual text deltas
-- Requires AI Hub to use `StreamingResponse` and consumers to handle SSE
+- Requires gateway-2.0 to use `StreamingResponse` and consumers to handle SSE
 
 ### 2. Session/Caching with --resume
 
@@ -42,7 +42,7 @@ Improve the Telegram AI agent user experience with progress indicators and sessi
 
 - Add `cursor_chat_id` column to `telegram_sessions` table
 
-**AI Hub Changes:**
+**gateway-2.0 Changes:**
 
 - Accept optional `session_id` parameter in request body
 - Pass to cursor-agent via `--resume` flag
@@ -77,13 +77,13 @@ cursor-agent -p "what are bullish stocks today?" --resume abc123-uuid --model so
 
 ### Progress Indicator (Option B - Streaming)
 
-- `services/ai/gateway/` - Add streaming endpoint
+- `services/ai/gateway-2.0/` - Add streaming endpoint
 - `services/social-media/telegram-2.0/src/services/gateway-client.ts` - Add streaming support
 - `services/social-media/telegram-2.0/src/composers/messages.ts` - Handle streaming response
 
 ### Session Management
 
-- `services/ai/gateway/` - Add `session_id` / `--resume` flag support
+- `services/ai/gateway-2.0/` - Add `session_id` / `--resume` flag support
 - `services/social-media/telegram-2.0/src/composers/start.ts` - Generate session on `/start`
 - Database migration for `cursor_chat_id` column
 

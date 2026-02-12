@@ -89,7 +89,7 @@ These items remain in `instruction/history/` for future work:
 1. **Infisical CLI on VM** - See `instruction/history/Infisical/vm-infisical-integration.md`
 2. **CaddyManager GUI** - See `instruction/history/caddy/caddymanager-gui-setup.md`
 3. **Metrics Service** - See `instruction/todo/phase-2-vm-services.md`
-4. **AI-Hub Service** - See `instruction/todo/phase-2-vm-services.md`
+4. **AI Gateway (gateway-2.0)** - See `instruction/todo/phase-2-vm-services.md`
 
 ## Related Documents
 

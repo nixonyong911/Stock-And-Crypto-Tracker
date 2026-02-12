@@ -1,6 +1,6 @@
 ---
 name: devops-tools
-description: DevOps operations for the Stock Tracker VM infrastructure. Use this skill for checking service health, viewing container logs, restarting services, deploying to Azure VM, triggering GitHub Actions workflows, and troubleshooting running containers. Triggers on "check service status", "view logs", "restart container", "deploy to vm", "trigger workflow", "docker ps", "health check", "service down", "container not running", "deployment failed", "rebuild service", "check twelvedata", "check metrics", "check n8n", "ai-hub status", "all services", "redeploy", "rollback", "workflow status", "ci/cd", "docker compose". This skill provides task-based quick commands - for SSH connection details or credential setup, use credentials-connections skill instead.
+description: DevOps operations for the Stock Tracker VM infrastructure. Use this skill for checking service health, viewing container logs, restarting services, deploying to Azure VM, triggering GitHub Actions workflows, and troubleshooting running containers. Triggers on "check service status", "view logs", "restart container", "deploy to vm", "trigger workflow", "docker ps", "health check", "service down", "container not running", "deployment failed", "rebuild service", "check twelvedata", "check metrics", "check n8n", "all services", "redeploy", "rollback", "workflow status", "ci/cd", "docker compose". This skill provides task-based quick commands - for SSH connection details or credential setup, use credentials-connections skill instead.
 ---
 
 # DevOps Tools
@@ -23,13 +23,11 @@ description: DevOps operations for the Stock Tracker VM infrastructure. Use this
    ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "command"
    ```
 
-2. **AI Hub 2.0 = Standalone Docker Container**: NOT in docker-compose. Use `docker restart ai-hub2`, not `docker compose restart ai-hub`.
+2. **Health Endpoints**: All services use `/health/live` pattern at base path.
 
-3. **Health Endpoints**: All services use `/health/live` pattern at base path.
+3. **Deploy Path**: `/opt/stocktracker` on VM.
 
-4. **Deploy Path**: `/opt/stocktracker` on VM.
-
-5. **PATH_BASE Required**: Workers need `/api/{worker}` prefix set (e.g., `/api/twelvedata`).
+4. **PATH_BASE Required**: Workers need `/api/{worker}` prefix set (e.g., `/api/twelvedata`).
 
 > **Infrastructure Details**: See [infrastructure-config.md](../../reference/infrastructure-config.md) for all IPs, ports, and URLs.
 
@@ -48,16 +46,12 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "doc
 |---------|---------|
 | **TwelveData** | `curl -s https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live` |
 | **Metrics** | `curl -s https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live` |
-| **AI Hub 2.0** | SSH then: `curl -s http://localhost:8080/health/live` (Docker network internal) |
 | **n8n** | `curl -s https://nxserver.malaysiawest.cloudapp.azure.com/` |
 
 ### Check Specific Container
 ```powershell
 # Check if container is running
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker ps --filter name=twelvedata"
-
-# AI Hub status
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker ps --filter name=ai-hub2"
 ```
 
 ---
@@ -72,9 +66,6 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "doc
 # Metrics
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker logs metrics --tail 50"
 
-# AI Hub 2.0 (standalone container)
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker logs ai-hub2 --tail 50"
-
 # n8n
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker logs n8n --tail 50"
 ```
@@ -86,9 +77,6 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "doc
 
 # All services in docker-compose
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd /opt/stocktracker && docker compose logs -f"
-
-# AI Hub recent logs (last 10 minutes)
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker logs ai-hub2 --since '10m'"
 ```
 
 ---
@@ -101,11 +89,6 @@ ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "doc
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd /opt/stocktracker && docker compose restart twelvedata"
 
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd /opt/stocktracker && docker compose restart metrics"
-```
-
-### AI Hub 2.0 (Standalone Container)
-```powershell
-ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "docker restart ai-hub2"
 ```
 
 ### All Services (Full Restart)
