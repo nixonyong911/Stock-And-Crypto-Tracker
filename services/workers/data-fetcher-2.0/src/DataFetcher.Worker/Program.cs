@@ -266,6 +266,20 @@ try
         Predicate = _ => false
     });
 
+    // Analysis health checks (for Caddy routing that preserves /api/analysis prefix)
+    app.MapHealthChecks("/api/analysis/health", new HealthCheckOptions
+    {
+        Predicate = _ => true
+    });
+    app.MapHealthChecks("/api/analysis/health/ready", new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready")
+    });
+    app.MapHealthChecks("/api/analysis/health/live", new HealthCheckOptions
+    {
+        Predicate = _ => false
+    });
+
     // Controllers
     app.MapControllers();
 
