@@ -50,7 +50,7 @@ composer.command('pair', async (ctx) => {
     }
 
     // Auto-create session after pairing
-    const session = await pairing.createSession({
+    await pairing.createSession({
       platformUserId: String(userId),
       platformChatId: String(chatId),
       channelType: 'telegram',

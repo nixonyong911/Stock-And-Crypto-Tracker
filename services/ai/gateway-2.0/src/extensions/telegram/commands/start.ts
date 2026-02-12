@@ -41,11 +41,11 @@ composer.command('start', async (ctx) => {
 
   // Handle deep-link auto-pair
   if (pairMatch) {
-    const code = pairMatch[1];
+    const deepLinkCode = pairMatch[1]!;
     const pairing = new PairingService(db, ctx.gatewayAPI.logger, ctx.gatewayAPI.config);
 
     const result = await pairing.pairChannel({
-      code,
+      code: deepLinkCode,
       platformUserId: String(userId),
       channelType: 'telegram',
       platformUsername: ctx.from?.username,
@@ -54,7 +54,7 @@ composer.command('start', async (ctx) => {
 
     if (result.success) {
       // Auto-create a session after pairing
-      const session = await pairing.createSession({
+      await pairing.createSession({
         platformUserId: String(userId),
         platformChatId: String(chatId),
         channelType: 'telegram',

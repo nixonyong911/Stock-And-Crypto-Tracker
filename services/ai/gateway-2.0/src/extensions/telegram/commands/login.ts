@@ -31,7 +31,7 @@ composer.command('login', async (ctx) => {
     const pairing = new PairingService(ctx.gatewayAPI.db, ctx.gatewayAPI.logger, ctx.gatewayAPI.config);
     const tier = await pairing.resolveUserTier(String(userId), 'telegram');
 
-    const session = await pairing.createSession({
+    await pairing.createSession({
       platformUserId: String(userId),
       platformChatId: String(chatId),
       channelType: 'telegram',
