@@ -34,9 +34,10 @@ nxserver.malaysiawest.cloudapp.azure.com { # ===================================
 
     # ===========================================
     # Candlestick Analysis API (migrated into data-fetcher-2.0)
-    # Swagger UI: /api/data-fetcher-2.0/swagger (analysis group)
+    # Uses handle (not handle_path) to preserve /api/analysis prefix
+    # so the controller route [Route("api/analysis")] matches directly
     # ===========================================
-    handle_path /api/analysis/* {
+    handle /api/analysis/* {
         reverse_proxy data-fetcher-2.0:8080
     }
 
