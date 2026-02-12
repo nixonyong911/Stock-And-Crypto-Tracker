@@ -263,8 +263,14 @@ def create_mcp_app(allowed_tools: list[str] | None = None) -> FastMCP:
 # Middleware Setup
 # ===========================================
 
-def setup_middleware(app: FastMCP) -> None:
-    """Setup caching and rate limiting middleware on a FastMCP instance."""
+def setup_middleware(app: FastMCP, cache_prefix: str = "mcp-analysis") -> None:
+    """Setup caching and rate limiting middleware on a FastMCP instance.
+
+    Args:
+        app: FastMCP instance to add middleware to.
+        cache_prefix: Redis key prefix for this instance's cache.
+            Must be unique per tier to avoid cross-tier cache pollution.
+    """
     try:
         from fastmcp.server.middleware.rate_limiting import SlidingWindowRateLimitingMiddleware
         from fastmcp.server.middleware.caching import (
@@ -283,7 +289,7 @@ def setup_middleware(app: FastMCP) -> None:
         redis_store = RedisStore(host=REDIS_HOST, port=REDIS_PORT)
         namespaced_store = PrefixCollectionsWrapper(
             key_value=redis_store,
-            prefix="mcp-analysis",
+            prefix=cache_prefix,
         )
 
         app.add_middleware(ResponseCachingMiddleware(
@@ -323,9 +329,11 @@ def build_asgi_app():
     mcp_pro = create_mcp_app(TIER_TOOLS["pro"])
     mcp_full = create_mcp_app()  # all tools
 
-    # Setup middleware on each instance
-    for instance in (mcp_free, mcp_pro, mcp_full):
-        setup_middleware(instance)
+    # Setup middleware with per-tier cache prefixes to avoid cross-tier
+    # cache pollution (e.g., free list_tools caching for pro/full).
+    setup_middleware(mcp_free, cache_prefix="mcp-analysis-free")
+    setup_middleware(mcp_pro, cache_prefix="mcp-analysis-pro")
+    setup_middleware(mcp_full, cache_prefix="mcp-analysis-full")
 
     print(f"Tier endpoints configured:")
     print(f"  /mcp/free -> {len(TIER_TOOLS['free'])} tools: {TIER_TOOLS['free']}")
