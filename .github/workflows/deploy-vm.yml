@@ -10,8 +10,7 @@
 # TARGET (Phase 3): ~3-5 min (60-70% faster)
 # BEST CASE (config-only): ~1-2 min (skip all builds)
 # ===========================================
-# Services: n8n, Caddy, TwelveData, Metrics, Candlestick Analysis, AI Hub 2.0, Alloy
-# AI Hub: Go-based ai-hub2 container
+# Services: n8n, Caddy, TwelveData, Metrics, Candlestick Analysis, Gateway 2.0, Alloy
 # Monitoring: Grafana Cloud (via Alloy)
 # Secrets: Injected at runtime via Infisical CLI (Machine Identity)
 # Infrastructure Config: instruction/reference/infrastructure-config.md
@@ -31,7 +30,6 @@ on:
       - "services/ai/gateway-2.0/**"
       - "services/back-office/**"
       - "services/mcp/**"
-      - "services/frontend/**"
       - "services/common/**"
       - "deployment/vm/**"
       - ".github/workflows/deploy-vm.yml"
@@ -56,7 +54,6 @@ on:
           - "back-office"
           - "mcp-analysis"
           - "gateway-2.0"
-          - "frontend-staging"
 
 jobs:
   # ===========================================
@@ -73,9 +70,7 @@ jobs:
       backoffice: ${{ steps.filter.outputs.backoffice }}
       mcp: ${{ steps.filter.outputs.mcp }}
       gateway2: ${{ steps.filter.outputs.gateway2 }}
-      frontend: ${{ steps.filter.outputs.frontend }}
       config: ${{ steps.filter.outputs.config }}
-      # NOTE: frontend is NOT in any_service because it's built on VM only (needs Infisical staging secrets)
       any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.datafetcher2 == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.gateway2 == 'true' }}
       # Version outputs for tagging
       twelvedata_version: ${{ steps.versions.outputs.twelvedata }}
@@ -86,7 +81,6 @@ jobs:
       backoffice_version: ${{ steps.versions.outputs.backoffice }}
       mcp_version: ${{ steps.versions.outputs.mcp }}
       gateway2_version: ${{ steps.versions.outputs.gateway2 }}
-      frontend_version: ${{ steps.versions.outputs.frontend }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -116,8 +110,6 @@ jobs:
               - 'services/mcp/**'
             gateway2:
               - 'services/ai/gateway-2.0/**'
-            frontend:
-              - 'services/frontend/**'
             config:
               - 'deployment/vm/**'
               - '.github/workflows/deploy-vm.yml'
@@ -135,7 +127,6 @@ jobs:
           echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
           echo "MCP Analysis: ${{ steps.filter.outputs.mcp }}"
           echo "Gateway 2.0: ${{ steps.filter.outputs.gateway2 }}"
-          echo "Frontend Staging: ${{ steps.filter.outputs.frontend }}"
           echo "Config: ${{ steps.filter.outputs.config }}"
           echo "Force Build: ${{ github.event.inputs.force_build }}"
           echo "Rollback Service: ${{ github.event.inputs.rollback_service }}"
@@ -153,7 +144,6 @@ jobs:
           echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
           echo "| MCP Analysis | ${{ steps.filter.outputs.mcp }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Gateway 2.0 | ${{ steps.filter.outputs.gateway2 }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend Staging | ${{ steps.filter.outputs.frontend }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Config | ${{ steps.filter.outputs.config }} |" >> $GITHUB_STEP_SUMMARY
 
       # Query current versions from Supabase (increment minor for new deploys)
@@ -175,7 +165,6 @@ jobs:
             ["backoffice"]="back-office"
             ["mcp"]="mcp-analysis"
             ["gateway2"]="gateway-2.0"
-            ["frontend"]="frontend-staging"
           )
 
           # Query all versions from Supabase
@@ -700,7 +689,6 @@ jobs:
             "back-office") IMAGE="stocktracker-back-office" ;;
             "mcp-analysis") IMAGE="stocktracker-mcp-analysis" ;;
             "gateway-2.0") IMAGE="stocktracker-gateway-2.0" ;;
-            "frontend-staging") IMAGE="stocktracker-frontend-staging" ;;
             *) echo "::error::Unknown service: $ROLLBACK_SERVICE"; exit 1 ;;
           esac
 
@@ -731,7 +719,6 @@ jobs:
             "back-office") VAR_NAME="BACK_OFFICE_VERSION" ;;
             "mcp-analysis") VAR_NAME="MCP_ANALYSIS_VERSION" ;;
             "gateway-2.0") VAR_NAME="GATEWAY_2_VERSION" ;;
-            "frontend-staging") VAR_NAME="FRONTEND_STAGING_VERSION" ;;
           esac
 
           if [ -f "\$ENV_FILE" ] && grep -q "^\${VAR_NAME}=" "\$ENV_FILE"; then
@@ -763,9 +750,6 @@ jobs:
       # ===========================================
       - name: Sync config and deploy services
         if: github.event.inputs.rollback_service == ''
-        env:
-          FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
-          FORCE_BUILD: ${{ github.event.inputs.force_build }}
         run: |
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
           set -e
@@ -793,32 +777,8 @@ jobs:
           # Docker Compose detects image changes and only recreates affected containers
           ./scripts/start-services.sh up -d
 
-          echo "=== Starting frontend-staging (Infisical STAGING env) ==="
+          # NOTE: Frontend is deployed via Vercel, not on VM
           EOF
-
-          # Build frontend only if files changed (check outside heredoc to access GHA env vars)
-          if [ "$FRONTEND_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ]; then
-            echo "Frontend changed - rebuilding with Infisical staging secrets..."
-
-            # Write frontend version to .env.versions BEFORE building (GHA is single source of truth)
-            FRONTEND_VERSION="${{ needs.detect-changes.outputs.frontend_version }}"
-            echo "Setting FRONTEND_STAGING_VERSION=v${FRONTEND_VERSION}"
-            ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 "bash -s" << EOF
-            ENV_FILE="/opt/stocktracker/.env.versions"
-            if [ -f "\$ENV_FILE" ] && grep -q "^FRONTEND_STAGING_VERSION=" "\$ENV_FILE"; then
-                sed -i "s/^FRONTEND_STAGING_VERSION=.*/FRONTEND_STAGING_VERSION=v${FRONTEND_VERSION}/" "\$ENV_FILE"
-            else
-                echo "FRONTEND_STAGING_VERSION=v${FRONTEND_VERSION}" >> "\$ENV_FILE"
-            fi
-            echo "Updated .env.versions:"
-            cat "\$ENV_FILE"
-          EOF
-
-            ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'cd /opt/stocktracker && ./scripts/start-frontend-staging.sh --build' || echo "⚠️ Frontend staging build/start failed"
-          else
-            echo "Frontend unchanged - starting existing image..."
-            ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'cd /opt/stocktracker && ./scripts/start-frontend-staging.sh' || echo "⚠️ Frontend staging start failed"
-          fi
 
           ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 'bash -s' << 'EOF'
 
@@ -830,7 +790,7 @@ jobs:
 
           echo "=== Cleanup old images (keep running + 1 previous for rollback) ==="
           # Smart cleanup: keep 2 most recent versions per service (running + previous for rollback)
-          for SERVICE in twelvedata fred data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis gateway-2.0 frontend-staging; do
+          for SERVICE in twelvedata fred data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis gateway-2.0; do
             # Get all version tags for this service, sorted by version number
             TAGS=$(docker images "stocktracker-${SERVICE}" --format '{{.Tag}}' | grep -E '^v[0-9]+\.[0-9]+$' | sort -V 2>/dev/null || true)
             if [ -n "$TAGS" ]; then
@@ -892,8 +852,7 @@ jobs:
 
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ > /dev/null && echo "✅ Back Office: OK" || echo "⚠️ Back Office: Starting..."
 
-          # Frontend Staging - check via public URL
-          curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/front-end > /dev/null && echo "✅ Frontend Staging: OK" || echo "⚠️ Frontend Staging: Starting..."
+          # NOTE: Frontend is deployed via Vercel, not on VM
 
           # Gateway 2.0 (TypeScript) container - check via SSH
           ssh azureuser@20.17.176.1 'docker exec gateway-2.0 curl -sf http://localhost:8080/health/live' > /dev/null && echo "✅ Gateway 2.0: OK" || echo "⚠️ Gateway 2.0: Check Docker logs"
@@ -928,7 +887,6 @@ jobs:
           echo "- [Candlestick Analysis Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
-          echo "- [Frontend Staging](https://nxserver.malaysiawest.cloudapp.azure.com/front-end)" >> $GITHUB_STEP_SUMMARY
           echo "- Gateway 2.0: TypeScript container (gateway-2.0:8080, includes Telegram)" >> $GITHUB_STEP_SUMMARY
 
           echo ""
@@ -952,7 +910,6 @@ jobs:
           BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
           MCP_CHANGED: ${{ needs.detect-changes.outputs.mcp }}
           GATEWAY2_CHANGED: ${{ needs.detect-changes.outputs.gateway2 }}
-          FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
           TWELVEDATA_VERSION: ${{ needs.detect-changes.outputs.twelvedata_version }}
           FRED_VERSION: ${{ needs.detect-changes.outputs.fred_version }}
           DATA_FETCHER_2_VERSION: ${{ needs.detect-changes.outputs.datafetcher2_version }}
@@ -961,7 +918,6 @@ jobs:
           BACKOFFICE_VERSION: ${{ needs.detect-changes.outputs.backoffice_version }}
           MCP_VERSION: ${{ needs.detect-changes.outputs.mcp_version }}
           GATEWAY2_VERSION: ${{ needs.detect-changes.outputs.gateway2_version }}
-          FRONTEND_VERSION: ${{ needs.detect-changes.outputs.frontend_version }}
           FORCE_BUILD: ${{ github.event.inputs.force_build }}
         run: |
           echo "=========================================="
@@ -979,9 +935,7 @@ jobs:
           echo "  METRICS_CHANGED:     $METRICS_CHANGED"
           echo "  BACKOFFICE_CHANGED:  $BACKOFFICE_CHANGED"
           echo "  MCP_CHANGED:         $MCP_CHANGED"
-          echo "  TELEGRAM2_CHANGED:   $TELEGRAM2_CHANGED"
           echo "  GATEWAY2_CHANGED:    $GATEWAY2_CHANGED"
-          echo "  FRONTEND_CHANGED:    $FRONTEND_CHANGED"
           echo "  FORCE_BUILD:         $FORCE_BUILD"
           echo ""
 
@@ -1021,7 +975,6 @@ jobs:
           [ "$BACKOFFICE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "back-office" "$BACKOFFICE_VERSION"
           [ "$MCP_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "mcp-analysis" "$MCP_VERSION"
           [ "$GATEWAY2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "gateway-2.0" "$GATEWAY2_VERSION"
-          [ "$FRONTEND_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "frontend-staging" "$FRONTEND_VERSION"
 
           echo ""
           echo "✅ Version updates complete"

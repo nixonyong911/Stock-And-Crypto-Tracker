@@ -79,14 +79,7 @@ nxserver.malaysiawest.cloudapp.azure.com { # ===================================
         reverse_proxy back-office:3000
     }
 
-    # ===========================================
-    # Frontend Staging - Public Website (Staging Environment)
-    # Uses handle (not handle_path) because Next.js basePath handles the prefix
-    # CRITICAL: Avoid double path - Next.js expects /front-end prefix in requests
-    # ===========================================
-    handle /front-end* {
-        reverse_proxy frontend-staging:3001
-    }
+    # NOTE: Frontend is deployed via Vercel, not on VM
 
     # ===========================================
     # n8n - Default/Fallback (root path)
