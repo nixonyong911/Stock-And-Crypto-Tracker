@@ -68,9 +68,7 @@ export interface ServerDeps {
  *
  * The caller is responsible for calling `fastify.listen()`.
  */
-export async function createServer(
-  deps: ServerDeps,
-): Promise<FastifyInstance> {
+export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
   const { config, db, redis } = deps;
 
   // ---- 1. Create Fastify instance ----
@@ -108,14 +106,14 @@ export async function createServer(
 
   async function resolveUserTier(
     platformUserId: string,
-    channelType: string,
+    channelType: string
   ): Promise<Tier> {
     try {
       const result = await db.pool.query(
         `SELECT u.tier FROM channel_accounts ca
          JOIN users u ON u.clerk_user_id = ca.clerk_user_id
          WHERE ca.platform_user_id = $1 AND ca.channel_type = $2 AND ca.clerk_user_id IS NOT NULL`,
-        [platformUserId, channelType],
+        [platformUserId, channelType]
       );
       if (result.rows[0]?.tier) return parseTier(result.rows[0].tier);
     } catch {
@@ -159,19 +157,21 @@ export async function createServer(
     // 2. Resolve tier
     const tier = await resolveUserTier(
       params.platformUserId,
-      params.channelType,
+      params.channelType
     );
 
     // 3. Usage check (free tier)
     if (tier === "free") {
       const { remaining } = await usage.checkAndConsume(
         params.platformUserId,
-        params.channelType,
+        params.channelType
       );
       if (remaining < 0) {
         const info = await usage.getUsageInfo(params.platformUserId);
         throw new Error(
-          `No messages remaining. Next recharge: ${info.nextRechargeAt?.toISOString() ?? "unknown"}`,
+          `No messages remaining. Next recharge: ${
+            info.nextRechargeAt?.toISOString() ?? "unknown"
+          }`
         );
       }
     }
@@ -179,9 +179,27 @@ export async function createServer(
     // 4. Get or create session
     let sess = await session.getActiveSession(
       params.platformUserId,
-      params.channelType,
+      params.channelType
     );
     if (!sess) {
+      sess = await session.createSession({
+        platformUserId: params.platformUserId,
+        platformChatId: params.platformChatId,
+        channelType: params.channelType,
+        tier,
+      });
+    } else if (sess.tier !== tier) {
+      // Tier changed (upgrade/downgrade) since session was created.
+      // Create a new session so cursor-agent gets a fresh cliSessionId
+      // and discovers the correct tier's MCP tools.
+      app.log.info(
+        {
+          platformUserId: params.platformUserId,
+          oldTier: sess.tier,
+          newTier: tier,
+        },
+        "Tier changed, creating new session"
+      );
       sess = await session.createSession({
         platformUserId: params.platformUserId,
         platformChatId: params.platformChatId,
@@ -193,7 +211,7 @@ export async function createServer(
     // 5. Acquire user lock
     const unlock = await session.acquireUserLock(
       params.platformUserId,
-      getTierConfig(parseTier(tier)).cliTimeoutSeconds * 1000,
+      getTierConfig(parseTier(tier)).cliTimeoutSeconds * 1000
     );
     try {
       // 6. Enter priority queue
@@ -207,8 +225,7 @@ export async function createServer(
           sessionId: sess.cliSessionId,
           tier,
           homePath: `${config.tierHomesPath}/${tier}`,
-          timeoutMs:
-            getTierConfig(parseTier(tier)).cliTimeoutSeconds * 1000,
+          timeoutMs: getTierConfig(parseTier(tier)).cliTimeoutSeconds * 1000,
         });
 
         if (!cliResult.success) {

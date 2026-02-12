@@ -1,14 +1,11 @@
 {
   "mcpServers": {
     "analysis_mcp": {
-      "url": "http://mcp-analysis:8085/mcp",
+      "url": "http://mcp-analysis:8085/mcp/pro",
       "transport": "sse",
       "timeout": 5000,
       "keepAlive": true,
-      "maxRetries": 1,
-      "tools": {
-        "allow": ["analysis_get_stock", "analysis_get_statistics", "analysis_list_patterns", "analysis_get_bullish", "analysis_get_bearish"]
-      }
+      "maxRetries": 1
     }
   }
 }
