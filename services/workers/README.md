@@ -9,8 +9,7 @@ services/workers/
 ├── README.md                    # This file
 ├── data-fetcher/                # Data fetching workers
 │   └── TwelveData/             # Stock market data fetcher
-└── analysis/                    # Analysis workers
-    └── CandlestickAnalysis/    # Candlestick pattern analyzer
+└── data-fetcher-2.0/           # Multi-provider data fetcher & analysis
 ```
 
 ## Worker Types
@@ -18,7 +17,7 @@ services/workers/
 | Type | Location | Purpose |
 |------|----------|---------|
 | `data-fetcher` | `services/workers/data-fetcher/{name}/` | Fetches external API data |
-| `analysis` | `services/workers/analysis/{name}/` | Processes existing data |
+| `data-fetcher-2.0` | `services/workers/data-fetcher-2.0/` | Multi-provider fetcher + analysis (Finnhub, Massive, CandlestickAnalysis, etc.) |
 
 ## Architecture
 
@@ -67,11 +66,14 @@ Each worker is an independent .NET 8 ASP.NET Core service that:
 |--------|-------------|--------|
 | [TwelveData](data-fetcher/TwelveData/) | Stock market data (15-min candles) | Active |
 
-### Analysis Workers
+### Multi-Provider Workers (data-fetcher-2.0)
 
-| Worker | Description | Status |
-|--------|-------------|--------|
-| [CandlestickAnalysis](analysis/CandlestickAnalysis/) | Daily candlestick pattern detection | Active |
+| Provider | Description | Status |
+|----------|-------------|--------|
+| Finnhub | Stock fundamentals and metrics | Active |
+| Massive | Technical indicators (SMA, EMA, MACD, RSI) | Active |
+| CandlestickAnalysis | Daily candlestick pattern detection (8 patterns) | Active |
+| AlphaVantage | Earnings calendar data | Active |
 
 ## Creating a New Worker
 
@@ -83,9 +85,6 @@ See: [Worker Requirements Skill](../../instruction/skills/worker-requirements/SK
    ```bash
    # For data-fetcher
    mkdir -p services/workers/data-fetcher/NewService/src/NewService.Worker/{Configuration,Controllers,Models,Repositories,Services,Workers}
-   
-   # For analysis
-   mkdir -p services/workers/analysis/NewService/src/NewService.Worker/{Configuration,Controllers,Models,Repositories,Services,Workers}
    ```
 
 2. **Copy template from existing worker**
