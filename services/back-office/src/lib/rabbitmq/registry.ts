@@ -44,7 +44,7 @@ const OWNER_MAP: Record<string, string> = {
   backfill: "TwelveData Worker",
   crypto: "TwelveData Worker",
   ticker: "TwelveData Worker",
-  analysis: "Candlestick Analysis Worker",
+  analysis: "Data Fetcher 2.0",
   telegram: "Telegram Bot",
 };
 

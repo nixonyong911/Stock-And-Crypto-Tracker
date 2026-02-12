@@ -15,7 +15,7 @@ Write-Host ""
 
 # Step 1: Restart workers
 Write-Host "[1/3] Restarting workers..." -ForegroundColor Yellow
-ssh -i $SSH_KEY $VM_HOST "cd /opt/stocktracker && docker compose restart twelvedata candlestick-analysis"
+ssh -i $SSH_KEY $VM_HOST "cd /opt/stocktracker && docker compose restart twelvedata data-fetcher-2.0"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Failed to restart workers" -ForegroundColor Red
@@ -35,7 +35,7 @@ ssh -i $SSH_KEY $VM_HOST "docker logs twelvedata 2>&1 | grep 'Schedule.*loaded' 
 
 Write-Host ""
 Write-Host "=== CandlestickAnalysis Schedule ===" -ForegroundColor Green
-ssh -i $SSH_KEY $VM_HOST "docker logs candlestick-analysis 2>&1 | grep 'Schedule.*loaded' | tail -1"
+ssh -i $SSH_KEY $VM_HOST "docker logs data-fetcher-2.0 2>&1 | grep 'Candlestick.*Schedule.*loaded' | tail -1"
 
 Write-Host ""
 Write-Host "=== Done ===" -ForegroundColor Cyan

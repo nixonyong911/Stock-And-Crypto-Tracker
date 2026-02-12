@@ -53,7 +53,7 @@ const OWNER_MAP: Record<string, string> = {
   "twelvedata": "TwelveData",
   "stock": "Stock Fetcher",
   "crypto": "Crypto Fetcher",
-  "analysis": "Analysis Worker",
+  "analysis": "Data Fetcher 2.0",
 };
 
 /**

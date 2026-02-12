@@ -181,13 +181,11 @@ The architecture is designed to easily add new workers. Follow these steps:
 ```bash
 # For data-fetcher workers:
 mkdir -p services/workers/data-fetcher/NewService/src/NewService.Worker
-# For analysis workers:
-mkdir -p services/workers/analysis/NewService/src/NewService.Worker
 ```
 
 ### 2. Create a .NET Worker Service
 Use an existing worker as a template:
-- Copy the project structure from `services/workers/data-fetcher/TwelveData/` or `services/workers/analysis/CandlestickAnalysis/`
+- Copy the project structure from `services/workers/data-fetcher/TwelveData/` or add a provider to `services/workers/data-fetcher-2.0/`
 - Rename namespaces and project files
 - Add reference to `StockTracker.Common`
 - Implement your API client in the `Services/` folder

@@ -18,7 +18,7 @@ echo ""
 # Step 1: Restart workers
 echo "[1/3] Restarting workers..."
 cd "$DEPLOY_PATH"
-docker compose restart twelvedata candlestick-analysis
+docker compose restart twelvedata data-fetcher-2.0
 
 # Step 2: Wait for workers to initialize
 echo "[2/3] Waiting for workers to load schedules (15 seconds)..."
@@ -33,7 +33,7 @@ docker logs twelvedata 2>&1 | grep "Schedule.*loaded" | tail -1
 
 echo ""
 echo "=== CandlestickAnalysis Schedule ==="
-docker logs candlestick-analysis 2>&1 | grep "Schedule.*loaded" | tail -1
+docker logs data-fetcher-2.0 2>&1 | grep "Candlestick.*Schedule.*loaded" | tail -1
 
 echo ""
 echo "=== Done ==="

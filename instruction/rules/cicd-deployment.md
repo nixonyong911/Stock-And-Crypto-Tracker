@@ -50,7 +50,7 @@ Azure VM runs services via Docker
 
 The pipeline triggers on changes to:
 - `services/workers/data-fetcher/TwelveData/**`
-- `services/workers/analysis/**`
+- `services/workers/data-fetcher-2.0/**`
 - `services/metrics/**`
 - `services/ai/gateway-2.0/**`
 - `services/back-office/**`
@@ -68,7 +68,7 @@ The pipeline uses `dorny/paths-filter` to detect which services changed:
 | Service | Trigger Paths |
 |---------|---------------|
 | TwelveData | `services/workers/data-fetcher/TwelveData/**`, `services/common/**` |
-| Analysis | `services/workers/analysis/**`, `services/common/**` |
+| Data Fetcher 2.0 | `services/workers/data-fetcher-2.0/**` |
 | Metrics | `services/metrics/**`, `services/common/**` |
 | Back Office | `services/back-office/**` |
 | Gateway 2.0 | `services/ai/gateway-2.0/**` |
@@ -171,17 +171,14 @@ Options:
    paths:
      # For data-fetcher workers:
      - 'services/workers/data-fetcher/YourWorker/**'
-     # For analysis workers:
-     - 'services/workers/analysis/YourWorker/**'
+     # For data-fetcher-2.0:
+     - 'services/workers/data-fetcher-2.0/**'
    ```
 
 2. Add change detection filter:
    ```yaml
    yourworker:
-     # For data-fetcher workers:
      - 'services/workers/data-fetcher/YourWorker/**'
-     # For analysis workers:
-     - 'services/workers/analysis/YourWorker/**'
      - 'services/common/**'
    ```
 
@@ -192,10 +189,7 @@ Options:
      uses: docker/build-push-action@v5
      with:
        context: services/
-       # For data-fetcher workers:
        file: services/workers/data-fetcher/YourWorker/Dockerfile
-       # For analysis workers:
-       file: services/workers/analysis/YourWorker/Dockerfile
        tags: yourworker:latest
        cache-from: type=gha,scope=yourworker
        cache-to: type=gha,mode=max,scope=yourworker

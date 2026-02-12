@@ -44,9 +44,6 @@ export function ScheduleCard({
     if (worker.service_type === "data-fetcher") {
       return `/data-fetchers/${worker.name}`;
     }
-    if (worker.service_type === "analysis") {
-      return `/analysis/${worker.name}`;
-    }
     return null;
   };
 

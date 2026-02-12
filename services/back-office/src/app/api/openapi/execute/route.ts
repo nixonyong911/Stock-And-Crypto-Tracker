@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 // Worker URL mapping (internal Docker network)
 const WORKER_URLS: Record<string, string> = {
   'twelvedata': 'http://twelvedata:8080',
-  'candlestick-analysis': 'http://data-fetcher-2.0:8080',
 };
 
 interface ExecuteRequest {

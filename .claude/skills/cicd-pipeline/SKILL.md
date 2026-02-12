@@ -26,7 +26,6 @@ Use this skill when:
 | Workflow Name | DB Service Name      | Docker Image                      | Build Location |
 | ------------- | -------------------- | --------------------------------- | -------------- |
 | twelvedata    | twelvedata           | stocktracker-twelvedata           | GHA            |
-| analysis      | candlestick-analysis | stocktracker-candlestick-analysis | GHA            |
 | metrics       | metrics              | stocktracker-metrics              | GHA            |
 | backoffice    | back-office          | stocktracker-back-office          | GHA            |
 | mcp           | mcp-analysis         | stocktracker-mcp-analysis         | GHA            |
@@ -49,7 +48,7 @@ needs.detect-changes.outputs.any_service    # true if ANY changed
 **Path filters** in `detect-changes` determine what triggers rebuilds:
 
 - `services/workers/data-fetcher/TwelveData/**` → twelvedata
-- `services/workers/analysis/**` → analysis
+- `services/workers/data-fetcher-2.0/**` → datafetcher2
 - `services/common/**` → triggers both workers
 
 ## Versioning System

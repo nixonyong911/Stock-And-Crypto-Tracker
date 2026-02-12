@@ -21,8 +21,8 @@ This skill defines the **project standard** for all workers in the project. Use 
 **Worker Types:**
 - `data-fetcher` - Fetches external API data (e.g., TwelveData, CoinGecko)
   - Location: `services/workers/data-fetcher/{name}/`
-- `analysis` - Processes existing data (e.g., CandlestickAnalysis)
-  - Location: `services/workers/analysis/{name}/`
+- `data-fetcher-2.0` - Multi-provider fetcher + analysis (Finnhub, Massive, CandlestickAnalysis)
+  - Location: `services/workers/data-fetcher-2.0/`
 
 ---
 
@@ -33,7 +33,7 @@ This skill defines the **project standard** for all workers in the project. Use 
 ```
 What type of worker would you like to create/review?
 1. data-fetcher worker - Fetches external API data (e.g., TwelveData, CoinGecko)
-2. analysis worker - Processes existing data (e.g., CandlestickAnalysis)
+2. data-fetcher-2.0 provider - Add a new provider to data-fetcher-2.0 (e.g., CandlestickAnalysis)
 3. New type of worker - Define a new worker category
 ```
 

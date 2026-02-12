@@ -112,4 +112,4 @@ All tables have **Row Level Security (RLS)** enabled:
 
 - [Schema Reference](schema.md)
 - [EF Migrations CLI](../cli/ef-migrations.md)
-- [AI Agent Candlestick Guide](../ai-agent/candlestick-analysis.md)
+- Candlestick analysis is now part of data-fetcher-2.0 (CandlestickAnalysis provider)

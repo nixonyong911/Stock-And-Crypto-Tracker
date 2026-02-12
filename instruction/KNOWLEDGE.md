@@ -10,7 +10,7 @@
 | Component | Service Type | Status | Last Change | Notes |
 |-----------|--------------|--------|-------------|-------|
 | TwelveData Worker | data-fetcher | ✅ Running | 2026-01-02 | `services/workers/data-fetcher/TwelveData/` |
-| Candlestick Analysis | analysis | ⏳ Ready | 2026-01-02 | `services/workers/analysis/CandlestickAnalysis/` |
+| Data Fetcher 2.0 | data-fetcher | ✅ Running | 2026-02-12 | `services/workers/data-fetcher-2.0/` (includes CandlestickAnalysis, Finnhub, Massive providers) |
 | n8n | workflow | ✅ Running | 2025-12-27 | Workflow automation on VM (Docker) |
 | Caddy | reverse-proxy | ✅ Running | 2025-12-27 | Auto HTTPS reverse proxy (Docker) |
 | Back-Office | frontend | ✅ Running | 2025-12-30 | Admin UI on VM (Docker) |
@@ -93,7 +93,7 @@
 |---------|-----|
 | n8n | https://nxserver.malaysiawest.cloudapp.azure.com/ |
 | TwelveData | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger |
-| Candlestick Analysis | https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger |
+| Data Fetcher 2.0 (includes Analysis) | https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/swagger |
 | Back-Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office |
 | Frontend | https://stock-tracker.vercel.app/ |
 
