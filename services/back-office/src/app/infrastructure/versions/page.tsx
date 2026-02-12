@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Server, 
-  RefreshCw, 
+import {
+  Server,
+  RefreshCw,
   Clock,
   CheckCircle,
   AlertTriangle,
@@ -21,13 +27,11 @@ interface WorkerVersion {
 
 // Service display name mapping
 const SERVICE_DISPLAY_NAMES: Record<string, string> = {
-  "twelvedata": "TwelveData Worker",
-  "candlestick-analysis": "Candlestick Analysis",
-  "metrics": "Metrics Service",
+  twelvedata: "TwelveData Worker",
+  metrics: "Metrics Service",
   "back-office": "Back Office",
   "mcp-analysis": "MCP Analysis",
   "telegram-bot-2.0": "Telegram Bot 2.0",
-  "ai-hub2": "AI Hub 2.0",
   "frontend-staging": "Frontend Staging",
 };
 
@@ -132,7 +136,9 @@ export default function VersionsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-100">Worker Versions</h1>
+            <h1 className="text-3xl font-bold text-slate-100">
+              Worker Versions
+            </h1>
             <p className="text-slate-400 mt-1">
               Docker image versions deployed on Azure VM
             </p>
@@ -143,7 +149,9 @@ export default function VersionsPage() {
             variant="secondary"
             className="bg-slate-800 hover:bg-slate-700"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
         </div>
@@ -170,7 +178,9 @@ export default function VersionsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="border-slate-800 bg-slate-900/50">
               <CardHeader className="pb-2">
-                <CardDescription className="text-slate-400">Total Services</CardDescription>
+                <CardDescription className="text-slate-400">
+                  Total Services
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
@@ -184,16 +194,22 @@ export default function VersionsPage() {
 
             <Card className="border-slate-800 bg-slate-900/50">
               <CardHeader className="pb-2">
-                <CardDescription className="text-slate-400">Recently Updated</CardDescription>
+                <CardDescription className="text-slate-400">
+                  Recently Updated
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-emerald-400" />
                   <span className="text-2xl font-bold text-slate-100">
-                    {versions.filter(v => {
-                      const diffHours = (Date.now() - new Date(v.updated_at).getTime()) / (1000 * 60 * 60);
-                      return diffHours < 24;
-                    }).length}
+                    {
+                      versions.filter((v) => {
+                        const diffHours =
+                          (Date.now() - new Date(v.updated_at).getTime()) /
+                          (1000 * 60 * 60);
+                        return diffHours < 24;
+                      }).length
+                    }
                   </span>
                   <span className="text-slate-500 text-sm">last 24h</span>
                 </div>
@@ -202,20 +218,23 @@ export default function VersionsPage() {
 
             <Card className="border-slate-800 bg-slate-900/50">
               <CardHeader className="pb-2">
-                <CardDescription className="text-slate-400">Last Deploy</CardDescription>
+                <CardDescription className="text-slate-400">
+                  Last Deploy
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-cyan-400" />
                   <span className="text-lg font-medium text-slate-100">
-                    {versions.length > 0 
+                    {versions.length > 0
                       ? getTimeSince(
-                          versions.reduce((latest, v) => 
-                            new Date(v.updated_at) > new Date(latest.updated_at) ? v : latest
+                          versions.reduce((latest, v) =>
+                            new Date(v.updated_at) > new Date(latest.updated_at)
+                              ? v
+                              : latest
                           ).updated_at
                         )
-                      : "—"
-                    }
+                      : "—"}
                   </span>
                 </div>
               </CardContent>
@@ -229,24 +248,30 @@ export default function VersionsPage() {
             {versions.map((version) => {
               const status = getStatusInfo(version.updated_at);
               const StatusIcon = status.icon;
-              
+
               return (
-                <Card 
-                  key={version.service} 
+                <Card
+                  key={version.service}
                   className={`border-slate-800 bg-slate-900/50 hover:bg-slate-900/80 transition-colors`}
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div>
                         <CardTitle className="text-slate-100 text-lg">
-                          {SERVICE_DISPLAY_NAMES[version.service] || version.service}
+                          {SERVICE_DISPLAY_NAMES[version.service] ||
+                            version.service}
                         </CardTitle>
                         <CardDescription className="text-slate-500 font-mono text-xs mt-1">
                           {version.service}
                         </CardDescription>
                       </div>
-                      <div className={`px-3 py-1 rounded-full text-sm font-mono font-bold ${status.bgColor} ${status.color}`}>
-                        {formatVersion(version.major_version, version.minor_version)}
+                      <div
+                        className={`px-3 py-1 rounded-full text-sm font-mono font-bold ${status.bgColor} ${status.color}`}
+                      >
+                        {formatVersion(
+                          version.major_version,
+                          version.minor_version
+                        )}
                       </div>
                     </div>
                   </CardHeader>

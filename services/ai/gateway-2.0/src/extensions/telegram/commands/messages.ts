@@ -71,9 +71,24 @@ composer.on("message:text", async (ctx) => {
     return;
   }
 
+  // Enforce pairing: unpaired users can't send messages
+  const accountResult = await ctx.gatewayAPI.db.query(
+    "SELECT clerk_user_id FROM channel_accounts WHERE platform_user_id = $1 AND channel_type = $2",
+    [String(userId), "telegram"]
+  );
+  const isPaired = accountResult.rows[0]?.clerk_user_id != null;
+
+  if (!isPaired) {
+    await ctx.reply(
+      "🔗 **Account not paired**\n\nPlease pair your Telegram account first:\n\n1. Visit: https://stockandcryptotracker.com/pair\n2. Click **Pair Telegram Account**\n3. Click **Open in Telegram**\n\nOr use `/pair <6-digit code>`",
+      { parse_mode: "Markdown" }
+    );
+    return;
+  }
+
   if (!ctx.activeSession) {
     await ctx.reply(
-      "🔒 **Please login first**\n\nUse /login to start a session.\n\nNot registered? Use /start to register!",
+      "🔒 **Please login first**\n\nUse /login to start a session.",
       { parse_mode: "Markdown" }
     );
     return;

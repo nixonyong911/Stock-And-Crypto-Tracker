@@ -10,7 +10,7 @@
 # TARGET (Phase 3): ~3-5 min (60-70% faster)
 # BEST CASE (config-only): ~1-2 min (skip all builds)
 # ===========================================
-# Services: n8n, Caddy, TwelveData, Metrics, Candlestick Analysis, Gateway 2.0, Alloy
+# Services: n8n, Caddy, TwelveData, Metrics, Gateway 2.0, Alloy
 # Monitoring: Grafana Cloud (via Alloy)
 # Secrets: Injected at runtime via Infisical CLI (Machine Identity)
 # Infrastructure Config: instruction/reference/infrastructure-config.md
@@ -25,7 +25,6 @@ on:
       - "services/workers/data-fetcher/TwelveData/**"
       - "services/workers/data-fetcher/fred-worker/**"
       - "services/workers/data-fetcher-2.0/**"
-      - "services/workers/analysis/**"
       - "services/metrics/**"
       - "services/ai/gateway-2.0/**"
       - "services/back-office/**"
@@ -49,7 +48,6 @@ on:
           - "twelvedata"
           - "fred-worker"
           - "data-fetcher-2.0"
-          - "candlestick-analysis"
           - "metrics"
           - "back-office"
           - "mcp-analysis"
@@ -65,18 +63,16 @@ jobs:
       twelvedata: ${{ steps.filter.outputs.twelvedata }}
       fred: ${{ steps.filter.outputs.fred }}
       datafetcher2: ${{ steps.filter.outputs.datafetcher2 }}
-      analysis: ${{ steps.filter.outputs.analysis }}
       metrics: ${{ steps.filter.outputs.metrics }}
       backoffice: ${{ steps.filter.outputs.backoffice }}
       mcp: ${{ steps.filter.outputs.mcp }}
       gateway2: ${{ steps.filter.outputs.gateway2 }}
       config: ${{ steps.filter.outputs.config }}
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.datafetcher2 == 'true' || steps.filter.outputs.analysis == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.gateway2 == 'true' }}
+      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.datafetcher2 == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.gateway2 == 'true' }}
       # Version outputs for tagging
       twelvedata_version: ${{ steps.versions.outputs.twelvedata }}
       fred_version: ${{ steps.versions.outputs.fred }}
       datafetcher2_version: ${{ steps.versions.outputs.datafetcher2 }}
-      analysis_version: ${{ steps.versions.outputs.analysis }}
       metrics_version: ${{ steps.versions.outputs.metrics }}
       backoffice_version: ${{ steps.versions.outputs.backoffice }}
       mcp_version: ${{ steps.versions.outputs.mcp }}
@@ -97,9 +93,6 @@ jobs:
               - 'services/workers/data-fetcher/fred-worker/**'
             datafetcher2:
               - 'services/workers/data-fetcher-2.0/**'
-              - 'services/common/**'
-            analysis:
-              - 'services/workers/analysis/**'
               - 'services/common/**'
             metrics:
               - 'services/metrics/**'
@@ -122,7 +115,6 @@ jobs:
           echo "TwelveData: ${{ steps.filter.outputs.twelvedata }}"
           echo "FRED Worker: ${{ steps.filter.outputs.fred }}"
           echo "Data Fetcher 2.0: ${{ steps.filter.outputs.datafetcher2 }}"
-          echo "Analysis: ${{ steps.filter.outputs.analysis }}"
           echo "Metrics: ${{ steps.filter.outputs.metrics }}"
           echo "Back Office: ${{ steps.filter.outputs.backoffice }}"
           echo "MCP Analysis: ${{ steps.filter.outputs.mcp }}"
@@ -139,7 +131,6 @@ jobs:
           echo "| TwelveData | ${{ steps.filter.outputs.twelvedata }} |" >> $GITHUB_STEP_SUMMARY
           echo "| FRED Worker | ${{ steps.filter.outputs.fred }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Data Fetcher 2.0 | ${{ steps.filter.outputs.datafetcher2 }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Analysis | ${{ steps.filter.outputs.analysis }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Metrics | ${{ steps.filter.outputs.metrics }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Back Office | ${{ steps.filter.outputs.backoffice }} |" >> $GITHUB_STEP_SUMMARY
           echo "| MCP Analysis | ${{ steps.filter.outputs.mcp }} |" >> $GITHUB_STEP_SUMMARY
@@ -160,7 +151,6 @@ jobs:
             ["twelvedata"]="twelvedata"
             ["fred"]="fred-worker"
             ["datafetcher2"]="data-fetcher-2.0"
-            ["analysis"]="candlestick-analysis"
             ["metrics"]="metrics"
             ["backoffice"]="back-office"
             ["mcp"]="mcp-analysis"
@@ -264,20 +254,6 @@ jobs:
           cache-to: type=gha,mode=max,scope=data-fetcher-2.0
           outputs: type=docker,dest=/tmp/data-fetcher-2.0.tar
 
-      # Build Candlestick Analysis (only if changed or forced)
-      - name: Build Candlestick Analysis image
-        id: build-analysis
-        if: (needs.detect-changes.outputs.analysis == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
-        continue-on-error: true
-        uses: docker/build-push-action@v5
-        with:
-          context: services/
-          file: services/workers/analysis/CandlestickAnalysis/Dockerfile
-          tags: stocktracker-candlestick-analysis:v${{ needs.detect-changes.outputs.analysis_version }}
-          cache-from: type=gha,scope=analysis
-          cache-to: type=gha,mode=max,scope=analysis
-          outputs: type=docker,dest=/tmp/candlestick-analysis.tar
-
       # Build Metrics (only if changed or forced)
       - name: Build Metrics image
         id: build-metrics
@@ -372,14 +348,6 @@ jobs:
             echo "⏭️ Data Fetcher 2.0 skipped (unchanged)"
           fi
 
-          if [ -f /tmp/candlestick-analysis.tar ]; then
-            gzip -1 < /tmp/candlestick-analysis.tar > /tmp/images/candlestick-analysis.tar.gz
-            BUILT="${BUILT}analysis,"
-            echo "✅ Candlestick Analysis compressed"
-          else
-            echo "⏭️ Candlestick Analysis skipped (unchanged)"
-          fi
-
           if [ -f /tmp/metrics.tar ]; then
             gzip -1 < /tmp/metrics.tar > /tmp/images/metrics.tar.gz
             BUILT="${BUILT}metrics,"
@@ -470,7 +438,7 @@ jobs:
             cp "$ENV_FILE" "$ENV_FILE.bak"
           fi
 
-          for NAME in twelvedata fred-worker data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis gateway-2.0; do
+          for NAME in twelvedata fred-worker data-fetcher-2.0 metrics back-office mcp-analysis gateway-2.0; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -486,7 +454,6 @@ jobs:
                   "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;
                   "fred-worker") VAR_NAME="FRED_VERSION" ;;
                   "data-fetcher-2.0") VAR_NAME="DATA_FETCHER_2_VERSION" ;;
-                "candlestick-analysis") VAR_NAME="CANDLESTICK_ANALYSIS_VERSION" ;;
                   "metrics") VAR_NAME="METRICS_VERSION" ;;
                   "back-office") VAR_NAME="BACK_OFFICE_VERSION" ;;
                   "mcp-analysis") VAR_NAME="MCP_ANALYSIS_VERSION" ;;
@@ -526,7 +493,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
 
-            for service in twelvedata fred-worker data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis gateway-2.0; do
+            for service in twelvedata fred-worker data-fetcher-2.0 metrics back-office mcp-analysis gateway-2.0; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -601,7 +568,6 @@ jobs:
           TWELVEDATA_CHANGED: ${{ needs.detect-changes.outputs.twelvedata }}
           FRED_CHANGED: ${{ needs.detect-changes.outputs.fred }}
           DATA_FETCHER_2_CHANGED: ${{ needs.detect-changes.outputs.datafetcher2 }}
-          ANALYSIS_CHANGED: ${{ needs.detect-changes.outputs.analysis }}
           METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
           BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
           MCP_CHANGED: ${{ needs.detect-changes.outputs.mcp }}
@@ -618,7 +584,6 @@ jobs:
           [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES twelvedata"
           [ "$FRED_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES fred-worker"
           [ "$DATA_FETCHER_2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES data-fetcher-2.0"
-          [ "$ANALYSIS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES candlestick-analysis"
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES metrics"
           [ "$BACKOFFICE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES back-office"
           [ "$MCP_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES mcp-analysis"
@@ -684,7 +649,6 @@ jobs:
               "twelvedata") IMAGE="stocktracker-twelvedata" ;;
               "fred-worker") IMAGE="stocktracker-fred" ;;
               "data-fetcher-2.0") IMAGE="stocktracker-data-fetcher-2.0" ;;
-            "candlestick-analysis") IMAGE="stocktracker-candlestick-analysis" ;;
             "metrics") IMAGE="stocktracker-metrics" ;;
             "back-office") IMAGE="stocktracker-back-office" ;;
             "mcp-analysis") IMAGE="stocktracker-mcp-analysis" ;;
@@ -714,7 +678,6 @@ jobs:
             "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;
             "fred-worker") VAR_NAME="FRED_VERSION" ;;
             "data-fetcher-2.0") VAR_NAME="DATA_FETCHER_2_VERSION" ;;
-            "candlestick-analysis") VAR_NAME="CANDLESTICK_ANALYSIS_VERSION" ;;
             "metrics") VAR_NAME="METRICS_VERSION" ;;
             "back-office") VAR_NAME="BACK_OFFICE_VERSION" ;;
             "mcp-analysis") VAR_NAME="MCP_ANALYSIS_VERSION" ;;
@@ -790,7 +753,7 @@ jobs:
 
           echo "=== Cleanup old images (keep running + 1 previous for rollback) ==="
           # Smart cleanup: keep 2 most recent versions per service (running + previous for rollback)
-          for SERVICE in twelvedata fred data-fetcher-2.0 candlestick-analysis metrics back-office mcp-analysis gateway-2.0; do
+          for SERVICE in twelvedata fred data-fetcher-2.0 metrics back-office mcp-analysis gateway-2.0; do
             # Get all version tags for this service, sorted by version number
             TAGS=$(docker images "stocktracker-${SERVICE}" --format '{{.Tag}}' | grep -E '^v[0-9]+\.[0-9]+$' | sort -V 2>/dev/null || true)
             if [ -n "$TAGS" ]; then
@@ -847,7 +810,7 @@ jobs:
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" "TwelveData"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/health/live" "FRED Worker"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/health/live" "Data Fetcher 2.0"
-          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/health/live" "Candlestick Analysis"
+          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/health/live" "Candlestick Analysis (via Data Fetcher 2.0)"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live" "Metrics"
 
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ > /dev/null && echo "✅ Back Office: OK" || echo "⚠️ Back Office: Starting..."
@@ -884,7 +847,7 @@ jobs:
           echo "- [TwelveData Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [FRED Worker Status](https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/status)" >> $GITHUB_STEP_SUMMARY
           echo "- [Data Fetcher 2.0 Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/swagger)" >> $GITHUB_STEP_SUMMARY
-          echo "- [Candlestick Analysis Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Candlestick Analysis Swagger (via Data Fetcher 2.0)](https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Metrics Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Back Office](https://nxserver.malaysiawest.cloudapp.azure.com/back-office/)" >> $GITHUB_STEP_SUMMARY
           echo "- Gateway 2.0: TypeScript container (gateway-2.0:8080, includes Telegram)" >> $GITHUB_STEP_SUMMARY
@@ -905,7 +868,6 @@ jobs:
           TWELVEDATA_CHANGED: ${{ needs.detect-changes.outputs.twelvedata }}
           FRED_CHANGED: ${{ needs.detect-changes.outputs.fred }}
           DATA_FETCHER_2_CHANGED: ${{ needs.detect-changes.outputs.datafetcher2 }}
-          ANALYSIS_CHANGED: ${{ needs.detect-changes.outputs.analysis }}
           METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
           BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
           MCP_CHANGED: ${{ needs.detect-changes.outputs.mcp }}
@@ -913,7 +875,6 @@ jobs:
           TWELVEDATA_VERSION: ${{ needs.detect-changes.outputs.twelvedata_version }}
           FRED_VERSION: ${{ needs.detect-changes.outputs.fred_version }}
           DATA_FETCHER_2_VERSION: ${{ needs.detect-changes.outputs.datafetcher2_version }}
-          ANALYSIS_VERSION: ${{ needs.detect-changes.outputs.analysis_version }}
           METRICS_VERSION: ${{ needs.detect-changes.outputs.metrics_version }}
           BACKOFFICE_VERSION: ${{ needs.detect-changes.outputs.backoffice_version }}
           MCP_VERSION: ${{ needs.detect-changes.outputs.mcp_version }}
@@ -931,7 +892,6 @@ jobs:
           echo "  TWELVEDATA_CHANGED:  $TWELVEDATA_CHANGED"
           echo "  FRED_CHANGED:        $FRED_CHANGED"
           echo "  DATA_FETCHER_2_CHANGED: $DATA_FETCHER_2_CHANGED"
-          echo "  ANALYSIS_CHANGED:    $ANALYSIS_CHANGED"
           echo "  METRICS_CHANGED:     $METRICS_CHANGED"
           echo "  BACKOFFICE_CHANGED:  $BACKOFFICE_CHANGED"
           echo "  MCP_CHANGED:         $MCP_CHANGED"
@@ -970,7 +930,6 @@ jobs:
           [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "twelvedata" "$TWELVEDATA_VERSION"
           [ "$FRED_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "fred-worker" "$FRED_VERSION"
           [ "$DATA_FETCHER_2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "data-fetcher-2.0" "$DATA_FETCHER_2_VERSION"
-          [ "$ANALYSIS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "candlestick-analysis" "$ANALYSIS_VERSION"
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "metrics" "$METRICS_VERSION"
           [ "$BACKOFFICE_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "back-office" "$BACKOFFICE_VERSION"
           [ "$MCP_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "mcp-analysis" "$MCP_VERSION"

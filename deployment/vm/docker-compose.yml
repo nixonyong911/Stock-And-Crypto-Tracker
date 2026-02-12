@@ -101,47 +101,6 @@ services:
       start_period: 30s
 
   # ===========================================
-  # Candlestick Analysis Worker
-  # Swagger at: /api/analysis/swagger
-  # ===========================================
-  candlestick-analysis:
-    image: stocktracker-candlestick-analysis:${CANDLESTICK_ANALYSIS_VERSION:-latest}
-    build:
-      context: ./repo/services
-      dockerfile: workers/analysis/CandlestickAnalysis/Dockerfile
-    container_name: candlestick-analysis
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:8080
-      # Path base for reverse proxy
-      - PATH_BASE=/api/analysis
-      # Database connection
-      - ConnectionStrings__DefaultConnection=${DATABASE_CONNECTION_STRING}
-      # Metrics service for pushing metrics
-      - MetricsService__BaseUrl=http://metrics:8080
-      - MetricsService__WorkerName=candlestick-analysis
-      - MetricsService__Enabled=true
-      # RabbitMQ for analysis backfill queue
-      - RabbitMQ__HostName=rabbitmq
-      - RabbitMQ__UserName=stocktracker
-      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
-      - RabbitMQ__QueueName=analysis-backfill-queue
-    networks:
-      - stocktracker
-    depends_on:
-      - metrics
-      - rabbitmq
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 30s
-
-  # ===========================================
   # FRED Worker - Economic Indicators
   # API at: /api/fred/*
   # ===========================================
@@ -295,7 +254,6 @@ services:
     depends_on:
       - metrics
       - twelvedata
-      - candlestick-analysis
 
   # ===========================================
   # Redis - Caching for MCP Server & Queue Locks
