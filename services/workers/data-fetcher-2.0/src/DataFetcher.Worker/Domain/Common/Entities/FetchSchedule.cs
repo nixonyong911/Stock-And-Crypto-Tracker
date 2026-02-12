@@ -11,6 +11,7 @@ public class FetchSchedule
     public TimeSpan ScheduleTime { get; set; }
     public string ScheduleTimezone { get; set; } = "America/New_York";
     public bool IsEnabled { get; set; }
+    public string? FetchConfig { get; set; }
     public DateTime? LastRunAt { get; set; }
     public string? LastRunStatus { get; set; }
     public string? LastRunMessage { get; set; }

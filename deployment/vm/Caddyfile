@@ -33,11 +33,11 @@ nxserver.malaysiawest.cloudapp.azure.com { # ===================================
     }
 
     # ===========================================
-    # Candlestick Analysis Worker API
-    # Swagger UI: /api/analysis/swagger
+    # Candlestick Analysis API (migrated into data-fetcher-2.0)
+    # Swagger UI: /api/data-fetcher-2.0/swagger (analysis group)
     # ===========================================
     handle_path /api/analysis/* {
-        reverse_proxy candlestick-analysis:8080
+        reverse_proxy data-fetcher-2.0:8080
     }
 
     # ===========================================

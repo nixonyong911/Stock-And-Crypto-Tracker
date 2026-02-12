@@ -29,4 +29,9 @@ public class RabbitMQSettings
     /// Queue name for Massive indicator processing messages.
     /// </summary>
     public string MassiveQueueName { get; set; } = "massive-indicator-queue";
+
+    /// <summary>
+    /// Queue name for candlestick analysis backfill processing messages.
+    /// </summary>
+    public string AnalysisBackfillQueueName { get; set; } = "analysis-backfill-queue";
 }

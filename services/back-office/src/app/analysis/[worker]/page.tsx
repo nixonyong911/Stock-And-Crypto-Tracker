@@ -20,6 +20,7 @@ import {
 // Public API path mapping for swagger URLs (matches Caddyfile routing)
 const SWAGGER_PATHS: Record<string, string> = {
   'candlestick-analysis': '/api/analysis',
+  'data-fetcher-2.0': '/api/data-fetcher-2.0',
 };
 
 interface WorkerDetails extends WorkerRegistry {

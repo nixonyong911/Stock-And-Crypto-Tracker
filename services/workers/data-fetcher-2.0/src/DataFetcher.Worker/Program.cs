@@ -1,5 +1,7 @@
+using Dapper;
 using DataFetcher.Worker.Application;
 using DataFetcher.Worker.Application.Providers.AlphaVantage;
+using DataFetcher.Worker.Application.Providers.CandlestickAnalysis;
 using DataFetcher.Worker.Application.Providers.Finnhub;
 using DataFetcher.Worker.Application.Providers.Massive;
 using DataFetcher.Worker.Application.Scheduling;
@@ -8,10 +10,12 @@ using DataFetcher.Worker.Configuration.Providers;
 using DataFetcher.Worker.Infrastructure.Common;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.AlphaVantage;
+using DataFetcher.Worker.Infrastructure.Providers.CandlestickAnalysis.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.Massive;
 using DataFetcher.Worker.Infrastructure.Providers.Massive.Repositories;
+using DataFetcher.Worker.Workers.CandlestickAnalysis;
 using DataFetcher.Worker.Workers.Finnhub;
 using DataFetcher.Worker.Workers.Massive;
 using DataFetcher.Worker.Workers.Scheduling;
@@ -21,6 +25,10 @@ using Polly;
 using Polly.Extensions.Http;
 using Serilog;
 using StockTracker.Common.Metrics;
+
+// Register Dapper type handlers for DateOnly (not natively supported by Dapper)
+SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
+SqlMapper.AddTypeHandler(new NullableDateOnlyTypeHandler());
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -45,6 +53,8 @@ try
         builder.Configuration.GetSection("Providers:AlphaVantage"));
     builder.Services.Configure<MassiveSettings>(
         builder.Configuration.GetSection("Providers:Massive"));
+    builder.Services.Configure<CandlestickAnalysisSettings>(
+        builder.Configuration.GetSection("Providers:CandlestickAnalysis"));
     builder.Services.Configure<RabbitMQSettings>(
         builder.Configuration.GetSection("RabbitMQ"));
 
@@ -83,6 +93,16 @@ try
     // Application - Massive Provider
     builder.Services.AddScoped<IIndicatorFetchService, IndicatorFetchService>();
 
+    // Infrastructure - CandlestickAnalysis Provider
+    builder.Services.AddScoped<IStockPriceRepository, StockPriceRepository>();
+    builder.Services.AddScoped<IAnalysisRepository, AnalysisRepository>();
+
+    // Application - CandlestickAnalysis Provider
+    builder.Services.AddScoped<IDailyAggregationService, DailyAggregationService>();
+    builder.Services.AddScoped<IPatternDetectionService, PatternDetectionService>();
+    builder.Services.AddScoped<ICandlestickAnalysisService, CandlestickAnalysisService>();
+    builder.Services.AddScoped<IAnalysisBackfillService, AnalysisBackfillService>();
+
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();
 
@@ -97,6 +117,10 @@ try
     // Massive workers
     builder.Services.AddHostedService<MassiveQueueConsumer>();
     builder.Services.AddHostedService<MassiveFetchWorker>();
+
+    // CandlestickAnalysis workers
+    builder.Services.AddHostedService<DataFetcher.Worker.Workers.CandlestickAnalysis.CandlestickAnalysisWorker>();
+    builder.Services.AddHostedService<DataFetcher.Worker.Workers.CandlestickAnalysis.AnalysisBackfillQueueConsumer>();
 
     // Controllers
     builder.Services.AddControllers();
@@ -142,6 +166,14 @@ try
         SwaggerGroup = "massive",
         Capabilities = new List<string> { "indicators", "sma", "ema", "macd", "rsi", "backfill" }
     });
+    registry.Register(new ProviderInfo
+    {
+        Name = "CandlestickAnalysis",
+        Description = "Candlestick pattern analysis (8 single-candle patterns) with scheduled and backfill processing",
+        StatusEndpoint = "/api/analysis/status",
+        SwaggerGroup = "analysis",
+        Capabilities = new List<string> { "candlestick-patterns", "backfill", "trigger", "webhook" }
+    });
     builder.Services.AddSingleton<IProviderRegistry>(registry);
 
     // Swagger
@@ -173,6 +205,12 @@ try
             Title = "Massive Provider",
             Version = "v1",
             Description = "Technical indicators (SMA, EMA, MACD, RSI) via Massive API with centralized RabbitMQ queue for rate limiting"
+        });
+        c.SwaggerDoc("analysis", new OpenApiInfo
+        {
+            Title = "Candlestick Analysis Provider",
+            Version = "v1",
+            Description = "Candlestick pattern analysis. Analyzes daily candles for single-candle patterns (Doji, Hammer, Marubozu, etc.)"
         });
         c.SwaggerDoc("general", new OpenApiInfo
         {
@@ -207,6 +245,7 @@ try
         c.SwaggerEndpoint("alphavantage/swagger.json", "AlphaVantage Provider");
         c.SwaggerEndpoint("earnings/swagger.json", "Earnings Sync Service");
         c.SwaggerEndpoint("massive/swagger.json", "Massive Provider");
+        c.SwaggerEndpoint("analysis/swagger.json", "Candlestick Analysis Provider");
         c.SwaggerEndpoint("general/swagger.json", "General / Discovery");
         c.RoutePrefix = "swagger";
     });
