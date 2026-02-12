@@ -135,8 +135,14 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
       platformUserId: params.platformUserId,
     });
 
-    // 1. Security check
-    const secCheck = security.check(params.message);
+    // 1. Resolve tier (needed before security check for tier-aware rules)
+    const tier = await resolveUserTier(
+      params.platformUserId,
+      params.channelType
+    );
+
+    // 2. Security check (tier-aware: e.g. slash commands blocked for non-DEV)
+    const secCheck = security.check(params.message, parseTier(tier));
     if (secCheck.blocked) {
       wsServer.broadcast("security.blocked", {
         userId: params.platformUserId,
@@ -148,17 +154,13 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
           userId: params.platformUserId,
           channelType: params.channelType,
           messagePreview: params.message.slice(0, 200),
-          detectionType: "injection",
+          detectionType: secCheck.reason.includes("CLI command")
+            ? "cli_command_injection"
+            : "injection",
         })
         .catch(() => {});
       throw new Error(`Message blocked: ${secCheck.reason}`);
     }
-
-    // 2. Resolve tier
-    const tier = await resolveUserTier(
-      params.platformUserId,
-      params.channelType
-    );
 
     // 3. Usage check (free tier)
     if (tier === "free") {

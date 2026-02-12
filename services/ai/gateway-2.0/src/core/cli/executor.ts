@@ -66,22 +66,18 @@ export class CLIExecutor {
 
     this.logger.info(
       { cli: args[0], contextPath: params.contextPath, tier: params.tier },
-      "Spawning CLI process",
+      "Spawning CLI process"
     );
 
     return new Promise<CLIResult>((resolve) => {
       // Spawn cursor-agent in its own process group (detached).
       // stdin is ignored – the agent runs non-interactively.
-      const child: ChildProcess = spawn(
-        args[0]!,
-        args.slice(1),
-        {
-          cwd: params.contextPath,
-          env: { ...process.env, HOME: params.homePath },
-          stdio: ["ignore", "pipe", "pipe"],
-          detached: true,
-        },
-      );
+      const child: ChildProcess = spawn(args[0]!, args.slice(1), {
+        cwd: params.contextPath,
+        env: { ...process.env, HOME: params.homePath },
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: true,
+      });
 
       const stdoutChunks: Buffer[] = [];
       const stderrChunks: Buffer[] = [];
@@ -95,7 +91,7 @@ export class CLIExecutor {
 
         this.logger.warn(
           { pid: child.pid, timeoutMs: params.timeoutMs },
-          "CLI process timed out – killing process group",
+          "CLI process timed out – killing process group"
         );
 
         this.killProcessGroup(child);
@@ -153,7 +149,7 @@ export class CLIExecutor {
 
         this.logger.info(
           { exitCode, executionTimeMs: Date.now() - startTime },
-          "CLI process finished",
+          "CLI process finished"
         );
 
         resolve({
@@ -218,10 +214,24 @@ export class CLIExecutor {
    * cursor-agent -p "<msg>" --approve-mcps --force [--model <model>] [--resume=<id>]
    */
   private buildArgs(params: ExecuteParams): string[] {
+    // Last-resort guard: if the message starts with "/" it could be
+    // interpreted as a Cursor CLI built-in command (/compress, /commands,
+    // /max-mode, etc.).  Prefix with a space so cursor-agent treats it as
+    // plain text.  Layers 1 (Telegram) and 2 (SecurityService) should
+    // have already blocked this for non-DEV users, but defense-in-depth.
+    let message = params.message;
+    if (message.startsWith("/")) {
+      this.logger.warn(
+        { message: message.slice(0, 50) },
+        "Slash-prefixed message reached CLI executor – sanitizing"
+      );
+      message = ` ${message}`;
+    }
+
     const args: string[] = [
       "cursor-agent",
       "-p",
-      params.message,
+      message,
       "--approve-mcps",
       "--force",
     ];

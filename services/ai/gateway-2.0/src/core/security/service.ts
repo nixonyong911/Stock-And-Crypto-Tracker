@@ -5,6 +5,7 @@
 
 import type { FastifyBaseLogger } from "fastify";
 import type { GatewayConfig } from "../../config.js";
+import { Tier } from "../tier/config.js";
 import type { PgPool } from "../../db/postgres.js";
 
 // ---------------------------------------------------------------------------
@@ -75,7 +76,10 @@ export class SecurityService {
         const jsPattern = raw.replace(/\(\?i\)/g, "");
         this.patterns.push(new RegExp(jsPattern, "i"));
       } catch (err: unknown) {
-        this.logger.warn({ pattern: raw, err }, "Failed to compile security pattern");
+        this.logger.warn(
+          { pattern: raw, err },
+          "Failed to compile security pattern"
+        );
       }
     }
   }
@@ -84,11 +88,26 @@ export class SecurityService {
   // Primary check
   // -------------------------------------------------------------------------
 
-  check(message: string): SecurityCheckResult {
+  /**
+   * Run all security checks on the message.
+   *
+   * @param message  The raw user message.
+   * @param tier     Optional resolved tier. When provided, tier-specific
+   *                 rules are applied (e.g. slash-command blocking for
+   *                 non-DEV users).
+   */
+  check(message: string, tier?: Tier): SecurityCheckResult {
     const sanitized = this.sanitize(message);
 
     if (sanitized.length > this.config.maxMessageLength) {
       return { blocked: true, reason: "Message exceeds maximum length" };
+    }
+
+    // Block slash commands for non-DEV tiers.  Cursor CLI interprets
+    // messages starting with "/" as built-in commands (/compress,
+    // /commands, /max-mode, etc.) which could break the bot's purpose.
+    if (sanitized.startsWith("/") && tier !== undefined && tier !== Tier.Dev) {
+      return { blocked: true, reason: "CLI command injection blocked" };
     }
 
     for (const pattern of this.patterns) {
@@ -120,14 +139,11 @@ export class SecurityService {
           params.messagePreview,
           params.detectionType,
           params.ruleMatched ?? null,
-        ],
+        ]
       );
     } catch (err: unknown) {
       // Never let a logging failure propagate – the request should continue.
-      this.logger.error(
-        { err, params },
-        "Failed to write security log entry",
-      );
+      this.logger.error({ err, params }, "Failed to write security log entry");
     }
   }
 

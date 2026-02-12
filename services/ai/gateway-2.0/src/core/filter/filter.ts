@@ -19,19 +19,44 @@ const AI_DISCLAIMER =
  * log the original pattern string on compilation failure.
  */
 const RAW_PATTERNS: ReadonlyArray<{ source: string; flags: string }> = [
+  // --- Tool-call artefacts ---
   { source: "^Tool:\\s.*$", flags: "i" },
   { source: "^MCP:\\s.*$", flags: "i" },
   { source: "^Function:\\s.*$", flags: "i" },
   { source: "^Calling tool:\\s.*$", flags: "i" },
   { source: "^tool_call\\s.*$", flags: "i" },
+
+  // --- File-system paths ---
   { source: "/home/azureuser/[^\\s]+", flags: "" },
   { source: "/root/[^\\s]+", flags: "" },
   { source: "/app/[^\\s]+", flags: "" },
   { source: "/opt/cursor-agent/[^\\s]+", flags: "" },
+
+  // --- Stack traces / errors ---
   { source: "^Error:\\s.*$", flags: "i" },
   { source: "^at Object\\..*$", flags: "i" },
   { source: "^\\s+at\\s+.*\\(.*:\\d+:\\d+\\)$", flags: "i" },
   { source: "^Stack trace:.*$", flags: "i" },
+
+  // --- Internal tool / infrastructure leakage (capability-probing defense) ---
+  { source: "\\bcursor-agent\\b", flags: "i" },
+  { source: "\\bCursor IDE\\b", flags: "i" },
+  { source: "\\banalysis_mcp\\b", flags: "i" },
+  { source: "\\banalysis_get_stock\\b", flags: "" },
+  { source: "\\banalysis_get_statistics\\b", flags: "" },
+  { source: "\\banalysis_list_patterns\\b", flags: "" },
+  { source: "\\banalysis_get_bullish\\b", flags: "" },
+  { source: "\\banalysis_get_bearish\\b", flags: "" },
+  {
+    source:
+      "^.*\\b(Shell|Read tool|Write tool|Grep tool|SemanticSearch|WebFetch|WebSearch)\\b.*$",
+    flags: "i",
+  },
+  { source: "^Available tools:.*$", flags: "i" },
+  { source: "^I have access to (the following|these).*$", flags: "i" },
+  { source: "^My tools include.*$", flags: "i" },
+  { source: "\\bmcp\\.json\\b", flags: "i" },
+  { source: "\\.cursor/", flags: "" },
 ];
 
 export class OutputFilter {
@@ -48,7 +73,7 @@ export class OutputFilter {
       } catch (err: unknown) {
         this.logger.warn(
           { pattern: source, err },
-          "Failed to compile filter pattern",
+          "Failed to compile filter pattern"
         );
       }
     }
@@ -86,7 +111,10 @@ export class OutputFilter {
 
     let result = filtered.join("\n").trim();
 
-    if (tierCfg.maxMessageLength > 0 && result.length > tierCfg.maxMessageLength) {
+    if (
+      tierCfg.maxMessageLength > 0 &&
+      result.length > tierCfg.maxMessageLength
+    ) {
       result =
         result.slice(0, tierCfg.maxMessageLength) +
         "\n\n... (response truncated, upgrade for longer responses)";
