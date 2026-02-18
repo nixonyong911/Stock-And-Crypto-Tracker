@@ -25,6 +25,9 @@ public class MassiveQueueConsumer : BackgroundService
     private IConnection? _connection;
     private IModel? _channel;
     private const string MetricsPrefix = "data_fetcher_2_massive";
+    private const string RetryCountHeader = "x-retry-count";
+    private const int MaxRetries = 3;
+    private static readonly int[] RetryDelaysSeconds = { 30, 120, 300 };
 
     public MassiveQueueConsumer(
         IServiceProvider serviceProvider,
@@ -156,6 +159,17 @@ public class MassiveQueueConsumer : BackgroundService
 
             try
             {
+                var retryCount = GetRetryCount(ea.BasicProperties);
+
+                if (retryCount > 0)
+                {
+                    var backoffSeconds = RetryDelaysSeconds[Math.Min(retryCount - 1, RetryDelaysSeconds.Length - 1)];
+                    _logger.LogInformation(
+                        "Retry {RetryCount}/{MaxRetries} for message, backing off {Seconds}s before processing",
+                        retryCount, MaxRetries, backoffSeconds);
+                    await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), stoppingToken);
+                }
+
                 _logger.LogInformation("Received massive indicator message: {Message}", message);
 
                 var request = JsonSerializer.Deserialize<MassiveIndicatorRequest>(message);
@@ -170,7 +184,6 @@ public class MassiveQueueConsumer : BackgroundService
                 requestType = request.Type;
                 await ProcessIndicatorRequestAsync(request, stoppingToken);
 
-                // Acknowledge successful processing
                 _channel?.BasicAck(ea.DeliveryTag, multiple: false);
 
                 _logger.LogInformation(
@@ -199,10 +212,30 @@ public class MassiveQueueConsumer : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing indicator message: {Message}", message);
+                var retryCount = GetRetryCount(ea.BasicProperties);
+                _logger.LogError(ex, "Error processing indicator message (attempt {Attempt}/{MaxRetries}): {Message}",
+                    retryCount + 1, MaxRetries, message);
 
-                try { _channel?.BasicNack(ea.DeliveryTag, multiple: false, requeue: true); }
-                catch (Exception nackEx) { _logger.LogWarning(nackEx, "Failed to nack message after error"); }
+                // ACK the original to remove it from the queue
+                try { _channel?.BasicAck(ea.DeliveryTag, multiple: false); }
+                catch (Exception ackEx) { _logger.LogWarning(ackEx, "Failed to ack failed message"); }
+
+                if (retryCount < MaxRetries)
+                {
+                    RepublishWithRetry(body, ea.BasicProperties, retryCount + 1);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Message permanently failed after {MaxRetries} retries, dropping: {Message}",
+                        MaxRetries, message);
+
+                    try
+                    {
+                        await _metrics.IncrementCounterAsync($"{MetricsPrefix}_queue_messages_dead_lettered_total", 1);
+                    }
+                    catch { /* non-fatal */ }
+                }
 
                 try
                 {
@@ -224,6 +257,44 @@ public class MassiveQueueConsumer : BackgroundService
             queue: _rabbitSettings.MassiveQueueName,
             autoAck: false,
             consumer: consumer);
+    }
+
+    private static int GetRetryCount(IBasicProperties? properties)
+    {
+        if (properties?.Headers != null &&
+            properties.Headers.TryGetValue(RetryCountHeader, out var value) &&
+            value is int count)
+        {
+            return count;
+        }
+        return 0;
+    }
+
+    private void RepublishWithRetry(byte[] body, IBasicProperties? originalProperties, int retryCount)
+    {
+        try
+        {
+            var properties = _channel!.CreateBasicProperties();
+            properties.Persistent = true;
+            properties.ContentType = "application/json";
+            properties.Headers = originalProperties?.Headers != null
+                ? new Dictionary<string, object>(originalProperties.Headers)
+                : new Dictionary<string, object>();
+            properties.Headers[RetryCountHeader] = retryCount;
+
+            _channel.BasicPublish(
+                exchange: string.Empty,
+                routingKey: _rabbitSettings.MassiveQueueName,
+                basicProperties: properties,
+                body: body);
+
+            _logger.LogInformation("Re-published message to queue with retry count {RetryCount}/{MaxRetries}",
+                retryCount, MaxRetries);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to re-publish message for retry {RetryCount}", retryCount);
+        }
     }
 
     /// <summary>
