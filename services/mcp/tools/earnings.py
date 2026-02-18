@@ -4,7 +4,7 @@ import asyncio
 import json
 from datetime import date, timedelta
 
-from .analysis import _safe_fetch, _safe_gather, QUERY_TIMEOUT
+from .analysis import _safe_fetch, QUERY_TIMEOUT
 
 
 def _float(val) -> float | None:
@@ -56,14 +56,8 @@ async def get_earnings_history(
     """
 
     try:
-        hist_rows, upcoming_rows = await _safe_gather(
-            conn,
-            [
-                (history_query, symbol, quarters),
-                (upcoming_query, symbol),
-            ],
-            timeout=QUERY_TIMEOUT,
-        )
+        hist_rows = await _safe_fetch(conn, history_query, symbol, quarters)
+        upcoming_rows = await _safe_fetch(conn, upcoming_query, symbol)
     except asyncio.TimeoutError:
         return json.dumps({
             "error": "Query timeout",
@@ -219,14 +213,8 @@ async def get_market_earnings(
     """
 
     try:
-        upcoming_rows, surprise_rows = await _safe_gather(
-            conn,
-            [
-                (upcoming_query, days_ahead),
-                (surprises_query, days_back),
-            ],
-            timeout=QUERY_TIMEOUT,
-        )
+        upcoming_rows = await _safe_fetch(conn, upcoming_query, days_ahead)
+        surprise_rows = await _safe_fetch(conn, surprises_query, days_back)
     except asyncio.TimeoutError:
         return json.dumps({
             "error": "Query timeout",

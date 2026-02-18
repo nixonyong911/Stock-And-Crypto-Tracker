@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import List
 
-from .analysis import _safe_fetch, _safe_gather, QUERY_TIMEOUT
+from .analysis import _safe_fetch, QUERY_TIMEOUT
 
 
 def _float(val) -> float | None:
@@ -64,14 +64,8 @@ async def get_fundamentals_trend(
     """
 
     try:
-        fund_rows, earn_rows = await _safe_gather(
-            conn,
-            [
-                (fundamentals_query, symbol, quarters),
-                (earnings_query, symbol, quarters),
-            ],
-            timeout=QUERY_TIMEOUT,
-        )
+        fund_rows = await _safe_fetch(conn, fundamentals_query, symbol, quarters)
+        earn_rows = await _safe_fetch(conn, earnings_query, symbol, quarters)
     except asyncio.TimeoutError:
         return json.dumps({
             "error": "Query timeout",
@@ -253,14 +247,8 @@ async def compare_stocks(
     """
 
     try:
-        fund_rows, ind_rows = await _safe_gather(
-            conn,
-            [
-                (fundamentals_query, *symbols),
-                (indicators_query, *symbols),
-            ],
-            timeout=QUERY_TIMEOUT,
-        )
+        fund_rows = await _safe_fetch(conn, fundamentals_query, *symbols)
+        ind_rows = await _safe_fetch(conn, indicators_query, *symbols)
     except asyncio.TimeoutError:
         return json.dumps({
             "error": "Query timeout",
