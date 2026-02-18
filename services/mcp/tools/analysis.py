@@ -14,21 +14,21 @@ QUERY_TIMEOUT = 10.0
 async def _safe_fetch(conn, query: str, *args, timeout: float = QUERY_TIMEOUT) -> list:
     """
     Execute a query with PostgreSQL-level timeout for clean cancellation.
-    
+
     Uses SET LOCAL statement_timeout which:
     1. Cleanly cancels the query on the server side
     2. Doesn't leave the connection in undefined state
     3. Only affects the current transaction
-    
+
     Args:
         conn: Database connection
         query: SQL query string
         *args: Query parameters
         timeout: Timeout in seconds
-    
+
     Returns:
         List of result rows
-    
+
     Raises:
         asyncio.TimeoutError: If query exceeds timeout
     """
@@ -45,12 +45,12 @@ async def _safe_fetch(conn, query: str, *args, timeout: float = QUERY_TIMEOUT) -
 async def _safe_gather(conn, queries_with_args: list, timeout: float = QUERY_TIMEOUT) -> list:
     """
     Execute multiple queries in parallel with PostgreSQL-level timeout.
-    
+
     Args:
         conn: Database connection
         queries_with_args: List of (query, *args) tuples
         timeout: Timeout in seconds (applies to all queries combined)
-    
+
     Returns:
         List of results for each query
     """
@@ -71,18 +71,18 @@ async def get_stock_analysis(
 ) -> str:
     """
     Query candlestick analysis for a stock symbol within a date range.
-    
+
     Args:
         conn: Database connection (injected via Depends)
         symbol: Stock ticker symbol (e.g., 'AAPL', 'MSFT')
         start_date: Start date in YYYY-MM-DD format
         end_date: End date in YYYY-MM-DD format
-    
+
     Returns:
         JSON string with analysis data
     """
     query = """
-        SELECT 
+        SELECT
             st.symbol,
             a.analysis_date,
             a.daily_open,
@@ -104,11 +104,11 @@ async def get_stock_analysis(
           AND a.analysis_date <= $3::date
         ORDER BY a.analysis_date DESC
     """
-    
+
     # Convert string dates to date objects for asyncpg
     start_date_obj = date.fromisoformat(start_date)
     end_date_obj = date.fromisoformat(end_date)
-    
+
     try:
         rows = await _safe_fetch(conn, query, symbol, start_date_obj, end_date_obj)
     except asyncio.TimeoutError:
@@ -117,7 +117,7 @@ async def get_stock_analysis(
             "symbol": symbol.upper(),
             "message": f"Query took longer than {QUERY_TIMEOUT}s"
         })
-    
+
     if not rows:
         return json.dumps({
             "symbol": symbol.upper(),
@@ -126,7 +126,7 @@ async def get_stock_analysis(
             "message": f"No analysis data found for {symbol.upper()} in the specified date range",
             "results": []
         })
-    
+
     results = []
     for row in rows:
         results.append({
@@ -149,7 +149,7 @@ async def get_stock_analysis(
             "detected_patterns": json.loads(row["detected_patterns"]) if row["detected_patterns"] else [],
             "candles_aggregated": row["candles_aggregated"],
         })
-    
+
     return json.dumps({
         "symbol": symbol.upper(),
         "start_date": start_date,
@@ -166,18 +166,18 @@ async def list_detected_patterns(
 ) -> str:
     """
     List all detected patterns for a specific date.
-    
+
     Args:
         conn: Database connection (injected via Depends)
         analysis_date: Date in YYYY-MM-DD format
         pattern_type: Optional filter by pattern type (e.g., 'doji', 'hammer')
-    
+
     Returns:
         JSON string with pattern list
     """
     # Filter in SQL for better performance
     query = """
-        SELECT 
+        SELECT
             st.symbol,
             a.analysis_date,
             a.is_bullish,
@@ -186,15 +186,15 @@ async def list_detected_patterns(
         JOIN stock_tickers st ON a.stock_ticker_id = st.id
         WHERE a.analysis_date = $1::date
           AND jsonb_array_length(a.detected_patterns) > 0
-          AND ($2::text IS NULL OR 
-               EXISTS(SELECT 1 FROM jsonb_array_elements(a.detected_patterns) p 
+          AND ($2::text IS NULL OR
+               EXISTS(SELECT 1 FROM jsonb_array_elements(a.detected_patterns) p
                       WHERE LOWER(p->>'pattern') = LOWER($2)))
         ORDER BY st.symbol
     """
-    
+
     # Convert string date to date object for asyncpg
     analysis_date_obj = date.fromisoformat(analysis_date)
-    
+
     try:
         rows = await _safe_fetch(conn, query, analysis_date_obj, pattern_type)
     except asyncio.TimeoutError:
@@ -203,21 +203,21 @@ async def list_detected_patterns(
             "date": analysis_date,
             "message": f"Query took longer than {QUERY_TIMEOUT}s"
         })
-    
+
     results = []
     for row in rows:
         patterns = json.loads(row["detected_patterns"]) if row["detected_patterns"] else []
-        
+
         # If pattern_type specified, filter the patterns list (SQL already filtered rows)
         if pattern_type:
             patterns = [p for p in patterns if p.get("pattern", "").lower() == pattern_type.lower()]
-        
+
         results.append({
             "symbol": row["symbol"],
             "is_bullish": row["is_bullish"],
             "patterns": patterns
         })
-    
+
     return json.dumps({
         "date": analysis_date,
         "pattern_filter": pattern_type,
@@ -229,16 +229,16 @@ async def list_detected_patterns(
 async def get_bullish_stocks(conn, analysis_date: str) -> str:
     """
     Get stocks with bullish patterns for a specific date.
-    
+
     Args:
         conn: Database connection (injected via Depends)
         analysis_date: Date in YYYY-MM-DD format
-    
+
     Returns:
         JSON string with bullish stocks
     """
     query = """
-        SELECT 
+        SELECT
             st.symbol,
             st.name,
             a.daily_close,
@@ -250,10 +250,10 @@ async def get_bullish_stocks(conn, analysis_date: str) -> str:
           AND a.is_bullish = true
         ORDER BY a.body_size DESC NULLS LAST
     """
-    
+
     # Convert string date to date object for asyncpg
     analysis_date_obj = date.fromisoformat(analysis_date)
-    
+
     try:
         rows = await _safe_fetch(conn, query, analysis_date_obj)
     except asyncio.TimeoutError:
@@ -262,7 +262,7 @@ async def get_bullish_stocks(conn, analysis_date: str) -> str:
             "date": analysis_date,
             "message": f"Query took longer than {QUERY_TIMEOUT}s"
         })
-    
+
     results = []
     for row in rows:
         patterns = json.loads(row["detected_patterns"]) if row["detected_patterns"] else []
@@ -270,7 +270,7 @@ async def get_bullish_stocks(conn, analysis_date: str) -> str:
             p for p in patterns
             if p.get("signal", "").startswith("bullish") or p.get("signal") == "strong_bullish"
         ]
-        
+
         results.append({
             "symbol": row["symbol"],
             "name": row["name"],
@@ -279,7 +279,7 @@ async def get_bullish_stocks(conn, analysis_date: str) -> str:
             "bullish_patterns": bullish_patterns,
             "all_patterns": patterns
         })
-    
+
     return json.dumps({
         "date": analysis_date,
         "signal": "bullish",
@@ -291,16 +291,16 @@ async def get_bullish_stocks(conn, analysis_date: str) -> str:
 async def get_bearish_stocks(conn, analysis_date: str) -> str:
     """
     Get stocks with bearish patterns for a specific date.
-    
+
     Args:
         conn: Database connection (injected via Depends)
         analysis_date: Date in YYYY-MM-DD format
-    
+
     Returns:
         JSON string with bearish stocks
     """
     query = """
-        SELECT 
+        SELECT
             st.symbol,
             st.name,
             a.daily_close,
@@ -312,10 +312,10 @@ async def get_bearish_stocks(conn, analysis_date: str) -> str:
           AND a.is_bullish = false
         ORDER BY a.body_size DESC NULLS LAST
     """
-    
+
     # Convert string date to date object for asyncpg
     analysis_date_obj = date.fromisoformat(analysis_date)
-    
+
     try:
         rows = await _safe_fetch(conn, query, analysis_date_obj)
     except asyncio.TimeoutError:
@@ -324,7 +324,7 @@ async def get_bearish_stocks(conn, analysis_date: str) -> str:
             "date": analysis_date,
             "message": f"Query took longer than {QUERY_TIMEOUT}s"
         })
-    
+
     results = []
     for row in rows:
         patterns = json.loads(row["detected_patterns"]) if row["detected_patterns"] else []
@@ -332,7 +332,7 @@ async def get_bearish_stocks(conn, analysis_date: str) -> str:
             p for p in patterns
             if p.get("signal", "").startswith("bearish") or p.get("signal") == "strong_bearish"
         ]
-        
+
         results.append({
             "symbol": row["symbol"],
             "name": row["name"],
@@ -341,7 +341,7 @@ async def get_bearish_stocks(conn, analysis_date: str) -> str:
             "bearish_patterns": bearish_patterns,
             "all_patterns": patterns
         })
-    
+
     return json.dumps({
         "date": analysis_date,
         "signal": "bearish",
@@ -353,19 +353,19 @@ async def get_bearish_stocks(conn, analysis_date: str) -> str:
 async def get_pattern_statistics(conn, days: int = 7) -> str:
     """
     Get aggregate statistics for candlestick patterns over the last N days.
-    
+
     Args:
         conn: Database connection (injected via Depends)
         days: Number of days to analyze (default: 7)
-    
+
     Returns:
         JSON string with pattern statistics
     """
     end_date = date.today()
     start_date = end_date - timedelta(days=days)
-    
+
     daily_query = """
-        SELECT 
+        SELECT
             a.analysis_date,
             COUNT(*) as total_stocks,
             COUNT(*) FILTER (WHERE a.is_bullish = true) as bullish_count,
@@ -377,9 +377,9 @@ async def get_pattern_statistics(conn, days: int = 7) -> str:
         GROUP BY a.analysis_date
         ORDER BY a.analysis_date DESC
     """
-    
+
     pattern_query = """
-        SELECT 
+        SELECT
             p->>'pattern' as pattern_name,
             COUNT(*) as occurrence_count
         FROM analysis_stock_candlestick_pattern a,
@@ -390,7 +390,7 @@ async def get_pattern_statistics(conn, days: int = 7) -> str:
         ORDER BY occurrence_count DESC
         LIMIT 10
     """
-    
+
     try:
         daily_stats = await _safe_fetch(conn, daily_query, start_date, end_date)
         pattern_stats = await _safe_fetch(conn, pattern_query, start_date, end_date)
@@ -400,11 +400,11 @@ async def get_pattern_statistics(conn, days: int = 7) -> str:
             "days": days,
             "message": f"Query took longer than {QUERY_TIMEOUT}s"
         })
-    
+
     daily_results = []
     total_bullish = 0
     total_bearish = 0
-    
+
     for row in daily_stats:
         total_bullish += row["bullish_count"]
         total_bearish += row["bearish_count"]
@@ -416,15 +416,15 @@ async def get_pattern_statistics(conn, days: int = 7) -> str:
             "stocks_with_patterns": row["stocks_with_patterns"],
             "bullish_ratio": round(row["bullish_count"] / row["total_stocks"] * 100, 1) if row["total_stocks"] > 0 else 0
         })
-    
+
     pattern_results = [
         {"pattern": row["pattern_name"], "count": row["occurrence_count"]}
         for row in pattern_stats
     ]
-    
+
     total = total_bullish + total_bearish
     overall_bullish_ratio = round(total_bullish / total * 100, 1) if total > 0 else 0
-    
+
     return json.dumps({
         "period": {
             "start_date": str(start_date),
