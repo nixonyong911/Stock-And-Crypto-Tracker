@@ -1,0 +1,12 @@
+{
+  "tiers": ["free", "pro", "max", "dev"],
+  "servers": {
+    "analysis_mcp": {
+      "baseUrl": "http://mcp-analysis:8085/mcp",
+      "minTier": "free",
+      "timeout": 5000,
+      "keepAlive": true,
+      "maxRetries": 1
+    }
+  }
+}

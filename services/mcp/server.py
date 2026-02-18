@@ -2,13 +2,18 @@
 """
 MCP Analysis Server - Read-only Financial Data Queries
 
-Per-tier endpoints for tool access control:
-  /mcp/free  -> 2 tools (analysis_get_stock, analysis_get_statistics)
-  /mcp/pro   -> 5 tools (all analysis tools)
-  /mcp       -> all tools (max/dev tiers, backward compatible)
+Per-tier endpoints with cumulative tool access (free < pro < max < dev):
+  /mcp/free -> free-tier tools
+  /mcp/pro  -> free + pro tools
+  /mcp/max  -> free + pro + max tools
+  /mcp/dev  -> all tools
+  /mcp      -> all tools (backward compat, to be removed)
 
 cursor-agent does NOT support client-side tools.allow in mcp.json,
 so tool visibility is controlled server-side via separate endpoints.
+
+Each tool is annotated with a `min_tier` (the lowest tier that can access it).
+Tiers are cumulative: a higher tier always includes all lower-tier tools.
 
 Features:
 - Redis caching with 24-hour TTL (daily data)
@@ -22,8 +27,9 @@ Features:
 import asyncio
 import sys
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import date
-from typing import Optional
+from typing import Callable, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -53,17 +59,25 @@ from tools.analysis import (
 # Tier Configuration
 # ===========================================
 
-TIER_TOOLS: dict[str, list[str]] = {
-    "free": ["analysis_get_stock", "analysis_get_statistics"],
-    "pro": [
-        "analysis_get_stock",
-        "analysis_get_statistics",
-        "analysis_list_patterns",
-        "analysis_get_bullish",
-        "analysis_get_bearish",
-    ],
-    # max/dev: all tools (represented by allowed_tools=None)
-}
+TIER_ORDER = ["free", "pro", "max", "dev"]
+
+
+@dataclass(frozen=True)
+class ToolEntry:
+    """Registry entry for an MCP tool with tier-based access control."""
+    fn: Callable[[FastMCP], None]
+    min_tier: str
+
+    def __post_init__(self):
+        if self.min_tier not in TIER_ORDER:
+            raise ValueError(
+                f"Invalid min_tier='{self.min_tier}'. Valid: {TIER_ORDER}"
+            )
+
+
+def _tier_includes(user_tier: str, min_tier: str) -> bool:
+    """Check if a user's tier grants access to a tool with the given min_tier."""
+    return TIER_ORDER.index(user_tier) >= TIER_ORDER.index(min_tier)
 
 
 # ===========================================
@@ -226,35 +240,45 @@ def _register_get_statistics(app: FastMCP) -> None:
         return await get_pattern_statistics(conn=conn, days=params.days)
 
 
-# Tool name -> registration function
-_TOOL_REGISTRY: dict[str, callable] = {
-    "analysis_get_stock": _register_get_stock,
-    "analysis_list_patterns": _register_list_patterns,
-    "analysis_get_bullish": _register_get_bullish,
-    "analysis_get_bearish": _register_get_bearish,
-    "analysis_get_statistics": _register_get_statistics,
+# Tool name -> ToolEntry with min_tier annotation.
+# Tiers are cumulative: free < pro < max < dev.
+# A tool with min_tier="pro" is available to pro, max, and dev users.
+_TOOL_REGISTRY: dict[str, ToolEntry] = {
+    "analysis_get_stock":      ToolEntry(fn=_register_get_stock,      min_tier="free"),
+    "analysis_get_statistics":  ToolEntry(fn=_register_get_statistics,  min_tier="free"),
+    "analysis_list_patterns":   ToolEntry(fn=_register_list_patterns,   min_tier="pro"),
+    "analysis_get_bullish":     ToolEntry(fn=_register_get_bullish,     min_tier="pro"),
+    "analysis_get_bearish":     ToolEntry(fn=_register_get_bearish,     min_tier="pro"),
 }
+
+
+def _tools_for_tier(tier: str) -> list[str]:
+    """Return tool names accessible at the given tier (cumulative)."""
+    return [
+        name for name, entry in _TOOL_REGISTRY.items()
+        if _tier_includes(tier, entry.min_tier)
+    ]
 
 
 # ===========================================
 # Factory: Per-tier FastMCP Instance
 # ===========================================
 
-def create_mcp_app(allowed_tools: list[str] | None = None) -> FastMCP:
+def create_mcp_app(tier: str | None = None) -> FastMCP:
     """
-    Create a FastMCP instance with only the specified tools registered.
+    Create a FastMCP instance with tools filtered by tier.
 
     Args:
-        allowed_tools: Tool names to register. None = all tools.
+        tier: User tier (free/pro/max/dev). None = all tools (no filtering).
 
     Returns:
         Configured FastMCP instance.
     """
     app = FastMCP("analysis_mcp")
 
-    for name, register_fn in _TOOL_REGISTRY.items():
-        if allowed_tools is None or name in allowed_tools:
-            register_fn(app)
+    for name, entry in _TOOL_REGISTRY.items():
+        if tier is None or _tier_includes(tier, entry.min_tier):
+            entry.fn(app)
 
     return app
 
@@ -312,41 +336,54 @@ def build_asgi_app():
     """
     Build the Starlette ASGI app with per-tier MCP endpoints.
 
-    Routes (order matters - most specific prefix first):
-      /mcp/free -> free tier (2 tools)
-      /mcp/pro  -> pro tier (5 tools)
-      /mcp      -> full (max/dev, all tools, backward compatible)
+    Routes (most specific prefix first):
+      /mcp/free -> free-tier tools
+      /mcp/pro  -> free + pro tools
+      /mcp/max  -> free + pro + max tools
+      /mcp/dev  -> all tools
+      /mcp      -> all tools (backward compat, remove after next release)
+      /health/tools -> diagnostic JSON of tier-to-tool mapping
 
     Uses streamable HTTP transport (cursor-agent CLI always uses
     streamable HTTP regardless of mcp.json "transport" setting).
     """
     from contextlib import AsyncExitStack
     from starlette.applications import Starlette
-    from starlette.routing import Mount
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+    from starlette.routing import Mount, Route
 
-    # Create per-tier FastMCP instances
-    mcp_free = create_mcp_app(TIER_TOOLS["free"])
-    mcp_pro = create_mcp_app(TIER_TOOLS["pro"])
-    mcp_full = create_mcp_app()  # all tools
+    routes: list[Mount | Route] = []
+    http_apps = []
 
-    # Setup middleware with per-tier cache prefixes to avoid cross-tier
-    # cache pollution (e.g., free list_tools caching for pro/full).
-    setup_middleware(mcp_free, cache_prefix="mcp-analysis-free")
-    setup_middleware(mcp_pro, cache_prefix="mcp-analysis-pro")
+    # Create per-tier FastMCP instances with middleware
+    for tier in TIER_ORDER:
+        mcp_app = create_mcp_app(tier)
+        setup_middleware(mcp_app, cache_prefix=f"mcp-analysis-{tier}")
+        http_app = mcp_app.http_app(path="/")
+        tier_tools = _tools_for_tier(tier)
+        print(f"  /mcp/{tier} -> {len(tier_tools)} tools: {tier_tools}")
+        routes.append(Mount(f"/mcp/{tier}", app=http_app))
+        http_apps.append(http_app)
+
+    # Backward compat: /mcp -> all tools (same as dev).
+    # TODO: Remove after confirming no clients use this path.
+    mcp_full = create_mcp_app()
     setup_middleware(mcp_full, cache_prefix="mcp-analysis-full")
-
-    print(f"Tier endpoints configured:")
-    print(f"  /mcp/free -> {len(TIER_TOOLS['free'])} tools: {TIER_TOOLS['free']}")
-    print(f"  /mcp/pro  -> {len(TIER_TOOLS['pro'])} tools: {TIER_TOOLS['pro']}")
-    print(f"  /mcp      -> {len(_TOOL_REGISTRY)} tools (all)")
-
-    # Create streamable HTTP ASGI sub-apps.
-    # path="/" so Starlette Mount handles the prefix (e.g., /mcp/free).
-    free_http = mcp_free.http_app(path="/")
-    pro_http = mcp_pro.http_app(path="/")
     full_http = mcp_full.http_app(path="/")
+    print(f"  /mcp      -> {len(_TOOL_REGISTRY)} tools (backward compat)")
+    routes.append(Mount("/mcp", app=full_http))
+    http_apps.append(full_http)
 
-    http_apps = [free_http, pro_http, full_http]
+    # Diagnostic endpoint: tier-to-tool mapping (internal, no auth)
+    async def health_tools(request: Request) -> JSONResponse:
+        return JSONResponse({
+            tier: _tools_for_tier(tier) for tier in TIER_ORDER
+        })
+
+    routes.insert(0, Route("/health/tools", health_tools))
+
+    print(f"Tier endpoints configured ({len(TIER_ORDER)} tiers + backward compat)")
 
     @asynccontextmanager
     async def combined_lifespan(starlette_app):
@@ -384,15 +421,9 @@ def build_asgi_app():
 
             print("Shutdown complete")
 
-    # Assemble Starlette app.
-    # Route order: most specific first to avoid prefix conflicts.
     app = Starlette(
         lifespan=combined_lifespan,
-        routes=[
-            Mount("/mcp/free", app=free_http),
-            Mount("/mcp/pro", app=pro_http),
-            Mount("/mcp", app=full_http),
-        ],
+        routes=routes,
     )
 
     return app

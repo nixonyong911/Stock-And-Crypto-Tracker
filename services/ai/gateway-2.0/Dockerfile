@@ -3,7 +3,7 @@
 # Only one VM host mount needed: auth.json (read-only)
 
 # ============================================================================
-# Stage 1: Build the TypeScript application
+# Stage 1: Build the TypeScript application + generate tier-homes
 # ============================================================================
 FROM node:20-slim AS builder
 
@@ -13,10 +13,15 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Copy source and build
+# Copy source and build TypeScript
 COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npm run build
+
+# Generate tier-homes from mcp-manifest.json (plain JS, no TS needed)
+COPY mcp-manifest.json ./
+COPY scripts/ ./scripts/
+RUN node scripts/generate-tier-homes.js
 
 # ============================================================================
 # Stage 2: Production image
@@ -45,8 +50,8 @@ COPY --from=builder /app/package.json ./
 # Bake agent-context into the image (rebuild to update)
 COPY agent-context/ /app/agent-context/
 
-# Bake tier-homes into the image (per-tier MCP configs)
-COPY tier-homes/ /app/tier-homes/
+# Bake generated tier-homes from builder stage (per-tier MCP configs)
+COPY --from=builder /app/tier-homes /app/tier-homes
 
 # Create auth symlinks: each tier home's cursor config points to the
 # volume-mounted auth.json from the VM host.
