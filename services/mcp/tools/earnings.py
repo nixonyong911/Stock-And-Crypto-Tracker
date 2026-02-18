@@ -193,7 +193,7 @@ async def get_market_earnings(
         FROM analysis_earnings_release_schedule e
         JOIN stock_tickers st ON e.stock_ticker_id = st.id
         WHERE e.earnings_date >= CURRENT_DATE
-          AND e.earnings_date <= CURRENT_DATE + $1
+          AND e.earnings_date <= CURRENT_DATE + $1::int
           AND e.eps_actual IS NULL
         ORDER BY e.earnings_date ASC, st.symbol
     """
@@ -207,7 +207,7 @@ async def get_market_earnings(
         FROM analysis_earnings_release_schedule e
         JOIN stock_tickers st ON e.stock_ticker_id = st.id
         WHERE e.eps_actual IS NOT NULL
-          AND e.earnings_date >= CURRENT_DATE - $1
+          AND e.earnings_date >= CURRENT_DATE - $1::int
           AND e.earnings_date <= CURRENT_DATE
         ORDER BY ABS(e.eps_surprise_percent) DESC NULLS LAST
     """
