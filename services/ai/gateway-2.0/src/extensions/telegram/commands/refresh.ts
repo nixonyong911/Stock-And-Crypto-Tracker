@@ -31,9 +31,9 @@ composer.command("refresh", async (ctx) => {
 
     await ctx.gatewayAPI.db.query(
       `UPDATE gateway_sessions
-         SET cli_session_id = $1, tier = $2
-       WHERE platform_user_id = $3 AND channel_type = $4 AND expires_at > NOW()`,
-      [newCliSessionId, currentTier, String(userId), "telegram"]
+         SET cli_session_id = $1
+       WHERE platform_user_id = $2 AND channel_type = $3 AND expires_at > NOW()`,
+      [newCliSessionId, String(userId), "telegram"]
     );
 
     ctx.gatewayAPI.logger.info(

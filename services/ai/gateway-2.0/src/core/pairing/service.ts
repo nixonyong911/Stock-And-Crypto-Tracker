@@ -22,7 +22,6 @@ export interface PairResult {
 export interface CreateSessionResult {
   sessionId: string;
   cliSessionId: string;
-  tier: Tier;
 }
 
 export class PairingService {
@@ -161,13 +160,13 @@ export class PairingService {
   /**
    * Create a new gateway session after pairing (or on /login).
    * Expires any existing sessions first.
+   * Tier is resolved from users table (single source of truth).
    */
   async createSession(params: {
     platformUserId: string;
     platformChatId: string;
     channelType: string;
     clerkUserId?: string | null;
-    tier: Tier;
     deviceInfo?: Record<string, unknown>;
   }): Promise<CreateSessionResult> {
     const {
@@ -175,7 +174,6 @@ export class PairingService {
       platformChatId,
       channelType,
       clerkUserId,
-      tier,
       deviceInfo,
     } = params;
 
@@ -185,6 +183,25 @@ export class PairingService {
        WHERE platform_user_id = $1 AND channel_type = $2 AND expires_at > NOW()`,
       [platformUserId, channelType]
     );
+
+    // Resolve tier from users table
+    let tier = "free";
+    if (clerkUserId) {
+      try {
+        const tierResult = await this.db.query(
+          "SELECT tier FROM users WHERE clerk_user_id = $1",
+          [clerkUserId]
+        );
+        if (tierResult.rows[0]?.tier) {
+          tier = tierResult.rows[0].tier;
+        }
+      } catch {
+        this.log.warn(
+          { clerkUserId },
+          "Failed to resolve tier, defaulting to free"
+        );
+      }
+    }
 
     const expiresAt = new Date(
       Date.now() + this.config.sessionExpiryDays * 24 * 60 * 60 * 1000
@@ -216,7 +233,6 @@ export class PairingService {
     return {
       sessionId: String(result.rows[0].id),
       cliSessionId,
-      tier,
     };
   }
 }

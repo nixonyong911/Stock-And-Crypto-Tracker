@@ -64,7 +64,6 @@ export interface CreateSessionParams {
   platformUserId: string;
   platformChatId: string;
   channelType: string;
-  tier: string;
   clerkUserId?: string;
   deviceInfo?: Record<string, unknown>;
 }
@@ -80,7 +79,7 @@ export class SessionManager {
     config: GatewayConfig,
     db: PgPool,
     redis: Redis,
-    logger: FastifyBaseLogger,
+    logger: FastifyBaseLogger
   ) {
     this.config = config;
     this.db = db;
@@ -101,7 +100,6 @@ export class SessionManager {
       platformUserId,
       platformChatId,
       channelType,
-      tier,
       clerkUserId,
       deviceInfo,
     } = params;
@@ -114,18 +112,38 @@ export class SessionManager {
           WHERE platform_user_id = $1
             AND channel_type = $2
             AND expires_at > NOW()`,
-        [platformUserId, channelType],
+        [platformUserId, channelType]
       );
     } catch (err) {
       this.logger.warn(
         { err, platformUserId, channelType },
-        "Failed to expire old sessions",
+        "Failed to expire old sessions"
       );
+    }
+
+    // Resolve tier from users table (single source of truth).
+    // Unpaired users (no clerkUserId) default to 'free'.
+    let tier = "free";
+    if (clerkUserId) {
+      try {
+        const tierResult = await this.db.query(
+          "SELECT tier FROM users WHERE clerk_user_id = $1",
+          [clerkUserId]
+        );
+        if (tierResult.rows[0]?.tier) {
+          tier = tierResult.rows[0].tier;
+        }
+      } catch (err) {
+        this.logger.warn(
+          { err, clerkUserId },
+          "Failed to resolve user tier, defaulting to free"
+        );
+      }
     }
 
     const now = new Date();
     const expiresAt = new Date(
-      now.getTime() + this.config.sessionExpiryDays * 24 * 60 * 60 * 1000,
+      now.getTime() + this.config.sessionExpiryDays * 24 * 60 * 60 * 1000
     );
 
     const session: GatewaySession = {
@@ -160,21 +178,21 @@ export class SessionManager {
           session.createdAt,
           session.expiresAt,
           session.lastActiveAt,
-        ],
+        ]
       );
 
       session.id = String(result.rows[0].id);
     } catch (err) {
       this.logger.error(
         { err, platformUserId, channelType },
-        "Failed to create session",
+        "Failed to create session"
       );
       throw new Error("Failed to create session", { cause: err });
     }
 
     this.logger.info(
-      { platformUserId, sessionId: session.id, channelType },
-      "Session created",
+      { platformUserId, sessionId: session.id, channelType, tier },
+      "Session created"
     );
 
     return session;
@@ -188,7 +206,7 @@ export class SessionManager {
    */
   async getActiveSession(
     platformUserId: string,
-    channelType: string,
+    channelType: string
   ): Promise<GatewaySession | null> {
     try {
       const result = await this.db.query(
@@ -201,7 +219,7 @@ export class SessionManager {
             AND expires_at > NOW()
           ORDER BY created_at DESC
           LIMIT 1`,
-        [platformUserId, channelType],
+        [platformUserId, channelType]
       );
 
       if (result.rows.length === 0) {
@@ -212,7 +230,7 @@ export class SessionManager {
     } catch (err) {
       this.logger.error(
         { err, platformUserId, channelType },
-        "Failed to get active session",
+        "Failed to get active session"
       );
       return null;
     }
@@ -223,7 +241,7 @@ export class SessionManager {
     try {
       await this.db.query(
         "UPDATE gateway_sessions SET expires_at = NOW() WHERE id = $1",
-        [sessionId],
+        [sessionId]
       );
     } catch (err) {
       this.logger.error({ err, sessionId }, "Failed to expire session");
@@ -239,7 +257,7 @@ export class SessionManager {
     try {
       await this.db.query(
         "UPDATE gateway_sessions SET last_active_at = NOW() WHERE id = $1",
-        [sessionId],
+        [sessionId]
       );
     } catch (err) {
       this.logger.warn({ err, sessionId }, "Failed to update last_active_at");
@@ -262,7 +280,7 @@ export class SessionManager {
    */
   async acquireUserLock(
     userId: string,
-    timeoutMs: number,
+    timeoutMs: number
   ): Promise<() => Promise<void>> {
     const lockKey = `user:${userId}:lock`;
     // Lock TTL = requested timeout + 60s safety margin.
@@ -277,7 +295,7 @@ export class SessionManager {
           "1",
           "PX",
           lockTtlMs,
-          "NX",
+          "NX"
         );
 
         if (acquired === "OK") {
@@ -295,9 +313,7 @@ export class SessionManager {
       }
 
       if (Date.now() >= deadlineMs) {
-        throw new Error(
-          `Lock timeout: user ${userId} is still processing`,
-        );
+        throw new Error(`Lock timeout: user ${userId} is still processing`);
       }
 
       // Wait 1 second before retrying.
@@ -320,7 +336,7 @@ export class SessionManager {
 
     this.logger.info(
       { intervalMinutes: this.config.sessionPruneIntervalMinutes },
-      "Session pruner started",
+      "Session pruner started"
     );
 
     this.prunerHandle = setInterval(() => {
@@ -341,7 +357,7 @@ export class SessionManager {
   private async prune(): Promise<void> {
     try {
       const result = await this.db.query(
-        "DELETE FROM gateway_sessions WHERE expires_at < NOW()",
+        "DELETE FROM gateway_sessions WHERE expires_at < NOW()"
       );
 
       const count = result.rowCount ?? 0;

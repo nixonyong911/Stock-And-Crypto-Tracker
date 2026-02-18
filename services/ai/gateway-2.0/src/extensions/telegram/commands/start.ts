@@ -65,13 +65,12 @@ composer.command("start", async (ctx) => {
     });
 
     if (result.success) {
-      // Auto-create a session after pairing
+      // Auto-create a session after pairing (tier resolved from users table)
       await pairing.createSession({
         platformUserId: String(userId),
         platformChatId: String(chatId),
         channelType: "telegram",
         clerkUserId: result.clerkUserId,
-        tier: result.tier!,
         deviceInfo: {
           language_code: ctx.from?.language_code,
           chat_type: ctx.chat?.type,

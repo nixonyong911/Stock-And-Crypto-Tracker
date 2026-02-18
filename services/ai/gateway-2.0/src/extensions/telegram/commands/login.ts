@@ -38,14 +38,11 @@ composer.command("login", async (ctx) => {
       ctx.gatewayAPI.logger,
       ctx.gatewayAPI.config
     );
-    const tier = await pairing.resolveUserTier(String(userId), "telegram");
-
     await pairing.createSession({
       platformUserId: String(userId),
       platformChatId: String(chatId),
       channelType: "telegram",
       clerkUserId: account.rows[0].clerk_user_id,
-      tier,
       deviceInfo: {
         language_code: ctx.from?.language_code,
         chat_type: ctx.chat?.type,
@@ -53,6 +50,7 @@ composer.command("login", async (ctx) => {
       },
     });
 
+    const tier = await pairing.resolveUserTier(String(userId), "telegram");
     ctx.gatewayAPI.logger.info({ userId, tier }, "User logged in");
     await ctx.reply(
       `✅ **Logged in successfully!**\n\nWelcome back, ${

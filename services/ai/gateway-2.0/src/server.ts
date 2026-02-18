@@ -179,6 +179,7 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
     }
 
     // 4. Get or create session
+    // Tier on existing sessions is kept in sync by a DB trigger on users.tier.
     let sess = await session.getActiveSession(
       params.platformUserId,
       params.channelType
@@ -188,25 +189,6 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
         platformUserId: params.platformUserId,
         platformChatId: params.platformChatId,
         channelType: params.channelType,
-        tier,
-      });
-    } else if (sess.tier !== tier) {
-      // Tier changed (upgrade/downgrade) since session was created.
-      // Create a new session so cursor-agent gets a fresh cliSessionId
-      // and discovers the correct tier's MCP tools.
-      app.log.info(
-        {
-          platformUserId: params.platformUserId,
-          oldTier: sess.tier,
-          newTier: tier,
-        },
-        "Tier changed, creating new session"
-      );
-      sess = await session.createSession({
-        platformUserId: params.platformUserId,
-        platformChatId: params.platformChatId,
-        channelType: params.channelType,
-        tier,
       });
     }
 
