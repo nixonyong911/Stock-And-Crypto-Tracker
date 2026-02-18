@@ -53,6 +53,11 @@ from tools.analysis import (
     get_bearish_stocks,
     get_pattern_statistics,
 )
+from tools.indicators import get_technical_signals
+from tools.fundamentals import get_fundamentals_trend, compare_stocks
+from tools.economic import get_macro_environment
+from tools.earnings import get_earnings_history, get_market_earnings
+from tools.screener import screen_stocks
 
 
 # ===========================================
@@ -132,6 +137,104 @@ class DateInput(BaseModel):
 class StatisticsInput(BaseModel):
     """Input for statistics query."""
     days: int = Field(default=7, description="Number of days to analyze", ge=1, le=90)
+
+
+class TechnicalSignalsInput(BaseModel):
+    """Input for technical indicator signals query."""
+    symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
+    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
+    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+
+    @field_validator('start_date', 'end_date')
+    @classmethod
+    def validate_date_format(cls, v: str) -> str:
+        try:
+            date.fromisoformat(v)
+            return v
+        except ValueError:
+            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
+
+
+class FundamentalsTrendInput(BaseModel):
+    """Input for fundamentals trend query."""
+    symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
+    quarters: int = Field(default=4, description="Number of quarters to analyze", ge=1, le=12)
+
+
+class CompareStocksInput(BaseModel):
+    """Input for peer comparison."""
+    symbols: list[str] = Field(
+        ...,
+        description="List of 2-10 ticker symbols to compare (e.g., ['AAPL', 'MSFT', 'GOOGL'])",
+        min_length=2,
+        max_length=10,
+    )
+
+    @field_validator('symbols')
+    @classmethod
+    def validate_symbols(cls, v: list[str]) -> list[str]:
+        cleaned = [s.strip().upper() for s in v if s.strip()]
+        if len(cleaned) < 2:
+            raise ValueError("At least 2 symbols required for comparison")
+        return cleaned
+
+
+class MacroEnvironmentInput(BaseModel):
+    """Input for macro environment query."""
+    category: Optional[str] = Field(
+        None,
+        description="Filter by category (e.g., 'inflation', 'employment', 'growth', 'interest_rates')",
+    )
+
+
+class EarningsHistoryInput(BaseModel):
+    """Input for earnings history query."""
+    symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
+    quarters: int = Field(default=4, description="Number of past quarters to show", ge=1, le=12)
+
+
+class MarketEarningsInput(BaseModel):
+    """Input for market-wide earnings query."""
+    days_ahead: int = Field(default=7, description="Days ahead for upcoming earnings", ge=1, le=30)
+    days_back: int = Field(default=14, description="Days back for recent surprises", ge=1, le=90)
+    min_surprise_pct: Optional[float] = Field(
+        None,
+        description="Minimum abs(surprise %) to include — filters out trivial beats/misses",
+        ge=0,
+    )
+
+
+class ScreenStocksInput(BaseModel):
+    """Input for multi-signal stock screener."""
+    rsi_above: Optional[float] = Field(None, description="RSI must be above this value", ge=0, le=100)
+    rsi_below: Optional[float] = Field(None, description="RSI must be below this value", ge=0, le=100)
+    macd_signal: Optional[str] = Field(None, description="MACD momentum: 'bullish' or 'bearish'")
+    max_pe: Optional[float] = Field(None, description="Maximum P/E ratio")
+    min_roe: Optional[float] = Field(None, description="Minimum Return on Equity (decimal, e.g., 0.15 = 15%)")
+    min_revenue_growth: Optional[float] = Field(None, description="Minimum revenue growth YoY (decimal, e.g., 0.10 = 10%)")
+    max_debt_to_equity: Optional[float] = Field(None, description="Maximum Debt-to-Equity ratio")
+    min_operating_margin: Optional[float] = Field(None, description="Minimum operating margin (decimal)")
+    min_fcf_yield: Optional[float] = Field(None, description="Minimum free cash flow yield (decimal)")
+    max_peg_ratio: Optional[float] = Field(None, description="Maximum PEG ratio")
+    pattern_signal: Optional[str] = Field(None, description="Candlestick pattern signal: 'bullish' or 'bearish'")
+    earnings_within_days: Optional[int] = Field(None, description="Stocks with earnings within N days", ge=1, le=30)
+    limit: int = Field(default=20, description="Maximum results to return", ge=1, le=50)
+    sort_by: Optional[str] = Field(None, description="Sort by metric: 'pe_ratio', 'roe', 'revenue_growth_yoy', 'rsi', 'market_cap'")
+
+    @field_validator('macd_signal', 'pattern_signal')
+    @classmethod
+    def validate_signal_enum(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ("bullish", "bearish"):
+            raise ValueError(f"Must be 'bullish' or 'bearish', got '{v}'")
+        return v
+
+    @field_validator('sort_by')
+    @classmethod
+    def validate_sort_by(cls, v: Optional[str]) -> Optional[str]:
+        allowed = {"pe_ratio", "roe", "revenue_growth_yoy", "rsi", "market_cap"}
+        if v is not None and v not in allowed:
+            raise ValueError(f"sort_by must be one of {allowed}, got '{v}'")
+        return v
 
 
 # ===========================================
@@ -240,15 +343,200 @@ def _register_get_statistics(app: FastMCP) -> None:
         return await get_pattern_statistics(conn=conn, days=params.days)
 
 
+def _register_get_technical_signals(app: FastMCP) -> None:
+    """Register analysis_get_technical_signals tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_technical_signals",
+        annotations={"title": "Get Technical Signals", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_technical_signals(params: TechnicalSignalsInput, conn=Depends(get_db)) -> str:
+        """
+        Get daily technical indicators for a stock with built-in signal detection.
+
+        Returns time-series SMA, EMA, MACD, RSI plus detected signals:
+        - MACD bullish/bearish crossovers (histogram sign flip)
+        - RSI overbought/oversold zone entries and exits
+        - EMA/SMA crossovers (golden cross / death cross)
+        - Current assessment: RSI zone, MACD momentum, trend direction
+
+        Note: Indicator data has 90-day retention. Requests beyond that will be flagged.
+        """
+        return await get_technical_signals(
+            conn=conn, symbol=params.symbol,
+            start_date=params.start_date, end_date=params.end_date,
+        )
+
+
+def _register_get_fundamentals_trend(app: FastMCP) -> None:
+    """Register analysis_get_fundamentals_trend tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_fundamentals_trend",
+        annotations={"title": "Get Fundamentals Trend", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_fundamentals_trend(params: FundamentalsTrendInput, conn=Depends(get_db)) -> str:
+        """
+        Get quarter-over-quarter fundamentals trajectory for a stock.
+
+        Returns for each quarter:
+        - Valuation: P/E, Forward P/E, PEG, FCF yield, market cap
+        - Growth: Revenue TTM, revenue growth YoY, EPS TTM, EPS growth YoY
+        - Profitability: ROE, ROIC, operating margin
+        - Health: Debt/equity, interest coverage, FCF, dividend yield
+        - QoQ change: Computed deltas for key metrics vs prior quarter
+        - Earnings surprise: EPS and revenue surprise % (integrated from earnings data)
+
+        Trajectory summary: direction of revenue growth, EPS growth, margins,
+        leverage (accelerating/decelerating/stable/mixed), plus earnings beat streak.
+        """
+        return await get_fundamentals_trend(
+            conn=conn, symbol=params.symbol, quarters=params.quarters,
+        )
+
+
+def _register_compare_stocks(app: FastMCP) -> None:
+    """Register analysis_compare_stocks tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_compare_stocks",
+        annotations={"title": "Compare Stocks", **_RO_ANNOTATIONS},
+    )
+    async def analysis_compare_stocks(params: CompareStocksInput, conn=Depends(get_db)) -> str:
+        """
+        Side-by-side peer comparison of 2-10 stocks with per-metric ranking.
+
+        Compares latest fundamentals (P/E, ROE, growth, margins, leverage)
+        and current technical indicators (RSI, MACD).
+
+        Each stock gets a rank per metric (1 = best). Includes best-in-class
+        summary: cheapest P/E, highest profitability, best growth, best value.
+        """
+        return await compare_stocks(conn=conn, symbols=params.symbols)
+
+
+def _register_get_macro_environment(app: FastMCP) -> None:
+    """Register analysis_get_macro_environment tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_macro_environment",
+        annotations={"title": "Get Macro Environment", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_macro_environment(params: MacroEnvironmentInput, conn=Depends(get_db)) -> str:
+        """
+        Get the current macro-economic environment assessment.
+
+        Returns:
+        - Regime classification: risk-on, risk-off, or mixed (based on signal counts)
+        - All active economic indicators with value, trend, signal, and why (bullish_when)
+        - Upcoming catalysts: economic data releases within 14 days with current signal context
+
+        Optional category filter: inflation, employment, growth, interest_rates,
+        yield_curve, sentiment, money_supply, credit.
+        """
+        return await get_macro_environment(conn=conn, category=params.category)
+
+
+def _register_get_earnings_history(app: FastMCP) -> None:
+    """Register analysis_get_earnings_history tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_earnings_history",
+        annotations={"title": "Get Earnings History", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_earnings_history(params: EarningsHistoryInput, conn=Depends(get_db)) -> str:
+        """
+        Get earnings history for a stock with track record analysis.
+
+        Returns:
+        - Next upcoming earnings date with estimates
+        - Historical quarters with EPS and revenue: estimates, actuals, surprise %
+        - Track record: beat streak, beat/miss counts, average surprise %
+          for both EPS and revenue
+
+        A company with a 6-quarter beat streak and 3%+ average EPS surprise
+        is very different from one that alternates beats and misses.
+        """
+        return await get_earnings_history(
+            conn=conn, symbol=params.symbol, quarters=params.quarters,
+        )
+
+
+def _register_get_market_earnings(app: FastMCP) -> None:
+    """Register analysis_get_market_earnings tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_market_earnings",
+        annotations={"title": "Get Market Earnings", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_market_earnings(params: MarketEarningsInput, conn=Depends(get_db)) -> str:
+        """
+        Market-wide earnings dashboard: who's reporting soon and who recently surprised.
+
+        Returns:
+        - Upcoming: stocks reporting within days_ahead, with EPS/revenue estimates
+        - Recent surprises: biggest beats and biggest misses within days_back,
+          sorted by surprise magnitude (both EPS and revenue surprise %)
+
+        Use min_surprise_pct to filter out trivial beats/misses.
+        """
+        return await get_market_earnings(
+            conn=conn, days_ahead=params.days_ahead, days_back=params.days_back,
+            min_surprise_pct=params.min_surprise_pct,
+        )
+
+
+def _register_screen_stocks(app: FastMCP) -> None:
+    """Register analysis_screen_stocks tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_screen_stocks",
+        annotations={"title": "Screen Stocks", **_RO_ANNOTATIONS},
+    )
+    async def analysis_screen_stocks(params: ScreenStocksInput, conn=Depends(get_db)) -> str:
+        """
+        Multi-signal cross-domain stock screener.
+
+        Filter across technical indicators, fundamentals, candlestick patterns,
+        and earnings schedule simultaneously. Only joins tables for active filters.
+
+        At least one filter is required. Examples:
+        - Oversold quality stocks: rsi_below=30, min_roe=0.15, max_debt_to_equity=1.0
+        - Cheap growth stocks: max_pe=20, min_revenue_growth=0.15
+        - Bullish momentum: macd_signal='bullish', pattern_signal='bullish'
+        - Earnings plays: earnings_within_days=7, min_roe=0.10
+        """
+        return await screen_stocks(
+            conn=conn,
+            rsi_above=params.rsi_above, rsi_below=params.rsi_below,
+            macd_signal=params.macd_signal,
+            max_pe=params.max_pe, min_roe=params.min_roe,
+            min_revenue_growth=params.min_revenue_growth,
+            max_debt_to_equity=params.max_debt_to_equity,
+            min_operating_margin=params.min_operating_margin,
+            min_fcf_yield=params.min_fcf_yield,
+            max_peg_ratio=params.max_peg_ratio,
+            pattern_signal=params.pattern_signal,
+            earnings_within_days=params.earnings_within_days,
+            limit=params.limit, sort_by=params.sort_by,
+        )
+
+
 # Tool name -> ToolEntry with min_tier annotation.
 # Tiers are cumulative: free < pro < max < dev.
 # A tool with min_tier="pro" is available to pro, max, and dev users.
 _TOOL_REGISTRY: dict[str, ToolEntry] = {
-    "analysis_get_stock":      ToolEntry(fn=_register_get_stock,      min_tier="free"),
-    "analysis_get_statistics":  ToolEntry(fn=_register_get_statistics,  min_tier="free"),
-    "analysis_list_patterns":   ToolEntry(fn=_register_list_patterns,   min_tier="pro"),
-    "analysis_get_bullish":     ToolEntry(fn=_register_get_bullish,     min_tier="pro"),
-    "analysis_get_bearish":     ToolEntry(fn=_register_get_bearish,     min_tier="pro"),
+    # Candlestick pattern tools (existing)
+    "analysis_get_stock":               ToolEntry(fn=_register_get_stock,               min_tier="free"),
+    "analysis_get_statistics":           ToolEntry(fn=_register_get_statistics,           min_tier="free"),
+    "analysis_list_patterns":            ToolEntry(fn=_register_list_patterns,            min_tier="pro"),
+    "analysis_get_bullish":              ToolEntry(fn=_register_get_bullish,              min_tier="pro"),
+    "analysis_get_bearish":              ToolEntry(fn=_register_get_bearish,              min_tier="pro"),
+    # Technical indicators
+    "analysis_get_technical_signals":    ToolEntry(fn=_register_get_technical_signals,    min_tier="free"),
+    # Fundamentals
+    "analysis_get_fundamentals_trend":   ToolEntry(fn=_register_get_fundamentals_trend,   min_tier="free"),
+    "analysis_compare_stocks":           ToolEntry(fn=_register_compare_stocks,           min_tier="free"),
+    # Macro environment
+    "analysis_get_macro_environment":    ToolEntry(fn=_register_get_macro_environment,    min_tier="free"),
+    # Earnings
+    "analysis_get_earnings_history":     ToolEntry(fn=_register_get_earnings_history,     min_tier="free"),
+    "analysis_get_market_earnings":      ToolEntry(fn=_register_get_market_earnings,      min_tier="free"),
+    # Cross-domain screener
+    "analysis_screen_stocks":            ToolEntry(fn=_register_screen_stocks,            min_tier="free"),
 }
 
 
