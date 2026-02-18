@@ -34,7 +34,8 @@ export const CACHE_REGISTRY: Record<string, Partial<CacheMetadata>> = {
     description: "Message queue locks and state",
   },
   "twelvedata:daily:*": {
-    description: "Daily API call counter (800/day limit, resets at midnight UTC)",
+    description:
+      "Daily API call counter (800/day limit, resets at midnight UTC)",
   },
   "twelvedata:minute:*": {
     description: "Per-minute API call counter (8 calls/min limit)",
@@ -47,13 +48,13 @@ export const CACHE_REGISTRY: Record<string, Partial<CacheMetadata>> = {
  */
 const OWNER_MAP: Record<string, string> = {
   "back-office": "Back Office",
-  "chat": "Telegram Bot",
+  chat: "Telegram Bot",
   "mcp-analysis": "MCP Analysis",
-  "telegram": "Telegram Bot",
-  "twelvedata": "TwelveData",
-  "stock": "Stock Fetcher",
-  "crypto": "Crypto Fetcher",
-  "analysis": "Data Fetcher 2.0",
+  telegram: "Telegram Bot",
+  twelvedata: "TwelveData",
+  stock: "Stock Fetcher",
+  crypto: "Crypto Fetcher",
+  analysis: "Data Fetcher 2.0",
 };
 
 /**
@@ -72,7 +73,7 @@ function deriveOwnerFromKey(key: string): string {
   // Auto-convert: kebab-case or snake_case → Title Case
   return prefix
     .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 }
 

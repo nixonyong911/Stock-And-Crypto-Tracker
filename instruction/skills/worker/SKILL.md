@@ -12,6 +12,7 @@ triggers:
 ## Overview
 
 This skill defines the **project standard** for all workers in the project. Use this for:
+
 - **Creating new workers** - Follow the step-by-step guide
 - **Reviewing existing workers** - Use the compliance checklist
 - **Maintaining workers** - Reference requirements during updates
@@ -19,6 +20,7 @@ This skill defines the **project standard** for all workers in the project. Use 
 **Worker Location:** `services/workers/{type}/{name}/`
 
 **Worker Types:**
+
 - `data-fetcher` - Fetches external API data (e.g., TwelveData, CoinGecko)
   - Location: `services/workers/data-fetcher/{name}/`
 - `data-fetcher-2.0` - Multi-provider fetcher + analysis (Finnhub, Massive, CandlestickAnalysis)
@@ -42,6 +44,7 @@ What type of worker would you like to create/review?
 ## Required Components
 
 **Every worker MUST include:**
+
 - Health endpoints (`/health/live`, `/health/ready`)
 - Swagger documentation
 - Metrics emission
@@ -54,6 +57,7 @@ What type of worker would you like to create/review?
 ## Prerequisites
 
 Before starting, ensure access to:
+
 - [ ] Supabase project (database)
 - [ ] Infisical (secrets management)
 - [ ] Azure VM (deployment target)
@@ -87,13 +91,13 @@ Use Supabase MCP tools for any database queries, verification, or migrations.
 
 Every worker MUST implement:
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/health/live` | GET | Liveness probe (200 if running) |
-| `/health/ready` | GET | Readiness check (200 if DB connected) |
-| `/api/{worker}/status` | GET | Worker config and status |
-| `/api/{worker}/trigger/{id}` | POST | Manual single-item trigger |
-| `/api/{worker}/trigger/all` | POST | Manual batch trigger |
+| Endpoint                     | Method | Purpose                               |
+| ---------------------------- | ------ | ------------------------------------- |
+| `/health/live`               | GET    | Liveness probe (200 if running)       |
+| `/health/ready`              | GET    | Readiness check (200 if DB connected) |
+| `/api/{worker}/status`       | GET    | Worker config and status              |
+| `/api/{worker}/trigger/{id}` | POST   | Manual single-item trigger            |
+| `/api/{worker}/trigger/all`  | POST   | Manual batch trigger                  |
 
 **Technical details:** [API Endpoints Reference](references/api-endpoints/REFERENCE.md)
 
@@ -128,6 +132,7 @@ yourworker:
 ```
 
 **Add secrets to Infisical** `prod` environment:
+
 - `YOUR_WORKER_API_KEY`
 - Any other API credentials
 
@@ -137,14 +142,14 @@ yourworker:
 
 Use `IMetricsClient` from `StockTracker.Common` to emit standard metrics:
 
-| Metric | Type | Purpose |
-|--------|------|---------|
-| `worker_up` | gauge | Health indicator (1=up) |
-| `worker_info` | gauge | Version metadata |
-| `fetch_operations_total` | counter | Operation attempts |
-| `fetch_errors_total` | counter | Error counts by type |
-| `fetch_duration_seconds` | histogram | API latency |
-| `records_inserted_total` | counter | Data volume |
+| Metric                   | Type      | Purpose                 |
+| ------------------------ | --------- | ----------------------- |
+| `worker_up`              | gauge     | Health indicator (1=up) |
+| `worker_info`            | gauge     | Version metadata        |
+| `fetch_operations_total` | counter   | Operation attempts      |
+| `fetch_errors_total`     | counter   | Error counts by type    |
+| `fetch_duration_seconds` | histogram | API latency             |
+| `records_inserted_total` | counter   | Data volume             |
 
 **Technical details:** [Metrics Integration Reference](references/metrics-integration/REFERENCE.md)
 
@@ -230,18 +235,18 @@ Use this checklist when reviewing or auditing existing workers for compliance:
 
 ### Compliance Checklist
 
-| Requirement | Check | Location |
-|-------------|-------|----------|
-| Health endpoints | `/health/live` and `/health/ready` respond 200 | `Controllers/` |
-| Swagger docs | UI accessible at `/api/{worker}/swagger` | `Program.cs` |
-| Metrics emission | Uses `IMetricsClient` from `StockTracker.Common` | `Services/` |
-| Grafana dashboard | JSON exists AND uploaded to Grafana Cloud | Dashboard file + API |
-| CI/CD integration | Paths in `deploy-vm.yml` triggers | Workflow file |
-| Database registration | Entry in `data_sources` table | Supabase |
-| Schedule registration | Entry in `fetch_schedules` table | Supabase |
-| Secrets via Infisical | No hardcoded secrets | `appsettings.json` |
-| Docker health check | `HEALTHCHECK` in Dockerfile | `Dockerfile` |
-| PATH_BASE configured | Environment variable set | `docker-compose.yml` |
+| Requirement           | Check                                            | Location             |
+| --------------------- | ------------------------------------------------ | -------------------- |
+| Health endpoints      | `/health/live` and `/health/ready` respond 200   | `Controllers/`       |
+| Swagger docs          | UI accessible at `/api/{worker}/swagger`         | `Program.cs`         |
+| Metrics emission      | Uses `IMetricsClient` from `StockTracker.Common` | `Services/`          |
+| Grafana dashboard     | JSON exists AND uploaded to Grafana Cloud        | Dashboard file + API |
+| CI/CD integration     | Paths in `deploy-vm.yml` triggers                | Workflow file        |
+| Database registration | Entry in `data_sources` table                    | Supabase             |
+| Schedule registration | Entry in `fetch_schedules` table                 | Supabase             |
+| Secrets via Infisical | No hardcoded secrets                             | `appsettings.json`   |
+| Docker health check   | `HEALTHCHECK` in Dockerfile                      | `Dockerfile`         |
+| PATH_BASE configured  | Environment variable set                         | `docker-compose.yml` |
 
 **Common Issues:** See [Troubleshooting Reference](references/troubleshooting/REFERENCE.md)
 

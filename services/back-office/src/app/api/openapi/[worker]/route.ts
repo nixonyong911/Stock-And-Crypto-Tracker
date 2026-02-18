@@ -2,20 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Worker URL mapping (internal Docker network)
 const WORKER_URLS: Record<string, string> = {
-  'twelvedata': 'http://twelvedata:8080',
+  twelvedata: "http://twelvedata:8080",
 };
 
 // Endpoints to exclude from display
-const EXCLUDED_PATTERNS = [
-  /^\/health/,
-  /^\/swagger/,
-  /^\/metrics$/,
-  /^\/$/,
-];
+const EXCLUDED_PATTERNS = [/^\/health/, /^\/swagger/, /^\/metrics$/, /^\/$/];
 
 interface OpenApiParameter {
   name: string;
-  in: 'path' | 'query' | 'header' | 'body';
+  in: "path" | "query" | "header" | "body";
   required?: boolean;
   schema?: {
     type?: string;
@@ -31,7 +26,7 @@ interface OpenApiOperation {
   parameters?: OpenApiParameter[];
   requestBody?: {
     content?: {
-      'application/json'?: {
+      "application/json"?: {
         schema?: Record<string, unknown>;
       };
     };
@@ -81,31 +76,31 @@ function parseOpenApiSpec(spec: OpenApiSpec): ParsedEndpoint[] {
 
   for (const [path, methods] of Object.entries(spec.paths)) {
     // Skip excluded paths
-    if (EXCLUDED_PATTERNS.some(pattern => pattern.test(path))) {
+    if (EXCLUDED_PATTERNS.some((pattern) => pattern.test(path))) {
       continue;
     }
 
-    const httpMethods = ['get', 'post', 'put', 'delete', 'patch'] as const;
+    const httpMethods = ["get", "post", "put", "delete", "patch"] as const;
 
     for (const method of httpMethods) {
       const operation = methods[method];
       if (!operation) continue;
 
-      const parameters = (operation.parameters || []).map(param => ({
+      const parameters = (operation.parameters || []).map((param) => ({
         name: param.name,
         in: param.in,
         required: param.required ?? false,
-        type: param.schema?.type || 'string',
+        type: param.schema?.type || "string",
         description: param.description,
         default: param.schema?.default,
       }));
 
       // Handle request body
-      let requestBody: ParsedEndpoint['requestBody'];
+      let requestBody: ParsedEndpoint["requestBody"];
       if (operation.requestBody) {
         requestBody = {
           required: operation.requestBody.required ?? false,
-          schema: operation.requestBody.content?.['application/json']?.schema,
+          schema: operation.requestBody.content?.["application/json"]?.schema,
         };
       }
 
@@ -143,7 +138,11 @@ export async function GET(
     const baseUrl = WORKER_URLS[worker];
     if (!baseUrl) {
       return NextResponse.json(
-        { error: `Unknown worker: ${worker}. Available: ${Object.keys(WORKER_URLS).join(', ')}` },
+        {
+          error: `Unknown worker: ${worker}. Available: ${Object.keys(
+            WORKER_URLS
+          ).join(", ")}`,
+        },
         { status: 404 }
       );
     }
@@ -151,15 +150,17 @@ export async function GET(
     const swaggerUrl = `${baseUrl}/swagger/v1/swagger.json`;
 
     const response = await fetch(swaggerUrl, {
-      cache: 'no-store',
+      cache: "no-store",
       headers: {
-        'Accept': 'application/json',
+        Accept: "application/json",
       },
     });
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: `Failed to fetch OpenAPI spec from ${worker}: ${response.status}` },
+        {
+          error: `Failed to fetch OpenAPI spec from ${worker}: ${response.status}`,
+        },
         { status: 502 }
       );
     }
@@ -170,7 +171,7 @@ export async function GET(
     return NextResponse.json({
       worker,
       title: spec.info?.title || worker,
-      version: spec.info?.version || 'unknown',
+      version: spec.info?.version || "unknown",
       endpoints,
     });
   } catch (error) {

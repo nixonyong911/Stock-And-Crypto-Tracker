@@ -24,14 +24,16 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
-  
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({
     cli: false,
     dataFetchers: true,
     frontend: true,
     infrastructure: true,
   });
-  
+
   const [dataFetchers, setDataFetchers] = useState<WorkerRegistry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,39 +45,48 @@ export function Sidebar({ className }: SidebarProps) {
         if (!response.ok) {
           throw new Error("Failed to fetch workers");
         }
-        
+
         const { workers } = await response.json();
-        
+
         // Filter by service type
-        setDataFetchers(workers.filter((w: WorkerRegistry) => w.service_type === "data-fetcher"));
+        setDataFetchers(
+          workers.filter(
+            (w: WorkerRegistry) => w.service_type === "data-fetcher"
+          )
+        );
       } catch (err) {
         console.error("Failed to load workers:", err);
       } finally {
         setLoading(false);
       }
     }
-    
+
     loadWorkers();
   }, []);
 
   const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
+    setExpandedSections((prev) => ({
       ...prev,
-      [section]: !prev[section]
+      [section]: !prev[section],
     }));
   };
 
   // pathname from usePathname() includes the basePath (e.g., "/back-office/cli")
   const isActive = (path: string) => {
     const fullPath = `/back-office${path}`;
-    return pathname === fullPath || pathname.startsWith(fullPath + '/');
+    return pathname === fullPath || pathname.startsWith(fullPath + "/");
   };
 
   return (
-    <aside className={`w-64 bg-slate-900 border-r border-slate-800 flex flex-col ${className}`}>
+    <aside
+      className={`w-64 bg-slate-900 border-r border-slate-800 flex flex-col ${className}`}
+    >
       {/* Logo/Title */}
       <div className="p-4 border-b border-slate-800">
-        <Link href="/" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+        <Link
+          href="/"
+          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <Activity className="w-6 h-6 text-cyan-400" />
           <span className="font-semibold text-slate-100">Back Office</span>
         </Link>
@@ -88,8 +99,8 @@ export function Sidebar({ className }: SidebarProps) {
           href="/"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
             pathname === "/back-office"
-              ? 'bg-cyan-500/20 text-cyan-400'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              ? "bg-cyan-500/20 text-cyan-400"
+              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
           }`}
         >
           <Home className="w-4 h-4" />
@@ -99,11 +110,11 @@ export function Sidebar({ className }: SidebarProps) {
         {/* CLI Testing Section */}
         <div>
           <button
-            onClick={() => toggleSection('cli')}
+            onClick={() => toggleSection("cli")}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
               isActive("/cli")
-                ? 'bg-orange-500/20 text-orange-400'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                ? "bg-orange-500/20 text-orange-400"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             <div className="flex items-center gap-2">
@@ -116,15 +127,15 @@ export function Sidebar({ className }: SidebarProps) {
               <ChevronRight className="w-4 h-4" />
             )}
           </button>
-          
+
           {expandedSections.cli && (
             <div className="ml-4 mt-1 space-y-1">
               <Link
                 href="/cli"
                 className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs ${
                   pathname === "/back-office/cli"
-                    ? 'text-orange-400'
-                    : 'text-slate-500 hover:text-slate-300'
+                    ? "text-orange-400"
+                    : "text-slate-500 hover:text-slate-300"
                 }`}
               >
                 AI Agents
@@ -138,8 +149,8 @@ export function Sidebar({ className }: SidebarProps) {
           href="/schedules"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
             isActive("/schedules")
-              ? 'bg-amber-500/20 text-amber-400'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              ? "bg-amber-500/20 text-amber-400"
+              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
           }`}
         >
           <Calendar className="w-4 h-4" />
@@ -149,11 +160,11 @@ export function Sidebar({ className }: SidebarProps) {
         {/* Data Fetchers Section */}
         <div>
           <button
-            onClick={() => toggleSection('dataFetchers')}
+            onClick={() => toggleSection("dataFetchers")}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
               isActive("/data-fetchers")
-                ? 'bg-emerald-500/20 text-emerald-400'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                ? "bg-emerald-500/20 text-emerald-400"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             <div className="flex items-center gap-2">
@@ -166,13 +177,17 @@ export function Sidebar({ className }: SidebarProps) {
               <ChevronRight className="w-4 h-4" />
             )}
           </button>
-          
+
           {expandedSections.dataFetchers && (
             <div className="ml-4 mt-1 space-y-1">
               {loading ? (
-                <div className="px-3 py-1.5 text-xs text-slate-600">Loading...</div>
+                <div className="px-3 py-1.5 text-xs text-slate-600">
+                  Loading...
+                </div>
               ) : dataFetchers.length === 0 ? (
-                <div className="px-3 py-1.5 text-xs text-slate-600">No workers found</div>
+                <div className="px-3 py-1.5 text-xs text-slate-600">
+                  No workers found
+                </div>
               ) : (
                 dataFetchers.map((worker) => (
                   <Link
@@ -180,8 +195,8 @@ export function Sidebar({ className }: SidebarProps) {
                     href={`/data-fetchers/${worker.name}`}
                     className={`flex items-center justify-between px-3 py-1.5 rounded text-xs ${
                       pathname === `/back-office/data-fetchers/${worker.name}`
-                        ? 'text-emerald-400 bg-emerald-500/10'
-                        : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                        ? "text-emerald-400 bg-emerald-500/10"
+                        : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
                     }`}
                   >
                     <span>{worker.display_name}</span>
@@ -198,11 +213,11 @@ export function Sidebar({ className }: SidebarProps) {
         {/* Frontend Section */}
         <div>
           <button
-            onClick={() => toggleSection('frontend')}
+            onClick={() => toggleSection("frontend")}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
               isActive("/frontend")
-                ? 'bg-sky-500/20 text-sky-400'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                ? "bg-sky-500/20 text-sky-400"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             <div className="flex items-center gap-2">
@@ -215,15 +230,15 @@ export function Sidebar({ className }: SidebarProps) {
               <ChevronRight className="w-4 h-4" />
             )}
           </button>
-          
+
           {expandedSections.frontend && (
             <div className="ml-4 mt-1 space-y-1">
               <Link
                 href="/frontend/cache"
                 className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs ${
                   pathname === "/back-office/frontend/cache"
-                    ? 'text-sky-400 bg-sky-500/10'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                    ? "text-sky-400 bg-sky-500/10"
+                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
                 }`}
               >
                 Cache Management
@@ -235,11 +250,11 @@ export function Sidebar({ className }: SidebarProps) {
         {/* Infrastructure Section */}
         <div>
           <button
-            onClick={() => toggleSection('infrastructure')}
+            onClick={() => toggleSection("infrastructure")}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
               isActive("/infrastructure")
-                ? 'bg-indigo-500/20 text-indigo-400'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                ? "bg-indigo-500/20 text-indigo-400"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             }`}
           >
             <div className="flex items-center gap-2">
@@ -252,15 +267,15 @@ export function Sidebar({ className }: SidebarProps) {
               <ChevronRight className="w-4 h-4" />
             )}
           </button>
-          
+
           {expandedSections.infrastructure && (
             <div className="ml-4 mt-1 space-y-1">
               <Link
                 href="/infrastructure/versions"
                 className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs ${
                   pathname === "/back-office/infrastructure/versions"
-                    ? 'text-indigo-400 bg-indigo-500/10'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                    ? "text-indigo-400 bg-indigo-500/10"
+                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
                 }`}
               >
                 Worker Versions
@@ -274,8 +289,8 @@ export function Sidebar({ className }: SidebarProps) {
           href="/redis"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
             isActive("/redis")
-              ? 'bg-red-500/20 text-red-400'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              ? "bg-red-500/20 text-red-400"
+              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
           }`}
         >
           <HardDrive className="w-4 h-4" />
@@ -287,8 +302,8 @@ export function Sidebar({ className }: SidebarProps) {
           href="/rabbitmq"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
             isActive("/rabbitmq")
-              ? 'bg-purple-500/20 text-purple-400'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              ? "bg-purple-500/20 text-purple-400"
+              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
           }`}
         >
           <Layers className="w-4 h-4" />
@@ -310,11 +325,8 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* Footer */}
       <div className="p-4 border-t border-slate-800">
-        <div className="text-xs text-slate-600">
-          Stock Tracker v1.0
-        </div>
+        <div className="text-xs text-slate-600">Stock Tracker v1.0</div>
       </div>
     </aside>
   );
 }
-

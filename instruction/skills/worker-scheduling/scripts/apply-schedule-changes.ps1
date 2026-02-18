@@ -1,7 +1,7 @@
 # ===========================================
 # Apply Schedule Changes Script (PowerShell)
 # ===========================================
-# Run this from your local Windows machine after 
+# Run this from your local Windows machine after
 # updating schedule values in the database.
 #
 # Usage: .\apply-schedule-changes.ps1

@@ -4,11 +4,11 @@
 
 The pipeline builds Docker images on **GitHub Actions runners** (not on VM) for better performance:
 
-| Resource | GitHub Actions (Free) | Azure VM (B2s) |
-|----------|----------------------|----------------|
-| CPU | 2-core (faster) | 2 vCPU (burstable) |
-| RAM | 7 GB | 4 GB |
-| Cost | 2000 min/month free | Fixed monthly |
+| Resource | GitHub Actions (Free) | Azure VM (B2s)     |
+| -------- | --------------------- | ------------------ |
+| CPU      | 2-core (faster)       | 2 vCPU (burstable) |
+| RAM      | 7 GB                  | 4 GB               |
+| Cost     | 2000 min/month free   | Fixed monthly      |
 
 **Strategy**: Build images on GHA → compress → transfer via SCP → load on VM.
 
@@ -49,6 +49,7 @@ Azure VM runs services via Docker
 ## Trigger Paths
 
 The pipeline triggers on changes to:
+
 - `services/workers/data-fetcher/TwelveData/**`
 - `services/workers/data-fetcher-2.0/**`
 - `services/metrics/**`
@@ -59,38 +60,43 @@ The pipeline triggers on changes to:
 - `.github/workflows/deploy-vm.yml`
 
 Explicitly excluded:
+
 - `services/frontend/**` (deployed via Vercel)
 
 ## Selective Builds
 
 The pipeline uses `dorny/paths-filter` to detect which services changed:
 
-| Service | Trigger Paths |
-|---------|---------------|
-| TwelveData | `services/workers/data-fetcher/TwelveData/**`, `services/common/**` |
-| Data Fetcher 2.0 | `services/workers/data-fetcher-2.0/**` |
-| Metrics | `services/metrics/**`, `services/common/**` |
-| Back Office | `services/back-office/**` |
-| Gateway 2.0 | `services/ai/gateway-2.0/**` |
-| Config | `deployment/vm/**`, `.github/workflows/deploy-vm.yml` |
+| Service          | Trigger Paths                                                       |
+| ---------------- | ------------------------------------------------------------------- |
+| TwelveData       | `services/workers/data-fetcher/TwelveData/**`, `services/common/**` |
+| Data Fetcher 2.0 | `services/workers/data-fetcher-2.0/**`                              |
+| Metrics          | `services/metrics/**`, `services/common/**`                         |
+| Back Office      | `services/back-office/**`                                           |
+| Gateway 2.0      | `services/ai/gateway-2.0/**`                                        |
+| Config           | `deployment/vm/**`, `.github/workflows/deploy-vm.yml`               |
 
 **Optimization**: If only config files change, all Docker builds are skipped entirely.
 
 ## Caching Strategy
 
 ### Docker BuildKit Cache (GHA)
+
 ```yaml
 cache-from: type=gha,scope=<service>
 cache-to: type=gha,mode=max,scope=<service>
 ```
+
 Layers are cached in GitHub's 10GB cache. Subsequent builds only rebuild changed layers.
 
 ### Gateway 2.0 (TypeScript)
+
 Gateway 2.0 is a TypeScript/Node.js service built as a Docker image.
 
 ## Health Checks
 
 Smart polling replaces fixed sleep:
+
 ```bash
 wait_healthy() {
   # Poll every 2s, timeout at 30s
@@ -144,6 +150,7 @@ GHA Build ──► Success ──► Transfer images ──► Deploy
 ```
 
 Triggers for fallback:
+
 - GHA service degradation
 - Build errors (network, cache issues)
 - Quota exceeded
@@ -153,6 +160,7 @@ The workflow logs `::warning::` annotation when fallback is used.
 ## Transfer Metrics
 
 Each deployment logs transfer sizes in the GitHub Actions summary:
+
 - Individual image sizes
 - Total transfer size
 - Reminder that Azure inbound transfer is FREE
@@ -162,27 +170,31 @@ Each deployment logs transfer sizes in the GitHub Actions summary:
 Go to GitHub Actions → Deploy to Azure VM → Run workflow
 
 Options:
+
 - `force_build`: Rebuild all services regardless of change detection
 
 ## Adding New Workers to CI/CD
 
 1. Add trigger path to `deploy-vm.yml` (use correct worker type path):
+
    ```yaml
    paths:
      # For data-fetcher workers:
-     - 'services/workers/data-fetcher/YourWorker/**'
+     - "services/workers/data-fetcher/YourWorker/**"
      # For data-fetcher-2.0:
-     - 'services/workers/data-fetcher-2.0/**'
+     - "services/workers/data-fetcher-2.0/**"
    ```
 
 2. Add change detection filter:
+
    ```yaml
    yourworker:
-     - 'services/workers/data-fetcher/YourWorker/**'
-     - 'services/common/**'
+     - "services/workers/data-fetcher/YourWorker/**"
+     - "services/common/**"
    ```
 
 3. Add build step with caching:
+
    ```yaml
    - name: Build YourWorker image
      if: needs.detect-changes.outputs.yourworker == 'true' || github.event.inputs.force_build == 'true'
@@ -197,6 +209,7 @@ Options:
    ```
 
 4. Add compression block in "Compress Docker images" step:
+
    ```bash
    if [ -f /tmp/yourworker.tar ]; then
      gzip -1 < /tmp/yourworker.tar > /tmp/images/yourworker.tar.gz
@@ -216,22 +229,24 @@ Options:
 ## Deployment Commands
 
 ### From Local (Manual)
+
 ```powershell
 # SSH and rebuild specific service (fallback method)
 ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1 "cd /opt/stocktracker && docker compose up -d --build <service>"
 ```
 
 ### Via CI/CD (Automatic)
+
 Push to main branch with changes in trigger paths.
 
 ## Expected Performance
 
-| Scenario | Time |
-|----------|------|
-| Config-only change | ~1-2 min (skip all builds) |
-| Single service change (cached) | ~3-4 min |
-| Full rebuild | ~5-7 min |
-| Baseline (before optimization) | ~8-12 min |
+| Scenario                       | Time                       |
+| ------------------------------ | -------------------------- |
+| Config-only change             | ~1-2 min (skip all builds) |
+| Single service change (cached) | ~3-4 min                   |
+| Full rebuild                   | ~5-7 min                   |
+| Baseline (before optimization) | ~8-12 min                  |
 
 **Improvement**: 60-70% faster than original pipeline.
 
@@ -243,25 +258,27 @@ Push to main branch with changes in trigger paths.
 
 The Docker build context path differs between GitHub Actions and VM deployment:
 
-| Environment | Context Path | Reason |
-|-------------|--------------|--------|
-| **GitHub Actions** | `context: services/` | Runs from repository root |
+| Environment           | Context Path               | Reason                                                              |
+| --------------------- | -------------------------- | ------------------------------------------------------------------- |
+| **GitHub Actions**    | `context: services/`       | Runs from repository root                                           |
 | **VM docker-compose** | `context: ./repo/services` | docker-compose.yml is in `deployment/vm/`, repo cloned to `./repo/` |
 
 **GitHub Actions Example** (`.github/workflows/deploy-vm.yml`):
+
 ```yaml
 - name: Build YourWorker image
   uses: docker/build-push-action@v5
   with:
-    context: services/                           # ← Relative to repo root
+    context: services/ # ← Relative to repo root
     file: services/workers/data-fetcher/YourWorker/Dockerfile
 ```
 
 **VM docker-compose Example** (`deployment/vm/docker-compose.yml`):
+
 ```yaml
 yourworker:
   build:
-    context: ./repo/services                     # ← Relative to docker-compose.yml location
+    context: ./repo/services # ← Relative to docker-compose.yml location
     dockerfile: workers/data-fetcher/YourWorker/Dockerfile
 ```
 
@@ -277,10 +294,12 @@ yourworker:
 ## Related Documentation
 
 ### Rules
+
 - [Docker Conventions](./conventions/docker.md) - Multi-stage builds, security, optimization
 - [Security Best Practices](./security.md) - Secret management in CI/CD
 - [Infrastructure Config](../reference/infrastructure-config.md) - VM and service configuration
 
 ### Skills
+
 - [Worker Requirements](../skills/worker-requirements/SKILL.md) - Adding workers to CI/CD pipeline
 - [CLI GitHub Skill](../skills/cli/References/github/REFERENCE.md) - Working with GitHub Actions

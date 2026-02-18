@@ -2,7 +2,7 @@
 # ===========================================
 # Apply Schedule Changes Script (Bash)
 # ===========================================
-# Run this directly on the VM after updating 
+# Run this directly on the VM after updating
 # schedule values in the database.
 #
 # Usage: ./apply-schedule-changes.sh

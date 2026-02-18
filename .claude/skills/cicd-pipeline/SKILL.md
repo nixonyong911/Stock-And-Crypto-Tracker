@@ -23,14 +23,14 @@ Use this skill when:
 
 ## Services (7 Total)
 
-| Workflow Name | DB Service Name      | Docker Image                      | Build Location |
-| ------------- | -------------------- | --------------------------------- | -------------- |
-| twelvedata    | twelvedata           | stocktracker-twelvedata           | GHA            |
-| metrics       | metrics              | stocktracker-metrics              | GHA            |
-| backoffice    | back-office          | stocktracker-back-office          | GHA            |
-| mcp           | mcp-analysis         | stocktracker-mcp-analysis         | GHA            |
-| telegram2     | telegram-bot-2.0     | stocktracker-telegram-bot-2.0     | GHA            |
-| frontend      | frontend-staging     | stocktracker-frontend-staging     | VM only\*      |
+| Workflow Name | DB Service Name  | Docker Image                  | Build Location |
+| ------------- | ---------------- | ----------------------------- | -------------- |
+| twelvedata    | twelvedata       | stocktracker-twelvedata       | GHA            |
+| metrics       | metrics          | stocktracker-metrics          | GHA            |
+| backoffice    | back-office      | stocktracker-back-office      | GHA            |
+| mcp           | mcp-analysis     | stocktracker-mcp-analysis     | GHA            |
+| telegram2     | telegram-bot-2.0 | stocktracker-telegram-bot-2.0 | GHA            |
+| frontend      | frontend-staging | stocktracker-frontend-staging | VM only\*      |
 
 \*Frontend Staging requires Infisical STAGING secrets at build time, built on VM.
 

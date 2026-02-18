@@ -5,6 +5,7 @@ PostgreSQL database hosted on Supabase.
 ## Overview
 
 The database serves as the central data store:
+
 - **Data Fetcher Workers** (write): Store fetched stock and crypto price data
 - **Analysis Workers** (read/write): Read price data, write analysis results
 - **Frontend Service** (read): Query and display data to users
@@ -13,6 +14,7 @@ The database serves as the central data store:
 ## Schema Management
 
 Database schema is managed via **EF Core migrations** in:
+
 ```
 services/common/StockTracker.Data.Migrations/
 ```
@@ -21,17 +23,17 @@ See [EF Migrations CLI](../cli/ef-migrations.md) for commands.
 
 ## Tables
 
-| Table | Description | RLS |
-|-------|-------------|-----|
-| `universe` | Asset types (stock, etf, crypto) | Read-only |
-| `data_sources` | 3rd party API configuration | Service role only |
-| `worker_fetch_schedules` | Worker scheduling & runtime config (links to worker_registry via worker_id) | Service role only |
-| `stock_tickers` | Stock/ETF master list | Read-only |
-| `crypto_tickers` | Cryptocurrency master list | Read-only |
-| `stock_prices` | 15-minute stock candles | Read-only |
-| `crypto_prices` | 15-minute crypto candles | Read-only |
-| `analysis_stock_candlestick_pattern` | Daily candlestick pattern analysis | Service role only |
-| `worker_registry` | Worker discovery for back-office | Service role only |
+| Table                                | Description                                                                 | RLS               |
+| ------------------------------------ | --------------------------------------------------------------------------- | ----------------- |
+| `universe`                           | Asset types (stock, etf, crypto)                                            | Read-only         |
+| `data_sources`                       | 3rd party API configuration                                                 | Service role only |
+| `worker_fetch_schedules`             | Worker scheduling & runtime config (links to worker_registry via worker_id) | Service role only |
+| `stock_tickers`                      | Stock/ETF master list                                                       | Read-only         |
+| `crypto_tickers`                     | Cryptocurrency master list                                                  | Read-only         |
+| `stock_prices`                       | 15-minute stock candles                                                     | Read-only         |
+| `crypto_prices`                      | 15-minute crypto candles                                                    | Read-only         |
+| `analysis_stock_candlestick_pattern` | Daily candlestick pattern analysis                                          | Service role only |
+| `worker_registry`                    | Worker discovery for back-office                                            | Service role only |
 
 See [schema.md](schema.md) for detailed table definitions.
 
@@ -84,11 +86,13 @@ See [schema.md](schema.md) for detailed table definitions.
 ## Connection
 
 ### Supabase Dashboard
+
 Access via [Supabase Dashboard](https://supabase.com/dashboard)
 
 ### Environment Variables
 
 **Backend (.NET Workers)**:
+
 ```
 DATABASE_CONNECTION_STRING=Host=...;Port=5432;Database=postgres;Username=postgres;Password=...
 Supabase__Url=https://your-project.supabase.co
@@ -96,6 +100,7 @@ Supabase__ServiceRoleKey=your-service-role-key
 ```
 
 **Frontend (Vercel)**:
+
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your-anon-key
@@ -104,6 +109,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your-anon-key
 ## Security
 
 All tables have **Row Level Security (RLS)** enabled:
+
 - `data_sources`: No public access (contains API keys)
 - All other tables: Public read-only access
 - Backend workers use service role key (bypasses RLS)
