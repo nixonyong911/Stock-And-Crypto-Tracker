@@ -392,15 +392,8 @@ async def get_pattern_statistics(conn, days: int = 7) -> str:
     """
     
     try:
-        # Run both queries in parallel with PostgreSQL-level timeout
-        daily_stats, pattern_stats = await _safe_gather(
-            conn,
-            [
-                (daily_query, start_date, end_date),
-                (pattern_query, start_date, end_date),
-            ],
-            timeout=QUERY_TIMEOUT
-        )
+        daily_stats = await _safe_fetch(conn, daily_query, start_date, end_date)
+        pattern_stats = await _safe_fetch(conn, pattern_query, start_date, end_date)
     except asyncio.TimeoutError:
         return json.dumps({
             "error": "Query timeout",
