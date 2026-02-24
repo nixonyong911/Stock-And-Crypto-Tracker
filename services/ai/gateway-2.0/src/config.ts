@@ -25,6 +25,7 @@ export interface GatewayConfig {
   readonly maxMessageLength: number;
   readonly telegramBotToken: string | undefined;
   readonly telegramWebhookURL: string | undefined;
+  readonly twelveDataInternalUrl: string | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,5 +91,6 @@ export function loadConfig(): GatewayConfig {
     maxMessageLength: envInt("GATEWAY_MAX_MESSAGE_LENGTH", 4000),
     telegramBotToken: envOptional("TELEGRAM_BOT_TOKEN"),
     telegramWebhookURL: envOptional("TELEGRAM_WEBHOOK_URL"),
+    twelveDataInternalUrl: envOptional("TWELVEDATA_INTERNAL_URL"),
   };
 }

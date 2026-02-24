@@ -15,6 +15,8 @@ const KNOWN_COMMANDS = new Set([
   "refresh",
   "status",
   "pair",
+  "add",
+  "remove",
 ]);
 
 const composer = new Composer<TelegramBotContext>();

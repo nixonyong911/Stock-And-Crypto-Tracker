@@ -17,6 +17,8 @@ import logoutComposer from "./commands/logout.js";
 import refreshComposer from "./commands/refresh.js";
 import statusComposer from "./commands/status.js";
 import pairComposer from "./commands/pair.js";
+import addComposer from "./commands/add.js";
+import removeComposer from "./commands/remove.js";
 import messagesComposer from "./commands/messages.js";
 
 export function createTelegramExtension(): IChannelExtension {
@@ -64,6 +66,8 @@ export function createTelegramExtension(): IChannelExtension {
       bot.use(refreshComposer);
       bot.use(statusComposer);
       bot.use(pairComposer);
+      bot.use(addComposer);
+      bot.use(removeComposer);
       bot.use(messagesComposer);
 
       // Error handler
