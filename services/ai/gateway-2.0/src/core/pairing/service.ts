@@ -122,6 +122,63 @@ export class PairingService {
   }
 
   /**
+   * Unpair a channel account. Accepts either platformUserId (bot-side)
+   * or clerkUserId (frontend-side) to resolve the pairing, then clears
+   * both tables and expires active sessions.
+   */
+  async unpairChannel(params: {
+    platformUserId?: string;
+    clerkUserId?: string;
+    channelType: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    let caRow: { platform_user_id: string; clerk_user_id: string } | undefined;
+
+    if (params.platformUserId) {
+      const r = await this.db.query(
+        `SELECT platform_user_id, clerk_user_id FROM channel_accounts
+         WHERE platform_user_id = $1 AND channel_type = $2`,
+        [params.platformUserId, params.channelType]
+      );
+      caRow = r.rows[0];
+    } else if (params.clerkUserId) {
+      const r = await this.db.query(
+        `SELECT platform_user_id, clerk_user_id FROM channel_accounts
+         WHERE clerk_user_id = $1 AND channel_type = $2`,
+        [params.clerkUserId, params.channelType]
+      );
+      caRow = r.rows[0];
+    }
+
+    if (!caRow?.clerk_user_id) {
+      return { success: false, error: "not_paired" };
+    }
+
+    await this.db.query(
+      "UPDATE users SET telegram_user_id = NULL, updated_at = NOW() WHERE clerk_user_id = $1",
+      [caRow.clerk_user_id]
+    );
+
+    await this.db.query(
+      `UPDATE channel_accounts SET clerk_user_id = NULL, paired_at = NULL
+       WHERE platform_user_id = $1 AND channel_type = $2`,
+      [caRow.platform_user_id, params.channelType]
+    );
+
+    await this.db.query(
+      `UPDATE gateway_sessions SET expires_at = NOW()
+       WHERE platform_user_id = $1 AND channel_type = $2 AND expires_at > NOW()`,
+      [caRow.platform_user_id, params.channelType]
+    );
+
+    this.log.info(
+      { platformUserId: caRow.platform_user_id, channelType: params.channelType },
+      "Account unpaired successfully"
+    );
+
+    return { success: true };
+  }
+
+  /**
    * Resolve the user's tier from channel_accounts → users.
    */
   async resolveUserTier(

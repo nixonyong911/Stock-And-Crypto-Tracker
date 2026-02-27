@@ -17,25 +17,49 @@ export async function POST() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (!user.telegram_user_id) {
+    const supabase = getSupabaseAdmin();
+
+    // Find the channel_account linked to this Clerk user
+    const { data: ca } = await supabase
+      .from("channel_accounts")
+      .select("platform_user_id, clerk_user_id")
+      .eq("clerk_user_id", userId)
+      .eq("channel_type", "telegram")
+      .single();
+
+    if (!ca) {
       return NextResponse.json(
         { error: "No Telegram account linked" },
         { status: 400 }
       );
     }
 
-    const supabase = getSupabaseAdmin();
-
-    // Remove telegram_user_id from user
-    const { error } = await supabase
+    // 1. Clear users.telegram_user_id
+    const { error: userErr } = await supabase
       .from("users")
       .update({
         telegram_user_id: null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", user.id);
+      .eq("clerk_user_id", userId);
 
-    if (error) throw error;
+    if (userErr) throw userErr;
+
+    // 2. Clear channel_accounts.clerk_user_id and paired_at
+    const { error: caErr } = await supabase
+      .from("channel_accounts")
+      .update({ clerk_user_id: null, paired_at: null })
+      .eq("platform_user_id", ca.platform_user_id)
+      .eq("channel_type", "telegram");
+
+    if (caErr) throw caErr;
+
+    // 3. Expire active sessions
+    await supabase
+      .from("gateway_sessions")
+      .update({ expires_at: new Date().toISOString() })
+      .eq("platform_user_id", ca.platform_user_id)
+      .eq("channel_type", "telegram");
 
     return NextResponse.json({ success: true });
   } catch (error) {

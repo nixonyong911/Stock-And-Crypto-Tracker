@@ -17,6 +17,7 @@ import logoutComposer from "./commands/logout.js";
 import refreshComposer from "./commands/refresh.js";
 import statusComposer from "./commands/status.js";
 import pairComposer from "./commands/pair.js";
+import unpairComposer from "./commands/unpair.js";
 import addComposer from "./commands/add.js";
 import removeComposer from "./commands/remove.js";
 import addhelpComposer from "./commands/addhelp.js";
@@ -68,6 +69,7 @@ export function createTelegramExtension(): IChannelExtension {
       bot.use(refreshComposer);
       bot.use(statusComposer);
       bot.use(pairComposer);
+      bot.use(unpairComposer);
       bot.use(addComposer);
       bot.use(removeComposer);
       bot.use(addhelpComposer);

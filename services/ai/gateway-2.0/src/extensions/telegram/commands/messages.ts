@@ -22,6 +22,7 @@ const KNOWN_COMMANDS = new Set([
   "helpadd",
   "removehelp",
   "helpremove",
+  "unpair",
 ]);
 
 const composer = new Composer<TelegramBotContext>();
@@ -133,7 +134,11 @@ composer.on("message:text", async (ctx) => {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
 
-    if (errMsg.includes("No messages remaining")) {
+    if (errMsg.includes("sensitive_keyword")) {
+      await ctx.reply(
+        "⚠️ Unable to process your request due to sensitive keyword detected. Please rephrase and try again."
+      );
+    } else if (errMsg.includes("No messages remaining")) {
       await ctx.reply(
         `⚠️ ${errMsg}\n\nUpgrade to Pro for unlimited messages.`,
         { parse_mode: "Markdown" }

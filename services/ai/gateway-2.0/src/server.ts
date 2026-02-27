@@ -26,6 +26,7 @@ import { SessionManager } from "./core/session/manager.js";
 import { QueueManager } from "./core/queue/manager.js";
 import { CLIExecutor } from "./core/cli/executor.js";
 import { OutputFilter } from "./core/filter/filter.js";
+import { KeywordFilter } from "./core/filter/keyword-filter.js";
 import { MetricsCollector } from "./core/metrics/collector.js";
 
 // Extension system
@@ -95,6 +96,7 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
   const queue = new QueueManager(config, app.log);
   const cli = new CLIExecutor(config, app.log);
   const filter = new OutputFilter(config, app.log);
+  const keywordFilter = new KeywordFilter(db.pool, app.log);
   const metrics = new MetricsCollector();
 
   // ---- 4. Initialize extension system ----
@@ -160,6 +162,22 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
         })
         .catch(() => {});
       throw new Error(`Message blocked: ${secCheck.reason}`);
+    }
+
+    // 2.5. Sensitive keyword filter (skip for DEV tier)
+    if (parseTier(tier) !== Tier.Dev) {
+      const kwCheck = keywordFilter.check(params.message);
+      if (kwCheck.blocked) {
+        keywordFilter
+          .logViolation({
+            userId: params.platformUserId,
+            channelType: params.channelType,
+            messageText: params.message,
+            matchedKeyword: kwCheck.matchedKeyword,
+          })
+          .catch(() => {});
+        throw new Error(`blocked:sensitive_keyword:${kwCheck.matchedKeyword}`);
+      }
     }
 
     // 3. Usage check (free tier)
