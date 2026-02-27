@@ -27,7 +27,7 @@ composer.command('status', async (ctx) => {
   const s = ctx.activeSession;
   const daysRemaining = Math.ceil((s.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   await ctx.reply(
-    `📊 **Status: Active Session**\n\n👤 User: ${s.displayName || account.rows[0].display_name}\n📝 Username: @${s.platformUsername || account.rows[0].platform_username || 'not set'}\n\n🏷️ User Tier: ${s.tier.charAt(0).toUpperCase() + s.tier.slice(1)}\n⏰ Expires: ${s.expiresAt.toLocaleDateString()} (${daysRemaining} days)\n📅 Last Active: ${s.lastActiveAt.toLocaleString()}\n\n✅ You can ask me financial questions!`,
+    `📊 **Status: Active Session**\n\n👤 User: ${s.displayName || account.rows[0].display_name}\n📝 Username: @${s.platformUsername || account.rows[0].platform_username || 'not set'}\n\n🏷️ User Tier: ${s.tier.charAt(0).toUpperCase() + s.tier.slice(1)}\n⏰ Session refreshes: ${s.expiresAt.toLocaleDateString()} (${daysRemaining} days)\n📅 Last Active: ${s.lastActiveAt.toLocaleString()}\n\n✅ You can ask me financial questions!`,
     { parse_mode: 'Markdown' }
   );
 });

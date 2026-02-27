@@ -53,7 +53,7 @@ composer.command("refresh", async (ctx) => {
       : "";
 
     await ctx.reply(
-      `🔄 **Conversation context refreshed!**\n\nYour AI conversation has been reset.\nPrevious context has been cleared. You can now start a fresh conversation.${tierMsg}\n\n${COMMAND_MENU}`,
+      `🔄 **Fresh conversation started!**\n\nYour previous chat session has been cleared. You can now start a new conversation.${tierMsg}\n\n${COMMAND_MENU}`,
       { parse_mode: "Markdown" }
     );
   } catch (err) {

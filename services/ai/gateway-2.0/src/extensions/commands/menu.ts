@@ -4,7 +4,7 @@ export const COMMAND_MENU = [
   "/pair <code> - Link your web account",
   "/login - Start a new session",
   "/logout - End your current session",
-  "/refresh - Reset AI conversation context",
+  "/refresh - Clear previous chat session and start fresh",
   "/status - Check your session status",
   "/add <symbol> [type] - Track a ticker (stock, etf, crypto)",
   "/remove <symbol> - Stop tracking a ticker",
