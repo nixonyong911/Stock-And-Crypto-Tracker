@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
 import { PairingService } from "../../../core/pairing/service.js";
+import { COMMAND_MENU } from "../../commands/menu.js";
 
 const PAIR_PAGE_URL = "https://stockandcryptotracker.com/pair";
 
@@ -81,7 +82,7 @@ composer.command("start", async (ctx) => {
         String(result.tier).charAt(0).toUpperCase() +
         String(result.tier).slice(1);
       await ctx.reply(
-        `✅ **Pairing successful!**\n\nLinked to: ${result.email}\nSubscription: ${tierDisplay}\n\nYou're logged in and ready to chat! Try asking:\n• "What are today's bullish stocks?"\n• "Show me pattern statistics for the week"`,
+        `✅ **Pairing successful!**\n\nLinked to: ${result.email}\nSubscription: ${tierDisplay}\n\nYou're logged in and ready to chat! Try asking:\n• "What are today's bullish stocks?"\n• "Show me pattern statistics for the week"\n\n${COMMAND_MENU}`,
         { parse_mode: "Markdown" }
       );
       return;
@@ -109,7 +110,8 @@ composer.command("start", async (ctx) => {
 
   if (isPaired) {
     await ctx.reply(
-      `👋 Welcome back, ${existing.rows[0].display_name}!\n\nUse /login to start a new session.\nUse /help to see available commands.`
+      `👋 Welcome back, ${existing.rows[0].display_name}!\n\nUse /login to start a new session.\n\n${COMMAND_MENU}`,
+      { parse_mode: "Markdown" }
     );
   } else {
     // Not paired — redirect to website

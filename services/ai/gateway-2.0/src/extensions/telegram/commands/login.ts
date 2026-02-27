@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
 import { PairingService } from "../../../core/pairing/service.js";
+import { COMMAND_MENU } from "../../commands/menu.js";
 
 const composer = new Composer<TelegramBotContext>();
 composer.command("login", async (ctx) => {
@@ -59,7 +60,7 @@ composer.command("login", async (ctx) => {
         String(tier).charAt(0).toUpperCase() + String(tier).slice(1)
       }\nSession valid for ${
         ctx.telegramConfig.sessionExpiryDays
-      } days.\n\nAny previous sessions have been logged out.\n\nYou can now ask me financial questions!`,
+      } days.\n\nAny previous sessions have been logged out.\n\nYou can now ask me financial questions!\n\n${COMMAND_MENU}`,
       { parse_mode: "Markdown" }
     );
   } catch (err) {

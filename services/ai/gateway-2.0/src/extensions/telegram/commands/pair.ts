@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
 import { PairingService } from "../../../core/pairing/service.js";
+import { COMMAND_MENU } from "../../commands/menu.js";
 
 const composer = new Composer<TelegramBotContext>();
 composer.command("pair", async (ctx) => {
@@ -85,7 +86,7 @@ composer.command("pair", async (ctx) => {
       String(result.tier).charAt(0).toUpperCase() +
       String(result.tier).slice(1);
     await ctx.reply(
-      `✅ **Pairing successful!**\n\nLinked to: ${result.email}\nSubscription: ${tierDisplay}\n\nYou're logged in and ready to go! Ask me anything about stocks and crypto.`,
+      `✅ **Pairing successful!**\n\nLinked to: ${result.email}\nSubscription: ${tierDisplay}\n\nYou're logged in and ready to go! Ask me anything about stocks and crypto.\n\n${COMMAND_MENU}`,
       { parse_mode: "Markdown" }
     );
   } catch (err) {

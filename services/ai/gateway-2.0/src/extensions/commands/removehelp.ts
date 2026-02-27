@@ -1,0 +1,15 @@
+export const REMOVE_HELP_TEXT = [
+  "📖 **How to use /remove**",
+  "",
+  "**Usage:** `/remove <symbol>`",
+  "",
+  "Remove a ticker from your watchlist.",
+  "",
+  "**Examples:**",
+  "`/remove AAPL` — remove a stock or ETF",
+  "`/remove BTC` — remove a cryptocurrency",
+  "",
+  "**Notes:**",
+  "• Works with both stock/ETF and crypto symbols",
+  "• For crypto, you can use the short form (BTC) — no need to type BTC/USD",
+].join("\n");

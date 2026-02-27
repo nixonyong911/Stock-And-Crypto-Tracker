@@ -10,6 +10,7 @@ import { Tier } from "../../../extension/types.js";
 const KNOWN_COMMANDS = new Set([
   "start",
   "help",
+  "menu",
   "login",
   "logout",
   "refresh",
@@ -17,6 +18,10 @@ const KNOWN_COMMANDS = new Set([
   "pair",
   "add",
   "remove",
+  "addhelp",
+  "helpadd",
+  "removehelp",
+  "helpremove",
 ]);
 
 const composer = new Composer<TelegramBotContext>();

@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import crypto from "node:crypto";
 import type { TelegramBotContext } from "../bot.js";
+import { COMMAND_MENU } from "../../commands/menu.js";
 
 const composer = new Composer<TelegramBotContext>();
 composer.command("refresh", async (ctx) => {
@@ -52,7 +53,7 @@ composer.command("refresh", async (ctx) => {
       : "";
 
     await ctx.reply(
-      `🔄 **Conversation context refreshed!**\n\nYour AI conversation has been reset.\nPrevious context has been cleared. You can now start a fresh conversation.${tierMsg}`,
+      `🔄 **Conversation context refreshed!**\n\nYour AI conversation has been reset.\nPrevious context has been cleared. You can now start a fresh conversation.${tierMsg}\n\n${COMMAND_MENU}`,
       { parse_mode: "Markdown" }
     );
   } catch (err) {
