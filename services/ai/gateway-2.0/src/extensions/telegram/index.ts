@@ -54,6 +54,7 @@ export function createTelegramExtension(): IChannelExtension {
         ctx.telegramConfig = telegramConfig!;
         ctx.activeSession = null;
         ctx.messageQueue = messageQueue!;
+        ctx.dedupKey = null;
         return next();
       });
 
@@ -76,12 +77,17 @@ export function createTelegramExtension(): IChannelExtension {
       bot.use(removehelpComposer);
       bot.use(messagesComposer);
 
-      // Error handler
-      bot.catch((err) => {
+      // Error handler — always attempt to notify the user
+      bot.catch(async (err) => {
         api?.logger.error(
           { err: err.error, update: err.ctx?.update?.update_id },
           "Telegram bot error"
         );
+        try {
+          await err.ctx?.reply("⚠️ Something went wrong. Please try again.");
+        } catch {
+          // Reply itself may fail (e.g. chat deleted)
+        }
       });
 
       // Initialize bot (required before handleUpdate works)
@@ -180,18 +186,19 @@ export function createTelegramExtension(): IChannelExtension {
             return reply
               .status(503)
               .send({ error: "Telegram extension not started" });
-          try {
-            // Use handleUpdate directly with the parsed body
-            await bot.handleUpdate(
+
+          // Respond to Telegram immediately — processing happens in background.
+          // This prevents Telegram from timing out and retrying the webhook
+          // when CLI execution takes longer than ~60s.
+          bot
+            .handleUpdate(
               request.body as Parameters<typeof bot.handleUpdate>[0]
-            );
-            return reply.send({ ok: true });
-          } catch (err) {
-            api?.logger.error({ err }, "Webhook handler error");
-            return reply
-              .status(500)
-              .send({ error: "Webhook processing failed" });
-          }
+            )
+            .catch((err) => {
+              api?.logger.error({ err }, "Webhook handler error");
+            });
+
+          return reply.send({ ok: true });
         }
       );
     },

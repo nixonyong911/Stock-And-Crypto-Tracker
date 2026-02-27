@@ -271,26 +271,46 @@ export class SessionManager {
   /**
    * Acquire a distributed user-level lock via Redis.
    *
-   * Returns an async unlock function that MUST be called when the caller is
-   * done with the critical section.
+   * Waits up to 15 seconds for the lock. If still held after that, force-clears
+   * the stale lock and retries once (handles orphaned locks from crashes).
    *
    * @param userId     - Unique user identifier (used as lock key).
    * @param timeoutMs  - How long the lock is held before automatic expiry.
-   * @throws           - If the lock cannot be acquired within 60 seconds.
    */
   async acquireUserLock(
     userId: string,
     timeoutMs: number
   ): Promise<() => Promise<void>> {
     const lockKey = `user:${userId}:lock`;
-    // Lock TTL = requested timeout + 60s safety margin.
     const lockTtlMs = timeoutMs + 60_000;
 
-    const deadlineMs = Date.now() + 60_000; // 60s max wait
+    const acquired = await this.tryAcquireLock(lockKey, lockTtlMs, 15_000);
+    if (acquired) return acquired;
 
-    while (true) {
+    // Lock still held after 15s — likely orphaned. Force-clear and retry once.
+    this.logger.warn({ userId }, "Force-clearing stale user lock");
+    try {
+      await this.redis.del(lockKey);
+    } catch {
+      // Best-effort
+    }
+
+    const retryAcquired = await this.tryAcquireLock(lockKey, lockTtlMs, 5_000);
+    if (retryAcquired) return retryAcquired;
+
+    throw new Error(`Lock timeout: user ${userId} is still processing`);
+  }
+
+  private async tryAcquireLock(
+    lockKey: string,
+    lockTtlMs: number,
+    waitMs: number
+  ): Promise<(() => Promise<void>) | null> {
+    const deadline = Date.now() + waitMs;
+
+    while (Date.now() < deadline) {
       try {
-        const acquired = await this.redis.set(
+        const result = await this.redis.set(
           lockKey,
           "1",
           "PX",
@@ -298,27 +318,24 @@ export class SessionManager {
           "NX"
         );
 
-        if (acquired === "OK") {
+        if (result === "OK") {
           const unlock = async (): Promise<void> => {
             try {
               await this.redis.del(lockKey);
             } catch (err) {
-              this.logger.warn({ err, userId }, "Failed to release user lock");
+              this.logger.warn({ err }, "Failed to release user lock");
             }
           };
           return unlock;
         }
       } catch (err) {
-        throw new Error(`Lock error for user ${userId}`, { cause: err });
+        throw new Error(`Lock error`, { cause: err });
       }
 
-      if (Date.now() >= deadlineMs) {
-        throw new Error(`Lock timeout: user ${userId} is still processing`);
-      }
-
-      // Wait 1 second before retrying.
       await sleep(1_000);
     }
+
+    return null;
   }
 
   // -------------------------------------------------------------------------

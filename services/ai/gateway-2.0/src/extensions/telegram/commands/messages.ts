@@ -3,10 +3,9 @@ import type { TelegramBotContext } from "../bot.js";
 import { splitMessage } from "../utils.js";
 import { Tier } from "../../../extension/types.js";
 
-/**
- * Known Telegram bot commands. Any slash command not in this set
- * is either rejected (non-DEV) or passed through (DEV only).
- */
+/** Hard ceiling to prevent indefinite hangs. */
+const MAX_PROCESSING_MS = 5 * 60 * 1000;
+
 const KNOWN_COMMANDS = new Set([
   "start",
   "help",
@@ -31,18 +30,13 @@ composer.on("message:text", async (ctx) => {
   const messageText = ctx.message.text;
 
   // --- Slash command guard ---------------------------------------------------
-  // Known commands are handled by their own grammy composers (registered before
-  // this handler). If we reach here with a "/" message, it's either an unknown
-  // command or the grammy composer didn't match (shouldn't happen for known).
   if (messageText.startsWith("/")) {
     const cmd = messageText.slice(1).split(/[\s@]/)[0]?.toLowerCase() ?? "";
 
     if (KNOWN_COMMANDS.has(cmd)) {
-      // Known command that grammy should have already handled — do nothing.
       return;
     }
 
-    // Unknown slash command — allow through only for DEV tier users
     const userId = ctx.from?.id;
     if (userId) {
       try {
@@ -50,17 +44,13 @@ composer.on("message:text", async (ctx) => {
           String(userId),
           "telegram"
         );
-        if (tier === Tier.Dev) {
-          // DEV users can pass arbitrary commands to the CLI — fall through
-          // to normal message processing below.
-        } else {
+        if (tier !== Tier.Dev) {
           await ctx.reply(
             "Unknown command. Use /help to see available commands."
           );
           return;
         }
       } catch {
-        // If tier resolution fails, err on the side of safety
         await ctx.reply(
           "Unknown command. Use /help to see available commands."
         );
@@ -79,12 +69,22 @@ composer.on("message:text", async (ctx) => {
     return;
   }
 
-  // Enforce pairing: unpaired users can't send messages
-  const accountResult = await ctx.gatewayAPI.db.query(
-    "SELECT clerk_user_id FROM channel_accounts WHERE platform_user_id = $1 AND channel_type = $2",
-    [String(userId), "telegram"]
-  );
-  const isPaired = accountResult.rows[0]?.clerk_user_id != null;
+  // --- Account pairing check ------------------------------------------------
+  let isPaired = false;
+  try {
+    const accountResult = await ctx.gatewayAPI.db.query(
+      "SELECT clerk_user_id FROM channel_accounts WHERE platform_user_id = $1 AND channel_type = $2",
+      [String(userId), "telegram"]
+    );
+    isPaired = accountResult.rows[0]?.clerk_user_id != null;
+  } catch (err) {
+    ctx.gatewayAPI.logger.error(
+      { err, userId },
+      "Failed to check account pairing"
+    );
+    await ctx.reply("⚠️ Something went wrong. Please try again.");
+    return;
+  }
 
   if (!isPaired) {
     await ctx.reply(
@@ -104,61 +104,107 @@ composer.on("message:text", async (ctx) => {
 
   const session = ctx.activeSession;
 
-  // Enqueue the message — the queue handles position feedback and FIFO processing
+  // --- Send immediate "Processing..." indicator -----------------------------
+  let statusMsgId: number | undefined;
   try {
-    const chunks = await ctx.messageQueue.enqueue(
+    const statusMsg = await ctx.reply("⏳ Processing your request...");
+    statusMsgId = statusMsg.message_id;
+  } catch {
+    // Non-critical — continue without indicator
+  }
+
+  // --- Helper: mark dedup status --------------------------------------------
+  const markDedup = (status: "completed" | "failed"): void => {
+    if (!ctx.dedupKey) return;
+    if (status === "completed") {
+      ctx.gatewayAPI.redis
+        .set(ctx.dedupKey, "completed", "EX", 600)
+        .catch(() => {});
+    } else {
+      ctx.gatewayAPI.redis.del(ctx.dedupKey).catch(() => {});
+    }
+  };
+
+  // --- Helper: call processMessage with one auto-retry ----------------------
+  const callWithRetry = async (): Promise<string[]> => {
+    const invoke = () =>
+      ctx.gatewayAPI.processMessage({
+        channelType: "telegram",
+        platformUserId: String(userId),
+        platformChatId: String(chatId),
+        message: messageText,
+        metadata: { cliSessionId: session.cliSessionId },
+      });
+
+    try {
+      const result = await invoke();
+      return splitMessage(result.response);
+    } catch (firstErr) {
+      // Don't retry usage/security/keyword blocks — they'll fail the same way
+      const msg = firstErr instanceof Error ? firstErr.message : "";
+      if (
+        msg.includes("sensitive_keyword") ||
+        msg.includes("No messages remaining") ||
+        msg.includes("blocked") ||
+        msg.includes("queue full")
+      ) {
+        throw firstErr;
+      }
+
+      ctx.gatewayAPI.logger.warn(
+        { err: firstErr, userId },
+        "First attempt failed — retrying once"
+      );
+
+      const result = await invoke();
+      return splitMessage(result.response);
+    }
+  };
+
+  // --- Enqueue + timeout race -----------------------------------------------
+  try {
+    const processingPromise = ctx.messageQueue.enqueue(
       chatId,
       userId,
       messageText,
-      async (): Promise<string[]> => {
-        // This runs when it's this message's turn in the queue
-        const result = await ctx.gatewayAPI.processMessage({
-          channelType: "telegram",
-          platformUserId: String(userId),
-          platformChatId: String(chatId),
-          message: messageText,
-          metadata: { cliSessionId: session.cliSessionId },
-        });
-        return splitMessage(result.response);
-      }
+      callWithRetry,
+      statusMsgId
     );
 
-    // Send the response chunks
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("processing_timeout")),
+        MAX_PROCESSING_MS
+      )
+    );
+
+    const chunks = await Promise.race([processingPromise, timeoutPromise]);
+
+    markDedup("completed");
+
     for (const chunk of chunks) {
       try {
         await ctx.reply(chunk, { parse_mode: "Markdown" });
       } catch {
-        await ctx.reply(chunk); // Fallback to plain text
+        await ctx.reply(chunk);
       }
     }
   } catch (err) {
+    markDedup("failed");
+
     const errMsg = err instanceof Error ? err.message : String(err);
+    ctx.gatewayAPI.logger.error({ err, userId }, "Message processing failed");
 
     if (errMsg.includes("sensitive_keyword")) {
       await ctx.reply(
-        "⚠️ Unable to process your request due to sensitive keyword detected. Please rephrase and try again."
+        "⚠️ Your request contained a restricted keyword. Please rephrase and try again."
       );
     } else if (errMsg.includes("No messages remaining")) {
       await ctx.reply(
-        `⚠️ ${errMsg}\n\nUpgrade to Pro for unlimited messages.`,
-        { parse_mode: "Markdown" }
+        "⚠️ You've used all your free messages. Upgrade to Pro for unlimited access."
       );
-    } else if (errMsg.includes("blocked")) {
-      await ctx.reply(
-        "⚠️ Your message was blocked by our safety system. Please rephrase your request."
-      );
-    } else if (errMsg.includes("queue full")) {
-      await ctx.reply(
-        "⚠️ Too many messages queued. Please wait for your current messages to finish."
-      );
-    } else if (errMsg.includes("Queue cleared")) {
-      // Shutdown — silently ignore
     } else {
-      ctx.gatewayAPI.logger.error({ err, userId }, "Message processing failed");
-      await ctx.reply(
-        "⚠️ **Something went wrong**\n\nUnable to process your request. Please try again.\n\nIf this persists, use /refresh to reset your conversation.",
-        { parse_mode: "Markdown" }
-      );
+      await ctx.reply("⚠️ Something went wrong. Please try again.");
     }
   }
 });

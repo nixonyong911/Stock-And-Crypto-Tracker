@@ -58,12 +58,17 @@ export class UserMessageQueue {
   /**
    * Enqueue a message for processing. Returns a promise that resolves
    * with the response chunks when the message is processed.
+   *
+   * @param statusMsgId - Optional Telegram message ID of an already-sent
+   *   "Processing..." indicator. If provided, the queue reuses (edits/deletes)
+   *   it instead of creating new status messages.
    */
   async enqueue(
     chatId: number,
     userId: number,
     message: string,
-    processFn: () => Promise<string[]>
+    processFn: () => Promise<string[]>,
+    statusMsgId?: number
   ): Promise<string[]> {
     let queue = this.queues.get(userId);
     if (!queue) {
@@ -76,6 +81,7 @@ export class UserMessageQueue {
         message,
         chatId,
         userId,
+        statusMsgId,
         process: processFn,
         resolve,
         reject,
@@ -84,12 +90,9 @@ export class UserMessageQueue {
       queue!.items.push(item);
       const position = queue!.items.length;
 
-      // If this is the only message (or first in queue), start processing
       if (!queue!.processing) {
-        // First message — show "Processing..." (handled by caller or processNext)
         this.processNext(userId);
       } else {
-        // There are messages ahead — show queue position
         this.sendQueueStatus(item, position, queue!.items.length);
       }
     });
@@ -147,19 +150,25 @@ export class UserMessageQueue {
     position: number,
     total: number
   ): Promise<void> {
+    const preview =
+      item.message.length > 40
+        ? item.message.slice(0, 40) + "..."
+        : item.message;
+    const text = `📋 *Queued (${position} of ${total})*\n_"${preview}"_\n\nYour message is in line. Please wait...`;
+
     try {
-      const preview =
-        item.message.length > 40
-          ? item.message.slice(0, 40) + "..."
-          : item.message;
-      const msg = await this.api.sendMessage(
-        item.chatId,
-        `📋 *Queued (${position} of ${total})*\n_"${preview}"_\n\nYour message is in line. Please wait...`,
-        { parse_mode: "Markdown" }
-      );
-      item.statusMsgId = msg.message_id;
+      if (item.statusMsgId) {
+        await this.api.editMessageText(item.chatId, item.statusMsgId, text, {
+          parse_mode: "Markdown",
+        });
+      } else {
+        const msg = await this.api.sendMessage(item.chatId, text, {
+          parse_mode: "Markdown",
+        });
+        item.statusMsgId = msg.message_id;
+      }
     } catch {
-      // Non-critical, continue without status message
+      // Non-critical
     }
   }
 

@@ -15,6 +15,8 @@ export interface TelegramBotContext extends Context {
   telegramConfig: TelegramConfig;
   activeSession: TelegramSession | null;
   messageQueue: UserMessageQueue;
+  /** Redis key used by dedup middleware; messages handler updates it on completion/failure. */
+  dedupKey: string | null;
 }
 
 /** Create a new grammY bot instance */
