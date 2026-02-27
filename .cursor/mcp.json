@@ -30,7 +30,7 @@
     },
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "args": ["@playwright/mcp@latest", "--no-sandbox"]
     },
     "analysis_mcp": {
       "command": "infisical",
