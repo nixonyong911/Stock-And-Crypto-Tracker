@@ -362,8 +362,8 @@ services:
       # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing
       # the script must also contain 'node', 'index.js', etc.
       - /home/azureuser/.local/share/cursor-agent:/home/azureuser/.local/share/cursor-agent:ro
-      # cursor-agent OAuth token (read-only, symlinked into tier-homes)
-      - /home/azureuser/.config/cursor:/root/.config/cursor:ro
+      # cursor-agent OAuth token (rw — agent refreshes tokens during execution)
+      - /home/azureuser/.config/cursor:/root/.config/cursor:rw
     networks:
       - stocktracker
     depends_on:
