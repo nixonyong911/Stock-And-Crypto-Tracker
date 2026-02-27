@@ -356,6 +356,7 @@ services:
       - TELEGRAM_WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook
       - TWELVEDATA_INTERNAL_URL=http://twelvedata:8080
       - PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - CURSOR_API_KEY=${CURSOR_API_KEY}
     volumes:
       # cursor-agent CLI: mount the entire versions dir (contains node binary + JS chunks)
       # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing

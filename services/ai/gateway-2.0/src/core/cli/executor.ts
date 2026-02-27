@@ -244,6 +244,11 @@ export class CLIExecutor {
       args.push(`--resume=${params.sessionId}`);
     }
 
+    const apiKey = process.env["CURSOR_API_KEY"];
+    if (apiKey) {
+      args.push("--api-key", apiKey);
+    }
+
     return args;
   }
 
