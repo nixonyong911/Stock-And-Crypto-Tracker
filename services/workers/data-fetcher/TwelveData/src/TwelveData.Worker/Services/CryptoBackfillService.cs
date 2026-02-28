@@ -159,7 +159,8 @@ public class CryptoBackfillService : ICryptoBackfillService
         {
             Interval = interval,
             OutputSize = maxPerRequest,
-            Timezone = "UTC"
+            Timezone = "UTC",
+            FetchDate = null
         };
 
         while (pointsFetched < totalDataPoints)

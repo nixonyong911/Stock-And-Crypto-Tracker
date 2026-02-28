@@ -123,8 +123,10 @@ public class TwelveDataApiClient : ITwelveDataApiClient
     /// Resolves fetch date - converts "yesterday", "today" to actual YYYY-MM-DD format
     /// TwelveData accepts both formats, but explicit dates are more reliable
     /// </summary>
-    private static string ResolveFetchDate(string fetchDate)
+    private static string? ResolveFetchDate(string? fetchDate)
     {
+        if (string.IsNullOrWhiteSpace(fetchDate)) return null;
+
         var lowerDate = fetchDate.ToLowerInvariant().Trim();
 
         return lowerDate switch
@@ -356,7 +358,7 @@ public class TwelveDataApiClient : ITwelveDataApiClient
         {
             url += $"&end_date={Uri.EscapeDataString(config.EndDate)}";
         }
-        else
+        else if (!string.IsNullOrEmpty(resolvedDate))
         {
             url += $"&date={resolvedDate}";
         }
@@ -379,7 +381,7 @@ public class TwelveDataApiClient : ITwelveDataApiClient
         {
             url += $"&end_date={Uri.EscapeDataString(config.EndDate)}";
         }
-        else
+        else if (!string.IsNullOrEmpty(resolvedDate))
         {
             url += $"&date={resolvedDate}";
         }

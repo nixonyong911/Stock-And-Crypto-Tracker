@@ -188,7 +188,7 @@ public class FetchController : ControllerBase
     /// </summary>
     /// <param name="symbol">Crypto symbol (e.g., BTC/USD, ETH/USD)</param>
     /// <param name="date">Optional date to fetch. Format: "YYYY-MM-DD" or "yesterday". Defaults to "yesterday".</param>
-    [HttpPost("crypto/trigger/{symbol}")]
+    [HttpPost("crypto/trigger/{**symbol}")]
     [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(FetchResponse), StatusCodes.Status500InternalServerError)]
@@ -536,7 +536,7 @@ public class FetchController : ControllerBase
     /// Queue a crypto historical backfill request for a symbol.
     /// </summary>
     /// <param name="symbol">Crypto symbol (e.g., BTC/USD, ETH/USD)</param>
-    [HttpPost("crypto/backfill/{symbol}")]
+    [HttpPost("crypto/backfill/{**symbol}")]
     [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(BackfillResponse), StatusCodes.Status500InternalServerError)]

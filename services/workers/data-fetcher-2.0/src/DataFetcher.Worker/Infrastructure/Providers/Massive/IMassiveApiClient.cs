@@ -94,14 +94,14 @@ public interface IMassiveApiClient
     Task<(List<T> Values, string? NextUrl)> FetchPageAsync<T>(string url, CancellationToken cancellationToken = default);
 
     /// <summary>Builds the initial parameterized URL for SMA with limit=5000.</summary>
-    string BuildSmaUrl(string symbol, long timestampGte, long timestampLte, int window);
+    string BuildSmaUrl(string symbol, long timestampGte, long timestampLte, int window, int multiplier = 1);
 
     /// <summary>Builds the initial parameterized URL for EMA with limit=5000.</summary>
-    string BuildEmaUrl(string symbol, long timestampGte, long timestampLte, int window);
+    string BuildEmaUrl(string symbol, long timestampGte, long timestampLte, int window, int multiplier = 1);
 
     /// <summary>Builds the initial parameterized URL for MACD with limit=5000.</summary>
-    string BuildMacdUrl(string symbol, long timestampGte, long timestampLte, int shortWindow, int longWindow, int signalWindow);
+    string BuildMacdUrl(string symbol, long timestampGte, long timestampLte, int shortWindow, int longWindow, int signalWindow, int multiplier = 1);
 
     /// <summary>Builds the initial parameterized URL for RSI with limit=5000.</summary>
-    string BuildRsiUrl(string symbol, long timestampGte, long timestampLte, int window);
+    string BuildRsiUrl(string symbol, long timestampGte, long timestampLte, int window, int multiplier = 1);
 }

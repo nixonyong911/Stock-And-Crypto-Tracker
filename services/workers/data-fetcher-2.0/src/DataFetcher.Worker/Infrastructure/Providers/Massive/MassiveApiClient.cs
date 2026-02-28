@@ -233,26 +233,26 @@ public class MassiveApiClient : IMassiveApiClient
     private const int BackfillLimit = 5000;
 
     /// <inheritdoc />
-    public string BuildSmaUrl(string symbol, long timestampGte, long timestampLte, int window)
+    public string BuildSmaUrl(string symbol, long timestampGte, long timestampLte, int window, int multiplier = 1)
     {
-        return $"indicators/sma/{symbol}?timespan={_settings.Timespan}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+        return $"indicators/sma/{symbol}?timespan={_settings.Timespan}&multiplier={multiplier}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
     }
 
     /// <inheritdoc />
-    public string BuildEmaUrl(string symbol, long timestampGte, long timestampLte, int window)
+    public string BuildEmaUrl(string symbol, long timestampGte, long timestampLte, int window, int multiplier = 1)
     {
-        return $"indicators/ema/{symbol}?timespan={_settings.Timespan}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+        return $"indicators/ema/{symbol}?timespan={_settings.Timespan}&multiplier={multiplier}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
     }
 
     /// <inheritdoc />
-    public string BuildMacdUrl(string symbol, long timestampGte, long timestampLte, int shortWindow, int longWindow, int signalWindow)
+    public string BuildMacdUrl(string symbol, long timestampGte, long timestampLte, int shortWindow, int longWindow, int signalWindow, int multiplier = 1)
     {
-        return $"indicators/macd/{symbol}?timespan={_settings.Timespan}&short_window={shortWindow}&long_window={longWindow}&signal_window={signalWindow}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+        return $"indicators/macd/{symbol}?timespan={_settings.Timespan}&multiplier={multiplier}&short_window={shortWindow}&long_window={longWindow}&signal_window={signalWindow}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
     }
 
     /// <inheritdoc />
-    public string BuildRsiUrl(string symbol, long timestampGte, long timestampLte, int window)
+    public string BuildRsiUrl(string symbol, long timestampGte, long timestampLte, int window, int multiplier = 1)
     {
-        return $"indicators/rsi/{symbol}?timespan={_settings.Timespan}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+        return $"indicators/rsi/{symbol}?timespan={_settings.Timespan}&multiplier={multiplier}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
     }
 }

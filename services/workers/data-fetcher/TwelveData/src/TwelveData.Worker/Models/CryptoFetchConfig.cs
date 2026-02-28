@@ -8,7 +8,7 @@ namespace TwelveData.Worker.Models;
 public class CryptoFetchConfig
 {
     [JsonPropertyName("fetch_date")]
-    public string FetchDate { get; set; } = "yesterday";
+    public string? FetchDate { get; set; } = "yesterday";
 
     [JsonPropertyName("interval")]
     public string Interval { get; set; } = "15min";

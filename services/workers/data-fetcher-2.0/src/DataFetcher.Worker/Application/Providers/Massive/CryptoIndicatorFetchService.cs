@@ -203,11 +203,11 @@ public class CryptoIndicatorFetchService : ICryptoIndicatorFetchService
 
             var url = indicatorType switch
             {
-                "sma" => _massiveClient.BuildSmaUrl(apiSymbol, timestampGte, timestampLte, _settings.SmaWindow),
-                "ema" => _massiveClient.BuildEmaUrl(apiSymbol, timestampGte, timestampLte, _settings.EmaWindow),
+                "sma" => _massiveClient.BuildSmaUrl(apiSymbol, timestampGte, timestampLte, _settings.SmaWindow, 15),
+                "ema" => _massiveClient.BuildEmaUrl(apiSymbol, timestampGte, timestampLte, _settings.EmaWindow, 15),
                 "macd" => _massiveClient.BuildMacdUrl(apiSymbol, timestampGte, timestampLte,
-                    _settings.MacdShortWindow, _settings.MacdLongWindow, _settings.MacdSignalWindow),
-                "rsi" => _massiveClient.BuildRsiUrl(apiSymbol, timestampGte, timestampLte, _settings.RsiWindow),
+                    _settings.MacdShortWindow, _settings.MacdLongWindow, _settings.MacdSignalWindow, 15),
+                "rsi" => _massiveClient.BuildRsiUrl(apiSymbol, timestampGte, timestampLte, _settings.RsiWindow, 15),
                 _ => throw new ArgumentException($"Unknown indicator type: {indicatorType}")
             };
 
