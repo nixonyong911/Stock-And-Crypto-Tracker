@@ -27,7 +27,8 @@ public class CryptoIndicatorFetchService : ICryptoIndicatorFetchService
     private readonly ILogger<CryptoIndicatorFetchService> _logger;
     private const string MetricsPrefix = "data_fetcher_2_massive_crypto";
     private const int RetentionDays = 90;
-    private const int CryptoDailyLimit = 96;
+    private const int CryptoDailyLimit = 24;
+    private const string CryptoTimespan = "hour";
 
     private int? _massiveDataSourceId;
 
@@ -65,28 +66,27 @@ public class CryptoIndicatorFetchService : ICryptoIndicatorFetchService
             long timestampLte = new DateTimeOffset(dayEnd).ToUnixTimeMilliseconds();
 
             var smaResponse = await _massiveClient.GetSmaAsync(
-                apiSymbol, timestampGte, timestampLte, _settings.SmaWindow, CryptoDailyLimit, cancellationToken);
+                apiSymbol, timestampGte, timestampLte, _settings.SmaWindow, CryptoDailyLimit, cancellationToken, CryptoTimespan);
             await Task.Delay(_settings.RateLimitDelayMs, cancellationToken);
 
             var emaResponse = await _massiveClient.GetEmaAsync(
-                apiSymbol, timestampGte, timestampLte, _settings.EmaWindow, CryptoDailyLimit, cancellationToken);
+                apiSymbol, timestampGte, timestampLte, _settings.EmaWindow, CryptoDailyLimit, cancellationToken, CryptoTimespan);
             await Task.Delay(_settings.RateLimitDelayMs, cancellationToken);
 
             var macdResponse = await _massiveClient.GetMacdAsync(
                 apiSymbol, timestampGte, timestampLte,
                 _settings.MacdShortWindow, _settings.MacdLongWindow, _settings.MacdSignalWindow,
-                CryptoDailyLimit, cancellationToken);
+                CryptoDailyLimit, cancellationToken, CryptoTimespan);
             await Task.Delay(_settings.RateLimitDelayMs, cancellationToken);
 
             var rsiResponse = await _massiveClient.GetRsiAsync(
-                apiSymbol, timestampGte, timestampLte, _settings.RsiWindow, CryptoDailyLimit, cancellationToken);
+                apiSymbol, timestampGte, timestampLte, _settings.RsiWindow, CryptoDailyLimit, cancellationToken, CryptoTimespan);
             await Task.Delay(_settings.RateLimitDelayMs, cancellationToken);
 
-            // Filter to 15-min boundaries only (no market hours restriction for crypto)
-            var filteredSma = FilterTo15MinBoundaries(smaResponse?.Results?.Values);
-            var filteredEma = FilterTo15MinBoundaries(emaResponse?.Results?.Values);
-            var filteredMacd = FilterTo15MinBoundaries(macdResponse?.Results?.Values);
-            var filteredRsi = FilterTo15MinBoundaries(rsiResponse?.Results?.Values);
+            var filteredSma = smaResponse?.Results?.Values ?? new List<MassiveIndicatorValue>();
+            var filteredEma = emaResponse?.Results?.Values ?? new List<MassiveIndicatorValue>();
+            var filteredMacd = macdResponse?.Results?.Values ?? new List<MassiveMacdValue>();
+            var filteredRsi = rsiResponse?.Results?.Values ?? new List<MassiveIndicatorValue>();
 
             _logger.LogDebug(
                 "Filtered crypto indicators for {Symbol} on {Date}: SMA={SmaCount}, EMA={EmaCount}, MACD={MacdCount}, RSI={RsiCount}",
@@ -203,11 +203,11 @@ public class CryptoIndicatorFetchService : ICryptoIndicatorFetchService
 
             var url = indicatorType switch
             {
-                "sma" => _massiveClient.BuildSmaUrl(apiSymbol, timestampGte, timestampLte, _settings.SmaWindow, 15),
-                "ema" => _massiveClient.BuildEmaUrl(apiSymbol, timestampGte, timestampLte, _settings.EmaWindow, 15),
+                "sma" => _massiveClient.BuildSmaUrl(apiSymbol, timestampGte, timestampLte, _settings.SmaWindow, CryptoTimespan),
+                "ema" => _massiveClient.BuildEmaUrl(apiSymbol, timestampGte, timestampLte, _settings.EmaWindow, CryptoTimespan),
                 "macd" => _massiveClient.BuildMacdUrl(apiSymbol, timestampGte, timestampLte,
-                    _settings.MacdShortWindow, _settings.MacdLongWindow, _settings.MacdSignalWindow, 15),
-                "rsi" => _massiveClient.BuildRsiUrl(apiSymbol, timestampGte, timestampLte, _settings.RsiWindow, 15),
+                    _settings.MacdShortWindow, _settings.MacdLongWindow, _settings.MacdSignalWindow, CryptoTimespan),
+                "rsi" => _massiveClient.BuildRsiUrl(apiSymbol, timestampGte, timestampLte, _settings.RsiWindow, CryptoTimespan),
                 _ => throw new ArgumentException($"Unknown indicator type: {indicatorType}")
             };
 

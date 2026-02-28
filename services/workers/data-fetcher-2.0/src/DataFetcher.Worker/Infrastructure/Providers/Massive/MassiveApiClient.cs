@@ -50,11 +50,13 @@ public class MassiveApiClient : IMassiveApiClient
         long timestampLte,
         int window,
         int limit,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? timespanOverride = null)
     {
         try
         {
-            var url = $"indicators/sma/{symbol}?timespan={_settings.Timespan}&window={window}&series_type=close&adjusted=true&order=asc&limit={limit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+            var ts = timespanOverride ?? _settings.Timespan;
+            var url = $"indicators/sma/{symbol}?timespan={ts}&window={window}&series_type=close&adjusted=true&order=asc&limit={limit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
             _logger.LogDebug("Fetching SMA for {Symbol}", symbol);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -83,11 +85,13 @@ public class MassiveApiClient : IMassiveApiClient
         long timestampLte,
         int window,
         int limit,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? timespanOverride = null)
     {
         try
         {
-            var url = $"indicators/ema/{symbol}?timespan={_settings.Timespan}&window={window}&series_type=close&adjusted=true&order=asc&limit={limit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+            var ts = timespanOverride ?? _settings.Timespan;
+            var url = $"indicators/ema/{symbol}?timespan={ts}&window={window}&series_type=close&adjusted=true&order=asc&limit={limit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
             _logger.LogDebug("Fetching EMA for {Symbol}", symbol);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -118,11 +122,13 @@ public class MassiveApiClient : IMassiveApiClient
         int longWindow,
         int signalWindow,
         int limit,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? timespanOverride = null)
     {
         try
         {
-            var url = $"indicators/macd/{symbol}?timespan={_settings.Timespan}&short_window={shortWindow}&long_window={longWindow}&signal_window={signalWindow}&series_type=close&adjusted=true&order=asc&limit={limit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+            var ts = timespanOverride ?? _settings.Timespan;
+            var url = $"indicators/macd/{symbol}?timespan={ts}&short_window={shortWindow}&long_window={longWindow}&signal_window={signalWindow}&series_type=close&adjusted=true&order=asc&limit={limit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
             _logger.LogDebug("Fetching MACD for {Symbol}", symbol);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -151,11 +157,13 @@ public class MassiveApiClient : IMassiveApiClient
         long timestampLte,
         int window,
         int limit,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? timespanOverride = null)
     {
         try
         {
-            var url = $"indicators/rsi/{symbol}?timespan={_settings.Timespan}&window={window}&series_type=close&adjusted=true&order=asc&limit={limit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+            var ts = timespanOverride ?? _settings.Timespan;
+            var url = $"indicators/rsi/{symbol}?timespan={ts}&window={window}&series_type=close&adjusted=true&order=asc&limit={limit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
             _logger.LogDebug("Fetching RSI for {Symbol}", symbol);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
@@ -233,26 +241,30 @@ public class MassiveApiClient : IMassiveApiClient
     private const int BackfillLimit = 5000;
 
     /// <inheritdoc />
-    public string BuildSmaUrl(string symbol, long timestampGte, long timestampLte, int window, int multiplier = 1)
+    public string BuildSmaUrl(string symbol, long timestampGte, long timestampLte, int window, string? timespanOverride = null)
     {
-        return $"indicators/sma/{symbol}?timespan={_settings.Timespan}&multiplier={multiplier}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+        var ts = timespanOverride ?? _settings.Timespan;
+        return $"indicators/sma/{symbol}?timespan={ts}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
     }
 
     /// <inheritdoc />
-    public string BuildEmaUrl(string symbol, long timestampGte, long timestampLte, int window, int multiplier = 1)
+    public string BuildEmaUrl(string symbol, long timestampGte, long timestampLte, int window, string? timespanOverride = null)
     {
-        return $"indicators/ema/{symbol}?timespan={_settings.Timespan}&multiplier={multiplier}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+        var ts = timespanOverride ?? _settings.Timespan;
+        return $"indicators/ema/{symbol}?timespan={ts}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
     }
 
     /// <inheritdoc />
-    public string BuildMacdUrl(string symbol, long timestampGte, long timestampLte, int shortWindow, int longWindow, int signalWindow, int multiplier = 1)
+    public string BuildMacdUrl(string symbol, long timestampGte, long timestampLte, int shortWindow, int longWindow, int signalWindow, string? timespanOverride = null)
     {
-        return $"indicators/macd/{symbol}?timespan={_settings.Timespan}&multiplier={multiplier}&short_window={shortWindow}&long_window={longWindow}&signal_window={signalWindow}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+        var ts = timespanOverride ?? _settings.Timespan;
+        return $"indicators/macd/{symbol}?timespan={ts}&short_window={shortWindow}&long_window={longWindow}&signal_window={signalWindow}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
     }
 
     /// <inheritdoc />
-    public string BuildRsiUrl(string symbol, long timestampGte, long timestampLte, int window, int multiplier = 1)
+    public string BuildRsiUrl(string symbol, long timestampGte, long timestampLte, int window, string? timespanOverride = null)
     {
-        return $"indicators/rsi/{symbol}?timespan={_settings.Timespan}&multiplier={multiplier}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
+        var ts = timespanOverride ?? _settings.Timespan;
+        return $"indicators/rsi/{symbol}?timespan={ts}&window={window}&series_type=close&adjusted=true&order=desc&limit={BackfillLimit}&timestamp.gte={timestampGte}&timestamp.lte={timestampLte}&apiKey={_settings.ApiKey}";
     }
 }
