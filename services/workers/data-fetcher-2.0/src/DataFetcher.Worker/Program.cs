@@ -85,26 +85,36 @@ try
     builder.Services.AddHttpClient<IAlphaVantageApiClient, AlphaVantageApiClient>()
         .AddPolicyHandler(GetRetryPolicy());
 
-    // Infrastructure - Massive Provider
+    // Infrastructure - Massive Provider (Stock + Crypto)
     builder.Services.AddScoped<IStockIndicatorRepository, StockIndicatorRepository>();
+    builder.Services.AddScoped<ICryptoIndicatorRepository, CryptoIndicatorRepository>();
     builder.Services.AddHttpClient<IMassiveApiClient, MassiveApiClient>()
         .AddPolicyHandler(GetRetryPolicy());
+
+    // Infrastructure - Crypto Ticker
+    builder.Services.AddScoped<ICryptoTickerRepository, CryptoTickerRepository>();
 
     // Application - AlphaVantage Provider
     builder.Services.AddScoped<IEarningsCalendarService, EarningsCalendarService>();
 
-    // Application - Massive Provider
+    // Application - Massive Provider (Stock + Crypto)
     builder.Services.AddScoped<IIndicatorFetchService, IndicatorFetchService>();
+    builder.Services.AddScoped<ICryptoIndicatorFetchService, CryptoIndicatorFetchService>();
 
-    // Infrastructure - CandlestickAnalysis Provider
+    // Infrastructure - CandlestickAnalysis Provider (Stock + Crypto)
     builder.Services.AddScoped<IStockPriceRepository, StockPriceRepository>();
     builder.Services.AddScoped<IAnalysisRepository, AnalysisRepository>();
+    builder.Services.AddScoped<ICryptoPriceRepository, CryptoPriceRepository>();
+    builder.Services.AddScoped<ICryptoAnalysisRepository, CryptoAnalysisRepository>();
 
-    // Application - CandlestickAnalysis Provider
+    // Application - CandlestickAnalysis Provider (Stock + Crypto)
     builder.Services.AddScoped<IDailyAggregationService, DailyAggregationService>();
     builder.Services.AddScoped<IPatternDetectionService, PatternDetectionService>();
     builder.Services.AddScoped<ICandlestickAnalysisService, CandlestickAnalysisService>();
     builder.Services.AddScoped<IAnalysisBackfillService, AnalysisBackfillService>();
+    builder.Services.AddScoped<ICryptoDailyAggregationService, CryptoDailyAggregationService>();
+    builder.Services.AddScoped<ICryptoCandlestickAnalysisService, CryptoCandlestickAnalysisService>();
+    builder.Services.AddScoped<ICryptoAnalysisBackfillService, CryptoAnalysisBackfillService>();
 
     // Infrastructure - PriceTargetAnalysis Provider
     builder.Services.AddScoped<IPriceTargetRepository, PriceTargetRepository>();

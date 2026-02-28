@@ -213,6 +213,12 @@ public class CryptoBackfillQueueConsumer : BackgroundService
             _logger.LogInformation(
                 "Crypto backfill successful for {Symbol}: {Records} records in {Batches} batches ({Duration:F1}s)",
                 result.Symbol, result.TotalRecordsInserted, result.BatchesProcessed, result.Duration.TotalSeconds);
+
+            // Chain candlestick analysis backfill
+            await TriggerCryptoAnalysisBackfillAsync(request);
+
+            // Chain Massive indicator backfill
+            await TriggerCryptoIndicatorBackfillAsync(request);
         }
         else
         {
@@ -222,6 +228,84 @@ public class CryptoBackfillQueueConsumer : BackgroundService
 
             // Throw to trigger message requeue
             throw new InvalidOperationException($"Crypto backfill failed for {request.Symbol}: {result.Error}");
+        }
+    }
+
+    private const string AnalysisBackfillQueueName = "analysis-backfill-queue";
+
+    /// <summary>
+    /// Publishes to analysis-backfill-queue with asset_type=crypto to trigger candlestick analysis.
+    /// </summary>
+    private Task TriggerCryptoAnalysisBackfillAsync(CryptoBackfillRequest priceBackfillRequest)
+    {
+        try
+        {
+            var analysisRequest = new
+            {
+                symbol = priceBackfillRequest.Symbol,
+                ticker_id = priceBackfillRequest.TickerId,
+                asset_type = "crypto",
+                requested_at = DateTime.UtcNow
+            };
+
+            var message = JsonSerializer.Serialize(analysisRequest);
+            var body = Encoding.UTF8.GetBytes(message);
+
+            _channel?.QueueDeclare(
+                queue: AnalysisBackfillQueueName,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null);
+
+            var properties = _channel?.CreateBasicProperties();
+            if (properties != null)
+            {
+                properties.Persistent = true;
+                properties.ContentType = "application/json";
+            }
+
+            _channel?.BasicPublish(
+                exchange: string.Empty,
+                routingKey: AnalysisBackfillQueueName,
+                basicProperties: properties,
+                body: body);
+
+            _logger.LogInformation(
+                "Triggered crypto analysis backfill for {Symbol} - published to {Queue}",
+                priceBackfillRequest.Symbol, AnalysisBackfillQueueName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to trigger crypto analysis backfill for {Symbol} (non-fatal, can be triggered manually)",
+                priceBackfillRequest.Symbol);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// HTTP-calls the data-fetcher-2.0 crypto backfill endpoint to trigger Massive indicator backfill.
+    /// </summary>
+    private async Task TriggerCryptoIndicatorBackfillAsync(CryptoBackfillRequest priceBackfillRequest)
+    {
+        try
+        {
+            var url = $"http://data-fetcher-2.0:8080/api/data-fetcher-2.0/api/massive/indicators/crypto/backfill/{priceBackfillRequest.Symbol}?days=90";
+
+            using var httpClient = new HttpClient();
+            var response = await httpClient.PostAsync(url, null);
+
+            _logger.LogInformation(
+                "Triggered crypto indicator backfill for {Symbol}: {StatusCode}",
+                priceBackfillRequest.Symbol, response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to trigger crypto indicator backfill for {Symbol} (non-fatal, can be triggered manually)",
+                priceBackfillRequest.Symbol);
         }
     }
 

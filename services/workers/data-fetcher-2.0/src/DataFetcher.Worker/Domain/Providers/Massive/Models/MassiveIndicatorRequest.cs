@@ -51,6 +51,12 @@ public class MassiveIndicatorRequest
     public string? EndDate { get; set; }
 
     /// <summary>
+    /// Asset type: "stock" (default) or "crypto".
+    /// </summary>
+    [JsonPropertyName("assetType")]
+    public string AssetType { get; set; } = "stock";
+
+    /// <summary>
     /// Timestamp when the request was created.
     /// </summary>
     [JsonPropertyName("requestedAt")]

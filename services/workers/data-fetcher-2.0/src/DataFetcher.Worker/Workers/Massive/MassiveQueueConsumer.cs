@@ -9,6 +9,9 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using StockTracker.Common.Metrics;
 
+// ReSharper disable once RedundantUsingDirective - used in ProcessCryptoRequestAsync
+using DataFetcher.Worker.Domain.Common.Entities;
+
 namespace DataFetcher.Worker.Workers.Massive;
 
 /// <summary>
@@ -299,22 +302,35 @@ public class MassiveQueueConsumer : BackgroundService
 
     /// <summary>
     /// Processes a single indicator request by resolving scoped services and dispatching
-    /// to the appropriate fetch method based on request type.
+    /// to the appropriate fetch method based on request type and asset type.
     /// </summary>
     private async Task ProcessIndicatorRequestAsync(MassiveIndicatorRequest request, CancellationToken ct)
     {
         _logger.LogInformation(
-            "Processing {Type} indicator request for {Symbol} (TickerId: {TickerId}, RequestedAt: {RequestedAt})",
-            request.Type, request.Symbol, request.TickerId, request.RequestedAt);
+            "Processing {Type} indicator request for {Symbol} (TickerId: {TickerId}, AssetType: {AssetType}, RequestedAt: {RequestedAt})",
+            request.Type, request.Symbol, request.TickerId, request.AssetType, request.RequestedAt);
 
         using var scope = _serviceProvider.CreateScope();
+
+        if (request.AssetType == "crypto")
+        {
+            await ProcessCryptoRequestAsync(scope, request, ct);
+        }
+        else
+        {
+            await ProcessStockRequestAsync(scope, request, ct);
+        }
+    }
+
+    private async Task ProcessStockRequestAsync(IServiceScope scope, MassiveIndicatorRequest request, CancellationToken ct)
+    {
         var indicatorService = scope.ServiceProvider.GetRequiredService<IIndicatorFetchService>();
         var tickerRepo = scope.ServiceProvider.GetRequiredService<IStockTickerRepository>();
 
         var ticker = await tickerRepo.GetByIdAsync(request.TickerId);
         if (ticker == null)
         {
-            _logger.LogWarning("Ticker not found for TickerId {TickerId} ({Symbol}). Skipping request",
+            _logger.LogWarning("Stock ticker not found for TickerId {TickerId} ({Symbol}). Skipping",
                 request.TickerId, request.Symbol);
             return;
         }
@@ -352,7 +368,6 @@ public class MassiveQueueConsumer : BackgroundService
                 int count;
                 if (!string.IsNullOrEmpty(request.IndicatorType))
                 {
-                    // New per-indicator paginated backfill
                     count = await indicatorService.FetchBackfillSingleIndicatorAsync(
                         ticker, request.IndicatorType, startDate, endDate, ct);
 
@@ -362,7 +377,6 @@ public class MassiveQueueConsumer : BackgroundService
                 }
                 else
                 {
-                    // Legacy: backfill all 4 indicators in one message
                     count = await indicatorService.FetchBackfillIndicatorsAsync(ticker, startDate, endDate, ct);
 
                     _logger.LogInformation(
@@ -374,6 +388,76 @@ public class MassiveQueueConsumer : BackgroundService
 
             default:
                 _logger.LogWarning("Unknown request type '{Type}' for {Symbol}. Skipping", request.Type, request.Symbol);
+                break;
+        }
+    }
+
+    private async Task ProcessCryptoRequestAsync(IServiceScope scope, MassiveIndicatorRequest request, CancellationToken ct)
+    {
+        var cryptoService = scope.ServiceProvider.GetRequiredService<ICryptoIndicatorFetchService>();
+        var cryptoTickerRepo = scope.ServiceProvider.GetRequiredService<ICryptoTickerRepository>();
+
+        var ticker = await cryptoTickerRepo.GetByIdAsync(request.TickerId);
+        if (ticker == null)
+        {
+            _logger.LogWarning("Crypto ticker not found for TickerId {TickerId} ({Symbol}). Skipping",
+                request.TickerId, request.Symbol);
+            return;
+        }
+
+        switch (request.Type)
+        {
+            case "daily":
+            {
+                if (string.IsNullOrEmpty(request.TargetDate))
+                {
+                    _logger.LogWarning("Daily crypto request for {Symbol} missing TargetDate. Skipping", request.Symbol);
+                    return;
+                }
+
+                var targetDate = DateOnly.Parse(request.TargetDate);
+                var count = await cryptoService.FetchDailyIndicatorsAsync(ticker, targetDate, ct);
+
+                _logger.LogInformation(
+                    "Daily crypto indicator fetch for {Symbol} on {Date}: {Count} records upserted",
+                    ticker.Symbol, targetDate, count);
+                break;
+            }
+
+            case "backfill":
+            {
+                if (string.IsNullOrEmpty(request.StartDate) || string.IsNullOrEmpty(request.EndDate))
+                {
+                    _logger.LogWarning("Crypto backfill request for {Symbol} missing StartDate/EndDate. Skipping", request.Symbol);
+                    return;
+                }
+
+                var startDate = DateOnly.Parse(request.StartDate);
+                var endDate = DateOnly.Parse(request.EndDate);
+
+                int count;
+                if (!string.IsNullOrEmpty(request.IndicatorType))
+                {
+                    count = await cryptoService.FetchBackfillSingleIndicatorAsync(
+                        ticker, request.IndicatorType, startDate, endDate, ct);
+
+                    _logger.LogInformation(
+                        "Crypto backfill for {Symbol}/{Indicator} ({Start} to {End}): {Count} records upserted",
+                        ticker.Symbol, request.IndicatorType, startDate, endDate, count);
+                }
+                else
+                {
+                    count = await cryptoService.FetchBackfillIndicatorsAsync(ticker, startDate, endDate, ct);
+
+                    _logger.LogInformation(
+                        "Crypto backfill for {Symbol} ({Start} to {End}): {Count} records upserted",
+                        ticker.Symbol, startDate, endDate, count);
+                }
+                break;
+            }
+
+            default:
+                _logger.LogWarning("Unknown request type '{Type}' for crypto {Symbol}. Skipping", request.Type, request.Symbol);
                 break;
         }
     }

@@ -10,5 +10,5 @@ public interface IPatternDetectionService
     /// <summary>
     /// Detect all single-candle patterns in a daily candle.
     /// </summary>
-    List<CandlestickPattern> DetectPatterns(DailyCandle candle);
+    List<CandlestickPattern> DetectPatterns(IDailyCandle candle);
 }

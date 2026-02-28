@@ -112,18 +112,28 @@ public class CandlestickAnalysisWorker : BackgroundService
 
                         var result = await analysisService.AnalyzeAllStocksAsync(analyzeDate, stoppingToken);
 
-                        var statusMessage = $"Analyzed {result.SuccessCount}/{result.TotalStocks} stocks, " +
-                                          $"{result.PatternsDetected} patterns detected, " +
-                                          $"Duration: {result.DurationSeconds:F1}s";
+                        var statusMessage = $"Stock: {result.SuccessCount}/{result.TotalStocks} analyzed, " +
+                                          $"{result.PatternsDetected} patterns, {result.DurationSeconds:F1}s";
 
-                        if (result.Errors.Count > 0)
+                        // Immediately run crypto analysis (no external API, no rate limit concern)
+                        _logger.LogInformation("Stock analysis complete. Starting crypto candlestick analysis for {Date}", analyzeDate);
+                        var cryptoAnalysisService = analysisScope.ServiceProvider.GetRequiredService<ICryptoCandlestickAnalysisService>();
+                        var cryptoResult = await cryptoAnalysisService.AnalyzeAllCryptoAsync(analyzeDate, stoppingToken);
+
+                        statusMessage += $" | Crypto: {cryptoResult.SuccessCount}/{cryptoResult.TotalCrypto} analyzed, " +
+                                       $"{cryptoResult.PatternsDetected} patterns, {cryptoResult.DurationSeconds:F1}s";
+
+                        var allErrors = result.Errors.Concat(cryptoResult.Errors).ToList();
+                        if (allErrors.Count > 0)
                         {
-                            statusMessage += $". Errors: {string.Join("; ", result.Errors.Take(3))}";
+                            statusMessage += $". Errors: {string.Join("; ", allErrors.Take(3))}";
                         }
+
+                        var overallSuccess = result.Success && cryptoResult.Success;
 
                         await fetchScheduleRepo.UpdateLastRunAsync(
                             schedule.Id,
-                            result.Success ? "success" : "partial",
+                            overallSuccess ? "success" : "partial",
                             statusMessage);
 
                         await _metrics.IncrementCounterAsync("job_executions_total", 1,

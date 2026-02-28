@@ -30,6 +30,12 @@ public class AnalysisBackfillRequest
     /// </summary>
     [JsonPropertyName("days_to_backfill")]
     public int? DaysToBackfill { get; set; }
+
+    /// <summary>
+    /// Asset type: "stock" (default) or "crypto".
+    /// </summary>
+    [JsonPropertyName("asset_type")]
+    public string AssetType { get; set; } = "stock";
 }
 
 /// <summary>

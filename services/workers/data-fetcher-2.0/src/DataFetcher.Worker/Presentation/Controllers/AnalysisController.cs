@@ -22,23 +22,32 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 public class AnalysisController : ControllerBase
 {
     private readonly ICandlestickAnalysisService _analysisService;
+    private readonly ICryptoCandlestickAnalysisService _cryptoAnalysisService;
     private readonly IAnalysisRepository _analysisRepository;
+    private readonly ICryptoAnalysisRepository _cryptoAnalysisRepository;
     private readonly IStockPriceRepository _stockPriceRepository;
+    private readonly ICryptoPriceRepository _cryptoPriceRepository;
     private readonly IFetchScheduleRepository _fetchScheduleRepository;
     private readonly RabbitMQSettings _rabbitSettings;
     private readonly ILogger<AnalysisController> _logger;
 
     public AnalysisController(
         ICandlestickAnalysisService analysisService,
+        ICryptoCandlestickAnalysisService cryptoAnalysisService,
         IAnalysisRepository analysisRepository,
+        ICryptoAnalysisRepository cryptoAnalysisRepository,
         IStockPriceRepository stockPriceRepository,
+        ICryptoPriceRepository cryptoPriceRepository,
         IFetchScheduleRepository fetchScheduleRepository,
         IOptions<RabbitMQSettings> rabbitSettings,
         ILogger<AnalysisController> logger)
     {
         _analysisService = analysisService;
+        _cryptoAnalysisService = cryptoAnalysisService;
         _analysisRepository = analysisRepository;
+        _cryptoAnalysisRepository = cryptoAnalysisRepository;
         _stockPriceRepository = stockPriceRepository;
+        _cryptoPriceRepository = cryptoPriceRepository;
         _fetchScheduleRepository = fetchScheduleRepository;
         _rabbitSettings = rabbitSettings.Value;
         _logger = logger;
@@ -414,6 +423,128 @@ public class AnalysisController : ControllerBase
             });
         }
     }
+
+    // ───────── Crypto Endpoints ─────────
+
+    /// <summary>
+    /// Manually trigger crypto analysis for a single symbol.
+    /// </summary>
+    [HttpPost("crypto/trigger/{symbol}")]
+    public async Task<IActionResult> TriggerCryptoAnalysis(string symbol, [FromQuery] string? date = null)
+    {
+        try
+        {
+            var analyzeDate = !string.IsNullOrEmpty(date)
+                ? DateOnly.Parse(date)
+                : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+
+            var ticker = await _cryptoPriceRepository.GetTickerBySymbolAsync(symbol);
+            if (ticker == null)
+                return NotFound(new { error = $"Crypto symbol '{symbol}' not found" });
+
+            var result = await _cryptoAnalysisService.AnalyzeCryptoAsync(ticker.Id, ticker.Symbol, analyzeDate);
+
+            if (result == null)
+                return Ok(new { success = true, message = $"No price data found for {symbol} on {analyzeDate}", symbol, date = analyzeDate.ToString("yyyy-MM-dd") });
+
+            return Ok(new
+            {
+                success = true,
+                message = $"Analyzed crypto {symbol} for {analyzeDate}, detected {result.DetectedPatterns.Count} patterns",
+                symbol = result.Symbol,
+                date = result.AnalysisDate.ToString("yyyy-MM-dd"),
+                candlesAggregated = result.CandlesAggregated,
+                dailyCandle = new { open = result.DailyOpen, high = result.DailyHigh, low = result.DailyLow, close = result.DailyClose, volume = result.DailyVolume, isBullish = result.IsBullish },
+                patterns = result.DetectedPatterns
+            });
+        }
+        catch (FormatException)
+        {
+            return BadRequest(new { error = "Invalid date format. Use yyyy-MM-dd" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during crypto analysis for {Symbol}", symbol);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Get crypto analysis results for a symbol.
+    /// </summary>
+    [HttpGet("crypto/patterns/{symbol}")]
+    public async Task<IActionResult> GetCryptoPatterns(string symbol, [FromQuery] string? startDate = null, [FromQuery] string? endDate = null)
+    {
+        try
+        {
+            DateOnly? start = !string.IsNullOrEmpty(startDate) ? DateOnly.Parse(startDate) : null;
+            DateOnly? end = !string.IsNullOrEmpty(endDate) ? DateOnly.Parse(endDate) : null;
+
+            var results = await _cryptoAnalysisRepository.GetAnalysisAsync(symbol, start, end);
+            var resultList = results.ToList();
+
+            return Ok(new
+            {
+                symbol,
+                count = resultList.Count,
+                results = resultList.Select(r => new
+                {
+                    date = r.AnalysisDate.ToString("yyyy-MM-dd"),
+                    dailyCandle = new { open = r.DailyOpen, high = r.DailyHigh, low = r.DailyLow, close = r.DailyClose, volume = r.DailyVolume, isBullish = r.IsBullish },
+                    patterns = r.DetectedPatterns,
+                    candlesAggregated = r.CandlesAggregated
+                })
+            });
+        }
+        catch (FormatException)
+        {
+            return BadRequest(new { error = "Invalid date format. Use yyyy-MM-dd" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting crypto patterns for {Symbol}", symbol);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Queue a crypto analysis backfill request.
+    /// </summary>
+    [HttpPost("crypto/backfill/{symbol}")]
+    [ProducesResponseType(typeof(AnalysisBackfillResponse), StatusCodes.Status202Accepted)]
+    public ActionResult<AnalysisBackfillResponse> QueueCryptoBackfill(string symbol, [FromQuery] int? days = null)
+    {
+        if (string.IsNullOrWhiteSpace(symbol))
+            return BadRequest(new AnalysisBackfillResponse { Success = false, Message = "Symbol is required." });
+
+        try
+        {
+            var request = new AnalysisBackfillRequest
+            {
+                Symbol = symbol,
+                AssetType = "crypto",
+                RequestedAt = DateTime.UtcNow,
+                DaysToBackfill = days
+            };
+
+            PublishToQueue(request);
+
+            return Accepted(new AnalysisBackfillResponse
+            {
+                Success = true,
+                Message = $"Crypto analysis backfill queued for {symbol}",
+                Symbol = symbol,
+                QueuedAt = request.RequestedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to queue crypto backfill for {Symbol}", symbol);
+            return StatusCode(500, new AnalysisBackfillResponse { Success = false, Message = ex.Message, Symbol = symbol });
+        }
+    }
+
+    // ───────── Private Helpers ─────────
 
     private void PublishToQueue(AnalysisBackfillRequest request)
     {

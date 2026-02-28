@@ -186,25 +186,35 @@ public class AnalysisBackfillQueueConsumer : BackgroundService
     private async Task ProcessBackfillRequestAsync(AnalysisBackfillRequest request, CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "Processing analysis backfill for {Symbol} (requested at: {RequestedAt})",
-            request.Symbol, request.RequestedAt);
+            "Processing {AssetType} analysis backfill for {Symbol} (requested at: {RequestedAt})",
+            request.AssetType, request.Symbol, request.RequestedAt);
 
         using var scope = _serviceProvider.CreateScope();
-        var backfillService = scope.ServiceProvider.GetRequiredService<IAnalysisBackfillService>();
 
-        var result = await backfillService.ExecuteBackfillAsync(request, stoppingToken);
+        AnalysisBackfillResult result;
+
+        if (request.AssetType == "crypto")
+        {
+            var cryptoBackfillService = scope.ServiceProvider.GetRequiredService<ICryptoAnalysisBackfillService>();
+            result = await cryptoBackfillService.ExecuteBackfillAsync(request, stoppingToken);
+        }
+        else
+        {
+            var backfillService = scope.ServiceProvider.GetRequiredService<IAnalysisBackfillService>();
+            result = await backfillService.ExecuteBackfillAsync(request, stoppingToken);
+        }
 
         if (result.Success)
         {
             _logger.LogInformation(
-                "Analysis backfill successful for {Symbol}: {Dates} dates, {Patterns} patterns ({Duration:F1}s)",
-                result.Symbol, result.DatesAnalyzed, result.PatternsDetected, result.Duration.TotalSeconds);
+                "{AssetType} analysis backfill successful for {Symbol}: {Dates} dates, {Patterns} patterns ({Duration:F1}s)",
+                request.AssetType, result.Symbol, result.DatesAnalyzed, result.PatternsDetected, result.Duration.TotalSeconds);
         }
         else
         {
             _logger.LogError(
-                "Analysis backfill failed for {Symbol}: {Error}",
-                result.Symbol, result.Error);
+                "{AssetType} analysis backfill failed for {Symbol}: {Error}",
+                request.AssetType, result.Symbol, result.Error);
 
             throw new InvalidOperationException($"Analysis backfill failed for {request.Symbol}: {result.Error}");
         }

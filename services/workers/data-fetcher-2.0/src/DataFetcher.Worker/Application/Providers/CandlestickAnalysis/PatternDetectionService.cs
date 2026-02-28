@@ -23,7 +23,7 @@ public class PatternDetectionService : IPatternDetectionService
         _logger = logger;
     }
 
-    public List<CandlestickPattern> DetectPatterns(DailyCandle candle)
+    public List<CandlestickPattern> DetectPatterns(IDailyCandle candle)
     {
         var patterns = new List<CandlestickPattern>();
 
@@ -155,7 +155,7 @@ public class PatternDetectionService : IPatternDetectionService
         return patterns;
     }
 
-    private static double GetBodyPosition(DailyCandle candle)
+    private static double GetBodyPosition(IDailyCandle candle)
     {
         if (candle.RangeSize == 0) return 0.5;
         var bodyBottom = Math.Min(candle.Open, candle.Close);

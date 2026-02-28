@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 
+// ReSharper disable once RedundantUsingDirective
+using DataFetcher.Worker.Domain.Providers.Massive.Entities;
+
 namespace DataFetcher.Worker.Presentation.Controllers;
 
 /// <summary>
@@ -21,18 +24,24 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 public class MassiveController : ControllerBase
 {
     private readonly IStockTickerRepository _tickerRepo;
+    private readonly ICryptoTickerRepository _cryptoTickerRepo;
     private readonly IStockIndicatorRepository _indicatorRepo;
+    private readonly ICryptoIndicatorRepository _cryptoIndicatorRepo;
     private readonly RabbitMQSettings _rabbitSettings;
     private readonly ILogger<MassiveController> _logger;
 
     public MassiveController(
         IStockTickerRepository tickerRepo,
+        ICryptoTickerRepository cryptoTickerRepo,
         IStockIndicatorRepository indicatorRepo,
+        ICryptoIndicatorRepository cryptoIndicatorRepo,
         IOptions<RabbitMQSettings> rabbitSettings,
         ILogger<MassiveController> logger)
     {
         _tickerRepo = tickerRepo;
+        _cryptoTickerRepo = cryptoTickerRepo;
         _indicatorRepo = indicatorRepo;
+        _cryptoIndicatorRepo = cryptoIndicatorRepo;
         _rabbitSettings = rabbitSettings.Value;
         _logger = logger;
     }
@@ -285,6 +294,192 @@ public class MassiveController : ControllerBase
             return StatusCode(500, new { message = $"Error retrieving indicators: {ex.Message}" });
         }
     }
+
+    // ───────── Crypto Endpoints ─────────
+
+    /// <summary>
+    /// Publishes daily indicator fetch requests for all active crypto tickers.
+    /// </summary>
+    [HttpPost("indicators/crypto/fetch-all")]
+    [ProducesResponseType(typeof(MassiveFetchAllResponse), 200)]
+    [ProducesResponseType(500)]
+    public async Task<IActionResult> FetchAllCryptoIndicators([FromQuery] string? date = null)
+    {
+        try
+        {
+            var targetDate = string.IsNullOrEmpty(date)
+                ? DateTime.UtcNow.Date.AddDays(-1).ToString("yyyy-MM-dd")
+                : date;
+
+            var tickers = await _cryptoTickerRepo.GetActiveTickersAsync();
+            var tickerList = tickers.ToList();
+
+            var symbols = new List<string>();
+            var requests = tickerList.Select(ticker =>
+            {
+                symbols.Add(ticker.Symbol);
+                return new MassiveIndicatorRequest
+                {
+                    Type = "daily",
+                    Symbol = ticker.Symbol,
+                    TickerId = ticker.Id,
+                    AssetType = "crypto",
+                    TargetDate = targetDate,
+                    RequestedAt = DateTime.UtcNow
+                };
+            }).ToList();
+
+            PublishBatchToQueue(requests);
+
+            return Ok(new MassiveFetchAllResponse
+            {
+                Message = $"Published {tickerList.Count} crypto fetch requests",
+                Date = targetDate,
+                Tickers = symbols
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error publishing crypto indicator fetch-all requests");
+            return StatusCode(500, new { message = $"Error: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
+    /// Publishes a daily indicator fetch request for a single crypto ticker.
+    /// </summary>
+    [HttpPost("indicators/crypto/fetch/{symbol}")]
+    [ProducesResponseType(typeof(MassiveFetchResponse), 200)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(500)]
+    public async Task<IActionResult> FetchCryptoIndicator(string symbol, [FromQuery] string? date = null)
+    {
+        try
+        {
+            var targetDate = string.IsNullOrEmpty(date)
+                ? DateTime.UtcNow.Date.AddDays(-1).ToString("yyyy-MM-dd")
+                : date;
+
+            var ticker = await _cryptoTickerRepo.GetBySymbolAsync(symbol);
+            if (ticker == null)
+                return NotFound(new { message = $"Crypto ticker '{symbol}' not found" });
+
+            var request = new MassiveIndicatorRequest
+            {
+                Type = "daily",
+                Symbol = ticker.Symbol,
+                TickerId = ticker.Id,
+                AssetType = "crypto",
+                TargetDate = targetDate,
+                RequestedAt = DateTime.UtcNow
+            };
+
+            PublishToQueue(request);
+
+            return Ok(new MassiveFetchResponse
+            {
+                Message = "Published crypto fetch request",
+                Symbol = ticker.Symbol,
+                Date = targetDate
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error publishing crypto indicator fetch for {Symbol}", symbol);
+            return StatusCode(500, new { message = $"Error: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
+    /// Publishes a backfill indicator request for a crypto ticker.
+    /// This is the endpoint TwelveData calls after crypto price backfill succeeds.
+    /// </summary>
+    [HttpPost("indicators/crypto/backfill/{symbol}")]
+    [ProducesResponseType(typeof(MassiveBackfillResponse), 200)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(500)]
+    public async Task<IActionResult> BackfillCryptoIndicator(string symbol, [FromQuery] int days = 90)
+    {
+        try
+        {
+            var ticker = await _cryptoTickerRepo.GetBySymbolAsync(symbol);
+            if (ticker == null)
+                return NotFound(new { message = $"Crypto ticker '{symbol}' not found" });
+
+            var endDate = DateTime.UtcNow.Date.AddDays(-1);
+            var startDate = DateTime.UtcNow.Date.AddDays(-days);
+            var startDateStr = startDate.ToString("yyyy-MM-dd");
+            var endDateStr = endDate.ToString("yyyy-MM-dd");
+
+            var indicatorTypes = new[] { "sma", "ema", "macd", "rsi" };
+            var requests = indicatorTypes.Select(indicatorType => new MassiveIndicatorRequest
+            {
+                Type = "backfill",
+                Symbol = ticker.Symbol,
+                TickerId = ticker.Id,
+                AssetType = "crypto",
+                IndicatorType = indicatorType,
+                StartDate = startDateStr,
+                EndDate = endDateStr,
+                RequestedAt = DateTime.UtcNow
+            }).ToList();
+
+            PublishBatchToQueue(requests);
+
+            _logger.LogInformation(
+                "Published {Count} crypto indicator backfill requests for {Symbol}, {StartDate} to {EndDate}",
+                requests.Count, ticker.Symbol, startDateStr, endDateStr);
+
+            return Ok(new MassiveBackfillResponse
+            {
+                Message = $"Published {requests.Count} crypto backfill requests (sma, ema, macd, rsi)",
+                Symbol = ticker.Symbol,
+                StartDate = startDateStr,
+                EndDate = endDateStr,
+                Days = days
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error publishing crypto indicator backfill for {Symbol}", symbol);
+            return StatusCode(500, new { message = $"Error: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
+    /// Retrieves stored crypto indicator data for a ticker on a specific date.
+    /// </summary>
+    [HttpGet("indicators/crypto/{symbol}")]
+    [ProducesResponseType(typeof(IEnumerable<CryptoIndicator>), 200)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(500)]
+    public async Task<IActionResult> GetCryptoIndicators(string symbol, [FromQuery] string? date = null)
+    {
+        try
+        {
+            var targetDate = string.IsNullOrEmpty(date)
+                ? DateTime.UtcNow.Date
+                : DateTime.Parse(date);
+
+            var ticker = await _cryptoTickerRepo.GetBySymbolAsync(symbol);
+            if (ticker == null)
+                return NotFound(new { message = $"Crypto ticker '{symbol}' not found" });
+
+            var indicators = await _cryptoIndicatorRepo.GetByTickerAndDateAsync(ticker.Id, targetDate);
+            return Ok(indicators);
+        }
+        catch (FormatException)
+        {
+            return BadRequest(new { message = $"Invalid date format: '{date}'. Expected YYYY-MM-DD." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving crypto indicators for {Symbol}", symbol);
+            return StatusCode(500, new { message = $"Error: {ex.Message}" });
+        }
+    }
+
+    // ───────── Private Helpers ─────────
 
     /// <summary>
     /// Publishes a single MassiveIndicatorRequest message to the RabbitMQ queue.

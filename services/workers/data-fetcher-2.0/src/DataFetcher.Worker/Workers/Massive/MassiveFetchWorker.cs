@@ -7,6 +7,9 @@ using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using StockTracker.Common.Metrics;
 
+// ReSharper disable once RedundantUsingDirective
+using DataFetcher.Worker.Domain.Common.Entities;
+
 namespace DataFetcher.Worker.Workers.Massive;
 
 /// <summary>
@@ -94,7 +97,7 @@ public class MassiveFetchWorker : BackgroundService
                     var yesterday = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
 
                     _logger.LogInformation(
-                        "Publishing {Count} daily indicator requests for {Date}",
+                        "Publishing {Count} daily stock indicator requests for {Date}",
                         tickerList.Count, yesterday);
 
                     var requests = tickerList.Select(ticker => new MassiveIndicatorRequest
@@ -102,17 +105,50 @@ public class MassiveFetchWorker : BackgroundService
                         Type = "daily",
                         Symbol = ticker.Symbol,
                         TickerId = ticker.Id,
+                        AssetType = "stock",
                         TargetDate = yesterday.ToString("yyyy-MM-dd"),
                         RequestedAt = DateTime.UtcNow
                     }).ToList();
 
                     PublishBatchToQueue(requests);
 
-                    message = $"Published {requests.Count} daily indicator requests for {yesterday:yyyy-MM-dd}";
+                    // Wait 30 minutes before publishing crypto requests (rate limit buffer)
+                    var cryptoTickerRepo = scope.ServiceProvider.GetRequiredService<ICryptoTickerRepository>();
+                    var cryptoTickers = (await cryptoTickerRepo.GetActiveTickersAsync()).ToList();
+
+                    if (cryptoTickers.Count > 0)
+                    {
+                        _logger.LogInformation(
+                            "Stock requests published. Waiting 30 minutes before publishing {Count} crypto indicator requests",
+                            cryptoTickers.Count);
+
+                        await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
+
+                        var cryptoRequests = cryptoTickers.Select(ticker => new MassiveIndicatorRequest
+                        {
+                            Type = "daily",
+                            Symbol = ticker.Symbol,
+                            TickerId = ticker.Id,
+                            AssetType = "crypto",
+                            TargetDate = yesterday.ToString("yyyy-MM-dd"),
+                            RequestedAt = DateTime.UtcNow
+                        }).ToList();
+
+                        PublishBatchToQueue(cryptoRequests);
+
+                        message = $"Published {requests.Count} stock + {cryptoRequests.Count} crypto indicator requests for {yesterday:yyyy-MM-dd}";
+                        await _metrics.IncrementCounterAsync($"{MetricsPrefix}_queue_messages_published_total", cryptoRequests.Count,
+                            new Dictionary<string, string> { ["asset_type"] = "crypto" });
+                    }
+                    else
+                    {
+                        message = $"Published {requests.Count} stock indicator requests for {yesterday:yyyy-MM-dd} (no active crypto tickers)";
+                    }
 
                     await _metrics.IncrementCounterAsync($"{MetricsPrefix}_job_executions_total", 1,
                         new Dictionary<string, string> { ["status"] = "completed" });
-                    await _metrics.IncrementCounterAsync($"{MetricsPrefix}_queue_messages_published_total", requests.Count);
+                    await _metrics.IncrementCounterAsync($"{MetricsPrefix}_queue_messages_published_total", requests.Count,
+                        new Dictionary<string, string> { ["asset_type"] = "stock" });
 
                     _logger.LogInformation("Completed scheduled publish: {Message}", message);
                 }
