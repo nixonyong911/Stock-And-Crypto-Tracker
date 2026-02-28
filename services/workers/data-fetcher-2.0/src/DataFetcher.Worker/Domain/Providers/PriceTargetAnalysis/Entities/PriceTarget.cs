@@ -13,7 +13,7 @@ public class PriceTarget
     public string SignalSummary { get; set; } = "neutral";
     public string CalculationMethod { get; set; } = "technical_composite";
     public decimal? Confidence { get; set; }
-    public string MetadataJson { get; set; } = "{}";
+    public string MetadataJson { get; set; } = string.Empty;
 }
 
 public class BackfillResult

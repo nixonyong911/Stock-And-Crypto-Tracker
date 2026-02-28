@@ -8,6 +8,7 @@ export interface WishlistTickerData {
   targetRange: { low: number; high: number } | null;
   stopLossRange: { low: number; high: number } | null;
   signal: string;
+  trend: "up" | "down" | "flat";
   isEntryZone: boolean;
   analysisDate: string | null;
   dataPoints: number;
@@ -51,6 +52,50 @@ export async function getWatchlist(
   return result.rows;
 }
 
+const DECAY_FACTOR = 0.9;
+const SIGNAL_WEIGHT = 0.6;
+const TREND_WEIGHT = 0.4;
+const BULLISH_THRESHOLD = 0.15;
+const BEARISH_THRESHOLD = -0.15;
+const TREND_CHANGE_THRESHOLD = 0.02;
+
+function computeWeightedSignal(rows: PriceTargetRow[]): number {
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const weight = Math.pow(DECAY_FACTOR, i);
+    const sig = rows[i]!.signal_summary ?? "neutral";
+    const score = sig === "bullish" ? 1 : sig === "bearish" ? -1 : 0;
+    weightedSum += score * weight;
+    totalWeight += weight;
+  }
+
+  return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
+function computePriceTrend(rows: PriceTargetRow[]): { score: number; direction: "up" | "down" | "flat" } {
+  const closes = rows.map((r) => parseFloat(r.latest_close));
+  if (closes.length < 4) return { score: 0, direction: "flat" };
+
+  const mid = Math.floor(closes.length / 2);
+  const recentHalf = closes.slice(0, mid);
+  const olderHalf = closes.slice(mid);
+
+  const recentAvg = recentHalf.reduce((a, b) => a + b, 0) / recentHalf.length;
+  const olderAvg = olderHalf.reduce((a, b) => a + b, 0) / olderHalf.length;
+
+  if (olderAvg === 0) return { score: 0, direction: "flat" };
+  const change = (recentAvg - olderAvg) / olderAvg;
+
+  let direction: "up" | "down" | "flat" = "flat";
+  if (change > TREND_CHANGE_THRESHOLD) direction = "up";
+  else if (change < -TREND_CHANGE_THRESHOLD) direction = "down";
+
+  const score = Math.max(-1, Math.min(1, change * 10));
+  return { score, direction };
+}
+
 function computeTickerData(
   symbol: string,
   assetType: string,
@@ -65,6 +110,7 @@ function computeTickerData(
       targetRange: null,
       stopLossRange: null,
       signal: "neutral",
+      trend: "flat",
       isEntryZone: false,
       analysisDate: null,
       dataPoints: 0,
@@ -78,6 +124,7 @@ function computeTickerData(
   const todayStopLoss = latest.stop_loss ? parseFloat(latest.stop_loss) : null;
 
   if (rows.length < MIN_DATA_POINTS) {
+    const { direction } = computePriceTrend(rows);
     return {
       symbol,
       assetType,
@@ -86,6 +133,7 @@ function computeTickerData(
       targetRange: todayTarget != null ? { low: todayTarget, high: todayTarget } : null,
       stopLossRange: todayStopLoss != null ? { low: todayStopLoss, high: todayStopLoss } : null,
       signal: latest.signal_summary ?? "neutral",
+      trend: direction,
       isEntryZone: todayEntry != null && latestClose <= todayEntry,
       analysisDate: latest.analysis_date,
       dataPoints: rows.length,
@@ -108,10 +156,10 @@ function computeTickerData(
     ? { low: Math.min(...stopLossPrices), high: Math.max(...stopLossPrices) }
     : null;
 
-  const signals = rows.map((r) => r.signal_summary ?? "neutral");
-  const bullish = signals.filter((s) => s === "bullish").length;
-  const bearish = signals.filter((s) => s === "bearish").length;
-  const signal = bullish > bearish ? "bullish" : bearish > bullish ? "bearish" : "neutral";
+  const weightedSignal = computeWeightedSignal(rows);
+  const { score: trendScore, direction: trend } = computePriceTrend(rows);
+  const composite = (weightedSignal * SIGNAL_WEIGHT) + (trendScore * TREND_WEIGHT);
+  const signal = composite > BULLISH_THRESHOLD ? "bullish" : composite < BEARISH_THRESHOLD ? "bearish" : "neutral";
 
   const isEntryZone =
     entryRange != null && latestClose >= entryRange.low && latestClose <= entryRange.high;
@@ -124,6 +172,7 @@ function computeTickerData(
     targetRange,
     stopLossRange,
     signal,
+    trend,
     isEntryZone,
     analysisDate: latest.analysis_date,
     dataPoints: rows.length,

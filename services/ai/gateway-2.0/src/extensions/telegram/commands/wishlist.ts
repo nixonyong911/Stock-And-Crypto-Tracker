@@ -47,7 +47,9 @@ function formatTicker(t: WishlistTickerData): string {
   if (parts.length > 0) lines.push(`  ${parts.join(" | ")}`);
 
   const signalLabel = t.signal.charAt(0).toUpperCase() + t.signal.slice(1);
-  lines.push(`  Signal: ${signalLabel}`);
+  const trendIcon = t.trend === "up" ? "↑" : t.trend === "down" ? "↓" : "→";
+  const trendLabel = t.trend === "up" ? "Up" : t.trend === "down" ? "Down" : "Flat";
+  lines.push(`  Signal: ${signalLabel} | Trend: ${trendIcon} ${trendLabel}`);
 
   return lines.join("\n");
 }

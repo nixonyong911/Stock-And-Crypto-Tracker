@@ -18,6 +18,9 @@ public class PriceTargetRepository : IPriceTargetRepository
 
     public async Task InsertAsync(PriceTarget target)
     {
+        if (string.IsNullOrWhiteSpace(target.MetadataJson) || target.MetadataJson == "{}")
+            throw new ArgumentException($"PriceTarget for {target.Symbol} on {target.AnalysisDate} must have populated metadata");
+
         const string sql = @"
             INSERT INTO analysis_ticker_price_targets (
                 ticker_symbol, asset_type, analysis_date,

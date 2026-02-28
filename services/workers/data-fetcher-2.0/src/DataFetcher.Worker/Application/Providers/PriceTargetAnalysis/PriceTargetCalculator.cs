@@ -92,7 +92,7 @@ public static class PriceTargetCalculator
             stopLoss = Math.Min(slFromEntry, slFromLow);
         }
 
-        var signal = DetermineSignal(recentSignals, indicators?.Rsi);
+        var signal = DetermineSignal(recentSignals, indicators, latestClose);
         var confidence = CalculateConfidence(closes.Count, indicators);
 
         var metadata = new
@@ -116,31 +116,69 @@ public static class PriceTargetCalculator
         );
     }
 
-    private static string DetermineSignal(IReadOnlyList<CandleSignal> signals, decimal? rsi)
+    private const decimal TrendWeight = 0.40m;
+    private const decimal MomentumWeight = 0.30m;
+    private const decimal PatternWeight = 0.30m;
+    private const decimal BullishThreshold = 0.20m;
+    private const decimal BearishThreshold = -0.20m;
+
+    private static string DetermineSignal(
+        IReadOnlyList<CandleSignal> signals,
+        IndicatorSnapshot? indicators,
+        decimal latestClose)
     {
-        if (signals.Count == 0)
-        {
-            if (rsi.HasValue)
-            {
-                if (rsi.Value > OverboughtRsiThreshold) return "bearish";
-                if (rsi.Value < OversoldRsiThreshold) return "bullish";
-            }
-            return "neutral";
-        }
+        var trendScore = ScoreTrend(indicators, latestClose);
+        var momentumScore = ScoreMomentum(indicators?.Rsi);
+        var patternScore = ScorePatterns(signals);
+
+        var composite = (trendScore * TrendWeight)
+                      + (momentumScore * MomentumWeight)
+                      + (patternScore * PatternWeight);
+
+        if (composite > BullishThreshold) return "bullish";
+        if (composite < BearishThreshold) return "bearish";
+        return "neutral";
+    }
+
+    private static decimal ScoreTrend(IndicatorSnapshot? indicators, decimal latestClose)
+    {
+        if (indicators?.Ema20 == null || indicators.Ema50 == null)
+            return 0m;
+
+        var ema20 = indicators.Ema20.Value;
+        var ema50 = indicators.Ema50.Value;
+        var score = ema20 > ema50 ? 1.0m : -1.0m;
+
+        if (latestClose > ema20 && latestClose > ema50)
+            score += 0.5m;
+        else if (latestClose < ema20 && latestClose < ema50)
+            score -= 0.5m;
+
+        return Math.Clamp(score, -1.5m, 1.5m);
+    }
+
+    private static decimal ScoreMomentum(decimal? rsi)
+    {
+        if (!rsi.HasValue) return 0m;
+        var r = rsi.Value;
+
+        if (r > OverboughtRsiThreshold) return -1.0m;
+        if (r < OversoldRsiThreshold) return 1.0m;
+        if (r >= 55m) return -0.3m;
+        if (r <= 45m) return 0.3m;
+        return 0m;
+    }
+
+    private static decimal ScorePatterns(IReadOnlyList<CandleSignal> signals)
+    {
+        if (signals.Count == 0) return 0m;
 
         var bullish = signals.Count(s => s.Signal.Contains("bullish"));
         var bearish = signals.Count(s => s.Signal.Contains("bearish"));
 
-        if (bullish > bearish) return "bullish";
-        if (bearish > bullish) return "bearish";
-
-        if (rsi.HasValue)
-        {
-            if (rsi.Value < 45m) return "bullish";
-            if (rsi.Value > 55m) return "bearish";
-        }
-
-        return "neutral";
+        if (bullish > bearish) return 1.0m;
+        if (bearish > bullish) return -1.0m;
+        return 0m;
     }
 
     private static decimal CalculateConfidence(int dataPoints, IndicatorSnapshot? indicators)

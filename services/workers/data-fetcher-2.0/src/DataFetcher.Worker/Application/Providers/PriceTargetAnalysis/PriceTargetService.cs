@@ -40,6 +40,13 @@ public class PriceTargetService : IPriceTargetService
                 return null;
             }
 
+            var latestClosePrice = closesList.First().Close;
+            if (latestClosePrice <= 0)
+            {
+                _logger.LogWarning("Invalid close price for {Symbol} on {Date}: {Price}", symbol, date, latestClosePrice);
+                return null;
+            }
+
             var indicators = await _priceTargetRepository.GetLatestIndicatorAsync(stockTickerId, date);
             var signals = await _priceTargetRepository.GetRecentCandleSignalsAsync(stockTickerId, date, 5);
 
