@@ -348,7 +348,7 @@ public class MassiveController : ControllerBase
     /// <summary>
     /// Publishes a daily indicator fetch request for a single crypto ticker.
     /// </summary>
-    [HttpPost("indicators/crypto/fetch/{symbol}")]
+    [HttpPost("indicators/crypto/fetch/{**symbol}")]
     [ProducesResponseType(typeof(MassiveFetchResponse), 200)]
     [ProducesResponseType(404)]
     [ProducesResponseType(500)]
@@ -394,7 +394,7 @@ public class MassiveController : ControllerBase
     /// Publishes a backfill indicator request for a crypto ticker.
     /// This is the endpoint TwelveData calls after crypto price backfill succeeds.
     /// </summary>
-    [HttpPost("indicators/crypto/backfill/{symbol}")]
+    [HttpPost("indicators/crypto/backfill/{**symbol}")]
     [ProducesResponseType(typeof(MassiveBackfillResponse), 200)]
     [ProducesResponseType(404)]
     [ProducesResponseType(500)]
@@ -449,7 +449,7 @@ public class MassiveController : ControllerBase
     /// <summary>
     /// Retrieves stored crypto indicator data for a ticker on a specific date.
     /// </summary>
-    [HttpGet("indicators/crypto/{symbol}")]
+    [HttpGet("indicators/crypto/{**symbol}")]
     [ProducesResponseType(typeof(IEnumerable<CryptoIndicator>), 200)]
     [ProducesResponseType(404)]
     [ProducesResponseType(500)]

@@ -429,7 +429,7 @@ public class AnalysisController : ControllerBase
     /// <summary>
     /// Manually trigger crypto analysis for a single symbol.
     /// </summary>
-    [HttpPost("crypto/trigger/{symbol}")]
+    [HttpPost("crypto/trigger/{**symbol}")]
     public async Task<IActionResult> TriggerCryptoAnalysis(string symbol, [FromQuery] string? date = null)
     {
         try
@@ -472,7 +472,7 @@ public class AnalysisController : ControllerBase
     /// <summary>
     /// Get crypto analysis results for a symbol.
     /// </summary>
-    [HttpGet("crypto/patterns/{symbol}")]
+    [HttpGet("crypto/patterns/{**symbol}")]
     public async Task<IActionResult> GetCryptoPatterns(string symbol, [FromQuery] string? startDate = null, [FromQuery] string? endDate = null)
     {
         try
@@ -510,7 +510,7 @@ public class AnalysisController : ControllerBase
     /// <summary>
     /// Queue a crypto analysis backfill request.
     /// </summary>
-    [HttpPost("crypto/backfill/{symbol}")]
+    [HttpPost("crypto/backfill/{**symbol}")]
     [ProducesResponseType(typeof(AnalysisBackfillResponse), StatusCodes.Status202Accepted)]
     public ActionResult<AnalysisBackfillResponse> QueueCryptoBackfill(string symbol, [FromQuery] int? days = null)
     {
