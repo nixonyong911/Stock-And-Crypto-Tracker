@@ -1,5 +1,6 @@
 import { Composer } from 'grammy';
 import type { TelegramBotContext } from '../bot.js';
+import { deleteSessionFromCache } from '../../../core/session/cache.js';
 
 const composer = new Composer<TelegramBotContext>();
 composer.command('logout', async (ctx) => {
@@ -12,6 +13,7 @@ composer.command('logout', async (ctx) => {
       'UPDATE gateway_sessions SET expires_at = NOW() WHERE platform_user_id = $1 AND channel_type = $2 AND expires_at > NOW()',
       [String(userId), 'telegram']
     );
+    await deleteSessionFromCache(ctx.gatewayAPI.redis, 'telegram', String(userId));
     ctx.gatewayAPI.logger.info({ userId }, 'User logged out');
     await ctx.reply('👋 **Logged out successfully!**\n\nYour session has been ended.\n\nUse /login to start a new session.', { parse_mode: 'Markdown' });
   } catch (err) {

@@ -56,6 +56,7 @@ export function createTelegramExtension(): IChannelExtension {
         ctx.activeSession = null;
         ctx.messageQueue = messageQueue!;
         ctx.dedupKey = null;
+        ctx.sessionLoadFailed = false;
         return next();
       });
 

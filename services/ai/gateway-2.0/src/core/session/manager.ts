@@ -10,6 +10,11 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Redis } from "ioredis";
 import type { GatewayConfig } from "../../config.js";
 import type { PgPool } from "../../db/postgres.js";
+import {
+  getSessionFromCache,
+  writeSessionToCache,
+  deleteSessionFromCache,
+} from "./cache.js";
 
 // ---------------------------------------------------------------------------
 // Domain model
@@ -114,6 +119,7 @@ export class SessionManager {
             AND expires_at > NOW()`,
         [platformUserId, channelType]
       );
+      await deleteSessionFromCache(this.redis, channelType, platformUserId);
     } catch (err) {
       this.logger.warn(
         { err, platformUserId, channelType },
@@ -195,6 +201,7 @@ export class SessionManager {
       "Session created"
     );
 
+    writeSessionToCache(this.redis, session).catch(() => {});
     return session;
   }
 
@@ -202,12 +209,26 @@ export class SessionManager {
    * Retrieve the most recent active (non-expired) session for a
    * platform user + channel combination.
    *
+   * Checks Redis cache first, falls back to DB on miss.
    * Returns `null` when no active session exists (instead of throwing).
    */
   async getActiveSession(
     platformUserId: string,
     channelType: string
   ): Promise<GatewaySession | null> {
+    // 1. Redis cache
+    try {
+      const cached = await getSessionFromCache(
+        this.redis,
+        channelType,
+        platformUserId
+      );
+      if (cached) return cached;
+    } catch {
+      // Redis failure — fall through to DB
+    }
+
+    // 2. DB fallback
     try {
       const result = await this.db.query(
         `SELECT id, clerk_user_id, channel_type, platform_user_id,
@@ -226,7 +247,9 @@ export class SessionManager {
         return null;
       }
 
-      return rowToSession(result.rows[0]);
+      const session = rowToSession(result.rows[0]);
+      writeSessionToCache(this.redis, session).catch(() => {});
+      return session;
     } catch (err) {
       this.logger.error(
         { err, platformUserId, channelType },

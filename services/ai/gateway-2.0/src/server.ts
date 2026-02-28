@@ -296,7 +296,7 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
     filter,
     metrics,
   });
-  registerSessionRoutes(app, session);
+  registerSessionRoutes(app, session, { redis: redis.redis, db: db.pool });
   registerUsageRoutes(app, usage);
   registerChannelRoutes(app, extensions);
   registerAdminRoutes(app, { metrics, queue, db: db.pool });

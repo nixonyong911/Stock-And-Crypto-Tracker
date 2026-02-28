@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import crypto from "node:crypto";
 import type { TelegramBotContext } from "../bot.js";
+import { deleteSessionFromCache } from "../../../core/session/cache.js";
 import { COMMAND_MENU } from "../../commands/menu.js";
 
 const composer = new Composer<TelegramBotContext>();
@@ -20,8 +21,6 @@ composer.command("refresh", async (ctx) => {
   try {
     const newCliSessionId = crypto.randomUUID();
 
-    // Re-resolve the user's current tier from the database.
-    // This picks up any upgrades/downgrades since the session was created.
     const currentTier = await ctx.gatewayAPI.resolveUserTier(
       String(userId),
       "telegram"
@@ -35,6 +34,12 @@ composer.command("refresh", async (ctx) => {
          SET cli_session_id = $1
        WHERE platform_user_id = $2 AND channel_type = $3 AND expires_at > NOW()`,
       [newCliSessionId, String(userId), "telegram"]
+    );
+
+    await deleteSessionFromCache(
+      ctx.gatewayAPI.redis,
+      "telegram",
+      String(userId)
     );
 
     ctx.gatewayAPI.logger.info(

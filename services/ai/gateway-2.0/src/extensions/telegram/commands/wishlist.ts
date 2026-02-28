@@ -84,7 +84,11 @@ async function handleWishlist(ctx: TelegramBotContext) {
   }
 
   if (!ctx.activeSession) {
-    await ctx.reply("Please login first with /login.", { parse_mode: "Markdown" });
+    if (ctx.sessionLoadFailed) {
+      await ctx.reply("Something went wrong checking your session. Please try again.");
+    } else {
+      await ctx.reply("Please login first with /login.", { parse_mode: "Markdown" });
+    }
     return;
   }
 
