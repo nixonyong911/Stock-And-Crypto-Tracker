@@ -121,6 +121,7 @@ try
 
     // Application - PriceTargetAnalysis Provider
     builder.Services.AddScoped<IPriceTargetService, PriceTargetService>();
+    builder.Services.AddScoped<IPriceTargetBackfillService, PriceTargetBackfillService>();
 
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();

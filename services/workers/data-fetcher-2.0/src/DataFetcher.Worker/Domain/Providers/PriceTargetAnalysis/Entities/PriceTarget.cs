@@ -16,6 +16,16 @@ public class PriceTarget
     public string MetadataJson { get; set; } = "{}";
 }
 
+public class BackfillResult
+{
+    public int TotalDates { get; set; }
+    public int Computed { get; set; }
+    public int Skipped { get; set; }
+    public int Failed { get; set; }
+    public TimeSpan Duration { get; set; }
+    public List<string> Errors { get; set; } = new();
+}
+
 public class BatchPriceTargetResult
 {
     public bool Success { get; set; }

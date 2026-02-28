@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 using DataFetcher.Worker.Configuration.Providers;
 using DataFetcher.Worker.Domain.Providers.CandlestickAnalysis.Models;
 using DataFetcher.Worker.Infrastructure.Providers.CandlestickAnalysis.Repositories;
@@ -19,6 +20,7 @@ public class AnalysisBackfillService : IAnalysisBackfillService
     private readonly CandlestickAnalysisSettings _settings;
     private readonly ILogger<AnalysisBackfillService> _logger;
     private readonly IMetricsClient _metrics;
+    private readonly IPriceTargetBackfillService _priceTargetBackfillService;
 
     public AnalysisBackfillService(
         IStockPriceRepository stockPriceRepository,
@@ -26,7 +28,8 @@ public class AnalysisBackfillService : IAnalysisBackfillService
         ICandlestickAnalysisService analysisService,
         IOptions<CandlestickAnalysisSettings> settings,
         ILogger<AnalysisBackfillService> logger,
-        IMetricsClient metrics)
+        IMetricsClient metrics,
+        IPriceTargetBackfillService priceTargetBackfillService)
     {
         _stockPriceRepository = stockPriceRepository;
         _analysisRepository = analysisRepository;
@@ -34,6 +37,7 @@ public class AnalysisBackfillService : IAnalysisBackfillService
         _settings = settings.Value;
         _logger = logger;
         _metrics = metrics;
+        _priceTargetBackfillService = priceTargetBackfillService;
     }
 
     public async Task<AnalysisBackfillResult> ExecuteBackfillAsync(AnalysisBackfillRequest request, CancellationToken cancellationToken = default)
@@ -179,6 +183,20 @@ public class AnalysisBackfillService : IAnalysisBackfillService
             await _metrics.ObserveHistogramAsync("analysis_backfill_duration_seconds",
                 result.Duration.TotalSeconds,
                 new Dictionary<string, string> { ["symbol"] = request.Symbol });
+
+            try
+            {
+                var ptResult = await _priceTargetBackfillService.BackfillAsync(
+                    ticker.Id, request.Symbol, daysToBackfill, cancellationToken);
+
+                _logger.LogInformation(
+                    "Price target backfill for {Symbol}: {Computed} computed, {Skipped} skipped",
+                    request.Symbol, ptResult.Computed, ptResult.Skipped);
+            }
+            catch (Exception ptEx)
+            {
+                _logger.LogError(ptEx, "Price target backfill failed for {Symbol} (non-fatal)", request.Symbol);
+            }
         }
         catch (Exception ex)
         {

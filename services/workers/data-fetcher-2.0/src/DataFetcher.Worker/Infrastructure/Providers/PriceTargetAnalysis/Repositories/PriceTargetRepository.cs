@@ -139,6 +139,27 @@ public class PriceTargetRepository : IPriceTargetRepository
         return signals;
     }
 
+    public async Task<IEnumerable<DateOnly>> GetComputedDatesAsync(string symbol, DateOnly startDate, DateOnly endDate)
+    {
+        const string sql = @"
+            SELECT analysis_date
+            FROM analysis_ticker_price_targets
+            WHERE ticker_symbol = @Symbol
+              AND analysis_date >= @StartDate
+              AND analysis_date <= @EndDate
+            ORDER BY analysis_date ASC";
+
+        using var connection = _connectionFactory.CreateConnection();
+        var dates = await connection.QueryAsync<DateTime>(sql, new
+        {
+            Symbol = symbol,
+            StartDate = startDate,
+            EndDate = endDate
+        });
+
+        return dates.Select(d => DateOnly.FromDateTime(d));
+    }
+
     private class DailyCloseRow
     {
         public DateTime Date { get; set; }
