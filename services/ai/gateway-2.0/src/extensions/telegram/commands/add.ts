@@ -215,6 +215,10 @@ composer.command("add", async (ctx) => {
       [clerkUserId, assetType, symbol]
     );
 
+    const redis = ctx.gatewayAPI.redis;
+    await redis.del(`wishlist:${clerkUserId}`);
+    await redis.del(`wishlist:ticker:${symbol}`);
+
     if (isNewTicker) {
       await ctx.reply(
         `${displaySymbol} has been added to your watchlist. It may take 15 minutes to 1 hour for the system to research and gather data for this new ticker.`

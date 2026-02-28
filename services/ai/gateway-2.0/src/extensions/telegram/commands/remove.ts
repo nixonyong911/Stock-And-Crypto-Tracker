@@ -100,6 +100,9 @@ composer.command("remove", async (ctx) => {
     if (result.rowCount === 0) {
       await ctx.reply(`${displaySymbol} is not in your watchlist.`);
     } else {
+      const redis = ctx.gatewayAPI.redis;
+      await redis.del(`wishlist:${clerkUserId}`);
+
       await ctx.reply(
         `${displaySymbol} has been removed from your watchlist.`
       );
