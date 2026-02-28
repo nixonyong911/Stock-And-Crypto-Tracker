@@ -8,7 +8,7 @@ export const COMMAND_MENU = [
   "/status - Check your session status",
   "/add <symbol> [type] - Track a ticker (stock, etf, crypto)",
   "/remove <symbol> - Stop tracking a ticker",
-  "/wishlist - View your watchlist with price targets",
+  "/wishlist or /watchlist - View your tracked tickers with price targets",
   "/help - Show available commands",
   "/addhelp - How to use /add",
   "/removehelp - How to use /remove",
