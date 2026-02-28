@@ -58,6 +58,7 @@ from tools.fundamentals import get_fundamentals_trend, compare_stocks
 from tools.economic import get_macro_environment
 from tools.earnings import get_earnings_history, get_market_earnings
 from tools.screener import screen_stocks
+from tools.price_targets import get_price_targets
 
 
 # ===========================================
@@ -235,6 +236,12 @@ class ScreenStocksInput(BaseModel):
         if v is not None and v not in allowed:
             raise ValueError(f"sort_by must be one of {allowed}, got '{v}'")
         return v
+
+
+class PriceTargetsInput(BaseModel):
+    """Input for price target analysis query."""
+    symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
+    days: int = Field(default=1, description="Number of recent days to return", ge=1, le=30)
 
 
 # ===========================================
@@ -515,6 +522,28 @@ def _register_screen_stocks(app: FastMCP) -> None:
         )
 
 
+def _register_get_price_targets(app: FastMCP) -> None:
+    """Register analysis_get_price_targets tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_price_targets",
+        annotations={"title": "Get Price Targets", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_price_targets(params: PriceTargetsInput, conn=Depends(get_db)) -> str:
+        """
+        Get pre-computed price target analysis for a stock.
+
+        Returns daily entry price, target price, stop loss, signal summary,
+        confidence score, and calculation metadata. Covers the most recent N days
+        (default 1, max 30).
+
+        Use this to quickly see where a stock's computed support, entry, and
+        upside target levels sit relative to its latest close.
+        """
+        return await get_price_targets(
+            conn=conn, symbol=params.symbol, days=params.days,
+        )
+
+
 # Tool name -> ToolEntry with min_tier annotation.
 # Tiers are cumulative: free < pro < max < dev.
 # A tool with min_tier="pro" is available to pro, max, and dev users.
@@ -537,6 +566,8 @@ _TOOL_REGISTRY: dict[str, ToolEntry] = {
     "analysis_get_market_earnings":      ToolEntry(fn=_register_get_market_earnings,      min_tier="free"),
     # Cross-domain screener
     "analysis_screen_stocks":            ToolEntry(fn=_register_screen_stocks,            min_tier="free"),
+    # Price targets
+    "analysis_get_price_targets":        ToolEntry(fn=_register_get_price_targets,        min_tier="free"),
 }
 
 

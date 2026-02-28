@@ -12,6 +12,7 @@ from .fundamentals import get_fundamentals_trend, compare_stocks
 from .economic import get_macro_environment
 from .earnings import get_earnings_history, get_market_earnings
 from .screener import screen_stocks
+from .price_targets import get_price_targets
 
 __all__ = [
     "get_stock_analysis",
@@ -26,4 +27,5 @@ __all__ = [
     "get_earnings_history",
     "get_market_earnings",
     "screen_stocks",
+    "get_price_targets",
 ]

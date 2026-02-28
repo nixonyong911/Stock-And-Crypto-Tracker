@@ -22,6 +22,7 @@ import addComposer from "./commands/add.js";
 import removeComposer from "./commands/remove.js";
 import addhelpComposer from "./commands/addhelp.js";
 import removehelpComposer from "./commands/removehelp.js";
+import wishlistComposer from "./commands/wishlist.js";
 import messagesComposer from "./commands/messages.js";
 
 export function createTelegramExtension(): IChannelExtension {
@@ -75,6 +76,7 @@ export function createTelegramExtension(): IChannelExtension {
       bot.use(removeComposer);
       bot.use(addhelpComposer);
       bot.use(removehelpComposer);
+      bot.use(wishlistComposer);
       bot.use(messagesComposer);
 
       // Error handler — always attempt to notify the user

@@ -234,6 +234,63 @@ CREATE INDEX idx_analysis_candlestick_bullish ON analysis_stock_candlestick_patt
 | `marubozu_bearish` | strong_bearish | Full body, no shadows |
 | `spinning_top` | indecision | Small body, shadows both sides |
 
+### analysis_ticker_price_targets
+
+Daily pre-computed entry/target/stop-loss prices for all active stock and ETF tickers. Populated by the PriceTargetAnalysis worker in data-fetcher-2.0. Stocks only for now; crypto support deferred.
+
+```sql
+CREATE TABLE analysis_ticker_price_targets (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ticker_symbol VARCHAR(20) NOT NULL,
+    asset_type VARCHAR(10) NOT NULL CHECK (asset_type IN ('stock', 'etf', 'crypto')),
+    analysis_date DATE NOT NULL,
+    latest_close DECIMAL(24,12) NOT NULL,
+    entry_price DECIMAL(24,12),
+    target_price DECIMAL(24,12),
+    stop_loss DECIMAL(24,12),
+    signal_summary VARCHAR(50),
+    calculation_method VARCHAR(50) DEFAULT 'technical_composite',
+    confidence DECIMAL(5,4),
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(ticker_symbol, analysis_date)
+);
+
+-- Indexes
+CREATE INDEX idx_price_targets_symbol ON analysis_ticker_price_targets(ticker_symbol);
+CREATE INDEX idx_price_targets_date ON analysis_ticker_price_targets(analysis_date);
+CREATE INDEX idx_price_targets_symbol_date ON analysis_ticker_price_targets(ticker_symbol, analysis_date DESC);
+```
+
+#### Storage Strategy
+
+- **New row per ticker per day** (INSERT, not upsert per plan). History preserved for range calculations.
+- **Retention:** 90 days, aligned with `stock_prices`.
+
+#### Calculation Methodology
+
+| Field | Calculation |
+|-------|------------|
+| `entry_price` | 60% EMA-20 + 40% 20-day low. RSI > 70 → 2% discount |
+| `target_price` | 40% EMA-50 + 60% 20-day high. RSI < 30 → 5% bounce |
+| `stop_loss` | min(entry × 0.97, 20-day low × 0.99) |
+| `signal_summary` | Majority vote from candlestick signals + RSI zone |
+| `confidence` | 0-1 score based on data completeness |
+
+#### `metadata` JSON Structure
+
+```json
+{
+  "lookback_days": 20,
+  "low_20d": 175.50,
+  "high_20d": 195.20,
+  "ema_20": 182.30,
+  "ema_50": 178.90,
+  "rsi": 45.2
+}
+```
+
 ### telegram_users
 
 Stores registered Telegram bot users. Users register via Telegram deep link with one-click Yes/No confirmation.

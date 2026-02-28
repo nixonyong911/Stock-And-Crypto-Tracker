@@ -19,6 +19,9 @@ using DataFetcher.Worker.Workers.CandlestickAnalysis;
 using DataFetcher.Worker.Workers.Finnhub;
 using DataFetcher.Worker.Workers.Massive;
 using DataFetcher.Worker.Workers.Scheduling;
+using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
+using DataFetcher.Worker.Infrastructure.Providers.PriceTargetAnalysis.Repositories;
+using DataFetcher.Worker.Workers.PriceTargetAnalysis;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using Polly;
@@ -103,6 +106,12 @@ try
     builder.Services.AddScoped<ICandlestickAnalysisService, CandlestickAnalysisService>();
     builder.Services.AddScoped<IAnalysisBackfillService, AnalysisBackfillService>();
 
+    // Infrastructure - PriceTargetAnalysis Provider
+    builder.Services.AddScoped<IPriceTargetRepository, PriceTargetRepository>();
+
+    // Application - PriceTargetAnalysis Provider
+    builder.Services.AddScoped<IPriceTargetService, PriceTargetService>();
+
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();
 
@@ -121,6 +130,9 @@ try
     // CandlestickAnalysis workers
     builder.Services.AddHostedService<DataFetcher.Worker.Workers.CandlestickAnalysis.CandlestickAnalysisWorker>();
     builder.Services.AddHostedService<DataFetcher.Worker.Workers.CandlestickAnalysis.AnalysisBackfillQueueConsumer>();
+
+    // PriceTargetAnalysis worker
+    builder.Services.AddHostedService<PriceTargetWorker>();
 
     // Controllers
     builder.Services.AddControllers();
@@ -173,6 +185,14 @@ try
         StatusEndpoint = "/api/analysis/status",
         SwaggerGroup = "analysis",
         Capabilities = new List<string> { "candlestick-patterns", "backfill", "trigger", "webhook" }
+    });
+    registry.Register(new ProviderInfo
+    {
+        Name = "PriceTargetAnalysis",
+        Description = "Daily price target, entry point, and stop loss calculations using technical composite methodology",
+        StatusEndpoint = "/api/price-targets/status",
+        SwaggerGroup = "price-targets",
+        Capabilities = new List<string> { "price-targets", "entry-price", "stop-loss", "signal" }
     });
     builder.Services.AddSingleton<IProviderRegistry>(registry);
 
