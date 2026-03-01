@@ -8,5 +8,6 @@ public interface IPriceTargetRepository
     Task<IEnumerable<(DateOnly Date, decimal Close)>> GetRecentDailyClosesAsync(int stockTickerId, DateOnly asOfDate, int days);
     Task<(decimal? Ema20, decimal? Ema50, decimal? Rsi)?> GetLatestIndicatorAsync(int stockTickerId, DateOnly asOfDate);
     Task<IEnumerable<string>> GetRecentCandleSignalsAsync(int stockTickerId, DateOnly asOfDate, int days);
-    Task<IEnumerable<DateOnly>> GetComputedDatesAsync(string symbol, DateOnly startDate, DateOnly endDate);
+    Task<IEnumerable<DateOnly>> GetComputedDatesAsync(string symbol, DateOnly startDate, DateOnly endDate, string? traderType = null);
+    Task<int> DeleteOlderThanAsync(int retentionDays = 90);
 }

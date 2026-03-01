@@ -219,6 +219,9 @@ public class CryptoBackfillQueueConsumer : BackgroundService
 
             // Chain Massive indicator backfill
             await TriggerCryptoIndicatorBackfillAsync(request);
+
+            // Chain price target backfill
+            await TriggerCryptoPriceTargetBackfillAsync(request);
         }
         else
         {
@@ -305,6 +308,27 @@ public class CryptoBackfillQueueConsumer : BackgroundService
         {
             _logger.LogWarning(ex,
                 "Failed to trigger crypto indicator backfill for {Symbol} (non-fatal, can be triggered manually)",
+                priceBackfillRequest.Symbol);
+        }
+    }
+
+    private async Task TriggerCryptoPriceTargetBackfillAsync(CryptoBackfillRequest priceBackfillRequest)
+    {
+        try
+        {
+            var url = $"http://data-fetcher-2.0:8080/api/price-targets/crypto/backfill/{priceBackfillRequest.Symbol}?days=90";
+
+            using var httpClient = new HttpClient();
+            var response = await httpClient.PostAsync(url, null);
+
+            _logger.LogInformation(
+                "Triggered crypto price target backfill for {Symbol}: {StatusCode}",
+                priceBackfillRequest.Symbol, response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to trigger crypto price target backfill for {Symbol} (non-fatal, can be triggered manually)",
                 priceBackfillRequest.Symbol);
         }
     }

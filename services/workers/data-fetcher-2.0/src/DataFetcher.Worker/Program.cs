@@ -118,10 +118,15 @@ try
 
     // Infrastructure - PriceTargetAnalysis Provider
     builder.Services.AddScoped<IPriceTargetRepository, PriceTargetRepository>();
+    builder.Services.AddScoped<IPriceTargetParametersRepository, PriceTargetParametersRepository>();
+    builder.Services.AddScoped<ICryptoPriceTargetRepository, CryptoPriceTargetRepository>();
 
     // Application - PriceTargetAnalysis Provider
+    builder.Services.AddScoped<IPriceTargetCalculatorService, PriceTargetCalculatorService>();
     builder.Services.AddScoped<IPriceTargetService, PriceTargetService>();
     builder.Services.AddScoped<IPriceTargetBackfillService, PriceTargetBackfillService>();
+    builder.Services.AddScoped<ICryptoPriceTargetService, CryptoPriceTargetService>();
+    builder.Services.AddScoped<ICryptoPriceTargetBackfillService, CryptoPriceTargetBackfillService>();
 
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();

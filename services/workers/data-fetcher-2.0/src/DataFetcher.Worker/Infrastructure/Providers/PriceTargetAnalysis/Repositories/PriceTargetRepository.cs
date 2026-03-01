@@ -23,19 +23,23 @@ public class PriceTargetRepository : IPriceTargetRepository
 
         const string sql = @"
             INSERT INTO analysis_ticker_price_targets (
-                ticker_symbol, asset_type, analysis_date,
-                latest_close, entry_price, target_price, stop_loss,
+                ticker_symbol, asset_type, trader_type, analysis_date,
+                latest_close, entry_price, entry_price_low, entry_price_high,
+                target_price, stop_loss,
                 signal_summary, calculation_method, confidence, metadata,
                 created_at, updated_at
             ) VALUES (
-                @Symbol, @AssetType, @AnalysisDate,
-                @LatestClose, @EntryPrice, @TargetPrice, @StopLoss,
+                @Symbol, @AssetType, @TraderType, @AnalysisDate,
+                @LatestClose, @EntryPrice, @EntryPriceLow, @EntryPriceHigh,
+                @TargetPrice, @StopLoss,
                 @SignalSummary, @CalculationMethod, @Confidence, @MetadataJson::jsonb,
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
-            ON CONFLICT (ticker_symbol, analysis_date) DO UPDATE SET
+            ON CONFLICT (ticker_symbol, analysis_date, trader_type) DO UPDATE SET
                 latest_close = EXCLUDED.latest_close,
                 entry_price = EXCLUDED.entry_price,
+                entry_price_low = EXCLUDED.entry_price_low,
+                entry_price_high = EXCLUDED.entry_price_high,
                 target_price = EXCLUDED.target_price,
                 stop_loss = EXCLUDED.stop_loss,
                 signal_summary = EXCLUDED.signal_summary,
@@ -49,9 +53,12 @@ public class PriceTargetRepository : IPriceTargetRepository
         {
             target.Symbol,
             target.AssetType,
+            target.TraderType,
             AnalysisDate = target.AnalysisDate,
             target.LatestClose,
             target.EntryPrice,
+            target.EntryPriceLow,
+            target.EntryPriceHigh,
             target.TargetPrice,
             target.StopLoss,
             target.SignalSummary,
@@ -60,7 +67,7 @@ public class PriceTargetRepository : IPriceTargetRepository
             target.MetadataJson
         });
 
-        _logger.LogDebug("Inserted price target for {Symbol} on {Date}", target.Symbol, target.AnalysisDate);
+        _logger.LogDebug("Inserted price target for {Symbol}/{TraderType} on {Date}", target.Symbol, target.TraderType, target.AnalysisDate);
     }
 
     public async Task<IEnumerable<(DateOnly Date, decimal Close)>> GetRecentDailyClosesAsync(int stockTickerId, DateOnly asOfDate, int days)
@@ -142,25 +149,45 @@ public class PriceTargetRepository : IPriceTargetRepository
         return signals;
     }
 
-    public async Task<IEnumerable<DateOnly>> GetComputedDatesAsync(string symbol, DateOnly startDate, DateOnly endDate)
+    public async Task<IEnumerable<DateOnly>> GetComputedDatesAsync(string symbol, DateOnly startDate, DateOnly endDate, string? traderType = null)
     {
-        const string sql = @"
-            SELECT analysis_date
+        var sql = @"
+            SELECT DISTINCT analysis_date
             FROM analysis_ticker_price_targets
             WHERE ticker_symbol = @Symbol
               AND analysis_date >= @StartDate
-              AND analysis_date <= @EndDate
-            ORDER BY analysis_date ASC";
+              AND analysis_date <= @EndDate";
+
+        if (traderType != null)
+            sql += " AND trader_type = @TraderType";
+
+        sql += " ORDER BY analysis_date ASC";
 
         using var connection = _connectionFactory.CreateConnection();
         var dates = await connection.QueryAsync<DateTime>(sql, new
         {
             Symbol = symbol,
             StartDate = startDate,
-            EndDate = endDate
+            EndDate = endDate,
+            TraderType = traderType
         });
 
         return dates.Select(d => DateOnly.FromDateTime(d));
+    }
+
+    public async Task<int> DeleteOlderThanAsync(int retentionDays = 90)
+    {
+        const string sql = @"
+            DELETE FROM analysis_ticker_price_targets
+            WHERE analysis_date < CURRENT_DATE - @RetentionDays";
+
+        using var connection = _connectionFactory.CreateConnection();
+        var deleted = await connection.ExecuteAsync(sql, new { RetentionDays = retentionDays });
+
+        if (deleted > 0)
+            _logger.LogInformation("Deleted {Count} price target rows older than {Days} days", deleted, retentionDays);
+
+        return deleted;
     }
 
     private class DailyCloseRow

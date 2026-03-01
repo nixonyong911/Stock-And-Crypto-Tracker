@@ -1,29 +1,19 @@
 using System.Text.Json;
+using DataFetcher.Worker.Domain.Providers.PriceTargetAnalysis.Entities;
 
 namespace DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 
-/// <summary>
-/// Pure calculation logic for price targets. No DB or I/O dependencies.
-/// Methodology: Technical composite using EMA, daily OHLCV, RSI, and candlestick signals.
-/// </summary>
-public static class PriceTargetCalculator
+public class PriceTargetCalculatorService : IPriceTargetCalculatorService
 {
-    private const decimal OverboughtRsiThreshold = 70m;
-    private const decimal OversoldRsiThreshold = 30m;
-    private const decimal OverboughtDiscount = 0.02m;
-    private const decimal OversoldBounce = 0.05m;
-    private const decimal StopLossPercent = 0.03m;
-    private const int LookbackDays = 20;
-
     public record IndicatorSnapshot(decimal? Ema20, decimal? Ema50, decimal? Rsi);
-
     public record DailyClose(DateOnly Date, decimal Close);
-
     public record CandleSignal(string Signal);
 
     public record TargetResult(
         decimal LatestClose,
         decimal? EntryPrice,
+        decimal? EntryPriceLow,
+        decimal? EntryPriceHigh,
         decimal? TargetPrice,
         decimal? StopLoss,
         string SignalSummary,
@@ -31,83 +21,78 @@ public static class PriceTargetCalculator
         string MetadataJson
     );
 
-    public static TargetResult Calculate(
+    public TargetResult Calculate(
         decimal latestClose,
         IReadOnlyList<DailyClose> recentCloses,
         IndicatorSnapshot? indicators,
-        IReadOnlyList<CandleSignal> recentSignals)
+        IReadOnlyList<CandleSignal> recentSignals,
+        PriceTargetParameters parameters)
     {
         if (recentCloses.Count == 0)
-            return new TargetResult(latestClose, null, null, null, "neutral", null, "{}");
+            return new TargetResult(latestClose, null, null, null, null, null, "neutral", null, "{}");
 
-        var closes = recentCloses.OrderByDescending(c => c.Date).Take(LookbackDays).ToList();
-        var low20 = closes.Min(c => c.Close);
-        var high20 = closes.Max(c => c.Close);
+        var closes = recentCloses.OrderByDescending(c => c.Date).Take(parameters.LookbackDays).ToList();
+        var low = closes.Min(c => c.Close);
+        var high = closes.Max(c => c.Close);
 
-        // Entry price: weighted average of EMA-20 and 20-day low
-        decimal? entryPrice = null;
-        if (indicators?.Ema20 != null)
-        {
-            entryPrice = (indicators.Ema20.Value * 0.6m) + (low20 * 0.4m);
-        }
-        else
-        {
-            entryPrice = low20 * 1.01m;
-        }
+        decimal? entryPrice = indicators?.Ema20 != null
+            ? (indicators.Ema20.Value * 0.6m) + (low * 0.4m)
+            : low * 1.01m;
 
-        if (indicators?.Rsi > OverboughtRsiThreshold && entryPrice.HasValue)
-        {
-            entryPrice = entryPrice.Value * (1m - OverboughtDiscount);
-        }
+        if (indicators?.Rsi > parameters.OverboughtRsi && entryPrice.HasValue)
+            entryPrice = entryPrice.Value * (1m - parameters.OverboughtDiscount);
 
-        // Target price: weighted average of EMA-50 and 20-day high
-        decimal? targetPrice = null;
-        if (indicators?.Ema50 != null)
-        {
-            targetPrice = (indicators.Ema50.Value * 0.4m) + (high20 * 0.6m);
-        }
-        else
-        {
-            targetPrice = high20 * 0.99m;
-        }
+        decimal? targetPrice = indicators?.Ema50 != null
+            ? (indicators.Ema50.Value * 0.4m) + (high * 0.6m)
+            : high * 0.99m;
 
-        if (indicators?.Rsi < OversoldRsiThreshold && targetPrice.HasValue)
+        if (indicators?.Rsi < parameters.OversoldRsi && targetPrice.HasValue)
         {
-            var bounceTarget = latestClose * (1m + OversoldBounce);
+            var bounceTarget = latestClose * (1m + parameters.OversoldBounce);
             if (bounceTarget > targetPrice.Value)
                 targetPrice = bounceTarget;
         }
 
         if (entryPrice.HasValue && targetPrice.HasValue && targetPrice.Value <= entryPrice.Value)
-        {
             targetPrice = entryPrice.Value * 1.05m;
-        }
 
-        // Stop loss: 3% below entry or below 20-day low, whichever is lower
         decimal? stopLoss = null;
         if (entryPrice.HasValue)
         {
-            var slFromEntry = entryPrice.Value * (1m - StopLossPercent);
-            var slFromLow = low20 * 0.99m;
+            var slFromEntry = entryPrice.Value * (1m - parameters.StopLossPct);
+            var slFromLow = low * 0.99m;
             stopLoss = Math.Min(slFromEntry, slFromLow);
         }
 
-        var signal = DetermineSignal(recentSignals, indicators, latestClose);
-        var confidence = CalculateConfidence(closes.Count, indicators);
+        decimal? entryPriceLow = entryPrice.HasValue
+            ? Math.Round(entryPrice.Value * (1m - parameters.EntryRangePct), 6)
+            : null;
+        decimal? entryPriceHigh = entryPrice.HasValue
+            ? Math.Round(entryPrice.Value * (1m + parameters.EntryRangePct), 6)
+            : null;
+
+        var signal = DetermineSignal(recentSignals, indicators, latestClose, parameters);
+        var confidence = CalculateConfidence(closes.Count, indicators, parameters.LookbackDays);
 
         var metadata = new
         {
             lookback_days = closes.Count,
-            low_20d = low20,
-            high_20d = high20,
+            low_period = low,
+            high_period = high,
             ema_20 = indicators?.Ema20,
             ema_50 = indicators?.Ema50,
-            rsi = indicators?.Rsi
+            rsi = indicators?.Rsi,
+            trader_type = parameters.TraderType,
+            asset_type = parameters.AssetType,
+            stop_loss_pct = parameters.StopLossPct,
+            entry_range_pct = parameters.EntryRangePct
         };
 
         return new TargetResult(
             latestClose,
             entryPrice.HasValue ? Math.Round(entryPrice.Value, 6) : null,
+            entryPriceLow,
+            entryPriceHigh,
             targetPrice.HasValue ? Math.Round(targetPrice.Value, 6) : null,
             stopLoss.HasValue ? Math.Round(stopLoss.Value, 6) : null,
             signal,
@@ -116,27 +101,22 @@ public static class PriceTargetCalculator
         );
     }
 
-    private const decimal TrendWeight = 0.40m;
-    private const decimal MomentumWeight = 0.30m;
-    private const decimal PatternWeight = 0.30m;
-    private const decimal BullishThreshold = 0.20m;
-    private const decimal BearishThreshold = -0.20m;
-
     private static string DetermineSignal(
         IReadOnlyList<CandleSignal> signals,
         IndicatorSnapshot? indicators,
-        decimal latestClose)
+        decimal latestClose,
+        PriceTargetParameters parameters)
     {
         var trendScore = ScoreTrend(indicators, latestClose);
-        var momentumScore = ScoreMomentum(indicators?.Rsi);
+        var momentumScore = ScoreMomentum(indicators?.Rsi, parameters);
         var patternScore = ScorePatterns(signals);
 
-        var composite = (trendScore * TrendWeight)
-                      + (momentumScore * MomentumWeight)
-                      + (patternScore * PatternWeight);
+        var composite = (trendScore * parameters.TrendWeight)
+                      + (momentumScore * parameters.MomentumWeight)
+                      + (patternScore * parameters.PatternWeight);
 
-        if (composite > BullishThreshold) return "bullish";
-        if (composite < BearishThreshold) return "bearish";
+        if (composite > parameters.BullishThreshold) return "bullish";
+        if (composite < parameters.BearishThreshold) return "bearish";
         return "neutral";
     }
 
@@ -157,13 +137,13 @@ public static class PriceTargetCalculator
         return Math.Clamp(score, -1.5m, 1.5m);
     }
 
-    private static decimal ScoreMomentum(decimal? rsi)
+    private static decimal ScoreMomentum(decimal? rsi, PriceTargetParameters parameters)
     {
         if (!rsi.HasValue) return 0m;
         var r = rsi.Value;
 
-        if (r > OverboughtRsiThreshold) return -1.0m;
-        if (r < OversoldRsiThreshold) return 1.0m;
+        if (r > parameters.OverboughtRsi) return -1.0m;
+        if (r < parameters.OversoldRsi) return 1.0m;
         if (r >= 55m) return -0.3m;
         if (r <= 45m) return 0.3m;
         return 0m;
@@ -181,11 +161,11 @@ public static class PriceTargetCalculator
         return 0m;
     }
 
-    private static decimal CalculateConfidence(int dataPoints, IndicatorSnapshot? indicators)
+    private static decimal CalculateConfidence(int dataPoints, IndicatorSnapshot? indicators, int lookbackDays)
     {
         var score = 0m;
 
-        score += Math.Min(dataPoints / 20m, 1m) * 0.4m;
+        score += Math.Min(dataPoints / (decimal)lookbackDays, 1m) * 0.4m;
 
         if (indicators != null)
         {

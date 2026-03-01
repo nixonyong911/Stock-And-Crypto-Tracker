@@ -6,24 +6,27 @@ using StockTracker.Common.Metrics;
 
 namespace DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 
-public class PriceTargetService : IPriceTargetService
+public class CryptoPriceTargetService : ICryptoPriceTargetService
 {
-    private readonly IStockTickerRepository _tickerRepository;
+    private readonly ICryptoTickerRepository _tickerRepository;
+    private readonly ICryptoPriceTargetRepository _cryptoRepository;
     private readonly IPriceTargetRepository _priceTargetRepository;
     private readonly IPriceTargetParametersRepository _parametersRepository;
     private readonly IPriceTargetCalculatorService _calculator;
     private readonly IMetricsClient _metrics;
-    private readonly ILogger<PriceTargetService> _logger;
+    private readonly ILogger<CryptoPriceTargetService> _logger;
 
-    public PriceTargetService(
-        IStockTickerRepository tickerRepository,
+    public CryptoPriceTargetService(
+        ICryptoTickerRepository tickerRepository,
+        ICryptoPriceTargetRepository cryptoRepository,
         IPriceTargetRepository priceTargetRepository,
         IPriceTargetParametersRepository parametersRepository,
         IPriceTargetCalculatorService calculator,
         IMetricsClient metrics,
-        ILogger<PriceTargetService> logger)
+        ILogger<CryptoPriceTargetService> logger)
     {
         _tickerRepository = tickerRepository;
+        _cryptoRepository = cryptoRepository;
         _priceTargetRepository = priceTargetRepository;
         _parametersRepository = parametersRepository;
         _calculator = calculator;
@@ -31,30 +34,30 @@ public class PriceTargetService : IPriceTargetService
         _logger = logger;
     }
 
-    public async Task<PriceTarget?> CalculateForStockAsync(int stockTickerId, string symbol, DateOnly date, CancellationToken ct = default)
+    public async Task<PriceTarget?> CalculateForCryptoAsync(int cryptoTickerId, string symbol, DateOnly date, CancellationToken ct = default)
     {
         try
         {
-            _logger.LogInformation("Calculating price targets for {Symbol} on {Date}", symbol, date);
+            _logger.LogInformation("Calculating crypto price targets for {Symbol} on {Date}", symbol, date);
 
-            var recentCloses = await _priceTargetRepository.GetRecentDailyClosesAsync(stockTickerId, date, 60);
+            var recentCloses = await _cryptoRepository.GetRecentDailyClosesAsync(cryptoTickerId, date, 60);
             var closesList = recentCloses.ToList();
 
             if (closesList.Count == 0)
             {
-                _logger.LogWarning("No daily close data for {Symbol} on {Date}", symbol, date);
+                _logger.LogWarning("No daily close data for crypto {Symbol} on {Date}", symbol, date);
                 return null;
             }
 
             var latestClosePrice = closesList.First().Close;
             if (latestClosePrice <= 0)
             {
-                _logger.LogWarning("Invalid close price for {Symbol} on {Date}: {Price}", symbol, date, latestClosePrice);
+                _logger.LogWarning("Invalid close price for crypto {Symbol} on {Date}: {Price}", symbol, date, latestClosePrice);
                 return null;
             }
 
-            var indicators = await _priceTargetRepository.GetLatestIndicatorAsync(stockTickerId, date);
-            var signals = await _priceTargetRepository.GetRecentCandleSignalsAsync(stockTickerId, date, 5);
+            var indicators = await _cryptoRepository.GetLatestIndicatorAsync(cryptoTickerId, date);
+            var signals = await _cryptoRepository.GetRecentCandleSignalsAsync(cryptoTickerId, date, 5);
 
             var indicatorSnapshot = indicators != null
                 ? new PriceTargetCalculatorService.IndicatorSnapshot(indicators.Value.Ema20, indicators.Value.Ema50, indicators.Value.Rsi)
@@ -62,7 +65,7 @@ public class PriceTargetService : IPriceTargetService
             var dailyCloses = closesList.Select(c => new PriceTargetCalculatorService.DailyClose(c.Date, c.Close)).ToList();
             var candleSignals = signals.Select(s => new PriceTargetCalculatorService.CandleSignal(s)).ToList();
 
-            var traderProfiles = await _parametersRepository.GetAllActiveParametersAsync("stock");
+            var traderProfiles = await _parametersRepository.GetAllActiveParametersAsync("crypto");
             PriceTarget? lastTarget = null;
 
             foreach (var parameters in traderProfiles)
@@ -71,9 +74,9 @@ public class PriceTargetService : IPriceTargetService
 
                 var target = new PriceTarget
                 {
-                    TickerId = stockTickerId,
+                    TickerId = cryptoTickerId,
                     Symbol = symbol,
-                    AssetType = "stock",
+                    AssetType = "crypto",
                     TraderType = parameters.TraderType,
                     AnalysisDate = date,
                     LatestClose = result.LatestClose,
@@ -92,22 +95,22 @@ public class PriceTargetService : IPriceTargetService
             }
 
             await _metrics.IncrementCounterAsync("price_target_operations_total", 1,
-                new Dictionary<string, string> { ["symbol"] = symbol, ["status"] = "success", ["asset_type"] = "stock" });
+                new Dictionary<string, string> { ["symbol"] = symbol, ["status"] = "success", ["asset_type"] = "crypto" });
 
-            _logger.LogInformation("Calculated price targets for {Symbol} ({Profiles} profiles)", symbol, traderProfiles.Count);
+            _logger.LogInformation("Calculated crypto price targets for {Symbol} ({Profiles} profiles)", symbol, traderProfiles.Count);
 
             return lastTarget;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calculating price targets for {Symbol}", symbol);
+            _logger.LogError(ex, "Error calculating crypto price targets for {Symbol}", symbol);
             await _metrics.IncrementCounterAsync("price_target_operations_total", 1,
-                new Dictionary<string, string> { ["symbol"] = symbol, ["status"] = "failed", ["asset_type"] = "stock" });
+                new Dictionary<string, string> { ["symbol"] = symbol, ["status"] = "failed", ["asset_type"] = "crypto" });
             throw;
         }
     }
 
-    public async Task<BatchPriceTargetResult> CalculateAllStocksAsync(DateOnly date, CancellationToken ct = default)
+    public async Task<BatchPriceTargetResult> CalculateAllCryptoAsync(DateOnly date, CancellationToken ct = default)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = new BatchPriceTargetResult { AnalysisDate = date };
@@ -118,7 +121,7 @@ public class PriceTargetService : IPriceTargetService
             var tickerList = tickers.ToList();
             result.TotalStocks = tickerList.Count;
 
-            _logger.LogInformation("Starting price target calculation for {Date} - {Count} stocks", date, tickerList.Count);
+            _logger.LogInformation("Starting crypto price target calculation for {Date} - {Count} tickers", date, tickerList.Count);
 
             foreach (var ticker in tickerList)
             {
@@ -126,7 +129,7 @@ public class PriceTargetService : IPriceTargetService
 
                 try
                 {
-                    var target = await CalculateForStockAsync(ticker.Id, ticker.Symbol, date, ct);
+                    var target = await CalculateForCryptoAsync(ticker.Id, ticker.Symbol, date, ct);
                     if (target != null)
                         result.SuccessCount++;
                     else
@@ -136,7 +139,7 @@ public class PriceTargetService : IPriceTargetService
                 {
                     result.FailedCount++;
                     result.Errors.Add($"{ticker.Symbol}: {ex.Message}");
-                    _logger.LogError(ex, "Failed to calculate targets for {Symbol}", ticker.Symbol);
+                    _logger.LogError(ex, "Failed to calculate crypto targets for {Symbol}", ticker.Symbol);
                 }
             }
 
@@ -144,10 +147,10 @@ public class PriceTargetService : IPriceTargetService
             result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
             result.Success = result.FailedCount == 0;
 
-            await _metrics.ObserveHistogramAsync("price_target_duration_seconds", result.DurationSeconds);
+            await _metrics.ObserveHistogramAsync("crypto_price_target_duration_seconds", result.DurationSeconds);
 
             _logger.LogInformation(
-                "Price target batch completed for {Date}: {Success}/{Total} stocks ({Skipped} skipped), {Duration:F2}s",
+                "Crypto price target batch completed for {Date}: {Success}/{Total} tickers ({Skipped} skipped), {Duration:F2}s",
                 date, result.SuccessCount, result.TotalStocks, result.SkippedCount, result.DurationSeconds);
 
             return result;
@@ -157,8 +160,8 @@ public class PriceTargetService : IPriceTargetService
             stopwatch.Stop();
             result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
             result.Success = false;
-            result.Errors.Add($"Batch failed: {ex.Message}");
-            _logger.LogError(ex, "Price target batch failed for {Date}", date);
+            result.Errors.Add($"Crypto batch failed: {ex.Message}");
+            _logger.LogError(ex, "Crypto price target batch failed for {Date}", date);
             throw;
         }
     }

@@ -224,6 +224,9 @@ public class BackfillQueueConsumer : BackgroundService
 
             // Trigger indicator backfill via data-fetcher-2.0 HTTP endpoint
             await TriggerIndicatorBackfillAsync(request);
+
+            // Trigger price target backfill
+            await TriggerPriceTargetBackfillAsync(request);
         }
         else
         {
@@ -316,6 +319,27 @@ public class BackfillQueueConsumer : BackgroundService
             // Non-fatal: indicator backfill failure should not affect price backfill success
             _logger.LogWarning(ex,
                 "Failed to trigger indicator backfill for {Symbol} (non-fatal, can be triggered manually)",
+                priceBackfillRequest.Symbol);
+        }
+    }
+
+    private async Task TriggerPriceTargetBackfillAsync(BackfillRequest priceBackfillRequest)
+    {
+        try
+        {
+            var url = $"http://data-fetcher-2.0:8080/api/price-targets/backfill/{priceBackfillRequest.Symbol}?days=90";
+
+            using var httpClient = new HttpClient();
+            var response = await httpClient.PostAsync(url, null);
+
+            _logger.LogInformation(
+                "Triggered price target backfill for {Symbol}: {StatusCode}",
+                priceBackfillRequest.Symbol, response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to trigger price target backfill for {Symbol} (non-fatal, can be triggered manually)",
                 priceBackfillRequest.Symbol);
         }
     }

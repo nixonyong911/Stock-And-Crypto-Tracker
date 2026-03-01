@@ -2,12 +2,15 @@ namespace DataFetcher.Worker.Domain.Providers.PriceTargetAnalysis.Entities;
 
 public class PriceTarget
 {
-    public int StockTickerId { get; set; }
+    public int TickerId { get; set; }
     public string Symbol { get; set; } = string.Empty;
     public string AssetType { get; set; } = "stock";
+    public string TraderType { get; set; } = "swing";
     public DateOnly AnalysisDate { get; set; }
     public decimal LatestClose { get; set; }
     public decimal? EntryPrice { get; set; }
+    public decimal? EntryPriceLow { get; set; }
+    public decimal? EntryPriceHigh { get; set; }
     public decimal? TargetPrice { get; set; }
     public decimal? StopLoss { get; set; }
     public string SignalSummary { get; set; } = "neutral";

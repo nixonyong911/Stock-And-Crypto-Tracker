@@ -2,6 +2,7 @@ using System.Text.Json;
 using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 using DataFetcher.Worker.Domain.Providers.PriceTargetAnalysis.Models;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
+using DataFetcher.Worker.Infrastructure.Providers.PriceTargetAnalysis.Repositories;
 using StockTracker.Common.Metrics;
 
 namespace DataFetcher.Worker.Workers.PriceTargetAnalysis;
@@ -84,21 +85,44 @@ public class PriceTargetWorker : BackgroundService
                     try
                     {
                         using var analysisScope = _serviceProvider.CreateScope();
-                        var service = analysisScope.ServiceProvider.GetRequiredService<IPriceTargetService>();
+                        var stockService = analysisScope.ServiceProvider.GetRequiredService<IPriceTargetService>();
+                        var cryptoService = analysisScope.ServiceProvider.GetRequiredService<ICryptoPriceTargetService>();
                         var fetchScheduleRepo = analysisScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
 
                         var analyzeDate = GetAnalyzeDate(config.AnalyzeDate);
-                        var result = await service.CalculateAllStocksAsync(analyzeDate, stoppingToken);
+                        var statusParts = new List<string>();
 
-                        var statusMessage = $"Calculated {result.SuccessCount}/{result.TotalStocks} stocks " +
-                                          $"({result.SkippedCount} skipped), Duration: {result.DurationSeconds:F1}s";
+                        var isWeekday = analyzeDate.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+                        if (isWeekday)
+                        {
+                            var stockResult = await stockService.CalculateAllStocksAsync(analyzeDate, stoppingToken);
+                            statusParts.Add($"Stocks: {stockResult.SuccessCount}/{stockResult.TotalStocks} ({stockResult.SkippedCount} skipped, {stockResult.DurationSeconds:F1}s)");
+                            if (stockResult.Errors.Count > 0)
+                                statusParts.Add($"Stock errors: {string.Join("; ", stockResult.Errors.Take(3))}");
+                        }
+                        else
+                        {
+                            statusParts.Add("Stocks: skipped (weekend)");
+                        }
 
-                        if (result.Errors.Count > 0)
-                            statusMessage += $". Errors: {string.Join("; ", result.Errors.Take(3))}";
+                        var cryptoResult = await cryptoService.CalculateAllCryptoAsync(analyzeDate, stoppingToken);
+                        statusParts.Add($"Crypto: {cryptoResult.SuccessCount}/{cryptoResult.TotalStocks} ({cryptoResult.SkippedCount} skipped, {cryptoResult.DurationSeconds:F1}s)");
+                        if (cryptoResult.Errors.Count > 0)
+                            statusParts.Add($"Crypto errors: {string.Join("; ", cryptoResult.Errors.Take(3))}");
+
+                        var priceTargetRepo = analysisScope.ServiceProvider.GetRequiredService<IPriceTargetRepository>();
+                        var deleted = await priceTargetRepo.DeleteOlderThanAsync(90);
+                        if (deleted > 0)
+                            statusParts.Add($"Cleanup: {deleted} old rows removed");
+
+                        var statusMessage = string.Join(" | ", statusParts);
+                        var overallSuccess = isWeekday
+                            ? cryptoResult.Success
+                            : cryptoResult.Success;
 
                         await fetchScheduleRepo.UpdateLastRunAsync(
                             schedule.Id,
-                            result.Success ? "success" : "partial",
+                            overallSuccess ? "success" : "partial",
                             statusMessage);
 
                         await _metrics.IncrementCounterAsync("job_executions_total", 1,

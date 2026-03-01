@@ -1,55 +1,55 @@
 using System.Diagnostics;
 using DataFetcher.Worker.Domain.Providers.PriceTargetAnalysis.Entities;
-using DataFetcher.Worker.Infrastructure.Providers.CandlestickAnalysis.Repositories;
+using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.PriceTargetAnalysis.Repositories;
 using StockTracker.Common.Metrics;
 
 namespace DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 
-public class PriceTargetBackfillService : IPriceTargetBackfillService
+public class CryptoPriceTargetBackfillService : ICryptoPriceTargetBackfillService
 {
-    private readonly IPriceTargetService _priceTargetService;
+    private readonly ICryptoPriceTargetService _cryptoPriceTargetService;
     private readonly IPriceTargetRepository _priceTargetRepository;
-    private readonly IAnalysisRepository _analysisRepository;
-    private readonly IStockPriceRepository _stockPriceRepository;
+    private readonly ICryptoPriceTargetRepository _cryptoRepository;
+    private readonly ICryptoTickerRepository _tickerRepository;
     private readonly IPriceTargetParametersRepository _parametersRepository;
-    private readonly ILogger<PriceTargetBackfillService> _logger;
+    private readonly ILogger<CryptoPriceTargetBackfillService> _logger;
     private readonly IMetricsClient _metrics;
 
-    public PriceTargetBackfillService(
-        IPriceTargetService priceTargetService,
+    public CryptoPriceTargetBackfillService(
+        ICryptoPriceTargetService cryptoPriceTargetService,
         IPriceTargetRepository priceTargetRepository,
-        IAnalysisRepository analysisRepository,
-        IStockPriceRepository stockPriceRepository,
+        ICryptoPriceTargetRepository cryptoRepository,
+        ICryptoTickerRepository tickerRepository,
         IPriceTargetParametersRepository parametersRepository,
-        ILogger<PriceTargetBackfillService> logger,
+        ILogger<CryptoPriceTargetBackfillService> logger,
         IMetricsClient metrics)
     {
-        _priceTargetService = priceTargetService;
+        _cryptoPriceTargetService = cryptoPriceTargetService;
         _priceTargetRepository = priceTargetRepository;
-        _analysisRepository = analysisRepository;
-        _stockPriceRepository = stockPriceRepository;
+        _cryptoRepository = cryptoRepository;
+        _tickerRepository = tickerRepository;
         _parametersRepository = parametersRepository;
         _logger = logger;
         _metrics = metrics;
     }
 
-    public async Task<BackfillResult> BackfillAsync(int stockTickerId, string symbol, int days = 90, CancellationToken ct = default)
+    public async Task<BackfillResult> BackfillAsync(int cryptoTickerId, string symbol, int days = 90, CancellationToken ct = default)
     {
         var result = new BackfillResult();
         var stopwatch = Stopwatch.StartNew();
 
-        _logger.LogInformation("Starting price target backfill for {Symbol} (ID: {Id}) - {Days} days",
-            symbol, stockTickerId, days);
+        _logger.LogInformation("Starting crypto price target backfill for {Symbol} (ID: {Id}) - {Days} days",
+            symbol, cryptoTickerId, days);
 
         try
         {
             var endDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
             var startDate = endDate.AddDays(-days);
 
-            var analyzedDates = (await _analysisRepository.GetAnalyzedDatesAsync(stockTickerId, startDate, endDate)).ToHashSet();
+            var analyzedDates = (await _cryptoRepository.GetAnalyzedDatesAsync(cryptoTickerId, startDate, endDate)).ToHashSet();
 
-            var traderProfiles = await _parametersRepository.GetAllActiveParametersAsync("stock");
+            var traderProfiles = await _parametersRepository.GetAllActiveParametersAsync("crypto");
             var allProfilesComputed = new HashSet<DateOnly>(analyzedDates.Count);
 
             foreach (var date in analyzedDates)
@@ -69,12 +69,12 @@ public class PriceTargetBackfillService : IPriceTargetBackfillService
             result.Skipped = allProfilesComputed.Count;
 
             _logger.LogInformation(
-                "Backfill plan for {Symbol}: {Missing} dates to compute, {Skipped} already computed, {Total} total with candlestick data",
+                "Crypto backfill plan for {Symbol}: {Missing} dates to compute, {Skipped} already computed, {Total} total with candlestick data",
                 symbol, missingDates.Count, result.Skipped, result.TotalDates);
 
             if (missingDates.Count == 0)
             {
-                _logger.LogInformation("All dates already computed for {Symbol}", symbol);
+                _logger.LogInformation("All dates already computed for crypto {Symbol}", symbol);
                 result.Duration = stopwatch.Elapsed;
                 return result;
             }
@@ -83,20 +83,20 @@ public class PriceTargetBackfillService : IPriceTargetBackfillService
             {
                 if (ct.IsCancellationRequested)
                 {
-                    _logger.LogWarning("Backfill cancelled for {Symbol} after {Computed} dates", symbol, result.Computed);
+                    _logger.LogWarning("Crypto backfill cancelled for {Symbol} after {Computed} dates", symbol, result.Computed);
                     break;
                 }
 
                 try
                 {
-                    await _priceTargetService.CalculateForStockAsync(stockTickerId, symbol, date, ct);
+                    await _cryptoPriceTargetService.CalculateForCryptoAsync(cryptoTickerId, symbol, date, ct);
                     result.Computed++;
                 }
                 catch (Exception ex)
                 {
                     result.Failed++;
                     result.Errors.Add($"{symbol}/{date}: {ex.Message}");
-                    _logger.LogError(ex, "Error computing price target for {Symbol} on {Date}", symbol, date);
+                    _logger.LogError(ex, "Error computing crypto price target for {Symbol} on {Date}", symbol, date);
                 }
 
                 await Task.Delay(50, ct);
@@ -106,22 +106,16 @@ public class PriceTargetBackfillService : IPriceTargetBackfillService
             result.Duration = stopwatch.Elapsed;
 
             _logger.LogInformation(
-                "Backfill completed for {Symbol}: {Computed} computed, {Skipped} skipped, {Failed} failed, Duration: {Duration:F1}s",
+                "Crypto backfill completed for {Symbol}: {Computed} computed, {Skipped} skipped, {Failed} failed, Duration: {Duration:F1}s",
                 symbol, result.Computed, result.Skipped, result.Failed, result.Duration.TotalSeconds);
 
             await _metrics.IncrementCounterAsync("price_target_backfill_operations_total", 1,
                 new Dictionary<string, string>
                 {
                     ["symbol"] = symbol,
+                    ["asset_type"] = "crypto",
                     ["status"] = result.Failed == 0 ? "success" : "partial"
                 });
-
-            await _metrics.IncrementCounterAsync("price_target_backfill_dates_total", result.Computed,
-                new Dictionary<string, string> { ["symbol"] = symbol });
-
-            await _metrics.ObserveHistogramAsync("price_target_backfill_duration_seconds",
-                result.Duration.TotalSeconds,
-                new Dictionary<string, string> { ["symbol"] = symbol });
         }
         catch (Exception ex)
         {
@@ -129,13 +123,14 @@ public class PriceTargetBackfillService : IPriceTargetBackfillService
             result.Duration = stopwatch.Elapsed;
             result.Errors.Add(ex.Message);
 
-            _logger.LogError(ex, "Backfill failed for {Symbol} after {Duration:F1}s",
+            _logger.LogError(ex, "Crypto backfill failed for {Symbol} after {Duration:F1}s",
                 symbol, result.Duration.TotalSeconds);
 
             await _metrics.IncrementCounterAsync("price_target_backfill_operations_total", 1,
                 new Dictionary<string, string>
                 {
                     ["symbol"] = symbol,
+                    ["asset_type"] = "crypto",
                     ["status"] = "error"
                 });
         }
@@ -148,18 +143,18 @@ public class PriceTargetBackfillService : IPriceTargetBackfillService
         var aggregated = new BackfillResult();
         var stopwatch = Stopwatch.StartNew();
 
-        _logger.LogInformation("Starting price target backfill for all active tickers - {Days} days", days);
+        _logger.LogInformation("Starting crypto price target backfill for all active crypto tickers - {Days} days", days);
 
         try
         {
-            var tickers = (await _stockPriceRepository.GetActiveTickersAsync()).ToList();
-            _logger.LogInformation("Found {Count} active tickers for backfill", tickers.Count);
+            var tickers = (await _tickerRepository.GetActiveTickersAsync()).ToList();
+            _logger.LogInformation("Found {Count} active crypto tickers for backfill", tickers.Count);
 
             foreach (var ticker in tickers)
             {
                 if (ct.IsCancellationRequested)
                 {
-                    _logger.LogWarning("BackfillAll cancelled after processing some tickers");
+                    _logger.LogWarning("Crypto BackfillAll cancelled after processing some tickers");
                     break;
                 }
 
@@ -176,7 +171,7 @@ public class PriceTargetBackfillService : IPriceTargetBackfillService
                 {
                     aggregated.Failed++;
                     aggregated.Errors.Add($"{ticker.Symbol}: {ex.Message}");
-                    _logger.LogError(ex, "BackfillAll error for ticker {Symbol}", ticker.Symbol);
+                    _logger.LogError(ex, "Crypto BackfillAll error for ticker {Symbol}", ticker.Symbol);
                 }
             }
 
@@ -184,19 +179,16 @@ public class PriceTargetBackfillService : IPriceTargetBackfillService
             aggregated.Duration = stopwatch.Elapsed;
 
             _logger.LogInformation(
-                "BackfillAll completed: {Computed} computed, {Skipped} skipped, {Failed} failed across {TickerCount} tickers, Duration: {Duration:F1}s",
+                "Crypto BackfillAll completed: {Computed} computed, {Skipped} skipped, {Failed} failed across {TickerCount} tickers, Duration: {Duration:F1}s",
                 aggregated.Computed, aggregated.Skipped, aggregated.Failed, tickers.Count, aggregated.Duration.TotalSeconds);
-
-            await _metrics.ObserveHistogramAsync("price_target_backfill_all_duration_seconds",
-                aggregated.Duration.TotalSeconds);
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
             aggregated.Duration = stopwatch.Elapsed;
-            aggregated.Errors.Add($"BackfillAll failed: {ex.Message}");
+            aggregated.Errors.Add($"Crypto BackfillAll failed: {ex.Message}");
 
-            _logger.LogError(ex, "BackfillAll failed after {Duration:F1}s", aggregated.Duration.TotalSeconds);
+            _logger.LogError(ex, "Crypto BackfillAll failed after {Duration:F1}s", aggregated.Duration.TotalSeconds);
         }
 
         return aggregated;
