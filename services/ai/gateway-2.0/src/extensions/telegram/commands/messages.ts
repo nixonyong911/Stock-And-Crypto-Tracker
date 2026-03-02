@@ -22,6 +22,8 @@ const KNOWN_COMMANDS = new Set([
   "removehelp",
   "helpremove",
   "unpair",
+  "wishlist",
+  "watchlist",
 ]);
 
 const composer = new Composer<TelegramBotContext>();

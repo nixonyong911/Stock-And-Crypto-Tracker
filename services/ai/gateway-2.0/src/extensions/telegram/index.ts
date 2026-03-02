@@ -64,6 +64,36 @@ export function createTelegramExtension(): IChannelExtension {
       bot.use(dedupMiddleware);
       bot.use(sessionMiddleware);
 
+      // Processing indicator for slash commands — shows "Processing..."
+      // that is auto-deleted once the handler finishes.
+      bot.use(async (ctx, next) => {
+        const text = ctx.message?.text;
+        if (!text?.startsWith("/")) return next();
+
+        const chatId = ctx.chat?.id;
+        if (!chatId) return next();
+
+        let statusMsgId: number | undefined;
+        try {
+          const preview =
+            text.length > 50 ? text.slice(0, 50) + "..." : text;
+          const msg = await ctx.reply(
+            `⏳ Processing your request...\n"${preview}"`
+          );
+          statusMsgId = msg.message_id;
+        } catch {
+          // Non-critical — continue without indicator
+        }
+
+        try {
+          await next();
+        } finally {
+          if (statusMsgId) {
+            ctx.api.deleteMessage(chatId, statusMsgId).catch(() => {});
+          }
+        }
+      });
+
       // Commands (order matters - commands before messages)
       bot.use(startComposer);
       bot.use(helpComposer);
