@@ -31,10 +31,11 @@ function displaySymbol(t: WishlistTickerData): string {
 
 function formatSignalPart(
   label: string,
-  signal: string,
+  signal: string | undefined,
   pct: number | null
 ): string {
-  const cap = signal.charAt(0).toUpperCase() + signal.slice(1);
+  const s = signal ?? "neutral";
+  const cap = s.charAt(0).toUpperCase() + s.slice(1);
   if (pct == null) return `${label}: ${cap}`;
   const sign = pct >= 0 ? "+" : "";
   return `${label}: ${cap} ${sign}${pct.toFixed(2)}%`;
@@ -143,7 +144,13 @@ async function handleWishlist(ctx: TelegramBotContext) {
       const cached = await redis.get(cacheKey);
       if (cached) {
         try {
-          cachedTickers.push(JSON.parse(cached) as WishlistTickerData);
+          const parsed = JSON.parse(cached) as WishlistTickerData;
+          if (parsed.weekSignal !== undefined) {
+            cachedTickers.push(parsed);
+          } else {
+            await redis.del(cacheKey);
+            uncachedRows.push(row);
+          }
         } catch {
           uncachedRows.push(row);
         }
