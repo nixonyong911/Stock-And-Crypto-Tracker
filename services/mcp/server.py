@@ -53,7 +53,15 @@ from tools.analysis import (
     get_bearish_stocks,
     get_pattern_statistics,
 )
+from tools.crypto_analysis import (
+    get_crypto_analysis,
+    list_detected_crypto_patterns,
+    get_bullish_crypto,
+    get_bearish_crypto,
+    get_crypto_pattern_statistics,
+)
 from tools.indicators import get_technical_signals
+from tools.crypto_indicators import get_crypto_technical_signals
 from tools.fundamentals import get_fundamentals_trend, compare_stocks
 from tools.economic import get_macro_environment
 from tools.earnings import get_earnings_history, get_market_earnings
@@ -242,6 +250,53 @@ class PriceTargetsInput(BaseModel):
     """Input for price target analysis query."""
     symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
     days: int = Field(default=1, description="Number of recent days to return", ge=1, le=30)
+
+
+class CryptoAnalysisInput(BaseModel):
+    """Input for crypto candlestick analysis query."""
+    symbol: str = Field(..., description="Crypto ticker symbol (e.g., 'BTC/USD', 'ETH/USD')", min_length=1, max_length=20)
+    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
+    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+
+    @field_validator('start_date', 'end_date')
+    @classmethod
+    def validate_date_format(cls, v: str) -> str:
+        try:
+            date.fromisoformat(v)
+            return v
+        except ValueError:
+            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
+
+
+class CryptoPatternListInput(BaseModel):
+    """Input for crypto pattern listing."""
+    analysis_date: str = Field(..., description="Date in YYYY-MM-DD format")
+    pattern_type: Optional[str] = Field(None, description="Filter by pattern type (e.g., 'doji', 'hammer', 'marubozu_bullish')")
+
+    @field_validator('analysis_date')
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        try:
+            date.fromisoformat(v)
+            return v
+        except ValueError:
+            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
+
+
+class CryptoTechnicalSignalsInput(BaseModel):
+    """Input for crypto technical indicator signals query."""
+    symbol: str = Field(..., description="Crypto ticker symbol (e.g., 'BTC/USD')", min_length=1, max_length=20)
+    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
+    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+
+    @field_validator('start_date', 'end_date')
+    @classmethod
+    def validate_date_format(cls, v: str) -> str:
+        try:
+            date.fromisoformat(v)
+            return v
+        except ValueError:
+            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
 
 
 # ===========================================
@@ -544,6 +599,128 @@ def _register_get_price_targets(app: FastMCP) -> None:
         )
 
 
+# -------------------------------------------
+# Crypto Tool Registration Functions
+# -------------------------------------------
+
+def _register_get_crypto_analysis(app: FastMCP) -> None:
+    """Register analysis_get_crypto tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_crypto",
+        annotations={"title": "Get Crypto Candlestick Analysis", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_crypto(params: CryptoAnalysisInput, conn=Depends(get_db)) -> str:
+        """
+        Query candlestick analysis data for a cryptocurrency within a date range.
+
+        Returns daily candlestick data including:
+        - Open, High, Low, Close prices and Volume
+        - Candle characteristics (body size, wicks, bullish/bearish)
+        - Detected candlestick patterns with confidence scores
+        """
+        return await get_crypto_analysis(
+            conn=conn, symbol=params.symbol,
+            start_date=params.start_date, end_date=params.end_date,
+        )
+
+
+def _register_list_crypto_patterns(app: FastMCP) -> None:
+    """Register analysis_list_crypto_patterns tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_list_crypto_patterns",
+        annotations={"title": "List Detected Crypto Patterns", **_RO_ANNOTATIONS},
+    )
+    async def analysis_list_crypto_patterns(params: CryptoPatternListInput, conn=Depends(get_db)) -> str:
+        """
+        List all detected candlestick patterns for crypto assets on a specific date.
+
+        Optionally filter by pattern type. Supported patterns:
+        - doji, long_legged_doji
+        - hammer, inverted_hammer
+        - shooting_star
+        - marubozu_bullish, marubozu_bearish
+        - spinning_top
+        """
+        return await list_detected_crypto_patterns(
+            conn=conn, analysis_date=params.analysis_date,
+            pattern_type=params.pattern_type,
+        )
+
+
+def _register_get_bullish_crypto(app: FastMCP) -> None:
+    """Register analysis_get_bullish_crypto tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_bullish_crypto",
+        annotations={"title": "Get Bullish Crypto", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_bullish_crypto(params: DateInput, conn=Depends(get_db)) -> str:
+        """
+        Get all crypto assets showing bullish patterns for a specific date, ordered by strength.
+
+        Returns crypto where is_bullish=true, ordered by body size (strongest first).
+        Includes any bullish reversal or strong bullish pattern signals.
+        """
+        return await get_bullish_crypto(conn=conn, analysis_date=params.analysis_date)
+
+
+def _register_get_bearish_crypto(app: FastMCP) -> None:
+    """Register analysis_get_bearish_crypto tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_bearish_crypto",
+        annotations={"title": "Get Bearish Crypto", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_bearish_crypto(params: DateInput, conn=Depends(get_db)) -> str:
+        """
+        Get all crypto assets showing bearish patterns for a specific date, ordered by strength.
+
+        Returns crypto where is_bullish=false, ordered by body size (strongest first).
+        Includes any bearish reversal or strong bearish pattern signals.
+        """
+        return await get_bearish_crypto(conn=conn, analysis_date=params.analysis_date)
+
+
+def _register_get_crypto_statistics(app: FastMCP) -> None:
+    """Register analysis_get_crypto_statistics tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_crypto_statistics",
+        annotations={"title": "Get Crypto Pattern Statistics", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_crypto_statistics(params: StatisticsInput, conn=Depends(get_db)) -> str:
+        """
+        Get aggregate statistics for crypto candlestick patterns over the last N days (1-90).
+
+        Returns:
+        - Overall bullish/bearish ratio
+        - Most common patterns detected
+        - Daily breakdown of crypto market sentiment
+        """
+        return await get_crypto_pattern_statistics(conn=conn, days=params.days)
+
+
+def _register_get_crypto_technical_signals(app: FastMCP) -> None:
+    """Register analysis_get_crypto_signals tool on a FastMCP instance."""
+    @app.tool(
+        name="analysis_get_crypto_signals",
+        annotations={"title": "Get Crypto Technical Signals", **_RO_ANNOTATIONS},
+    )
+    async def analysis_get_crypto_signals(params: CryptoTechnicalSignalsInput, conn=Depends(get_db)) -> str:
+        """
+        Get daily technical indicators for a cryptocurrency with built-in signal detection.
+
+        Returns time-series SMA, EMA, MACD, RSI plus detected signals:
+        - MACD bullish/bearish crossovers (histogram sign flip)
+        - RSI overbought/oversold zone entries and exits
+        - EMA/SMA crossovers (golden cross / death cross)
+        - Current assessment: RSI zone, MACD momentum, trend direction
+
+        Note: Indicator data has 90-day retention. Requests beyond that will be flagged.
+        """
+        return await get_crypto_technical_signals(
+            conn=conn, symbol=params.symbol,
+            start_date=params.start_date, end_date=params.end_date,
+        )
+
+
 # Tool name -> ToolEntry with min_tier annotation.
 # Tiers are cumulative: free < pro < max < dev.
 # A tool with min_tier="pro" is available to pro, max, and dev users.
@@ -568,6 +745,14 @@ _TOOL_REGISTRY: dict[str, ToolEntry] = {
     "analysis_screen_stocks":            ToolEntry(fn=_register_screen_stocks,            min_tier="free"),
     # Price targets
     "analysis_get_price_targets":        ToolEntry(fn=_register_get_price_targets,        min_tier="free"),
+    # Crypto candlestick pattern tools
+    "analysis_get_crypto":               ToolEntry(fn=_register_get_crypto_analysis,        min_tier="free"),
+    "analysis_get_crypto_statistics":    ToolEntry(fn=_register_get_crypto_statistics,       min_tier="free"),
+    "analysis_list_crypto_patterns":     ToolEntry(fn=_register_list_crypto_patterns,        min_tier="pro"),
+    "analysis_get_bullish_crypto":       ToolEntry(fn=_register_get_bullish_crypto,          min_tier="pro"),
+    "analysis_get_bearish_crypto":       ToolEntry(fn=_register_get_bearish_crypto,          min_tier="pro"),
+    # Crypto technical indicators
+    "analysis_get_crypto_signals":       ToolEntry(fn=_register_get_crypto_technical_signals, min_tier="free"),
 }
 
 
