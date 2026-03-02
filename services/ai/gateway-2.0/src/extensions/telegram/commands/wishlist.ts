@@ -24,18 +24,36 @@ function formatRange(low: number, high: number): string {
   return `${formatPrice(low)} - ${formatPrice(high)}`;
 }
 
+function displaySymbol(t: WishlistTickerData): string {
+  if (t.assetType === "crypto") return t.symbol.split("/")[0]!;
+  return t.symbol;
+}
+
+function formatSignalPart(
+  label: string,
+  signal: string,
+  pct: number | null
+): string {
+  const cap = signal.charAt(0).toUpperCase() + signal.slice(1);
+  if (pct == null) return `${label}: ${cap}`;
+  const sign = pct >= 0 ? "+" : "";
+  return `${label}: ${cap} ${sign}${pct.toFixed(2)}%`;
+}
+
 function formatTicker(t: WishlistTickerData): string {
+  const sym = displaySymbol(t);
+
   if (t.dataPoints === 0) {
-    return `**${t.symbol}** | Pending...`;
+    return `**${sym}** | Pending...`;
   }
 
   if (t.dataPoints < 5) {
-    return `**${t.symbol}** | ${t.latestClose != null ? formatPrice(t.latestClose) : "N/A"}\n  Building data... (${t.dataPoints} day${t.dataPoints === 1 ? "" : "s"})`;
+    return `**${sym}** | ${t.latestClose != null ? formatPrice(t.latestClose) : "N/A"}\n  Building data... (${t.dataPoints} day${t.dataPoints === 1 ? "" : "s"})`;
   }
 
   const lines: string[] = [];
   const badge = t.isEntryZone ? " **⚡ ENTRY ZONE**" : "";
-  lines.push(`**${t.symbol}** | ${t.latestClose != null ? formatPrice(t.latestClose) : "N/A"}${badge}`);
+  lines.push(`**${sym}** | ${t.latestClose != null ? formatPrice(t.latestClose) : "N/A"}${badge}`);
 
   if (t.entryRange) {
     lines.push(`  Entry: ${formatRange(t.entryRange.low, t.entryRange.high)} (today: ${formatPrice(t.entryRange.today)})`);
@@ -46,10 +64,13 @@ function formatTicker(t: WishlistTickerData): string {
   if (t.stopLossRange) parts.push(`SL: ${formatRange(t.stopLossRange.low, t.stopLossRange.high)}`);
   if (parts.length > 0) lines.push(`  ${parts.join(" | ")}`);
 
-  const signalLabel = t.signal.charAt(0).toUpperCase() + t.signal.slice(1);
-  const trendIcon = t.trend === "up" ? "↑" : t.trend === "down" ? "↓" : "→";
-  const trendLabel = t.trend === "up" ? "Up" : t.trend === "down" ? "Down" : "Flat";
-  lines.push(`  Signal: ${signalLabel} | Trend: ${trendIcon} ${trendLabel}`);
+  const weekPart = formatSignalPart("Week", t.weekSignal, t.weekChangePct);
+  const monthPart = formatSignalPart("Month", t.monthSignal, t.monthChangePct);
+  lines.push(`  ${weekPart} | ${monthPart}`);
+
+  if (t.analysisDate) {
+    lines.push(`  Updated: ${t.analysisDate}`);
+  }
 
   return lines.join("\n");
 }
@@ -105,21 +126,10 @@ async function handleWishlist(ctx: TelegramBotContext) {
 
   try {
     const allRows = await getWatchlist(db, clerkUserId);
-    const stockEtfRows = allRows.filter(
-      (r) => r.asset_type === "stock" || r.asset_type === "etf"
-    );
 
-    if (stockEtfRows.length === 0 && allRows.length === 0) {
+    if (allRows.length === 0) {
       await ctx.reply(
         "Your watchlist is empty.\n\nUse /add <symbol> to start tracking tickers.\nExample: `/add AAPL` or `/add BTC crypto`",
-        { parse_mode: "Markdown" }
-      );
-      return;
-    }
-
-    if (stockEtfRows.length === 0 && allRows.length > 0) {
-      await ctx.reply(
-        "You have crypto tickers in your watchlist but stock/ETF analysis is not available for them yet.\n\nUse /add <symbol> to add stock or ETF tickers.",
         { parse_mode: "Markdown" }
       );
       return;
@@ -128,7 +138,7 @@ async function handleWishlist(ctx: TelegramBotContext) {
     const cachedTickers: WishlistTickerData[] = [];
     const uncachedRows: WatchlistRow[] = [];
 
-    for (const row of stockEtfRows) {
+    for (const row of allRows) {
       const cacheKey = `${TICKER_CACHE_PREFIX}${row.ticker_symbol}`;
       const cached = await redis.get(cacheKey);
       if (cached) {
@@ -161,7 +171,7 @@ async function handleWishlist(ctx: TelegramBotContext) {
 
     const tickers: WishlistTickerData[] = [];
     let latestDate: string | null = null;
-    for (const row of stockEtfRows) {
+    for (const row of allRows) {
       const data = tickerLookup.get(row.ticker_symbol);
       if (!data) continue;
       tickers.push(data);

@@ -1,5 +1,7 @@
 import type { Pool } from "pg";
 
+type SignalDirection = "bullish" | "bearish" | "neutral";
+
 export interface WishlistTickerData {
   symbol: string;
   assetType: string;
@@ -7,8 +9,10 @@ export interface WishlistTickerData {
   entryRange: { low: number; high: number; today: number } | null;
   targetRange: { low: number; high: number } | null;
   stopLossRange: { low: number; high: number } | null;
-  signal: string;
-  trend: "up" | "down" | "flat";
+  weekSignal: SignalDirection;
+  weekChangePct: number | null;
+  monthSignal: SignalDirection;
+  monthChangePct: number | null;
   isEntryZone: boolean;
   analysisDate: string | null;
   dataPoints: number;
@@ -22,6 +26,12 @@ export interface WishlistResult {
 
 const MIN_DATA_POINTS = 5;
 const LOOKBACK_DAYS = 20;
+const WEEK_LOOKBACK = 5;
+const MONTH_LOOKBACK = 20;
+const WEEK_BULLISH_PCT = 1;
+const WEEK_BEARISH_PCT = -1;
+const MONTH_BULLISH_PCT = 3;
+const MONTH_BEARISH_PCT = -3;
 
 interface PriceTargetRow {
   ticker_symbol: string;
@@ -52,48 +62,49 @@ export async function getWatchlist(
   return result.rows;
 }
 
-const DECAY_FACTOR = 0.9;
-const SIGNAL_WEIGHT = 0.6;
-const TREND_WEIGHT = 0.4;
-const BULLISH_THRESHOLD = 0.15;
-const BEARISH_THRESHOLD = -0.15;
-const TREND_CHANGE_THRESHOLD = 0.02;
-
-function computeWeightedSignal(rows: PriceTargetRow[]): number {
-  let weightedSum = 0;
-  let totalWeight = 0;
-
-  for (let i = 0; i < rows.length; i++) {
-    const weight = Math.pow(DECAY_FACTOR, i);
-    const sig = rows[i]!.signal_summary ?? "neutral";
-    const score = sig === "bullish" ? 1 : sig === "bearish" ? -1 : 0;
-    weightedSum += score * weight;
-    totalWeight += weight;
-  }
-
-  return totalWeight > 0 ? weightedSum / totalWeight : 0;
+function computeChangePct(current: number, previous: number): number {
+  if (previous === 0) return 0;
+  return ((current - previous) / previous) * 100;
 }
 
-function computePriceTrend(rows: PriceTargetRow[]): { score: number; direction: "up" | "down" | "flat" } {
-  const closes = rows.map((r) => parseFloat(r.latest_close));
-  if (closes.length < 4) return { score: 0, direction: "flat" };
+function pctToSignal(
+  pct: number,
+  bullishThreshold: number,
+  bearishThreshold: number
+): SignalDirection {
+  if (pct >= bullishThreshold) return "bullish";
+  if (pct <= bearishThreshold) return "bearish";
+  return "neutral";
+}
 
-  const mid = Math.floor(closes.length / 2);
-  const recentHalf = closes.slice(0, mid);
-  const olderHalf = closes.slice(mid);
+function computeTimeframeSignals(rows: PriceTargetRow[]): {
+  weekSignal: SignalDirection;
+  weekChangePct: number | null;
+  monthSignal: SignalDirection;
+  monthChangePct: number | null;
+} {
+  if (rows.length < 2) {
+    return { weekSignal: "neutral", weekChangePct: null, monthSignal: "neutral", monthChangePct: null };
+  }
 
-  const recentAvg = recentHalf.reduce((a, b) => a + b, 0) / recentHalf.length;
-  const olderAvg = olderHalf.reduce((a, b) => a + b, 0) / olderHalf.length;
+  const currentClose = parseFloat(rows[0]!.latest_close);
 
-  if (olderAvg === 0) return { score: 0, direction: "flat" };
-  const change = (recentAvg - olderAvg) / olderAvg;
+  const weekIdx = Math.min(WEEK_LOOKBACK, rows.length - 1);
+  const weekClose = parseFloat(rows[weekIdx]!.latest_close);
+  const weekChangePct = computeChangePct(currentClose, weekClose);
+  const weekSignal = pctToSignal(weekChangePct, WEEK_BULLISH_PCT, WEEK_BEARISH_PCT);
 
-  let direction: "up" | "down" | "flat" = "flat";
-  if (change > TREND_CHANGE_THRESHOLD) direction = "up";
-  else if (change < -TREND_CHANGE_THRESHOLD) direction = "down";
+  const monthIdx = Math.min(MONTH_LOOKBACK, rows.length - 1);
+  const monthClose = parseFloat(rows[monthIdx]!.latest_close);
+  const monthChangePct = computeChangePct(currentClose, monthClose);
+  const monthSignal = pctToSignal(monthChangePct, MONTH_BULLISH_PCT, MONTH_BEARISH_PCT);
 
-  const score = Math.max(-1, Math.min(1, change * 10));
-  return { score, direction };
+  return {
+    weekSignal,
+    weekChangePct: Math.round(weekChangePct * 100) / 100,
+    monthSignal,
+    monthChangePct: Math.round(monthChangePct * 100) / 100,
+  };
 }
 
 function computeTickerData(
@@ -109,8 +120,10 @@ function computeTickerData(
       entryRange: null,
       targetRange: null,
       stopLossRange: null,
-      signal: "neutral",
-      trend: "flat",
+      weekSignal: "neutral",
+      weekChangePct: null,
+      monthSignal: "neutral",
+      monthChangePct: null,
       isEntryZone: false,
       analysisDate: null,
       dataPoints: 0,
@@ -122,9 +135,9 @@ function computeTickerData(
   const todayEntry = latest.entry_price ? parseFloat(latest.entry_price) : null;
   const todayTarget = latest.target_price ? parseFloat(latest.target_price) : null;
   const todayStopLoss = latest.stop_loss ? parseFloat(latest.stop_loss) : null;
+  const signals = computeTimeframeSignals(rows);
 
   if (rows.length < MIN_DATA_POINTS) {
-    const { direction } = computePriceTrend(rows);
     return {
       symbol,
       assetType,
@@ -132,8 +145,7 @@ function computeTickerData(
       entryRange: todayEntry != null ? { low: todayEntry, high: todayEntry, today: todayEntry } : null,
       targetRange: todayTarget != null ? { low: todayTarget, high: todayTarget } : null,
       stopLossRange: todayStopLoss != null ? { low: todayStopLoss, high: todayStopLoss } : null,
-      signal: latest.signal_summary ?? "neutral",
-      trend: direction,
+      ...signals,
       isEntryZone: todayEntry != null && latestClose <= todayEntry,
       analysisDate: latest.analysis_date,
       dataPoints: rows.length,
@@ -156,11 +168,6 @@ function computeTickerData(
     ? { low: Math.min(...stopLossPrices), high: Math.max(...stopLossPrices) }
     : null;
 
-  const weightedSignal = computeWeightedSignal(rows);
-  const { score: trendScore, direction: trend } = computePriceTrend(rows);
-  const composite = (weightedSignal * SIGNAL_WEIGHT) + (trendScore * TREND_WEIGHT);
-  const signal = composite > BULLISH_THRESHOLD ? "bullish" : composite < BEARISH_THRESHOLD ? "bearish" : "neutral";
-
   const isEntryZone =
     entryRange != null && latestClose >= entryRange.low && latestClose <= entryRange.high;
 
@@ -171,8 +178,7 @@ function computeTickerData(
     entryRange,
     targetRange,
     stopLossRange,
-    signal,
-    trend,
+    ...signals,
     isEntryZone,
     analysisDate: latest.analysis_date,
     dataPoints: rows.length,
@@ -219,20 +225,17 @@ export async function calculateWishlist(
   clerkUserId: string
 ): Promise<WishlistResult> {
   const allRows = await getWatchlist(db, clerkUserId);
-  const stockEtfRows = allRows.filter(
-    (r) => r.asset_type === "stock" || r.asset_type === "etf"
-  );
 
-  if (stockEtfRows.length === 0) {
-    return { tickers: [], totalWatchlistCount: allRows.length, asOfDate: null };
+  if (allRows.length === 0) {
+    return { tickers: [], totalWatchlistCount: 0, asOfDate: null };
   }
 
-  const tickerMap = await calculateTickersData(db, stockEtfRows);
+  const tickerMap = await calculateTickersData(db, allRows);
 
   let latestDate: string | null = null;
   const tickers: WishlistTickerData[] = [];
 
-  for (const wl of stockEtfRows) {
+  for (const wl of allRows) {
     const data = tickerMap.get(wl.ticker_symbol);
     if (!data) continue;
     tickers.push(data);
