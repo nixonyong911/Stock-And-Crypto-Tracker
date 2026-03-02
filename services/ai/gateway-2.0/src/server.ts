@@ -17,6 +17,7 @@ import { Tier, getTierConfig, parseTier } from "./config.js";
 
 // DB
 import type { PostgresClient } from "./db/postgres.js";
+import { withQueryRetry } from "./db/postgres.js";
 import type { RedisClient } from "./db/redis.js";
 
 // Core services
@@ -90,13 +91,15 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
 
   // ---- 3. Initialize core services ----
 
-  const security = new SecurityService(config, db.pool, app.log);
-  const usage = new UsageTracker(config, redis.redis, db.pool, app.log);
-  const session = new SessionManager(config, db.pool, redis.redis, app.log);
+  const pool = withQueryRetry(db.pool, app.log);
+
+  const security = new SecurityService(config, pool, app.log);
+  const usage = new UsageTracker(config, redis.redis, pool, app.log);
+  const session = new SessionManager(config, pool, redis.redis, app.log);
   const queue = new QueueManager(config, app.log);
   const cli = new CLIExecutor(config, app.log);
   const filter = new OutputFilter(config, app.log);
-  const keywordFilter = new KeywordFilter(db.pool, app.log);
+  const keywordFilter = new KeywordFilter(pool, app.log);
   const metrics = new MetricsCollector();
 
   // ---- 4. Initialize extension system ----
@@ -111,7 +114,7 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
     channelType: string
   ): Promise<Tier> {
     try {
-      const result = await db.pool.query(
+      const result = await pool.query(
         `SELECT u.tier FROM channel_accounts ca
          JOIN users u ON u.clerk_user_id = ca.clerk_user_id
          WHERE ca.platform_user_id = $1 AND ca.channel_type = $2 AND ca.clerk_user_id IS NOT NULL`,
@@ -264,7 +267,7 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
   // ---- 7. Create GatewayAPI and pass to extensions ----
 
   const gatewayAPI = createGatewayAPI({
-    db: db.pool,
+    db: pool,
     redis: redis.redis,
     logger: app.log,
     config,
@@ -281,7 +284,7 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
   // ---- 8. Register middleware ----
 
   registerAuthMiddleware(app, config);
-  registerLoggingMiddleware(app, db.pool);
+  registerLoggingMiddleware(app, pool);
 
   // ---- 9. Register HTTP routes ----
 
@@ -296,10 +299,10 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
     filter,
     metrics,
   });
-  registerSessionRoutes(app, session, { redis: redis.redis, db: db.pool });
+  registerSessionRoutes(app, session, { redis: redis.redis, db: pool });
   registerUsageRoutes(app, usage);
   registerChannelRoutes(app, extensions);
-  registerAdminRoutes(app, { metrics, queue, db: db.pool });
+  registerAdminRoutes(app, { metrics, queue, db: pool });
 
   // ---- 10. Extension routes (webhooks) ----
 
