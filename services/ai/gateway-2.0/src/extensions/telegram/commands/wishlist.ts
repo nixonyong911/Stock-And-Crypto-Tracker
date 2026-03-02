@@ -54,10 +54,14 @@ function formatTicker(t: WishlistTickerData): string {
 
   const lines: string[] = [];
   const badge = t.isEntryZone ? " **⚡ ENTRY ZONE**" : "";
-  lines.push(`**${sym}** | ${t.latestClose != null ? formatPrice(t.latestClose) : "N/A"}${badge}`);
+  lines.push(`**${sym}**${badge}`);
+
+  const openStr = t.latestOpen != null ? formatPrice(t.latestOpen) : "N/A";
+  const closeStr = t.latestClose != null ? formatPrice(t.latestClose) : "N/A";
+  lines.push(`  Open: ${openStr} | Close: ${closeStr}`);
 
   if (t.entryRange) {
-    lines.push(`  Entry: ${formatRange(t.entryRange.low, t.entryRange.high)} (today: ${formatPrice(t.entryRange.today)})`);
+    lines.push(`  Entry: ${formatRange(t.entryRange.low, t.entryRange.high)}`);
   }
 
   const parts: string[] = [];

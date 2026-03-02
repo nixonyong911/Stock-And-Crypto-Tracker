@@ -49,7 +49,9 @@ public class CryptoPriceTargetService : ICryptoPriceTargetService
                 return null;
             }
 
-            var latestClosePrice = closesList.First().Close;
+            var latestRow = closesList.First();
+            var latestClosePrice = latestRow.Close;
+            var latestOpenPrice = latestRow.Open;
             if (latestClosePrice <= 0)
             {
                 _logger.LogWarning("Invalid close price for crypto {Symbol} on {Date}: {Price}", symbol, date, latestClosePrice);
@@ -80,6 +82,7 @@ public class CryptoPriceTargetService : ICryptoPriceTargetService
                     TraderType = parameters.TraderType,
                     AnalysisDate = date,
                     LatestClose = result.LatestClose,
+                    LatestOpen = latestOpenPrice,
                     EntryPrice = result.EntryPrice,
                     EntryPriceLow = result.EntryPriceLow,
                     EntryPriceHigh = result.EntryPriceHigh,

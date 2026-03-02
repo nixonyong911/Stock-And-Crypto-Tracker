@@ -8,6 +8,7 @@ public class PriceTarget
     public string TraderType { get; set; } = "swing";
     public DateOnly AnalysisDate { get; set; }
     public decimal LatestClose { get; set; }
+    public decimal? LatestOpen { get; set; }
     public decimal? EntryPrice { get; set; }
     public decimal? EntryPriceLow { get; set; }
     public decimal? EntryPriceHigh { get; set; }

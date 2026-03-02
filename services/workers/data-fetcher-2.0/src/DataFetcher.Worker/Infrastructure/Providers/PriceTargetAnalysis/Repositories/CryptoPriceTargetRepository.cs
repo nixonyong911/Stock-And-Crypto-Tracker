@@ -15,10 +15,10 @@ public class CryptoPriceTargetRepository : ICryptoPriceTargetRepository
         _logger = logger;
     }
 
-    public async Task<IEnumerable<(DateOnly Date, decimal Close)>> GetRecentDailyClosesAsync(int cryptoTickerId, DateOnly asOfDate, int days)
+    public async Task<IEnumerable<(DateOnly Date, decimal Close, decimal? Open)>> GetRecentDailyClosesAsync(int cryptoTickerId, DateOnly asOfDate, int days)
     {
         const string sql = @"
-            SELECT analysis_date AS Date, daily_close AS Close
+            SELECT analysis_date AS Date, daily_close AS Close, daily_open AS Open
             FROM analysis_crypto_candlestick_pattern
             WHERE crypto_ticker_id = @CryptoTickerId
               AND analysis_date <= @AsOfDate
@@ -34,7 +34,7 @@ public class CryptoPriceTargetRepository : ICryptoPriceTargetRepository
             Days = days
         });
 
-        return rows.Select(r => (DateOnly.FromDateTime(r.Date), r.Close));
+        return rows.Select(r => (DateOnly.FromDateTime(r.Date), r.Close, r.Open));
     }
 
     public async Task<(decimal? Ema20, decimal? Ema50, decimal? Rsi)?> GetLatestIndicatorAsync(int cryptoTickerId, DateOnly asOfDate)
@@ -118,6 +118,7 @@ public class CryptoPriceTargetRepository : ICryptoPriceTargetRepository
     {
         public DateTime Date { get; set; }
         public decimal Close { get; set; }
+        public decimal? Open { get; set; }
     }
 
     private class IndicatorRow

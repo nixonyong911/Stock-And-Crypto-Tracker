@@ -46,7 +46,9 @@ public class PriceTargetService : IPriceTargetService
                 return null;
             }
 
-            var latestClosePrice = closesList.First().Close;
+            var latestRow = closesList.First();
+            var latestClosePrice = latestRow.Close;
+            var latestOpenPrice = latestRow.Open;
             if (latestClosePrice <= 0)
             {
                 _logger.LogWarning("Invalid close price for {Symbol} on {Date}: {Price}", symbol, date, latestClosePrice);
@@ -77,6 +79,7 @@ public class PriceTargetService : IPriceTargetService
                     TraderType = parameters.TraderType,
                     AnalysisDate = date,
                     LatestClose = result.LatestClose,
+                    LatestOpen = latestOpenPrice,
                     EntryPrice = result.EntryPrice,
                     EntryPriceLow = result.EntryPriceLow,
                     EntryPriceHigh = result.EntryPriceHigh,

@@ -6,6 +6,7 @@ export interface WishlistTickerData {
   symbol: string;
   assetType: string;
   latestClose: number | null;
+  latestOpen: number | null;
   entryRange: { low: number; high: number; today: number } | null;
   targetRange: { low: number; high: number } | null;
   stopLossRange: { low: number; high: number } | null;
@@ -38,6 +39,7 @@ interface PriceTargetRow {
   asset_type: string;
   analysis_date: string;
   latest_close: string;
+  latest_open: string | null;
   entry_price: string | null;
   target_price: string | null;
   stop_loss: string | null;
@@ -117,6 +119,7 @@ function computeTickerData(
       symbol,
       assetType,
       latestClose: null,
+      latestOpen: null,
       entryRange: null,
       targetRange: null,
       stopLossRange: null,
@@ -132,6 +135,7 @@ function computeTickerData(
 
   const latest = rows[0]!;
   const latestClose = parseFloat(latest.latest_close);
+  const latestOpen = latest.latest_open ? parseFloat(latest.latest_open) : null;
   const todayEntry = latest.entry_price ? parseFloat(latest.entry_price) : null;
   const todayTarget = latest.target_price ? parseFloat(latest.target_price) : null;
   const todayStopLoss = latest.stop_loss ? parseFloat(latest.stop_loss) : null;
@@ -142,6 +146,7 @@ function computeTickerData(
       symbol,
       assetType,
       latestClose,
+      latestOpen,
       entryRange: todayEntry != null ? { low: todayEntry, high: todayEntry, today: todayEntry } : null,
       targetRange: todayTarget != null ? { low: todayTarget, high: todayTarget } : null,
       stopLossRange: todayStopLoss != null ? { low: todayStopLoss, high: todayStopLoss } : null,
@@ -175,6 +180,7 @@ function computeTickerData(
     symbol,
     assetType,
     latestClose,
+    latestOpen,
     entryRange,
     targetRange,
     stopLossRange,
@@ -196,8 +202,8 @@ export async function calculateTickersData(
 
   const targetsResult = await db.query<PriceTargetRow>(
     `SELECT ticker_symbol, asset_type, analysis_date::text,
-            latest_close::text, entry_price::text, target_price::text,
-            stop_loss::text, signal_summary
+            latest_close::text, latest_open::text, entry_price::text,
+            target_price::text, stop_loss::text, signal_summary
      FROM analysis_ticker_price_targets
      WHERE ticker_symbol = ANY($1)
        AND analysis_date >= CURRENT_DATE - INTERVAL '30 days'

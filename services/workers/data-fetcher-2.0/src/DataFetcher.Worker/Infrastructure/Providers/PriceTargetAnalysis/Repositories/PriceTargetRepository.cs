@@ -24,19 +24,20 @@ public class PriceTargetRepository : IPriceTargetRepository
         const string sql = @"
             INSERT INTO analysis_ticker_price_targets (
                 ticker_symbol, asset_type, trader_type, analysis_date,
-                latest_close, entry_price, entry_price_low, entry_price_high,
+                latest_close, latest_open, entry_price, entry_price_low, entry_price_high,
                 target_price, stop_loss,
                 signal_summary, calculation_method, confidence, metadata,
                 created_at, updated_at
             ) VALUES (
                 @Symbol, @AssetType, @TraderType, @AnalysisDate,
-                @LatestClose, @EntryPrice, @EntryPriceLow, @EntryPriceHigh,
+                @LatestClose, @LatestOpen, @EntryPrice, @EntryPriceLow, @EntryPriceHigh,
                 @TargetPrice, @StopLoss,
                 @SignalSummary, @CalculationMethod, @Confidence, @MetadataJson::jsonb,
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
             ON CONFLICT (ticker_symbol, analysis_date, trader_type) DO UPDATE SET
                 latest_close = EXCLUDED.latest_close,
+                latest_open = EXCLUDED.latest_open,
                 entry_price = EXCLUDED.entry_price,
                 entry_price_low = EXCLUDED.entry_price_low,
                 entry_price_high = EXCLUDED.entry_price_high,
@@ -56,6 +57,7 @@ public class PriceTargetRepository : IPriceTargetRepository
             target.TraderType,
             AnalysisDate = target.AnalysisDate,
             target.LatestClose,
+            target.LatestOpen,
             target.EntryPrice,
             target.EntryPriceLow,
             target.EntryPriceHigh,
@@ -70,10 +72,10 @@ public class PriceTargetRepository : IPriceTargetRepository
         _logger.LogDebug("Inserted price target for {Symbol}/{TraderType} on {Date}", target.Symbol, target.TraderType, target.AnalysisDate);
     }
 
-    public async Task<IEnumerable<(DateOnly Date, decimal Close)>> GetRecentDailyClosesAsync(int stockTickerId, DateOnly asOfDate, int days)
+    public async Task<IEnumerable<(DateOnly Date, decimal Close, decimal? Open)>> GetRecentDailyClosesAsync(int stockTickerId, DateOnly asOfDate, int days)
     {
         const string sql = @"
-            SELECT analysis_date AS Date, daily_close AS Close
+            SELECT analysis_date AS Date, daily_close AS Close, daily_open AS Open
             FROM analysis_stock_candlestick_pattern
             WHERE stock_ticker_id = @StockTickerId
               AND analysis_date <= @AsOfDate
@@ -89,7 +91,7 @@ public class PriceTargetRepository : IPriceTargetRepository
             Days = days
         });
 
-        return rows.Select(r => (DateOnly.FromDateTime(r.Date), r.Close));
+        return rows.Select(r => (DateOnly.FromDateTime(r.Date), r.Close, r.Open));
     }
 
     public async Task<(decimal? Ema20, decimal? Ema50, decimal? Rsi)?> GetLatestIndicatorAsync(int stockTickerId, DateOnly asOfDate)
@@ -194,6 +196,7 @@ public class PriceTargetRepository : IPriceTargetRepository
     {
         public DateTime Date { get; set; }
         public decimal Close { get; set; }
+        public decimal? Open { get; set; }
     }
 
     private class IndicatorRow
