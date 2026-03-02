@@ -50,7 +50,7 @@ public class PriceTargetParametersRepository : IPriceTargetParametersRepository
                 bearish_threshold AS BearishThreshold,
                 entry_range_pct   AS EntryRangePct,
                 is_active AS IsActive
-            FROM price_target_parameters
+            FROM lookup_price_target_parameters
             WHERE asset_type = @AssetType
               AND is_active = true
             ORDER BY trader_type";
