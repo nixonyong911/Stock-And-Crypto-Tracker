@@ -21,6 +21,7 @@ export default async function SignInPage({ params }: Props) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <SignIn
+        forceRedirectUrl={`/${locale}/get-started`}
         appearance={{
           elements: {
             rootBox: "mx-auto",

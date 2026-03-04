@@ -38,6 +38,7 @@ const isPublicRoute = createRouteMatcher([
   "/:locale/terms(.*)",
   "/:locale/dashboard(.*)",
   "/:locale/pair(.*)",
+  "/:locale/get-started(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request: NextRequest) => {
