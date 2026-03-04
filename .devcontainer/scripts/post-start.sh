@@ -34,6 +34,20 @@ else
     echo "✗ Infisical: not authenticated (run 'infisical login' on host)"
 fi
 
+# Clerk
+if clerk whoami &>/dev/null; then
+    echo "✓ Clerk CLI: authenticated"
+else
+    echo "✗ Clerk CLI: not authenticated (run 'clerk init' in container)"
+fi
+
+# Stripe
+if stripe config --list &>/dev/null; then
+    echo "✓ Stripe CLI: authenticated"
+else
+    echo "✗ Stripe CLI: not authenticated (run 'stripe login' in container)"
+fi
+
 # Docker
 if docker info &>/dev/null; then
     echo "✓ Docker: connected"

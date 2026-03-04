@@ -21,6 +21,8 @@ mkdir -p /root/.oci
 mkdir -p /root/.config/grafanactl
 mkdir -p /root/.local/share/com.vercel.cli
 mkdir -p /root/.supabase
+mkdir -p /root/.config/clerk
+mkdir -p /root/.config/stripe
 
 # Fix SSH key permissions if mounted
 if [ -d "/root/.ssh" ]; then
@@ -56,6 +58,8 @@ echo "supabase: $(supabase --version 2>/dev/null || echo 'not installed')"
 echo "vercel: $(vercel --version 2>/dev/null || echo 'not installed')"
 echo "claude: $(claude --version 2>/dev/null || echo 'not installed')"
 echo "oci: $(oci --version 2>/dev/null || echo 'not installed')"
+echo "clerk: $(clerk --version 2>/dev/null || echo 'not installed')"
+echo "stripe: $(stripe --version 2>/dev/null || echo 'not installed')"
 
 echo ""
 echo "=========================================="

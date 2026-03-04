@@ -52,6 +52,8 @@ check_cli "Supabase" "supabase" ""
 check_cli "Vercel" "vercel" "vercel whoami"
 check_cli "Claude" "claude" ""
 check_cli "OCI" "oci" "oci iam region list"
+check_cli "Clerk" "clerk" "clerk whoami"
+check_cli "Stripe" "stripe" "stripe config --list"
 
 echo ""
 echo "=== Infrastructure ==="

@@ -3,7 +3,7 @@
 # ===========================================
 # Ubuntu 24.04 (matches production VM)
 # Runtimes: .NET 8, Go 1.22, Node.js 20, Python 3.12
-# CLIs: infisical, gh, az, supabase, vercel, oci, claude, docker
+# CLIs: infisical, gh, az, supabase, vercel, oci, claude, clerk, stripe, docker
 # ===========================================
 
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
@@ -66,6 +66,20 @@ RUN curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.de
 # Set Infisical to use file-based vault (no system keyring needed in containers)
 ENV INFISICAL_VAULT_FILE_PASSPHRASE="devcontainer"
 
+# Clerk CLI (build from source — vanity import path prevents go install)
+RUN git clone --depth 1 https://github.com/clerk/cli.git /tmp/clerk-cli \
+    && cd /tmp/clerk-cli \
+    && go build -o /usr/local/bin/clerk ./cmd/clerk \
+    && rm -rf /tmp/clerk-cli
+
+# Stripe CLI (from GitHub releases)
+RUN STRIPE_VERSION=$(curl -s https://api.github.com/repos/stripe/stripe-cli/releases/latest | jq -r '.tag_name' | sed 's/v//') \
+    && curl -fsSL "https://github.com/stripe/stripe-cli/releases/download/v${STRIPE_VERSION}/stripe_${STRIPE_VERSION}_linux_x86_64.tar.gz" -o /tmp/stripe.tar.gz \
+    && tar -xzf /tmp/stripe.tar.gz -C /tmp \
+    && mv /tmp/stripe /usr/local/bin/stripe \
+    && chmod +x /usr/local/bin/stripe \
+    && rm /tmp/stripe.tar.gz
+
 # NPM global packages: Vercel, Claude, TypeScript
 RUN npm install -g vercel @anthropic-ai/claude-code typescript ts-node pnpm yarn
 
@@ -87,7 +101,8 @@ RUN pip3 install oci-cli --break-system-packages
 # Create auth directories
 RUN mkdir -p /root/.config/gh /root/.azure /root/.claude /root/.cursor \
     /root/.config/cursor /root/.infisical /root/.oci /root/.config/grafanactl \
-    /root/.local/share/com.vercel.cli /root/.supabase
+    /root/.local/share/com.vercel.cli /root/.supabase /root/.config/clerk \
+    /root/.config/stripe
 
 WORKDIR /workspaces
 SHELL ["/bin/bash", "-c"]

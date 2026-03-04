@@ -26,6 +26,8 @@
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.config/grafanactl,target=/root/.config/grafanactl,type=bind,consistency=cached",
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.local/share/com.vercel.cli,target=/root/.local/share/com.vercel.cli,type=bind,consistency=cached",
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.supabase,target=/root/.supabase,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.config/clerk,target=/root/.config/clerk,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.config/stripe,target=/root/.config/stripe,type=bind,consistency=cached",
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/root/.ssh,type=bind,consistency=cached,readonly"
   ],
   "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
