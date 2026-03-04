@@ -12,6 +12,8 @@ export interface User {
   display_name: string;
   avatar_url: string | null;
   tier: "free" | "pro" | "max" | "dev";
+  referral_source_id: number | null;
+  referral_source_other: string | null;
   created_at: string;
   updated_at: string;
 }

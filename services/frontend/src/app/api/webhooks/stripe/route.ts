@@ -78,6 +78,12 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleCheckoutSessionCompleted(supabase, session);
+        break;
+      }
+
       case "customer.created": {
         const customer = event.data.object as Stripe.Customer;
         await handleCustomerCreated(supabase, customer, event);
@@ -352,6 +358,73 @@ async function handlePaymentFailed(
   // The subscription status will change to past_due which we handle in subscription.updated
 
   console.log(`Stripe webhook: Payment failed for user ${user.id}, attempt: ${invoice.attempt_count}`);
+}
+
+// Handle checkout.session.completed - save referral source from custom fields
+async function handleCheckoutSessionCompleted(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  session: Stripe.Checkout.Session
+) {
+  const customFields = session.custom_fields;
+  if (!customFields || customFields.length === 0) return;
+
+  const referralField = customFields.find((f) => f.key === "referral_source");
+  const otherField = customFields.find((f) => f.key === "referral_source_other");
+
+  const referralKey = referralField?.dropdown?.value;
+  if (!referralKey) return;
+
+  // Resolve user from client_reference_id (format: "web_{userId}")
+  const clientRef = session.client_reference_id;
+  const userId = clientRef?.startsWith("web_")
+    ? parseInt(clientRef.slice(4), 10)
+    : null;
+
+  if (!userId || isNaN(userId)) {
+    console.error("Stripe webhook: Cannot resolve user from client_reference_id", clientRef);
+    return;
+  }
+
+  // Don't overwrite if already set (e.g. re-subscribe)
+  const { data: user } = await supabase
+    .from("users")
+    .select("referral_source_id")
+    .eq("id", userId)
+    .single();
+
+  if (!user || user.referral_source_id !== null) return;
+
+  // Look up the referral source ID
+  const { data: source } = await supabase
+    .from("lookup_referral_sources")
+    .select("id")
+    .eq("key", referralKey)
+    .single();
+
+  if (!source) {
+    console.error(`Stripe webhook: Unknown referral source key "${referralKey}"`);
+    return;
+  }
+
+  const otherText =
+    referralKey === "other" ? otherField?.text?.value || null : null;
+
+  const { error } = await supabase
+    .from("users")
+    .update({
+      referral_source_id: source.id,
+      referral_source_other: otherText,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (error) {
+    console.error("Stripe webhook: Error saving referral source", error);
+  } else {
+    console.log(
+      `Stripe webhook: Saved referral source "${referralKey}" for user ${userId}`
+    );
+  }
 }
 
 // Handle customer created - link to existing user if email matches

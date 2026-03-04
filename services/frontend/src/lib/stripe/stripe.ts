@@ -191,6 +191,27 @@ export async function createCheckoutSession(options: {
     client_reference_id: options.clientReferenceId,
     billing_address_collection: "auto",
     payment_method_collection: "always",
+    custom_fields: [
+      {
+        key: "referral_source",
+        label: { type: "custom", custom: "Where did you hear about us?" },
+        type: "dropdown",
+        dropdown: {
+          options: [
+            { label: "Google", value: "google" },
+            { label: "Social Media", value: "social_media" },
+            { label: "Word of Mouth", value: "word_of_mouth" },
+            { label: "Other", value: "other" },
+          ],
+        },
+      },
+      {
+        key: "referral_source_other",
+        label: { type: "custom", custom: "If other, please specify" },
+        type: "text",
+        optional: true,
+      },
+    ],
   };
 
   // Only add trial if user hasn't used one before
