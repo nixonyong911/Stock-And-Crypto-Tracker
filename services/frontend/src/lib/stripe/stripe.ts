@@ -199,8 +199,8 @@ export async function createCheckoutSession(options: {
         dropdown: {
           options: [
             { label: "Google", value: "google" },
-            { label: "Social Media", value: "social_media" },
-            { label: "Word of Mouth", value: "word_of_mouth" },
+            { label: "Social Media", value: "socialmedia" },
+            { label: "Word of Mouth", value: "wordofmouth" },
             { label: "Other", value: "other" },
           ],
         },
