@@ -28,13 +28,16 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
   const [copied, setCopied] = useState(false);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [newCodeCooldown, setNewCodeCooldown] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
     };
   }, []);
 
@@ -98,6 +101,23 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
     }, 3000);
   }, []);
 
+  const startCooldown = useCallback(() => {
+    setNewCodeCooldown(30);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setNewCodeCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownRef.current) {
+            clearInterval(cooldownRef.current);
+            cooldownRef.current = null;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
   const generateCode = async () => {
     setState("loading");
     try {
@@ -111,6 +131,7 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
       setExpiresAt(Date.now() + data.expiresIn * 1000);
       setState("code_ready");
       startPolling();
+      startCooldown();
     } catch (err) {
       console.error("Pairing code error:", err);
       setState("error");
@@ -254,10 +275,13 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
               <span>Expires in {formatTime(timeLeft)}</span>
               <button
                 onClick={generateCode}
-                className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                disabled={newCodeCooldown > 0}
+                className="inline-flex items-center gap-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:text-foreground"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
-                New code
+                {newCodeCooldown > 0
+                  ? `New code (${newCodeCooldown}s)`
+                  : "New code"}
               </button>
             </div>
           </div>
