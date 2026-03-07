@@ -373,6 +373,8 @@ services:
       - PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - CURSOR_API_KEY=${CURSOR_API_KEY}
       - PHONE_HASH_SALT=${PHONE_HASH_SALT}
+      - FRONTEND_URL=${FRONTEND_URL:-https://stockandcryptotracker.com}
+      - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
     volumes:
       # cursor-agent CLI: mount the entire versions dir (contains node binary + JS chunks)
       # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing

@@ -27,6 +27,8 @@ export interface GatewayConfig {
   readonly telegramWebhookURL: string | undefined;
   readonly dataFetcherInternalUrl: string;
   readonly phoneHashSalt: string;
+  readonly frontendUrl: string;
+  readonly internalServiceKey: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,5 +96,7 @@ export function loadConfig(): GatewayConfig {
     telegramWebhookURL: envOptional("TELEGRAM_WEBHOOK_URL"),
     dataFetcherInternalUrl: envOptional("DATA_FETCHER_INTERNAL_URL") ?? "http://data-fetcher-2.0:8080",
     phoneHashSalt: envStr("PHONE_HASH_SALT", ""),
+    frontendUrl: envStr("FRONTEND_URL", "https://stockandcryptotracker.com"),
+    internalServiceKey: envStr("INTERNAL_SERVICE_KEY", ""),
   };
 }

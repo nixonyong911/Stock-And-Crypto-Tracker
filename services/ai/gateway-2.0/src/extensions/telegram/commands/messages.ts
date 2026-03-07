@@ -2,9 +2,17 @@ import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
 import { splitMessage } from "../utils.js";
 import { Tier } from "../../../extension/types.js";
+import type { Redis } from "ioredis";
+import type { Pool } from "pg";
+import type { FastifyBaseLogger } from "fastify";
 
 /** Hard ceiling to prevent indefinite hangs. */
 const MAX_PROCESSING_MS = 5 * 60 * 1000;
+
+const PRICING_URL = "https://stockandcryptotracker.com/pricing";
+const TRIAL_STATUS_TTL = 3600; // 1 hour
+const TRIAL_INTENT_TTL = 1800; // 30 minutes
+const MAX_QUOTA_REPLY_TTL = 300; // 5 minutes
 
 const KNOWN_COMMANDS = new Set([
   "start",
@@ -24,7 +32,133 @@ const KNOWN_COMMANDS = new Set([
   "unpair",
   "wishlist",
   "watchlist",
+  "subscribe",
 ]);
+
+// ---------------------------------------------------------------------------
+// Trial / phone status helpers
+// ---------------------------------------------------------------------------
+
+interface TrialStatus {
+  phoneVerified: boolean;
+  trialUsed: boolean;
+}
+
+async function getTrialStatus(
+  redis: Redis,
+  db: Pool,
+  logger: FastifyBaseLogger,
+  platformUserId: string
+): Promise<TrialStatus> {
+  const cacheKey = `trial:status:${platformUserId}`;
+
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as TrialStatus;
+    }
+  } catch {
+    // Cache miss or parse error — fall through to DB
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT u.phone_hash, tc.id AS trial_claim_id
+       FROM channel_accounts ca
+       JOIN users u ON u.clerk_user_id = ca.clerk_user_id
+       LEFT JOIN trial_claims tc ON tc.user_id = u.id
+       WHERE ca.platform_user_id = $1 AND ca.channel_type = 'telegram'
+       LIMIT 1`,
+      [platformUserId]
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      return { phoneVerified: false, trialUsed: true };
+    }
+
+    const status: TrialStatus = {
+      phoneVerified: row.phone_hash != null,
+      trialUsed: row.trial_claim_id != null,
+    };
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(status), "EX", TRIAL_STATUS_TTL);
+    } catch {
+      // Non-critical
+    }
+
+    return status;
+  } catch (err) {
+    logger.error({ err, platformUserId }, "Failed to query trial status");
+    return { phoneVerified: true, trialUsed: true };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quota-exceeded reply builder
+// ---------------------------------------------------------------------------
+
+function formatRechargeCountdown(errMsg: string): string {
+  const isoMatch = errMsg.match(/Next recharge:\s*(\d{4}-[^)]+Z?)/);
+  if (!isoMatch?.[1]) return "";
+
+  const rechargeAt = new Date(isoMatch[1]);
+  const diffMs = rechargeAt.getTime() - Date.now();
+  if (diffMs <= 0) return "";
+
+  const mins = Math.ceil(diffMs / 60_000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0 || parts.length === 0) parts.push(`${m}m`);
+  return `\n\n🕐 Your next free message will be available in **${parts.join(" ")}**.`;
+}
+
+function getRechargeSecondsFromError(errMsg: string): number {
+  const isoMatch = errMsg.match(/Next recharge:\s*(\d{4}-[^)]+Z?)/);
+  if (!isoMatch?.[1]) return MAX_QUOTA_REPLY_TTL;
+
+  const rechargeAt = new Date(isoMatch[1]);
+  const diffSec = Math.ceil((rechargeAt.getTime() - Date.now()) / 1000);
+  if (diffSec <= 0) return 1;
+  return Math.min(diffSec, MAX_QUOTA_REPLY_TTL);
+}
+
+function buildQuotaReply(
+  rechargeNote: string,
+  trialStatus: TrialStatus
+): string {
+  const header = "⚠️ You've used all your free messages.";
+
+  if (!trialStatus.phoneVerified && !trialStatus.trialUsed) {
+    return (
+      `${header}${rechargeNote}` +
+      `\n\n📱 Verify your phone to unlock a free 7-day Pro trial!` +
+      `\nTap here → /start verify\\_phone` +
+      `\nOr use /subscribe to view plans.`
+    );
+  }
+
+  if (!trialStatus.trialUsed) {
+    return (
+      `${header}${rechargeNote}` +
+      `\n\n👉 [Start your free 7-day Pro trial](${PRICING_URL})` +
+      `\nOr use /subscribe to view plans.`
+    );
+  }
+
+  return (
+    `${header}${rechargeNote}` +
+    `\n\n👉 [Subscribe to Pro](${PRICING_URL}) for unlimited access.` +
+    `\nOr use /subscribe to view plans.`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Message handler
+// ---------------------------------------------------------------------------
 
 const composer = new Composer<TelegramBotContext>();
 
@@ -108,6 +242,22 @@ composer.on("message:text", async (ctx) => {
     return;
   }
 
+  // --- Cached quota-exceeded reply (short-circuit for spam protection) ------
+  const quotaCacheKey = `quota:reply:${userId}`;
+  try {
+    const cachedReply = await ctx.gatewayAPI.redis.get(quotaCacheKey);
+    if (cachedReply) {
+      try {
+        await ctx.reply(cachedReply, { parse_mode: "Markdown" });
+      } catch {
+        await ctx.reply(cachedReply);
+      }
+      return;
+    }
+  } catch {
+    // Redis error — continue normally
+  }
+
   const session = ctx.activeSession;
 
   // --- Send immediate "Processing..." indicator -----------------------------
@@ -146,7 +296,6 @@ composer.on("message:text", async (ctx) => {
       const result = await invoke();
       return splitMessage(result.response);
     } catch (firstErr) {
-      // Don't retry usage/security/keyword blocks — they'll fail the same way
       const msg = firstErr instanceof Error ? firstErr.message : "";
       if (
         msg.includes("sensitive_keyword") ||
@@ -206,9 +355,43 @@ composer.on("message:text", async (ctx) => {
         "⚠️ Your request contained a restricted keyword. Please rephrase and try again."
       );
     } else if (errMsg.includes("No messages remaining")) {
-      await ctx.reply(
-        "⚠️ You've used all your free messages. Upgrade to Pro for unlimited access."
+      const rechargeNote = formatRechargeCountdown(errMsg);
+      const trialStatus = await getTrialStatus(
+        ctx.gatewayAPI.redis,
+        ctx.gatewayAPI.db,
+        ctx.gatewayAPI.logger,
+        String(userId)
       );
+
+      const reply = buildQuotaReply(rechargeNote, trialStatus);
+
+      // Set trial intent if user needs phone verification first
+      if (!trialStatus.phoneVerified && !trialStatus.trialUsed) {
+        try {
+          await ctx.gatewayAPI.redis.set(
+            `trial:intent:${userId}`,
+            "1",
+            "EX",
+            TRIAL_INTENT_TTL
+          );
+        } catch {
+          // Non-critical
+        }
+      }
+
+      // Cache the composed reply to short-circuit spam
+      try {
+        const ttl = getRechargeSecondsFromError(errMsg);
+        await ctx.gatewayAPI.redis.set(quotaCacheKey, reply, "EX", ttl);
+      } catch {
+        // Non-critical
+      }
+
+      try {
+        await ctx.reply(reply, { parse_mode: "Markdown" });
+      } catch {
+        await ctx.reply(reply);
+      }
     } else {
       await ctx.reply("⚠️ Something went wrong. Please try again.");
     }

@@ -1,10 +1,11 @@
-import { Composer, Keyboard } from "grammy";
+import { Composer, InlineKeyboard, Keyboard } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
 import { PairingService } from "../../../core/pairing/service.js";
 import { hashPhone } from "../../../core/phone/hash.js";
 import { COMMAND_MENU } from "../../commands/menu.js";
 
 const PAIR_PAGE_URL = "https://stockandcryptotracker.com/pair";
+const PRICING_URL = "https://stockandcryptotracker.com/pricing";
 const PHONE_VERIFY_PENDING_TTL = 600; // 10 minutes
 
 const composer = new Composer<TelegramBotContext>();
@@ -187,18 +188,50 @@ composer.on("message:contact", async (ctx) => {
       [phoneHash, rows[0].id]
     );
 
-    // Clear pending state
+    // Clear pending state + invalidate cached trial status
     await redis.del(pendingKey);
-
-    await ctx.reply(
-      "✅ Phone verified! You're all set.",
-      { reply_markup: { remove_keyboard: true } }
-    );
+    redis.del(`trial:status:${userId}`).catch(() => {});
+    redis.del(`quota:reply:${userId}`).catch(() => {});
 
     ctx.gatewayAPI.logger.info(
       { userId, dbUserId: rows[0].id },
       "Phone verified via Telegram contact"
     );
+
+    // Check if there's a trial intent (user was trying to start a trial)
+    const intentKey = `trial:intent:${userId}`;
+    let hasTrialIntent = false;
+    try {
+      const intent = await redis.get(intentKey);
+      hasTrialIntent = intent === "1";
+    } catch {
+      // Non-critical
+    }
+
+    if (hasTrialIntent) {
+      // Attempt to auto-start the trial via the internal frontend endpoint
+      const trialStarted = await attemptAutoTrialStart(ctx, userId);
+      try { await redis.del(intentKey); } catch { /* Non-critical */ }
+
+      if (trialStarted) {
+        await ctx.reply(
+          "✅ Phone verified! Your **7-day Pro trial** is now active! Enjoy unlimited access.",
+          { parse_mode: "Markdown", reply_markup: { remove_keyboard: true } }
+        );
+      } else {
+        // Fallback: show inline button to start trial manually
+        const keyboard = new InlineKeyboard().url("Start Free Trial", PRICING_URL);
+        await ctx.reply(
+          "✅ Phone verified!\n\n🎉 You're now eligible for a free 7-day Pro trial!",
+          { parse_mode: "Markdown", reply_markup: keyboard }
+        );
+      }
+    } else {
+      await ctx.reply(
+        "✅ Phone verified! You're all set.",
+        { reply_markup: { remove_keyboard: true } }
+      );
+    }
   } catch (err) {
     ctx.gatewayAPI.logger.error({ err, userId }, "Phone verification failed");
     await ctx.reply("Something went wrong verifying your phone. Please try again.");
@@ -272,9 +305,61 @@ async function handleVerifyPhone(
   );
 
   if (rows[0]?.phone_hash) {
-    await ctx.reply(
-      "✅ Your phone is already verified! Head back to the website to start your trial."
-    );
+    // Phone already verified — check if trial intent exists and try auto-start
+    const redis = ctx.gatewayAPI.redis;
+    const intentKey = `trial:intent:${telegramUserId}`;
+    let hasTrialIntent = false;
+    try {
+      const intent = await redis.get(intentKey);
+      hasTrialIntent = intent === "1";
+    } catch { /* Non-critical */ }
+
+    if (hasTrialIntent) {
+      const trialStarted = await attemptAutoTrialStart(ctx, telegramUserId);
+      try { await redis.del(intentKey); } catch { /* Non-critical */ }
+
+      if (trialStarted) {
+        await ctx.reply(
+          "✅ Your phone is already verified! Your **7-day Pro trial** is now active!",
+          { parse_mode: "Markdown" }
+        );
+      } else {
+        const keyboard = new InlineKeyboard().url("Start Free Trial", PRICING_URL);
+        await ctx.reply(
+          "✅ Your phone is already verified!\n\n🎉 You're eligible for a free trial!",
+          { parse_mode: "Markdown", reply_markup: keyboard }
+        );
+      }
+    } else {
+      // No trial intent — check trial eligibility for a helpful CTA
+      try {
+        const trialCheck = await db.query(
+          `SELECT tc.id AS trial_claim_id
+           FROM users u
+           LEFT JOIN trial_claims tc ON tc.user_id = u.id
+           WHERE u.telegram_user_id = $1
+           LIMIT 1`,
+          [telegramUserId]
+        );
+        if (trialCheck.rows[0] && !trialCheck.rows[0].trial_claim_id) {
+          const keyboard = new InlineKeyboard().url("Start Free Trial", PRICING_URL);
+          await ctx.reply(
+            "✅ Your phone is already verified!\n\n🎉 You're eligible for a free 7-day Pro trial!",
+            { parse_mode: "Markdown", reply_markup: keyboard }
+          );
+        } else {
+          const keyboard = new InlineKeyboard().url("View Plans & Pricing", PRICING_URL);
+          await ctx.reply(
+            "✅ Your phone is already verified! Check out our plans:",
+            { reply_markup: keyboard }
+          );
+        }
+      } catch {
+        await ctx.reply(
+          "✅ Your phone is already verified! Use /subscribe to view plans."
+        );
+      }
+    }
     return;
   }
 
@@ -295,6 +380,59 @@ async function handleVerifyPhone(
     "Share your phone number to verify your account and unlock the free trial.",
     { reply_markup: keyboard }
   );
+}
+
+// ---------------------------------------------------------------------------
+// Internal trial auto-start helper
+// ---------------------------------------------------------------------------
+
+async function attemptAutoTrialStart(
+  ctx: TelegramBotContext,
+  telegramUserId: number
+): Promise<boolean> {
+  const { frontendUrl, internalServiceKey } = ctx.gatewayAPI.config;
+  if (!internalServiceKey) {
+    ctx.gatewayAPI.logger.warn("INTERNAL_SERVICE_KEY not configured, skipping auto trial start");
+    return false;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
+    const resp = await fetch(`${frontendUrl}/api/internal/trial/start`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Service-Key": internalServiceKey,
+      },
+      body: JSON.stringify({ telegram_user_id: String(telegramUserId) }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (resp.ok) {
+      ctx.gatewayAPI.logger.info(
+        { telegramUserId },
+        "Trial auto-started via internal endpoint"
+      );
+      return true;
+    }
+
+    const body = await resp.json().catch(() => ({}));
+    ctx.gatewayAPI.logger.warn(
+      { telegramUserId, status: resp.status, reason: (body as Record<string, unknown>).reason },
+      "Internal trial start returned non-OK"
+    );
+    return false;
+  } catch (err) {
+    ctx.gatewayAPI.logger.error(
+      { err, telegramUserId },
+      "Failed to call internal trial start endpoint"
+    );
+    return false;
+  }
 }
 
 export default composer;
