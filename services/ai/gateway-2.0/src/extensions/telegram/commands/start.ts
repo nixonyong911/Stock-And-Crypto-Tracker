@@ -191,7 +191,7 @@ composer.on("message:contact", async (ctx) => {
     await redis.del(pendingKey);
 
     await ctx.reply(
-      "✅ Phone verified! You're all set.\n\nHead back to the website to start your free trial or subscribe.",
+      "✅ Phone verified! You're all set.",
       { reply_markup: { remove_keyboard: true } }
     );
 
@@ -234,8 +234,7 @@ async function requestPhoneVerification(
       .oneTime();
 
     await ctx.reply(
-      "One more step — share your phone number to verify your account. " +
-        "This helps us prevent trial abuse and is only used for verification.",
+      "Please share your phone number to verify your account.",
       { reply_markup: keyboard }
     );
   } catch (err) {
