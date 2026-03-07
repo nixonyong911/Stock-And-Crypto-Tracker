@@ -19,7 +19,6 @@ import {
   ExternalLink,
   Loader2,
   User,
-  Settings,
 } from "lucide-react";
 
 interface Subscription {
@@ -305,12 +304,6 @@ export function BillingContent({ user, subscription, clerkUser }: BillingContent
               </div>
             </CardContent>
             <CardFooter className="flex gap-2">
-              <Button variant="outline" className="flex-1" asChild>
-                <a href="/user-profile">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Clerk Account
-                </a>
-              </Button>
               {user.stripe_customer_id && (
                 <Button
                   variant="outline"
