@@ -50,7 +50,7 @@ export default async function LocaleLayout({ children, params }: Props) {
           enableSystem
           disableTransitionOnChange
         >
-          <ClerkProviderWrapper>
+          <ClerkProviderWrapper locale={locale}>
             <NextIntlClientProvider messages={messages}>
               {children}
             </NextIntlClientProvider>

@@ -5,15 +5,14 @@ import { dark } from "@clerk/themes";
 import { useTheme } from "next-themes";
 import { ReactNode, useState, useEffect } from "react";
 
-// Check if Clerk is configured
 const isClerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 interface Props {
   children: ReactNode;
+  locale: string;
 }
 
-// Use this wrapper inside ThemeProvider to access theme context
-export function ClerkProviderWrapper({ children }: Props) {
+export function ClerkProviderWrapper({ children, locale }: Props) {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -25,10 +24,15 @@ export function ClerkProviderWrapper({ children }: Props) {
     return <>{children}</>;
   }
 
+  const getStartedUrl = `/${locale}/get-started`;
+
   return (
     <ClerkProvider
+      signInUrl={`/${locale}/sign-in`}
+      signUpUrl={`/${locale}/sign-up`}
+      signInForceRedirectUrl={getStartedUrl}
+      signUpForceRedirectUrl={getStartedUrl}
       appearance={{
-        // Only apply theme after mounted to avoid hydration mismatch
         baseTheme: mounted && resolvedTheme === "dark" ? dark : undefined,
       }}
     >
