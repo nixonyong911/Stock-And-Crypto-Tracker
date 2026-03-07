@@ -58,47 +58,43 @@ services:
       - gateway-2.0
 
   # ===========================================
+  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
   # TwelveData Worker
   # Swagger at: /api/twelvedata/swagger
   # ===========================================
-  twelvedata:
-    image: stocktracker-twelvedata:${TWELVEDATA_VERSION:-latest}
-    build:
-      context: ./repo/services
-      dockerfile: workers/data-fetcher/TwelveData/Dockerfile
-    container_name: twelvedata
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:8080
-      # Path base for reverse proxy (tells Swagger to prefix API URLs)
-      - PATH_BASE=/api/twelvedata
-      # Secrets from Infisical (mapped to .NET config format)
-      # Using direct connection for best performance (bypasses pooler)
-      - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
-      - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
-      - TwelveData__BaseUrl=https://api.twelvedata.com
-      # RabbitMQ for historical backfill queue
-      - RabbitMQ__HostName=rabbitmq
-      - RabbitMQ__UserName=stocktracker
-      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
-      - RabbitMQ__QueueName=backfill-queue
-      # Gateway 2.0 (TypeScript) access (Docker internal)
-      - AI_HUB_URL=http://gateway-2.0:8080
-      - AI_HUB_API_KEY=${AI_HUB_API_KEY}
-    networks:
-      - stocktracker
-    depends_on:
-      - gateway-2.0
-      - rabbitmq
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 30s
+  # twelvedata:
+  #   image: stocktracker-twelvedata:${TWELVEDATA_VERSION:-latest}
+  #   build:
+  #     context: ./repo/services
+  #     dockerfile: workers/data-fetcher/TwelveData/Dockerfile
+  #   container_name: twelvedata
+  #   restart: unless-stopped
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Production
+  #     - ASPNETCORE_URLS=http://+:8080
+  #     - PATH_BASE=/api/twelvedata
+  #     - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
+  #     - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
+  #     - TwelveData__BaseUrl=https://api.twelvedata.com
+  #     - RabbitMQ__HostName=rabbitmq
+  #     - RabbitMQ__UserName=stocktracker
+  #     - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+  #     - RabbitMQ__QueueName=backfill-queue
+  #     - AI_HUB_URL=http://gateway-2.0:8080
+  #     - AI_HUB_API_KEY=${AI_HUB_API_KEY}
+  #   networks:
+  #     - stocktracker
+  #   depends_on:
+  #     - gateway-2.0
+  #     - rabbitmq
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+  #     interval: 30s
+  #     timeout: 3s
+  #     retries: 3
+  #     start_period: 30s
 
   # ===========================================
   # FRED Worker - Economic Indicators
@@ -175,6 +171,22 @@ services:
       - RabbitMQ__UserName=stocktracker
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
       - RabbitMQ__MassiveQueueName=massive-indicator-queue
+      - RabbitMQ__BackfillQueueName=backfill-queue
+      - RabbitMQ__CryptoBackfillQueueName=crypto-backfill-queue
+      # Alpaca Provider (OHLCV market data: stocks + crypto)
+      - Providers__Alpaca__ApiKeyId=${ALPACA_API_KEY_ID}
+      - Providers__Alpaca__ApiSecretKey=${ALPACA_API_SECRET_KEY}
+      - Providers__Alpaca__MarketDataBaseUrl=https://data.alpaca.markets
+      - Providers__Alpaca__TradingApiBaseUrl=https://api.alpaca.markets
+      - Providers__Alpaca__MonthsToBackfill=6
+      - Providers__Alpaca__MaxBarsPerRequest=10000
+      - Providers__Alpaca__StockTimeframe=15Min
+      - Providers__Alpaca__CryptoTimeframe=15Min
+      - Providers__Alpaca__StockFeed=sip
+      - Providers__Alpaca__StockAdjustment=split
+      - Providers__Alpaca__CryptoLoc=us
+      - Providers__Alpaca__FetchIntervalMinutes=30
+      - Providers__Alpaca__RateLimitThreshold=10
       # Metrics service
       - MetricsService__BaseUrl=http://metrics:8080
       - MetricsService__WorkerName=data-fetcher-2.0
@@ -253,7 +265,7 @@ services:
       - stocktracker
     depends_on:
       - metrics
-      - twelvedata
+      # - twelvedata  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
 
   # ===========================================
   # Redis - Caching for MCP Server & Queue Locks
@@ -354,7 +366,8 @@ services:
       - REDIS_URL=redis://redis:6379
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook
-      - TWELVEDATA_INTERNAL_URL=http://twelvedata:8080
+      # - TWELVEDATA_INTERNAL_URL=http://twelvedata:8080  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
+      - DATA_FETCHER_INTERNAL_URL=http://data-fetcher-2.0:8080
       - PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - CURSOR_API_KEY=${CURSOR_API_KEY}
     volumes:

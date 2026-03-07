@@ -34,4 +34,14 @@ public class RabbitMQSettings
     /// Queue name for candlestick analysis backfill processing messages.
     /// </summary>
     public string AnalysisBackfillQueueName { get; set; } = "analysis-backfill-queue";
+
+    /// <summary>
+    /// Queue name for backfill processing messages.
+    /// </summary>
+    public string BackfillQueueName { get; set; } = "backfill-queue";
+
+    /// <summary>
+    /// Queue name for crypto backfill processing messages.
+    /// </summary>
+    public string CryptoBackfillQueueName { get; set; } = "crypto-backfill-queue";
 }

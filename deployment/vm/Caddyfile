@@ -17,12 +17,13 @@ admin 0.0.0.0:2019
 nxserver.malaysiawest.cloudapp.azure.com { # =========================================== # NOTE: CaddyManager removed - use Caddy Admin API via SSH # SSH: curl localhost:2019/config/ # ===========================================
 
     # ===========================================
+    # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
     # TwelveData Worker API
     # Swagger UI: /api/twelvedata/swagger
     # ===========================================
-    handle_path /api/twelvedata/* {
-        reverse_proxy twelvedata:8080
-    }
+    # handle_path /api/twelvedata/* {
+    #     reverse_proxy twelvedata:8080
+    # }
 
     # ===========================================
     # Metrics Service API

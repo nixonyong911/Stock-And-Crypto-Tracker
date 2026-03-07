@@ -156,11 +156,10 @@ composer.command("add", async (ctx) => {
       tickerExists = result.rows.length > 0;
     }
 
-    // If ticker is new, create it via the TwelveData worker API
+    // If ticker is new, create it via the data-fetcher-2.0 API
     let isNewTicker = false;
     if (!tickerExists) {
-      const twelveDataUrl =
-        ctx.gatewayAPI.config.twelveDataInternalUrl ?? "http://twelvedata:8080";
+      const dataFetcherUrl = ctx.gatewayAPI.config.dataFetcherInternalUrl;
       const apiAssetType =
         assetType === "stock"
           ? "Stock"
@@ -168,7 +167,7 @@ composer.command("add", async (ctx) => {
             ? "Etf"
             : "Crypto";
 
-      const response = await fetch(`${twelveDataUrl}/api/ticker`, {
+      const response = await fetch(`${dataFetcherUrl}/api/ticker`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symbol, assetType: apiAssetType }),

@@ -22,6 +22,10 @@ using DataFetcher.Worker.Workers.Scheduling;
 using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 using DataFetcher.Worker.Infrastructure.Providers.PriceTargetAnalysis.Repositories;
 using DataFetcher.Worker.Workers.PriceTargetAnalysis;
+using DataFetcher.Worker.Application.Providers.Alpaca;
+using DataFetcher.Worker.Infrastructure.Providers.Alpaca;
+using DataFetcher.Worker.Infrastructure.Providers.Alpaca.Repositories;
+using DataFetcher.Worker.Workers.Alpaca;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using Polly;
@@ -60,6 +64,8 @@ try
         builder.Configuration.GetSection("Providers:CandlestickAnalysis"));
     builder.Services.Configure<RabbitMQSettings>(
         builder.Configuration.GetSection("RabbitMQ"));
+    builder.Services.Configure<AlpacaSettings>(
+        builder.Configuration.GetSection("Providers:Alpaca"));
 
     // Infrastructure - Common
     builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
@@ -128,6 +134,20 @@ try
     builder.Services.AddScoped<ICryptoPriceTargetService, CryptoPriceTargetService>();
     builder.Services.AddScoped<ICryptoPriceTargetBackfillService, CryptoPriceTargetBackfillService>();
 
+    // Infrastructure - Alpaca Provider
+    builder.Services.AddScoped<IAlpacaStockPriceRepository, AlpacaStockPriceRepository>();
+    builder.Services.AddScoped<IAlpacaCryptoPriceRepository, AlpacaCryptoPriceRepository>();
+    builder.Services.AddHttpClient<IAlpacaMarketDataClient, AlpacaMarketDataClient>()
+        .AddPolicyHandler(GetRetryPolicy());
+
+    // Application - Alpaca Provider
+    builder.Services.AddScoped<IAlpacaStockFetchService, AlpacaStockFetchService>();
+    builder.Services.AddScoped<IAlpacaCryptoFetchService, AlpacaCryptoFetchService>();
+    builder.Services.AddScoped<IAlpacaStockBackfillService, AlpacaStockBackfillService>();
+    builder.Services.AddScoped<IAlpacaCryptoBackfillService, AlpacaCryptoBackfillService>();
+    builder.Services.AddScoped<IAlpacaAssetVerificationService, AlpacaAssetVerificationService>();
+    builder.Services.AddScoped<IAlpacaTickerManagementService, AlpacaTickerManagementService>();
+
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();
 
@@ -149,6 +169,12 @@ try
 
     // PriceTargetAnalysis worker
     builder.Services.AddHostedService<PriceTargetWorker>();
+
+    // Alpaca workers
+    builder.Services.AddHostedService<AlpacaStockFetchWorker>();
+    builder.Services.AddHostedService<AlpacaCryptoFetchWorker>();
+    builder.Services.AddHostedService<AlpacaBackfillQueueConsumer>();
+    builder.Services.AddHostedService<AlpacaCryptoBackfillQueueConsumer>();
 
     // Controllers
     builder.Services.AddControllers();
@@ -210,6 +236,14 @@ try
         SwaggerGroup = "price-targets",
         Capabilities = new List<string> { "price-targets", "entry-price", "stop-loss", "signal" }
     });
+    registry.Register(new ProviderInfo
+    {
+        Name = "Alpaca",
+        Description = "OHLCV market data (stocks + crypto) with 15-min delay, pre/post market bars, and automated backfill",
+        StatusEndpoint = "/api/alpaca/status",
+        SwaggerGroup = "alpaca",
+        Capabilities = new List<string> { "ohlcv", "stocks", "crypto", "backfill", "ticker-management", "webhooks" }
+    });
     builder.Services.AddSingleton<IProviderRegistry>(registry);
 
     // Swagger
@@ -248,6 +282,12 @@ try
             Version = "v1",
             Description = "Candlestick pattern analysis. Analyzes daily candles for single-candle patterns (Doji, Hammer, Marubozu, etc.)"
         });
+        c.SwaggerDoc("alpaca", new OpenApiInfo
+        {
+            Title = "Alpaca Provider",
+            Version = "v1",
+            Description = "OHLCV market data from Alpaca API - stocks, crypto, backfill, and ticker management"
+        });
         c.SwaggerDoc("general", new OpenApiInfo
         {
             Title = "General / Discovery",
@@ -282,6 +322,7 @@ try
         c.SwaggerEndpoint("earnings/swagger.json", "Earnings Sync Service");
         c.SwaggerEndpoint("massive/swagger.json", "Massive Provider");
         c.SwaggerEndpoint("analysis/swagger.json", "Candlestick Analysis Provider");
+        c.SwaggerEndpoint("alpaca/swagger.json", "Alpaca Provider");
         c.SwaggerEndpoint("general/swagger.json", "General / Discovery");
         c.RoutePrefix = "swagger";
     });

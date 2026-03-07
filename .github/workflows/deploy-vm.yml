@@ -10,7 +10,7 @@
 # TARGET (Phase 3): ~3-5 min (60-70% faster)
 # BEST CASE (config-only): ~1-2 min (skip all builds)
 # ===========================================
-# Services: n8n, Caddy, TwelveData, Metrics, Gateway 2.0, Alloy
+# Services: n8n, Caddy, Metrics, Gateway 2.0, Alloy (TwelveData disabled: replaced by Alpaca in data-fetcher-2.0)
 # Monitoring: Grafana Cloud (via Alloy)
 # Secrets: Injected at runtime via Infisical CLI (Machine Identity)
 # Infrastructure Config: instruction/reference/infrastructure-config.md
@@ -22,7 +22,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "services/workers/data-fetcher/TwelveData/**"
+      # - "services/workers/data-fetcher/TwelveData/**"  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
       - "services/workers/data-fetcher/fred-worker/**"
       - "services/workers/data-fetcher-2.0/**"
       - "services/metrics/**"
@@ -45,7 +45,7 @@ on:
         type: choice
         options:
           - ""
-          - "twelvedata"
+          # - "twelvedata"  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
           - "fred-worker"
           - "data-fetcher-2.0"
           - "metrics"
@@ -68,7 +68,7 @@ jobs:
       mcp: ${{ steps.filter.outputs.mcp }}
       gateway2: ${{ steps.filter.outputs.gateway2 }}
       config: ${{ steps.filter.outputs.config }}
-      any_service: ${{ steps.filter.outputs.twelvedata == 'true' || steps.filter.outputs.fred == 'true' || steps.filter.outputs.datafetcher2 == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.gateway2 == 'true' }}
+      any_service: ${{ steps.filter.outputs.fred == 'true' || steps.filter.outputs.datafetcher2 == 'true' || steps.filter.outputs.metrics == 'true' || steps.filter.outputs.backoffice == 'true' || steps.filter.outputs.mcp == 'true' || steps.filter.outputs.gateway2 == 'true' }}
       # Version outputs for tagging
       twelvedata_version: ${{ steps.versions.outputs.twelvedata }}
       fred_version: ${{ steps.versions.outputs.fred }}
@@ -86,9 +86,12 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
+            # twelvedata: Disabled: Replaced by Alpaca provider in data-fetcher-2.0
+            # twelvedata:
+            #   - 'services/workers/data-fetcher/TwelveData/**'
+            #   - 'services/common/**'
             twelvedata:
-              - 'services/workers/data-fetcher/TwelveData/**'
-              - 'services/common/**'
+              - 'zzz-twelvedata-disabled/**'
             fred:
               - 'services/workers/data-fetcher/fred-worker/**'
             datafetcher2:
@@ -212,19 +215,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Build TwelveData (only if changed or forced)
-      - name: Build TwelveData image
-        id: build-twelvedata
-        if: (needs.detect-changes.outputs.twelvedata == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
-        continue-on-error: true
-        uses: docker/build-push-action@v5
-        with:
-          context: services/
-          file: services/workers/data-fetcher/TwelveData/Dockerfile
-          tags: stocktracker-twelvedata:v${{ needs.detect-changes.outputs.twelvedata_version }}
-          cache-from: type=gha,scope=twelvedata
-          cache-to: type=gha,mode=max,scope=twelvedata
-          outputs: type=docker,dest=/tmp/twelvedata.tar
+      # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
+      # - name: Build TwelveData image
+      #   id: build-twelvedata
+      #   if: (needs.detect-changes.outputs.twelvedata == 'true' || github.event.inputs.force_build == 'true') && github.event.inputs.rollback_service == ''
+      #   continue-on-error: true
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: services/
+      #     file: services/workers/data-fetcher/TwelveData/Dockerfile
+      #     tags: stocktracker-twelvedata:v${{ needs.detect-changes.outputs.twelvedata_version }}
+      #     cache-from: type=gha,scope=twelvedata
+      #     cache-to: type=gha,mode=max,scope=twelvedata
+      #     outputs: type=docker,dest=/tmp/twelvedata.tar
 
       # Build FRED Worker (only if changed or forced)
       - name: Build FRED Worker image
@@ -324,13 +327,14 @@ jobs:
           mkdir -p /tmp/images
           BUILT=""
 
-          if [ -f /tmp/twelvedata.tar ]; then
-            gzip -1 < /tmp/twelvedata.tar > /tmp/images/twelvedata.tar.gz
-            BUILT="${BUILT}twelvedata,"
-            echo "✅ TwelveData compressed"
-          else
-            echo "⏭️ TwelveData skipped (unchanged)"
-          fi
+          # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
+          # if [ -f /tmp/twelvedata.tar ]; then
+          #   gzip -1 < /tmp/twelvedata.tar > /tmp/images/twelvedata.tar.gz
+          #   BUILT="${BUILT}twelvedata,"
+          #   echo "✅ TwelveData compressed"
+          # else
+          #   echo "⏭️ TwelveData skipped (unchanged)"
+          # fi
 
           if [ -f /tmp/fred-worker.tar ]; then
             gzip -1 < /tmp/fred-worker.tar > /tmp/images/fred-worker.tar.gz
@@ -438,7 +442,7 @@ jobs:
             cp "$ENV_FILE" "$ENV_FILE.bak"
           fi
 
-          for NAME in twelvedata fred-worker data-fetcher-2.0 metrics back-office mcp-analysis gateway-2.0; do
+          for NAME in fred-worker data-fetcher-2.0 metrics back-office mcp-analysis gateway-2.0; do
             img="/tmp/${NAME}.tar.gz"
             if [ -f "$img" ]; then
               echo "Loading $NAME..."
@@ -451,7 +455,7 @@ jobs:
 
                 # Map service name to env var name
                 case "$NAME" in
-                  "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;
+                  # "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
                   "fred-worker") VAR_NAME="FRED_VERSION" ;;
                   "data-fetcher-2.0") VAR_NAME="DATA_FETCHER_2_VERSION" ;;
                   "metrics") VAR_NAME="METRICS_VERSION" ;;
@@ -493,7 +497,7 @@ jobs:
             echo "| Image | Size | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
 
-            for service in twelvedata fred-worker data-fetcher-2.0 metrics back-office mcp-analysis gateway-2.0; do
+            for service in fred-worker data-fetcher-2.0 metrics back-office mcp-analysis gateway-2.0; do
               if [ -f "/tmp/images/${service}.tar.gz" ]; then
                 SIZE=$(du -h "/tmp/images/${service}.tar.gz" | cut -f1)
                 echo "| $service | $SIZE | ✅ Built |" >> $GITHUB_STEP_SUMMARY
@@ -581,7 +585,7 @@ jobs:
 
           # Build selective services list based on detected changes
           SERVICES=""
-          [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES twelvedata"
+          # [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES twelvedata"  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
           [ "$FRED_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES fred-worker"
           [ "$DATA_FETCHER_2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES data-fetcher-2.0"
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && SERVICES="$SERVICES metrics"
@@ -646,7 +650,7 @@ jobs:
 
           # Docker image name mapping
             case "$ROLLBACK_SERVICE" in
-              "twelvedata") IMAGE="stocktracker-twelvedata" ;;
+              # "twelvedata") IMAGE="stocktracker-twelvedata" ;;  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
               "fred-worker") IMAGE="stocktracker-fred" ;;
               "data-fetcher-2.0") IMAGE="stocktracker-data-fetcher-2.0" ;;
             "metrics") IMAGE="stocktracker-metrics" ;;
@@ -675,7 +679,7 @@ jobs:
           # Update .env.versions with the rollback version
           ENV_FILE="/opt/stocktracker/.env.versions"
           case "${ROLLBACK_SERVICE}" in
-            "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;
+            # "twelvedata") VAR_NAME="TWELVEDATA_VERSION" ;;  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
             "fred-worker") VAR_NAME="FRED_VERSION" ;;
             "data-fetcher-2.0") VAR_NAME="DATA_FETCHER_2_VERSION" ;;
             "metrics") VAR_NAME="METRICS_VERSION" ;;
@@ -753,7 +757,7 @@ jobs:
 
           echo "=== Cleanup old images (keep running + 1 previous for rollback) ==="
           # Smart cleanup: keep 2 most recent versions per service (running + previous for rollback)
-          for SERVICE in twelvedata fred data-fetcher-2.0 metrics back-office mcp-analysis gateway-2.0; do
+          for SERVICE in fred data-fetcher-2.0 metrics back-office mcp-analysis gateway-2.0; do
             # Get all version tags for this service, sorted by version number
             TAGS=$(docker images "stocktracker-${SERVICE}" --format '{{.Tag}}' | grep -E '^v[0-9]+\.[0-9]+$' | sort -V 2>/dev/null || true)
             if [ -n "$TAGS" ]; then
@@ -807,7 +811,7 @@ jobs:
           echo "=== Checking services ==="
           curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/ > /dev/null && echo "✅ n8n: OK" || echo "⚠️ n8n: May need login"
 
-          wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" "TwelveData"
+          # wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live" "TwelveData"  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/health/live" "FRED Worker"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/health/live" "Data Fetcher 2.0"
           wait_healthy "https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/health/live" "Candlestick Analysis (via Data Fetcher 2.0)"
@@ -844,7 +848,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Service URLs" >> $GITHUB_STEP_SUMMARY
           echo "- [n8n](https://nxserver.malaysiawest.cloudapp.azure.com/)" >> $GITHUB_STEP_SUMMARY
-          echo "- [TwelveData Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger)" >> $GITHUB_STEP_SUMMARY
+          # echo "- [TwelveData Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger)" >> $GITHUB_STEP_SUMMARY  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
           echo "- [FRED Worker Status](https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/status)" >> $GITHUB_STEP_SUMMARY
           echo "- [Data Fetcher 2.0 Swagger](https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/swagger)" >> $GITHUB_STEP_SUMMARY
           echo "- [Candlestick Analysis Swagger (via Data Fetcher 2.0)](https://nxserver.malaysiawest.cloudapp.azure.com/api/analysis/swagger)" >> $GITHUB_STEP_SUMMARY
@@ -927,7 +931,7 @@ jobs:
           }
 
           # Update versions for deployed services
-          [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "twelvedata" "$TWELVEDATA_VERSION"
+          # [ "$TWELVEDATA_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "twelvedata" "$TWELVEDATA_VERSION"  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
           [ "$FRED_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "fred-worker" "$FRED_VERSION"
           [ "$DATA_FETCHER_2_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "data-fetcher-2.0" "$DATA_FETCHER_2_VERSION"
           [ "$METRICS_CHANGED" == "true" ] || [ "$FORCE_BUILD" == "true" ] && update_version "metrics" "$METRICS_VERSION"
