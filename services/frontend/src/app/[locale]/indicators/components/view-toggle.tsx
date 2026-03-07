@@ -1,10 +1,12 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { LayoutGrid, Table } from "lucide-react";
 
 export function ViewToggle() {
+  const t = useTranslations("indicators");
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -26,7 +28,7 @@ export function ViewToggle() {
         className="gap-2"
       >
         <LayoutGrid className="h-4 w-4" />
-        <span className="hidden sm:inline">Compact</span>
+        <span className="hidden sm:inline">{t("toggles.compact")}</span>
       </Button>
       <Button
         variant={currentView === "detail" ? "default" : "ghost"}
@@ -35,7 +37,7 @@ export function ViewToggle() {
         className="gap-2"
       >
         <Table className="h-4 w-4" />
-        <span className="hidden sm:inline">Detail</span>
+        <span className="hidden sm:inline">{t("toggles.detail")}</span>
       </Button>
     </div>
   );

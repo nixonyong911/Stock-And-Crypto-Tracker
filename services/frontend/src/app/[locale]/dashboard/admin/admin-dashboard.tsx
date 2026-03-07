@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import {
   Card,
   CardContent,
@@ -72,6 +73,7 @@ async function fetchAdmin<T>(endpoint: string): Promise<T | null> {
 }
 
 export function AdminDashboard() {
+  const t = useTranslations("admin");
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>([]);
   const [sessionStats, setSessionStats] = useState<SessionStats | null>(null);
@@ -118,15 +120,14 @@ export function AdminDashboard() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Gateway observability &middot; Last refresh:{" "}
-            {lastRefresh.toLocaleTimeString()}
+            {t("lastRefresh", { time: lastRefresh.toLocaleTimeString() })}
           </p>
         </div>
         <Button variant="outline" onClick={refresh} disabled={loading} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
+          {t("refresh")}
         </Button>
       </div>
 
@@ -134,7 +135,7 @@ export function AdminDashboard() {
       <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Uptime</CardDescription>
+            <CardDescription>{t("uptime")}</CardDescription>
             <CardTitle className="text-2xl">
               {metrics ? formatUptime(metrics.metrics.uptime_seconds) : "..."}
             </CardTitle>
@@ -142,33 +143,33 @@ export function AdminDashboard() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Requests</CardDescription>
+            <CardDescription>{t("totalRequests")}</CardDescription>
             <CardTitle className="text-2xl">
               {metrics?.metrics.total_requests ?? "..."}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Success rate: {successRate}%
+              {t("successRate", { rate: successRate })}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Queue</CardDescription>
+            <CardDescription>{t("queue")}</CardDescription>
             <CardTitle className="text-2xl">
-              {metrics?.queue.running ?? "..."}/{metrics?.queue.max_concurrent ?? "..."} active
+              {metrics?.queue.running ?? "..."}/{metrics?.queue.max_concurrent ?? "..."} {t("active")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              {metrics?.queue.queue_depth ?? 0} waiting
+              {t("waiting", { count: metrics?.queue.queue_depth ?? 0 })}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Blocked Injections</CardDescription>
+            <CardDescription>{t("blockedInjections")}</CardDescription>
             <CardTitle className="text-2xl text-destructive">
               {metrics?.metrics.blocked_injections ?? "..."}
             </CardTitle>
@@ -182,16 +183,16 @@ export function AdminDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              CLI Performance
+              {t("cliPerformance")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Executions</span>
+              <span className="text-sm text-muted-foreground">{t("executions")}</span>
               <span className="font-mono">{metrics?.metrics.cli_executions ?? 0}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Avg Duration</span>
+              <span className="text-sm text-muted-foreground">{t("avgDuration")}</span>
               <span className="font-mono">
                 {metrics?.metrics.cli_avg_ms
                   ? `${(metrics.metrics.cli_avg_ms / 1000).toFixed(1)}s`
@@ -199,13 +200,13 @@ export function AdminDashboard() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Timeouts</span>
+              <span className="text-sm text-muted-foreground">{t("timeouts")}</span>
               <span className="font-mono text-amber-500">
                 {metrics?.metrics.cli_timeouts ?? 0}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Errors</span>
+              <span className="text-sm text-muted-foreground">{t("errors")}</span>
               <span className="font-mono text-destructive">
                 {metrics?.metrics.cli_errors ?? 0}
               </span>
@@ -218,20 +219,20 @@ export function AdminDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Sessions
+              {t("sessions")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Active</span>
+              <span className="text-sm text-muted-foreground">{t("activeSessions")}</span>
               <span className="font-mono">{sessionStats?.active_sessions ?? 0}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Total</span>
+              <span className="text-sm text-muted-foreground">{t("total")}</span>
               <span className="font-mono">{sessionStats?.total_sessions ?? 0}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Avg Duration</span>
+              <span className="text-sm text-muted-foreground">{t("avgDuration")}</span>
               <span className="font-mono">
                 {sessionStats?.avg_duration_min
                   ? `${sessionStats.avg_duration_min.toFixed(0)}min`
@@ -239,7 +240,7 @@ export function AdminDashboard() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Pruned</span>
+              <span className="text-sm text-muted-foreground">{t("pruned")}</span>
               <span className="font-mono">{metrics?.metrics.sessions_pruned ?? 0}</span>
             </div>
             {sessionStats?.by_tier && Object.keys(sessionStats.by_tier).length > 0 && (
@@ -259,23 +260,23 @@ export function AdminDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Usage (24h)
+              {t("usage24h")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Total Messages</span>
+              <span className="text-sm text-muted-foreground">{t("totalMessages")}</span>
               <span className="font-mono">{usageStats?.total_messages ?? 0}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Usage Rejections</span>
+              <span className="text-sm text-muted-foreground">{t("usageRejections")}</span>
               <span className="font-mono text-amber-500">
                 {metrics?.metrics.usage_rejections ?? 0}
               </span>
             </div>
             {usageStats?.by_tier && Object.keys(usageStats.by_tier).length > 0 && (
               <div>
-                <p className="mb-1 text-xs font-medium text-muted-foreground">By Tier</p>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">{t("byTier")}</p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(usageStats.by_tier).map(([tier, count]) => (
                     <Badge key={tier} variant="outline">
@@ -289,7 +290,7 @@ export function AdminDashboard() {
               Object.keys(metrics.metrics.requests_by_tier).length > 0 && (
                 <div>
                   <p className="mb-1 text-xs font-medium text-muted-foreground">
-                    All-time by Tier
+                    {t("allTimeByTier")}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(metrics.metrics.requests_by_tier).map(
@@ -310,13 +311,13 @@ export function AdminDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              Recent Security Blocks
+              {t("securityBlocks")}
             </CardTitle>
-            <CardDescription>Last 20 blocked injection attempts</CardDescription>
+            <CardDescription>{t("securityBlocksDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
             {securityLogs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No blocked attempts.</p>
+              <p className="text-sm text-muted-foreground">{t("noBlocked")}</p>
             ) : (
               <div className="space-y-3 max-h-80 overflow-y-auto">
                 {securityLogs.map((log) => (
@@ -337,7 +338,7 @@ export function AdminDashboard() {
                       {log.message_text.length > 200 ? "..." : ""}
                     </p>
                     <p className="mt-1 text-xs">
-                      User: {log.user_id} &middot; {log.channel_type}
+                      {t("user", { id: log.user_id, channel: log.channel_type })}
                     </p>
                   </div>
                 ))}

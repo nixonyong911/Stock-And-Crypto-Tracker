@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EconomicIndicator, CATEGORY_CONFIG, groupIndicatorsByCategory, getSortedCategories } from "@/lib/db/indicators";
 import { TrendIcon } from "./trend-icon";
@@ -18,6 +19,7 @@ type SortField = "name" | "current" | "change" | "date";
 type SortDirection = "asc" | "desc";
 
 export function IndicatorsTable({ indicators, formatValue }: Props) {
+  const t = useTranslations("indicators");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -72,14 +74,14 @@ export function IndicatorsTable({ indicators, formatValue }: Props) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead><SortHeader field="name">Indicator</SortHeader></TableHead>
-                  <TableHead className="text-right"><SortHeader field="current">Current</SortHeader></TableHead>
-                  <TableHead className="text-right">Previous</TableHead>
-                  <TableHead className="text-right"><SortHeader field="change">Change</SortHeader></TableHead>
-                  <TableHead>Trend</TableHead>
-                  <TableHead>Signal</TableHead>
-                  <TableHead className="text-right"><SortHeader field="date">Updated</SortHeader></TableHead>
-                  <TableHead className="text-right">Next Release</TableHead>
+                  <TableHead><SortHeader field="name">{t("table.indicator")}</SortHeader></TableHead>
+                  <TableHead className="text-right"><SortHeader field="current">{t("table.current")}</SortHeader></TableHead>
+                  <TableHead className="text-right">{t("table.previous")}</TableHead>
+                  <TableHead className="text-right"><SortHeader field="change">{t("table.change")}</SortHeader></TableHead>
+                  <TableHead>{t("table.trend")}</TableHead>
+                  <TableHead>{t("table.signal")}</TableHead>
+                  <TableHead className="text-right"><SortHeader field="date">{t("table.updated")}</SortHeader></TableHead>
+                  <TableHead className="text-right">{t("table.nextRelease")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -107,7 +109,7 @@ export function IndicatorsTable({ indicators, formatValue }: Props) {
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       {indicator.release_frequency === "Daily"
-                        ? "Daily"
+                        ? t("table.daily")
                         : indicator.next_release_date &&
                           new Date(indicator.next_release_date).toLocaleDateString()}
                     </TableCell>

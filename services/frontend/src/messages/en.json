@@ -710,6 +710,94 @@
     "failedTitle": "Payment Verification Failed",
     "returnToPricing": "Return to Pricing"
   },
+  "admin": {
+    "title": "Admin Dashboard",
+    "lastRefresh": "Gateway observability · Last refresh: {time}",
+    "refresh": "Refresh",
+    "uptime": "Uptime",
+    "totalRequests": "Total Requests",
+    "successRate": "Success rate: {rate}%",
+    "queue": "Queue",
+    "active": "active",
+    "waiting": "{count} waiting",
+    "blockedInjections": "Blocked Injections",
+    "cliPerformance": "CLI Performance",
+    "executions": "Executions",
+    "avgDuration": "Avg Duration",
+    "timeouts": "Timeouts",
+    "errors": "Errors",
+    "sessions": "Sessions",
+    "activeSessions": "Active",
+    "total": "Total",
+    "pruned": "Pruned",
+    "usage24h": "Usage (24h)",
+    "totalMessages": "Total Messages",
+    "usageRejections": "Usage Rejections",
+    "byTier": "By Tier",
+    "allTimeByTier": "All-time by Tier",
+    "securityBlocks": "Recent Security Blocks",
+    "securityBlocksDesc": "Last 20 blocked injection attempts",
+    "noBlocked": "No blocked attempts.",
+    "user": "User: {id} · {channel}"
+  },
+  "indicators": {
+    "categories": {
+      "interest_rates": "Interest Rates",
+      "inflation": "Inflation",
+      "yield_curve": "Yield Curve",
+      "labor": "Labor Market",
+      "growth": "Economic Growth",
+      "sentiment": "Consumer Sentiment",
+      "money_supply": "Money Supply",
+      "credit": "Credit"
+    },
+    "signals": {
+      "bullish": "Bullish",
+      "bearish": "Bearish",
+      "neutral": "Neutral"
+    },
+    "table": {
+      "indicator": "Indicator",
+      "current": "Current",
+      "previous": "Previous",
+      "change": "Change",
+      "trend": "Trend",
+      "signal": "Signal",
+      "updated": "Updated",
+      "nextRelease": "Next Release",
+      "daily": "Daily",
+      "na": "N/A"
+    },
+    "toggles": {
+      "raw": "Raw",
+      "media": "Media",
+      "compact": "Compact",
+      "detail": "Detail"
+    },
+    "calendar": {
+      "upcomingReleases": "Upcoming Releases",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "thisWeek": "This Week",
+      "nextWeek": "Next Week",
+      "noUpcoming": "No upcoming releases",
+      "countThisWeek": "{count} this week"
+    },
+    "miniCard": {
+      "previous": "Previous:",
+      "change": "Change:",
+      "updated": "Updated:"
+    },
+    "detailCard": {
+      "current": "Current",
+      "previous": "Previous",
+      "updated": "Updated:",
+      "next": "Next:",
+      "daily": "Daily",
+      "na": "N/A"
+    },
+    "error": "Failed to load economic indicators"
+  },
   "notFound": {
     "title": "Page not found",
     "description": "Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist.",

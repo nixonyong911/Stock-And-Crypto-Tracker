@@ -1,9 +1,11 @@
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 type Signal = "bullish" | "bearish" | "neutral" | null;
 
 export function SignalBadge({ signal, compact = false }: { signal: Signal; compact?: boolean }) {
+  const t = useTranslations("indicators");
   if (compact) {
     // Just a colored dot for compact view
     return (
@@ -21,16 +23,16 @@ export function SignalBadge({ signal, compact = false }: { signal: Signal; compa
   if (signal === "bullish") {
     return (
       <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-0">
-        Bullish
+        {t("signals.bullish")}
       </Badge>
     );
   }
   if (signal === "bearish") {
     return (
       <Badge className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-0">
-        Bearish
+        {t("signals.bearish")}
       </Badge>
     );
   }
-  return <Badge variant="secondary">Neutral</Badge>;
+  return <Badge variant="secondary">{t("signals.neutral")}</Badge>;
 }

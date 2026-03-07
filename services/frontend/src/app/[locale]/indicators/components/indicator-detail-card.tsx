@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { EconomicIndicator } from "@/lib/db/indicators";
 import { TrendIcon } from "./trend-icon";
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function IndicatorDetailCard({ indicator, formattedCurrent, formattedPrevious }: Props) {
+  const t = useTranslations("indicators");
   return (
     <Card>
       <CardContent className="p-4">
@@ -20,11 +22,11 @@ export function IndicatorDetailCard({ indicator, formattedCurrent, formattedPrev
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-muted-foreground">Current</p>
+            <p className="text-muted-foreground">{t("detailCard.current")}</p>
             <p className="font-mono font-bold text-lg">{formattedCurrent}</p>
           </div>
           <div>
-            <p className="text-muted-foreground">Previous</p>
+            <p className="text-muted-foreground">{t("detailCard.previous")}</p>
             <p className="font-mono text-muted-foreground">{formattedPrevious}</p>
           </div>
         </div>
@@ -43,14 +45,14 @@ export function IndicatorDetailCard({ indicator, formattedCurrent, formattedPrev
           </div>
           <div className="text-right text-xs text-muted-foreground">
             {(indicator.last_release_date ?? indicator.current_observation_date) && (
-              <div>Updated: {new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString()}</div>
+              <div>{t("detailCard.updated")} {new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString()}</div>
             )}
             <div>
-              Next: {indicator.release_frequency === "Daily"
-                ? "Daily"
+              {t("detailCard.next")} {indicator.release_frequency === "Daily"
+                ? t("detailCard.daily")
                 : indicator.next_release_date
                   ? new Date(indicator.next_release_date).toLocaleDateString()
-                  : "N/A"}
+                  : t("detailCard.na")}
             </div>
           </div>
         </div>

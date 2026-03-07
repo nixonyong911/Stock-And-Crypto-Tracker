@@ -1,10 +1,12 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
 export function DataToggle() {
+  const t = useTranslations("indicators");
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -21,7 +23,7 @@ export function DataToggle() {
   return (
     <div className="flex items-center gap-2">
       <Label htmlFor="data-toggle" className="text-sm text-muted-foreground">
-        {isRaw ? "Raw" : "Media"}
+        {isRaw ? t("toggles.raw") : t("toggles.media")}
       </Label>
       <Switch
         id="data-toggle"

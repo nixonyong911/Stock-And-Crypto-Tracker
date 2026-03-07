@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TrendIcon } from "./trend-icon";
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function IndicatorMiniCard({ indicator, formattedValue, formattedPrevious }: Props) {
+  const t = useTranslations("indicators");
   return (
     <TooltipProvider>
       <Tooltip>
@@ -30,17 +32,17 @@ export function IndicatorMiniCard({ indicator, formattedValue, formattedPrevious
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-[200px]">
           <div className="space-y-1 text-sm">
-            <p><span className="text-muted-foreground">Previous:</span> {formattedPrevious}</p>
+            <p><span className="text-muted-foreground">{t("miniCard.previous")}</span> {formattedPrevious}</p>
             {indicator.change_percent !== null && (
               <p>
-                <span className="text-muted-foreground">Change:</span>{" "}
+                <span className="text-muted-foreground">{t("miniCard.change")}</span>{" "}
                 <span className={indicator.change_percent > 0 ? "text-green-500" : indicator.change_percent < 0 ? "text-red-500" : ""}>
                   {indicator.change_percent > 0 ? "+" : ""}{indicator.change_percent.toFixed(1)}%
                 </span>
               </p>
             )}
             {(indicator.last_release_date ?? indicator.current_observation_date) && (
-              <p><span className="text-muted-foreground">Updated:</span> {new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString()}</p>
+              <p><span className="text-muted-foreground">{t("miniCard.updated")}</span> {new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString()}</p>
             )}
           </div>
         </TooltipContent>

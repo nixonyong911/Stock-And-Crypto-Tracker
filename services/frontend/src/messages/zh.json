@@ -710,6 +710,94 @@
     "failedTitle": "支付验证失败",
     "returnToPricing": "返回定价页面"
   },
+  "admin": {
+    "title": "管理员仪表盘",
+    "lastRefresh": "网关监控 · 最后刷新：{time}",
+    "refresh": "刷新",
+    "uptime": "运行时间",
+    "totalRequests": "总请求数",
+    "successRate": "成功率：{rate}%",
+    "queue": "队列",
+    "active": "活跃",
+    "waiting": "{count}个等待中",
+    "blockedInjections": "已拦截注入",
+    "cliPerformance": "CLI性能",
+    "executions": "执行次数",
+    "avgDuration": "平均耗时",
+    "timeouts": "超时",
+    "errors": "错误",
+    "sessions": "会话",
+    "activeSessions": "活跃",
+    "total": "总计",
+    "pruned": "已清理",
+    "usage24h": "使用量（24小时）",
+    "totalMessages": "总消息数",
+    "usageRejections": "使用拒绝",
+    "byTier": "按等级",
+    "allTimeByTier": "历史按等级",
+    "securityBlocks": "最近安全拦截",
+    "securityBlocksDesc": "最近20次拦截的注入尝试",
+    "noBlocked": "暂无拦截记录。",
+    "user": "用户：{id} · {channel}"
+  },
+  "indicators": {
+    "categories": {
+      "interest_rates": "利率",
+      "inflation": "通胀",
+      "yield_curve": "收益率曲线",
+      "labor": "劳动力市场",
+      "growth": "经济增长",
+      "sentiment": "消费者信心",
+      "money_supply": "货币供应",
+      "credit": "信贷"
+    },
+    "signals": {
+      "bullish": "看涨",
+      "bearish": "看跌",
+      "neutral": "中性"
+    },
+    "table": {
+      "indicator": "指标",
+      "current": "当前",
+      "previous": "前值",
+      "change": "变化",
+      "trend": "趋势",
+      "signal": "信号",
+      "updated": "更新时间",
+      "nextRelease": "下次发布",
+      "daily": "每日",
+      "na": "N/A"
+    },
+    "toggles": {
+      "raw": "原始",
+      "media": "处理后",
+      "compact": "紧凑",
+      "detail": "详细"
+    },
+    "calendar": {
+      "upcomingReleases": "即将发布",
+      "today": "今天",
+      "tomorrow": "明天",
+      "thisWeek": "本周",
+      "nextWeek": "下周",
+      "noUpcoming": "暂无即将发布的数据",
+      "countThisWeek": "本周{count}项"
+    },
+    "miniCard": {
+      "previous": "前值：",
+      "change": "变化：",
+      "updated": "更新："
+    },
+    "detailCard": {
+      "current": "当前",
+      "previous": "前值",
+      "updated": "更新：",
+      "next": "下次：",
+      "daily": "每日",
+      "na": "N/A"
+    },
+    "error": "无法加载经济指标"
+  },
   "notFound": {
     "title": "页面未找到",
     "description": "抱歉，我们找不到您要访问的页面。该页面可能已被移动或不存在。",
