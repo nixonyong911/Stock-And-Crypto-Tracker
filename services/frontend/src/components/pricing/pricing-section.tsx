@@ -10,7 +10,7 @@ import { ProPricingCard } from "./pro-pricing-card";
 /** Default prices (in dollars) - used when not provided */
 const DEFAULT_PRICES = {
   monthly: 19.99,
-  annual: 199.0,
+  annual: 167.99,
 };
 
 export interface PricingSectionProps {

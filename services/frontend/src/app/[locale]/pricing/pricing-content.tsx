@@ -48,7 +48,7 @@ export function PricingContent({ prices }: Props) {
   // Convert from cents to dollars, with fallback values
   const displayPrices = {
     monthly: prices.monthly ? prices.monthly.unitAmount / 100 : 19.99,
-    annual: prices.annual ? prices.annual.unitAmount / 100 : 199.0,
+    annual: prices.annual ? prices.annual.unitAmount / 100 : 167.99,
   };
 
   return (

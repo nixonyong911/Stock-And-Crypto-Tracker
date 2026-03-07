@@ -47,7 +47,7 @@ export default async function PricingPage({ params }: Props) {
     : "19.99";
   const annualPrice = prices.annual
     ? (prices.annual.unitAmount / 100).toFixed(2)
-    : "199.00";
+    : "167.99";
 
   const pricingSchema = {
     "@context": "https://schema.org",

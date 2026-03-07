@@ -30,16 +30,17 @@ export const getStripePrices = unstable_cache(
         limit: 10,
       });
 
+      const preferredMonthlyId = process.env.STRIPE_MONTHLY_PRICE_ID;
+      const preferredAnnualId = process.env.STRIPE_ANNUAL_PRICE_ID;
+
       let monthly: StripePriceInfo | null = null;
       let annual: StripePriceInfo | null = null;
 
       for (const price of prices.data) {
-        // Skip if product is not expanded or is deleted
         const product = price.product;
-        if (typeof product === 'string') continue; // Not expanded
-        if (!product || product.deleted) continue; // Deleted product
+        if (typeof product === 'string') continue;
+        if (!product || product.deleted) continue;
         
-        // Cast to Product (not DeletedProduct) and check if active
         const productObj = product as import("stripe").Stripe.Product;
         if (!productObj.active) continue;
         if (!productObj.name.toLowerCase().includes("pro")) continue;
@@ -56,9 +57,17 @@ export const getStripePrices = unstable_cache(
         };
 
         if (price.recurring?.interval === "month") {
-          monthly = priceInfo;
+          if (preferredMonthlyId && price.id === preferredMonthlyId) {
+            monthly = priceInfo;
+          } else if (!preferredMonthlyId && !monthly) {
+            monthly = priceInfo;
+          }
         } else if (price.recurring?.interval === "year") {
-          annual = priceInfo;
+          if (preferredAnnualId && price.id === preferredAnnualId) {
+            annual = priceInfo;
+          } else if (!preferredAnnualId && !annual) {
+            annual = priceInfo;
+          }
         }
       }
 
@@ -83,7 +92,7 @@ export const getStripePrices = unstable_cache(
         },
         annual: {
           id: "fallback_annual",
-          unitAmount: 19900,
+          unitAmount: 16799,
           currency: "usd",
           interval: "year",
           intervalCount: 1,
