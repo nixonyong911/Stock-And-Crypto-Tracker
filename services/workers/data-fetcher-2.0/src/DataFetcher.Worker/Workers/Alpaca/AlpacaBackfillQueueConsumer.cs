@@ -3,6 +3,7 @@ using System.Text.Json;
 using DataFetcher.Worker.Application.Providers.Alpaca;
 using DataFetcher.Worker.Configuration;
 using DataFetcher.Worker.Domain.Providers.Alpaca.Models;
+using DataFetcher.Worker.Domain.Providers.CandlestickAnalysis.Models;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -138,7 +139,7 @@ public class AlpacaBackfillQueueConsumer : BackgroundService
     {
         try
         {
-            var message = JsonSerializer.Serialize(new { Symbol = symbol, AssetType = assetType, RequestedAt = DateTime.UtcNow });
+            var message = JsonSerializer.Serialize(new AnalysisBackfillRequest { Symbol = symbol, AssetType = assetType, RequestedAt = DateTime.UtcNow });
             var messageBytes = Encoding.UTF8.GetBytes(message);
             var properties = _channel!.CreateBasicProperties();
             properties.Persistent = true;

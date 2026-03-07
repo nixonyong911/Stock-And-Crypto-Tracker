@@ -3,6 +3,7 @@ using System.Text.Json;
 using DataFetcher.Worker.Application.Providers.Alpaca;
 using DataFetcher.Worker.Configuration;
 using DataFetcher.Worker.Domain.Providers.Alpaca.Models;
+using DataFetcher.Worker.Domain.Providers.CandlestickAnalysis.Models;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -135,7 +136,7 @@ public class AlpacaCryptoBackfillQueueConsumer : BackgroundService
     {
         try
         {
-            var message = JsonSerializer.Serialize(new { Symbol = symbol, AssetType = "crypto", RequestedAt = DateTime.UtcNow });
+            var message = JsonSerializer.Serialize(new AnalysisBackfillRequest { Symbol = symbol, AssetType = "crypto", RequestedAt = DateTime.UtcNow });
             var properties = _channel!.CreateBasicProperties();
             properties.Persistent = true;
             _channel.BasicPublish("", _rabbitSettings.AnalysisBackfillQueueName, properties, Encoding.UTF8.GetBytes(message));
