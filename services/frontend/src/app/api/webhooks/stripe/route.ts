@@ -60,6 +60,12 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      case "customer.subscription.paused": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await handleSubscriptionPaused(supabase, subscription, event);
+        break;
+      }
+
       case "customer.subscription.trial_will_end": {
         const subscription = event.data.object as Stripe.Subscription;
         await handleTrialWillEnd(supabase, subscription, event);
@@ -268,7 +274,52 @@ async function handleSubscriptionDeleted(
   console.log(`Stripe webhook: Subscription deleted for user ${user.id}`);
 }
 
-// Handle trial will end (3 days before)
+// Handle subscription paused (trial expired without payment method) -- immediate downgrade
+async function handleSubscriptionPaused(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  subscription: Stripe.Subscription,
+  event: Stripe.Event
+) {
+  const customerId = subscription.customer as string;
+
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, clerk_user_id, telegram_user_id")
+    .eq("stripe_customer_id", customerId)
+    .single();
+
+  if (!user) {
+    console.error(`Stripe webhook: No user found for customer ${customerId}`);
+    return;
+  }
+
+  const previousStatus = await getCurrentSubscriptionStatus(supabase, user.id);
+
+  // Update subscription status
+  await supabase
+    .from("users_subscriptions")
+    .update({
+      status: "paused",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("stripe_subscription_id", subscription.id);
+
+  // Immediately downgrade to free
+  await supabase
+    .from("users")
+    .update({ tier: "free", updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  if (user.clerk_user_id) {
+    invalidateUserTierCache(user.clerk_user_id);
+  }
+
+  await logSubscriptionHistory(supabase, user.id, subscription.id, "paused", previousStatus, "paused", event);
+
+  console.log(`Stripe webhook: Subscription paused for user ${user.id}, downgraded to free`);
+}
+
+// Handle trial will end (3 days before) -- send email + Telegram notification
 async function handleTrialWillEnd(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   subscription: Stripe.Subscription,
@@ -278,7 +329,7 @@ async function handleTrialWillEnd(
 
   const { data: user } = await supabase
     .from("users")
-    .select("id, email")
+    .select("id, email, telegram_user_id")
     .eq("stripe_customer_id", customerId)
     .single();
 
@@ -287,11 +338,12 @@ async function handleTrialWillEnd(
     return;
   }
 
-  // Log to subscription_history
   await logSubscriptionHistory(supabase, user.id, subscription.id, "trial_will_end", subscription.status, subscription.status, event);
 
-  // TODO: Send notification to user about trial ending
-  console.log(`Stripe webhook: Trial ending soon for user ${user.id}`);
+  // TODO: Send email notification about trial ending
+  // TODO: Send Telegram message to user.telegram_user_id if set:
+  //   "Your Pro trial ends in 3 days. Choose your plan and add a payment method to keep Pro access."
+  console.log(`Stripe webhook: Trial ending soon for user ${user.id} (email: ${user.email}, tg: ${user.telegram_user_id})`);
 }
 
 // Handle successful payment

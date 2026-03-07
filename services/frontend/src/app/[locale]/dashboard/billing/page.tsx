@@ -32,10 +32,10 @@ export default async function BillingPage({ params }: Props) {
   // Get subscription details
   const supabase = getSupabaseAdmin();
   const { data: subscription } = await supabase
-    .from("subscriptions")
+    .from("users_subscriptions")
     .select("*")
     .eq("user_id", dbUser.id)
-    .order("created_at", { ascending: false })
+    .order("updated_at", { ascending: false })
     .limit(1)
     .single();
 

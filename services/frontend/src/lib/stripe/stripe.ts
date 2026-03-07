@@ -171,6 +171,28 @@ export async function hasUsedTrial(email: string): Promise<boolean> {
   }
 }
 
+// Create a trial subscription directly (no Checkout page, no card required)
+export async function createTrialSubscription(options: {
+  customerId: string;
+  priceId: string;
+  metadata?: Record<string, string>;
+}) {
+  return getStripe().subscriptions.create({
+    customer: options.customerId,
+    items: [{ price: options.priceId }],
+    trial_period_days: 7,
+    trial_settings: {
+      end_behavior: {
+        missing_payment_method: "pause",
+      },
+    },
+    payment_settings: {
+      save_default_payment_method: "on_subscription",
+    },
+    metadata: options.metadata,
+  });
+}
+
 // Create checkout session with conditional trial
 export async function createCheckoutSession(options: {
   priceId: string;

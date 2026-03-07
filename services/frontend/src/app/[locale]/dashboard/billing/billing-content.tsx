@@ -95,6 +95,7 @@ export function BillingContent({ user, subscription, clerkUser }: BillingContent
     const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
       active: { variant: "default", label: "Active" },
       trialing: { variant: "secondary", label: "Trial" },
+      paused: { variant: "outline", label: "Paused" },
       past_due: { variant: "destructive", label: "Past Due" },
       canceled: { variant: "outline", label: "Canceled" },
       incomplete: { variant: "destructive", label: "Incomplete" },
@@ -104,7 +105,18 @@ export function BillingContent({ user, subscription, clerkUser }: BillingContent
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
+  const getTrialDaysRemaining = (): number | null => {
+    if (subscription?.status !== "trialing" || !subscription.trial_end) return null;
+    const end = new Date(subscription.trial_end).getTime();
+    const now = Date.now();
+    const days = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+    return days;
+  };
+
+  const trialDaysRemaining = getTrialDaysRemaining();
+
   const isTrialing = subscription?.status === "trialing";
+  const isPaused = subscription?.status === "paused";
   const isActive = subscription?.status === "active" || isTrialing;
   const isCanceled = subscription?.cancel_at_period_end || subscription?.status === "canceled";
 
@@ -149,10 +161,37 @@ export function BillingContent({ user, subscription, clerkUser }: BillingContent
                   )}
 
                   {isTrialing && subscription.trial_end && (
-                    <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
-                      <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+                    <div className="space-y-2">
+                      <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
+                        <div className="flex items-center justify-between text-sm text-blue-700 dark:text-blue-300">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4" />
+                            Pro Trial: {trialDaysRemaining} day{trialDaysRemaining !== 1 ? "s" : ""} remaining
+                          </div>
+                          <span className="text-xs">{formatDate(subscription.trial_end)}</span>
+                        </div>
+                        {trialDaysRemaining !== null && (
+                          <div className="mt-2 h-1.5 w-full rounded-full bg-blue-200 dark:bg-blue-900">
+                            <div
+                              className="h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 transition-all"
+                              style={{ width: `${Math.max(5, ((7 - trialDaysRemaining) / 7) * 100)}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-950">
+                        <p className="text-sm text-amber-700 dark:text-amber-300">
+                          Choose your plan and add a payment method before your trial ends to keep Pro access.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {isPaused && (
+                    <div className="rounded-lg bg-red-50 p-3 dark:bg-red-950">
+                      <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
                         <AlertCircle className="h-4 w-4" />
-                        Trial ends on {formatDate(subscription.trial_end)}
+                        Your trial has ended. Add a payment method to continue with Pro.
                       </div>
                     </div>
                   )}
@@ -176,9 +215,23 @@ export function BillingContent({ user, subscription, clerkUser }: BillingContent
                 </div>
               )}
             </CardContent>
-            <CardFooter>
-              {user.tier === "free" ? (
-                <Button asChild className="w-full">
+            <CardFooter className="flex flex-col gap-2">
+              {(isTrialing || isPaused) && user.stripe_customer_id && (
+                <Button
+                  className="w-full"
+                  onClick={handleManageBilling}
+                  disabled={isLoadingPortal}
+                >
+                  {isLoadingPortal ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="mr-2 h-4 w-4" />
+                  )}
+                  Add Payment Method
+                </Button>
+              )}
+              {user.tier === "free" && !isPaused ? (
+                <Button asChild className="w-full" variant={isTrialing ? "outline" : "default"}>
                   <a href="/pricing">Upgrade to Pro</a>
                 </Button>
               ) : (

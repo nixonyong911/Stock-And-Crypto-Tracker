@@ -100,6 +100,21 @@
       },
       "cta": "Get Pro"
     },
+    "trial": {
+      "startFree": "Start 7-Day Free Trial",
+      "linkTelegram": "Link Telegram to Start Trial",
+      "verifyPhone": "Verify Phone to Start Trial",
+      "subscribeNow": "Subscribe Now",
+      "noCardRequired": "No card required",
+      "trialUsed": "Trial already used",
+      "trialActive": "Pro Trial: {days} day(s) remaining",
+      "trialEnded": "Your trial has ended. Add a payment method to continue with Pro.",
+      "addPaymentMethod": "Add Payment Method",
+      "choosePlan": "Choose your plan and add a payment method before your trial ends to keep Pro access.",
+      "manageSubscription": "Manage Subscription",
+      "startingTrial": "Starting trial...",
+      "processing": "Processing..."
+    },
     "disclaimer": "Not financial advice. Cancel anytime."
   },
   "trust": {

@@ -17,30 +17,34 @@ import type { BillingPeriod } from "./billing-toggle";
 const proFeatures = ["coverage", "signals", "priority", "telegram"] as const;
 
 export interface ProPricingCardProps {
-  /** Current billing period selection */
   billingPeriod: BillingPeriod;
-  /** Price configuration */
   prices: {
     monthly: number;
     annual: number;
   };
-  /** Callback for checkout - triggers Stripe */
   onCheckout: () => void;
-  /** Whether checkout is in progress */
+  onStartTrial?: () => void;
   isLoading?: boolean;
-  /** Error message to display */
+  isTrialLoading?: boolean;
   error?: string | null;
-  /** Custom CTA text */
   cta?: string;
+  showTrialButton?: boolean;
+  trialButtonLabel?: string;
+  isSubscribed?: boolean;
 }
 
 export function ProPricingCard({
   billingPeriod,
   prices,
   onCheckout,
+  onStartTrial,
   isLoading = false,
+  isTrialLoading = false,
   error = null,
   cta,
+  showTrialButton = true,
+  trialButtonLabel = "Start 7-Day Free Trial",
+  isSubscribed = false,
 }: ProPricingCardProps) {
   const t = useTranslations("pricing");
 
@@ -78,10 +82,12 @@ export function ProPricingCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1">
-        <div className="mb-4 rounded-lg bg-primary/5 px-3 py-2 text-center text-sm">
-          <span className="font-medium text-primary">7-day free trial</span>
-          <span className="text-muted-foreground"> · Cancel anytime</span>
-        </div>
+        {showTrialButton && (
+          <div className="mb-4 rounded-lg bg-primary/5 px-3 py-2 text-center text-sm">
+            <span className="font-medium text-primary">7-day free trial</span>
+            <span className="text-muted-foreground"> · No card required</span>
+          </div>
+        )}
         <ul className="space-y-3">
           {proFeatures.map((key) => (
             <li key={key} className="flex items-center gap-3">
@@ -93,22 +99,47 @@ export function ProPricingCard({
           ))}
         </ul>
       </CardContent>
-      <CardFooter className="flex flex-col gap-2">
+      <CardFooter className="flex flex-col gap-3">
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button
-          className="w-full gap-2"
-          onClick={onCheckout}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            cta ?? "Start 7-Day Free Trial"
-          )}
-        </Button>
+        {isSubscribed ? (
+          <Button className="w-full" variant="outline" asChild>
+            <a href="/dashboard/billing">Manage Subscription</a>
+          </Button>
+        ) : (
+          <>
+            {showTrialButton && onStartTrial && (
+              <Button
+                className="w-full gap-2"
+                onClick={onStartTrial}
+                disabled={isTrialLoading || isLoading}
+              >
+                {isTrialLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Starting trial...
+                  </>
+                ) : (
+                  trialButtonLabel
+                )}
+              </Button>
+            )}
+            <Button
+              className="w-full gap-2"
+              variant={showTrialButton ? "outline" : "default"}
+              onClick={onCheckout}
+              disabled={isLoading || isTrialLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                cta ?? "Subscribe Now"
+              )}
+            </Button>
+          </>
+        )}
       </CardFooter>
     </Card>
   );

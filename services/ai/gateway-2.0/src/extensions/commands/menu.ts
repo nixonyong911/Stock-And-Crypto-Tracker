@@ -9,6 +9,7 @@ export const COMMAND_MENU = [
   "/add <symbol> [type] - Track a ticker (stock, etf, crypto)",
   "/remove <symbol> - Stop tracking a ticker",
   "/wishlist or /watchlist - View your tracked tickers with price targets",
+  "/subscribe - Upgrade to Pro or start a free trial",
   "/help - Show available commands",
   "/addhelp - How to use /add",
   "/removehelp - How to use /remove",

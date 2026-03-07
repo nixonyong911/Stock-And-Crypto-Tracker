@@ -12,6 +12,8 @@ export interface User {
   display_name: string;
   avatar_url: string | null;
   tier: "free" | "pro" | "max" | "dev";
+  phone_hash: string | null;
+  phone_verified_at: string | null;
   referral_source_id: number | null;
   referral_source_other: string | null;
   created_at: string;
