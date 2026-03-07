@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Send,
@@ -21,6 +22,7 @@ interface GetStartedContentProps {
 
 export function GetStartedContent({ locale }: GetStartedContentProps) {
   const router = useRouter();
+  const t = useTranslations("getStarted");
   const [state, setState] = useState<
     "idle" | "loading" | "code_ready" | "paired" | "error"
   >("idle");
@@ -164,12 +166,12 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
             <Send className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight">
-            {state === "paired" ? "You're all set!" : "Get Started"}
+            {state === "paired" ? t("allSet") : t("title")}
           </h1>
           <p className="text-lg text-muted-foreground">
             {state === "paired"
-              ? "Your Telegram account is now linked."
-              : "Link your Telegram to unlock AI-powered analysis."}
+              ? t("telegramLinked")
+              : t("linkTelegram")}
           </p>
         </div>
 
@@ -184,7 +186,7 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
               className="w-full gap-2 text-base"
               onClick={() => router.push(`/${locale}/dashboard`)}
             >
-              Go to Dashboard
+              {t("goToDashboard")}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -195,11 +197,7 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
           <div className="space-y-8">
             {/* Steps */}
             <div className="space-y-4 text-left">
-              {[
-                "Generate a one-time pairing code",
-                "Open our Telegram bot",
-                "Send the code to link your account",
-              ].map((text, i) => (
+              {[t("step1"), t("step2"), t("step3")].map((text, i) => (
                 <div key={i} className="flex items-start gap-4">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                     {i + 1}
@@ -218,16 +216,16 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
               {state === "loading" ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Generating...
+                  {t("generating")}
                 </>
               ) : (
-                "Generate Pairing Code"
+                t("generateCode")
               )}
             </Button>
 
             {state === "error" && (
               <p className="text-sm text-destructive">
-                Something went wrong. Please try again.
+                {t("error")}
               </p>
             )}
           </div>
@@ -238,7 +236,7 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
           <div className="space-y-6">
             <div className="rounded-xl border bg-muted/50 p-6">
               <p className="mb-2 text-sm font-medium text-muted-foreground">
-                Your pairing code
+                {t("pairingCode")}
               </p>
               <div className="flex items-center justify-center gap-3">
                 <code className="text-4xl font-extrabold tracking-[0.3em]">
@@ -253,8 +251,7 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
                 </Button>
               </div>
               <p className="mt-3 text-sm text-muted-foreground">
-                Send <code className="font-semibold">/pair {pairingCode}</code>{" "}
-                to the bot
+                {t("sendToBot", { code: pairingCode })}
               </p>
             </div>
 
@@ -266,13 +263,13 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
                   rel="noopener noreferrer"
                 >
                   <ExternalLink className="h-5 w-5" />
-                  Open in Telegram
+                  {t("openInTelegram")}
                 </a>
               </Button>
             )}
 
             <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>Expires in {formatTime(timeLeft)}</span>
+              <span>{t("expiresIn", { time: formatTime(timeLeft) })}</span>
               <button
                 onClick={generateCode}
                 disabled={newCodeCooldown > 0}
@@ -280,8 +277,8 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 {newCodeCooldown > 0
-                  ? `New code (${newCodeCooldown}s)`
-                  : "New code"}
+                  ? t("newCodeCooldown", { seconds: newCodeCooldown })
+                  : t("newCode")}
               </button>
             </div>
           </div>
@@ -295,7 +292,7 @@ export function GetStartedContent({ locale }: GetStartedContentProps) {
               className="text-muted-foreground hover:text-foreground"
               onClick={() => router.push(`/${locale}/dashboard`)}
             >
-              Skip for now, go to Dashboard
+              {t("skipToDashboard")}
               <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           </div>

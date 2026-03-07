@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { UserButton, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export function DashboardContent({ clerkUser, dbUser }: Props) {
+  const t = useTranslations("dashboard");
   const { openUserProfile } = useClerk();
 
   const displayName =
@@ -45,8 +47,8 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {displayName}!</p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="text-muted-foreground">{t("welcome", { name: displayName })}</p>
         </div>
         <UserButton afterSignOutUrl="/" />
       </div>
@@ -56,7 +58,7 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
         <Card className="flex flex-col">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Account</CardTitle>
+              <CardTitle>{t("account")}</CardTitle>
               <Badge
                 variant={dbUser?.tier !== "free" ? "default" : "secondary"}
               >
@@ -64,15 +66,15 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
                   (dbUser?.tier ?? "free").slice(1)}
               </Badge>
             </div>
-            <CardDescription>Your account information</CardDescription>
+            <CardDescription>{t("accountInfo")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col space-y-4">
             <div>
-              <p className="text-sm text-muted-foreground">Name</p>
+              <p className="text-sm text-muted-foreground">{t("name")}</p>
               <p className="font-medium">{displayName}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Email</p>
+              <p className="text-sm text-muted-foreground">{t("email")}</p>
               <p className="font-medium">{clerkUser.email}</p>
             </div>
             <div className="mt-auto pt-4">
@@ -81,7 +83,7 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
                 className="w-full"
                 onClick={() => openUserProfile()}
               >
-                Manage Account
+                {t("manageAccount")}
               </Button>
             </div>
           </CardContent>
@@ -90,19 +92,19 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
         {/* Subscription Card */}
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>Subscription</CardTitle>
-            <CardDescription>Manage your plan</CardDescription>
+            <CardTitle>{t("subscription")}</CardTitle>
+            <CardDescription>{t("managePlan")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">
             {dbUser?.tier === "pro" ? (
               <div className="flex flex-1 flex-col">
                 <p className="text-sm">
-                  You&apos;re on the <strong>Pro</strong> plan.
+                  {t("onPlan", { plan: "Pro" })}
                 </p>
                 <div className="mt-auto">
                   <Button variant="outline" className="w-full" asChild>
                     <Link href="/dashboard/billing">
-                      Manage Subscription
+                      {t("manageSubscription")}
                     </Link>
                   </Button>
                 </div>
@@ -110,11 +112,11 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
             ) : (
               <div className="flex flex-1 flex-col">
                 <p className="text-sm text-muted-foreground">
-                  Upgrade to Pro for unlimited analysis and real-time alerts.
+                  {t("upgradeDescription")}
                 </p>
                 <div className="mt-auto pt-4">
                   <Button className="w-full" asChild>
-                    <a href="/pricing">Upgrade to Pro</a>
+                    <a href="/pricing">{t("upgradeToPro")}</a>
                   </Button>
                 </div>
               </div>

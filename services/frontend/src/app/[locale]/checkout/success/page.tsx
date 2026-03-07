@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 
 export default function CheckoutSuccessPage() {
@@ -9,13 +10,14 @@ export default function CheckoutSuccessPage() {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
+  const t = useTranslations("checkout");
 
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
     
     if (!sessionId) {
       setStatus("error");
-      setMessage("No session ID provided");
+      setMessage(t("noSessionId"));
       return;
     }
 
@@ -27,12 +29,12 @@ export default function CheckoutSuccessPage() {
 
         if (!response.ok) {
           setStatus("error");
-          setMessage(data.error || "Failed to verify payment");
+          setMessage(data.error || t("verifyFailed"));
           return;
         }
 
         setStatus("success");
-        setMessage("Payment successful! Updating your account...");
+        setMessage(t("paymentSuccessUpdating"));
 
         // Refresh the user's tier cache to ensure dashboard shows Pro
         try {
@@ -43,7 +45,7 @@ export default function CheckoutSuccessPage() {
           // Continue anyway - webhook should have updated it
         }
 
-        setMessage("Redirecting to your dashboard...");
+        setMessage(t("redirecting"));
 
         // Determine redirect based on source
         const source = data.client_reference_id?.split("_")[0] || "web";
@@ -60,12 +62,12 @@ export default function CheckoutSuccessPage() {
       } catch (error) {
         console.error("Error verifying session:", error);
         setStatus("error");
-        setMessage("An error occurred while verifying your payment");
+        setMessage(t("verifyError"));
       }
     }
 
     verifyAndRedirect();
-  }, [searchParams, router]);
+  }, [searchParams, router, t]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -73,18 +75,18 @@ export default function CheckoutSuccessPage() {
         {status === "loading" && (
           <>
             <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-            <h1 className="mt-4 text-2xl font-semibold">Processing your payment...</h1>
-            <p className="mt-2 text-muted-foreground">Please wait while we verify your subscription.</p>
+            <h1 className="mt-4 text-2xl font-semibold">{t("processing")}</h1>
+            <p className="mt-2 text-muted-foreground">{t("pleaseWait")}</p>
           </>
         )}
 
         {status === "success" && (
           <>
             <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-            <h1 className="mt-4 text-2xl font-semibold text-green-600">Payment Successful!</h1>
+            <h1 className="mt-4 text-2xl font-semibold text-green-600">{t("successTitle")}</h1>
             <p className="mt-2 text-muted-foreground">{message}</p>
             <p className="mt-4 text-sm text-muted-foreground">
-              Your Pro subscription is now active. Enjoy full access to all features!
+              {t("proActive")}
             </p>
           </>
         )}
@@ -92,13 +94,13 @@ export default function CheckoutSuccessPage() {
         {status === "error" && (
           <>
             <XCircle className="mx-auto h-12 w-12 text-red-500" />
-            <h1 className="mt-4 text-2xl font-semibold text-red-600">Payment Verification Failed</h1>
+            <h1 className="mt-4 text-2xl font-semibold text-red-600">{t("failedTitle")}</h1>
             <p className="mt-2 text-muted-foreground">{message}</p>
             <button
               onClick={() => router.push("/pricing")}
               className="mt-4 rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
             >
-              Return to Pricing
+              {t("returnToPricing")}
             </button>
           </>
         )}

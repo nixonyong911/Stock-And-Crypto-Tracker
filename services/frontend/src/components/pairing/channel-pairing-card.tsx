@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,6 +37,7 @@ export function ChannelPairingCard({
   showUnlink = true,
   className,
 }: ChannelPairingCardProps) {
+  const t = useTranslations("pairing");
   const [linkState, setLinkState] = useState<
     "idle" | "loading" | "code_ready" | "paired" | "error"
   >(initialPaired ? "paired" : "idle");
@@ -186,10 +188,10 @@ export function ChannelPairingCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Send className="h-5 w-5" />
-          Telegram
+          {t("telegram")}
         </CardTitle>
         <CardDescription>
-          Pair your Telegram account for AI chat
+          {t("description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col">
@@ -197,10 +199,10 @@ export function ChannelPairingCard({
           <div className="flex flex-1 flex-col">
             <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
               <Check className="h-5 w-5" />
-              <span>Telegram account paired</span>
+              <span>{t("paired")}</span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your subscription tier is synced automatically.
+              {t("tierSynced")}
             </p>
             {showUnlink && (
               <div className="mt-auto pt-4">
@@ -216,7 +218,7 @@ export function ChannelPairingCard({
                   ) : (
                     <Unlink className="h-4 w-4" />
                   )}
-                  Unlink Telegram
+                  {t("unlinkTelegram")}
                 </Button>
               </div>
             )}
@@ -224,12 +226,11 @@ export function ChannelPairingCard({
         ) : linkState === "code_ready" && pairingCode ? (
           <div className="flex flex-1 flex-col space-y-3">
             <p className="text-sm text-muted-foreground">
-              Send this command to{" "}
-              <strong>@{TELEGRAM_BOT_USERNAME}</strong> on Telegram:
+              {t("sendCommand", { bot: TELEGRAM_BOT_USERNAME })}
             </p>
             <div className="rounded-lg bg-muted p-4 text-center">
               <p className="mb-1 text-xs text-muted-foreground">
-                Your pairing code
+                {t("pairingCode")}
               </p>
               <div className="flex items-center justify-center gap-2">
                 <code className="text-2xl font-bold tracking-widest">
@@ -250,7 +251,7 @@ export function ChannelPairingCard({
               </div>
             </div>
             <p className="text-center text-sm font-medium">
-              Type: <code>/pair {pairingCode}</code>
+              {t("typeCommand", { code: pairingCode })}
             </p>
 
             {/* Deep link button — opens Telegram directly */}
@@ -262,14 +263,14 @@ export function ChannelPairingCard({
                   rel="noopener noreferrer"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  Open in Telegram
+                  {t("openInTelegram")}
                 </a>
               </Button>
             )}
 
             <div className="mt-auto flex items-center justify-between pt-2">
               <p className="text-xs text-muted-foreground">
-                Expires in {formatTime(timeLeft)}
+                {t("expiresIn", { time: formatTime(timeLeft) })}
               </p>
               <Button
                 variant="ghost"
@@ -278,15 +279,14 @@ export function ChannelPairingCard({
                 onClick={handleLinkTelegram}
               >
                 <RefreshCw className="h-3 w-3" />
-                New code
+                {t("newCode")}
               </Button>
             </div>
           </div>
         ) : (
           <div className="flex flex-1 flex-col">
             <p className="text-sm text-muted-foreground">
-              Link your Telegram to access AI analysis via chat. Your
-              subscription tier syncs automatically.
+              {t("linkDescription")}
             </p>
             <div className="mt-auto pt-4">
               <Button
@@ -297,12 +297,12 @@ export function ChannelPairingCard({
                 {linkState === "loading" ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating code...
+                    {t("generatingCode")}
                   </>
                 ) : (
                   <>
                     <Link2 className="h-4 w-4" />
-                    Pair Telegram Account
+                    {t("pairAccount")}
                   </>
                 )}
               </Button>
@@ -311,7 +311,7 @@ export function ChannelPairingCard({
         )}
         {linkState === "error" && (
           <p className="mt-2 text-sm text-destructive">
-            Failed to generate pairing code. Please try again.
+            {t("error")}
           </p>
         )}
       </CardContent>
