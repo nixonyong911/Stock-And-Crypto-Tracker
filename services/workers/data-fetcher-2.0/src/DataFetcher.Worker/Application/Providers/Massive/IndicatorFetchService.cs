@@ -55,12 +55,12 @@ public class IndicatorFetchService : IIndicatorFetchService
         {
             _logger.LogInformation("Fetching indicators for {Symbol} on {Date}", ticker.Symbol, targetDate);
 
-            // 1. Convert date to millisecond epoch timestamps in ET
+            // 1. Convert date to millisecond epoch timestamps in ET (full extended hours: 4:00 AM - 8:00 PM)
             var tz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
-            var marketOpen = new DateTime(targetDate.Year, targetDate.Month, targetDate.Day, 9, 30, 0);
-            var marketClose = new DateTime(targetDate.Year, targetDate.Month, targetDate.Day, 16, 0, 0);
-            var openUtc = TimeZoneInfo.ConvertTimeToUtc(marketOpen, tz);
-            var closeUtc = TimeZoneInfo.ConvertTimeToUtc(marketClose, tz);
+            var extendedOpen = new DateTime(targetDate.Year, targetDate.Month, targetDate.Day, 4, 0, 0);
+            var extendedClose = new DateTime(targetDate.Year, targetDate.Month, targetDate.Day, 20, 0, 0);
+            var openUtc = TimeZoneInfo.ConvertTimeToUtc(extendedOpen, tz);
+            var closeUtc = TimeZoneInfo.ConvertTimeToUtc(extendedClose, tz);
             long timestampGte = new DateTimeOffset(openUtc).ToUnixTimeMilliseconds();
             long timestampLte = new DateTimeOffset(closeUtc).ToUnixTimeMilliseconds();
 
@@ -380,7 +380,7 @@ public class IndicatorFetchService : IIndicatorFetchService
     }
 
     /// <summary>
-    /// Filters indicator values to only those falling on 15-minute boundaries within market hours (09:30-15:45 ET).
+    /// Filters indicator values to only those falling on 15-minute boundaries within extended hours (04:00-20:00 ET).
     /// </summary>
     private List<T> FilterTo15MinBoundaries<T>(List<T>? values, Func<T, long> getTimestamp)
     {
@@ -397,10 +397,9 @@ public class IndicatorFetchService : IIndicatorFetchService
             var hour = etTime.Hour;
             var totalMinutes = hour * 60 + minute;
 
-            // Must be on 15-min boundary AND within 09:30-15:45 ET
             return minute % 15 == 0
-                && totalMinutes >= 9 * 60 + 30   // >= 09:30
-                && totalMinutes <= 15 * 60 + 45;  // <= 15:45
+                && totalMinutes >= 4 * 60         // >= 04:00 (pre-market open)
+                && totalMinutes <= 20 * 60;        // <= 20:00 (post-market close)
         }).ToList();
     }
 

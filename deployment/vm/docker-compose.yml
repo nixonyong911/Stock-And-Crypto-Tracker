@@ -163,7 +163,7 @@ services:
       - Providers__Massive__BaseUrl=https://api.massive.com/v1
       - Providers__Massive__RateLimitDelayMs=12000
       - Providers__Massive__Timespan=minute
-      - Providers__Massive__Limit=390
+      - Providers__Massive__Limit=960
       - Providers__Massive__BackfillLimit=5000
       - Providers__Massive__BackfillDays=90
       # RabbitMQ connection (for Massive indicator queue)
@@ -372,6 +372,7 @@ services:
       - DATA_FETCHER_INTERNAL_URL=http://data-fetcher:8080
       - PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - CURSOR_API_KEY=${CURSOR_API_KEY}
+      - PHONE_HASH_SALT=${PHONE_HASH_SALT}
     volumes:
       # cursor-agent CLI: mount the entire versions dir (contains node binary + JS chunks)
       # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing

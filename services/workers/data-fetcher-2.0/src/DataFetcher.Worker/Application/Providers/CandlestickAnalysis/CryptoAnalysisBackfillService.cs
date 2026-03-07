@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using DataFetcher.Worker.Application.Providers.Massive;
+using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 using DataFetcher.Worker.Configuration.Providers;
 using DataFetcher.Worker.Domain.Providers.CandlestickAnalysis.Models;
 using DataFetcher.Worker.Infrastructure.Providers.CandlestickAnalysis.Repositories;
@@ -15,6 +17,8 @@ public class CryptoAnalysisBackfillService : ICryptoAnalysisBackfillService
     private readonly CandlestickAnalysisSettings _settings;
     private readonly ILogger<CryptoAnalysisBackfillService> _logger;
     private readonly IMetricsClient _metrics;
+    private readonly ICryptoPriceTargetBackfillService _priceTargetBackfillService;
+    private readonly IMassiveIndicatorQueuePublisher _indicatorPublisher;
 
     public CryptoAnalysisBackfillService(
         ICryptoPriceRepository cryptoPriceRepository,
@@ -22,7 +26,9 @@ public class CryptoAnalysisBackfillService : ICryptoAnalysisBackfillService
         ICryptoCandlestickAnalysisService analysisService,
         IOptions<CandlestickAnalysisSettings> settings,
         ILogger<CryptoAnalysisBackfillService> logger,
-        IMetricsClient metrics)
+        IMetricsClient metrics,
+        ICryptoPriceTargetBackfillService priceTargetBackfillService,
+        IMassiveIndicatorQueuePublisher indicatorPublisher)
     {
         _cryptoPriceRepository = cryptoPriceRepository;
         _cryptoAnalysisRepository = cryptoAnalysisRepository;
@@ -30,6 +36,8 @@ public class CryptoAnalysisBackfillService : ICryptoAnalysisBackfillService
         _settings = settings.Value;
         _logger = logger;
         _metrics = metrics;
+        _priceTargetBackfillService = priceTargetBackfillService;
+        _indicatorPublisher = indicatorPublisher;
     }
 
     public async Task<AnalysisBackfillResult> ExecuteBackfillAsync(AnalysisBackfillRequest request, CancellationToken cancellationToken = default)
@@ -123,6 +131,22 @@ public class CryptoAnalysisBackfillService : ICryptoAnalysisBackfillService
 
             await _metrics.IncrementCounterAsync("crypto_analysis_backfill_operations_total", 1,
                 new Dictionary<string, string> { ["symbol"] = request.Symbol, ["status"] = "success" });
+
+            try
+            {
+                var ptResult = await _priceTargetBackfillService.BackfillAsync(
+                    ticker.Id, request.Symbol, daysToBackfill, cancellationToken);
+
+                _logger.LogInformation(
+                    "Crypto price target backfill for {Symbol}: {Computed} computed, {Skipped} skipped",
+                    request.Symbol, ptResult.Computed, ptResult.Skipped);
+            }
+            catch (Exception ptEx)
+            {
+                _logger.LogError(ptEx, "Crypto price target backfill failed for {Symbol} (non-fatal)", request.Symbol);
+            }
+
+            _indicatorPublisher.PublishBackfill(request.Symbol, ticker.Id, "crypto", daysToBackfill);
         }
         catch (Exception ex)
         {

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DataFetcher.Worker.Application.Providers.Massive;
 using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 using DataFetcher.Worker.Configuration.Providers;
 using DataFetcher.Worker.Domain.Providers.CandlestickAnalysis.Models;
@@ -8,10 +9,6 @@ using StockTracker.Common.Metrics;
 
 namespace DataFetcher.Worker.Application.Providers.CandlestickAnalysis;
 
-/// <summary>
-/// Service for executing historical candlestick analysis backfill operations.
-/// Analyzes dates with price data that haven't been analyzed yet.
-/// </summary>
 public class AnalysisBackfillService : IAnalysisBackfillService
 {
     private readonly IStockPriceRepository _stockPriceRepository;
@@ -21,6 +18,7 @@ public class AnalysisBackfillService : IAnalysisBackfillService
     private readonly ILogger<AnalysisBackfillService> _logger;
     private readonly IMetricsClient _metrics;
     private readonly IPriceTargetBackfillService _priceTargetBackfillService;
+    private readonly IMassiveIndicatorQueuePublisher _indicatorPublisher;
 
     public AnalysisBackfillService(
         IStockPriceRepository stockPriceRepository,
@@ -29,7 +27,8 @@ public class AnalysisBackfillService : IAnalysisBackfillService
         IOptions<CandlestickAnalysisSettings> settings,
         ILogger<AnalysisBackfillService> logger,
         IMetricsClient metrics,
-        IPriceTargetBackfillService priceTargetBackfillService)
+        IPriceTargetBackfillService priceTargetBackfillService,
+        IMassiveIndicatorQueuePublisher indicatorPublisher)
     {
         _stockPriceRepository = stockPriceRepository;
         _analysisRepository = analysisRepository;
@@ -38,6 +37,7 @@ public class AnalysisBackfillService : IAnalysisBackfillService
         _logger = logger;
         _metrics = metrics;
         _priceTargetBackfillService = priceTargetBackfillService;
+        _indicatorPublisher = indicatorPublisher;
     }
 
     public async Task<AnalysisBackfillResult> ExecuteBackfillAsync(AnalysisBackfillRequest request, CancellationToken cancellationToken = default)
@@ -197,6 +197,8 @@ public class AnalysisBackfillService : IAnalysisBackfillService
             {
                 _logger.LogError(ptEx, "Price target backfill failed for {Symbol} (non-fatal)", request.Symbol);
             }
+
+            _indicatorPublisher.PublishBackfill(request.Symbol, ticker.Id, "stock", daysToBackfill);
         }
         catch (Exception ex)
         {

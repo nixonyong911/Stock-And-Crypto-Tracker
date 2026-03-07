@@ -14,8 +14,6 @@ public class AlpacaStockFetchWorker : BackgroundService
     private readonly IMetricsClient _metrics;
     private DateTime? _lastFetchTime;
 
-    private static readonly TimeZoneInfo EasternTz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
-
     public AlpacaStockFetchWorker(
         IServiceProvider serviceProvider,
         IOptions<AlpacaSettings> settings,
@@ -30,28 +28,13 @@ public class AlpacaStockFetchWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Alpaca Stock Fetch Worker starting (30-min interval, 24/5)");
+        _logger.LogInformation("Alpaca Stock Fetch Worker starting (30-min interval, 24/7 — Alpaca returns empty on non-trading days)");
         await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                var nowEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz);
-
-                if (nowEt.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-                {
-                    var nextMonday = nowEt.Date.AddDays(nowEt.DayOfWeek == DayOfWeek.Saturday ? 2 : 1)
-                        .Add(TimeSpan.FromHours(4));
-                    var sleepUntil = TimeZoneInfo.ConvertTimeToUtc(nextMonday, EasternTz) - DateTime.UtcNow;
-                    if (sleepUntil > TimeSpan.Zero)
-                    {
-                        _logger.LogInformation("Weekend detected. Sleeping until Monday 04:00 ET ({Duration})", sleepUntil);
-                        await Task.Delay(sleepUntil, stoppingToken);
-                    }
-                    continue;
-                }
-
                 using var scope = _serviceProvider.CreateScope();
                 var fetchService = scope.ServiceProvider.GetRequiredService<IAlpacaStockFetchService>();
                 var scheduleRepo = scope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
@@ -79,7 +62,6 @@ public class AlpacaStockFetchWorker : BackgroundService
                         new Dictionary<string, string> { ["status"] = "error" });
                 }
 
-                // Update schedule record
                 var schedule = await scheduleRepo.GetScheduleByNameAsync("Alpaca Stock Fetch");
                 if (schedule != null)
                     await scheduleRepo.UpdateLastRunAsync(schedule.Id, status, message);

@@ -134,6 +134,9 @@ try
     builder.Services.AddScoped<ICryptoPriceTargetService, CryptoPriceTargetService>();
     builder.Services.AddScoped<ICryptoPriceTargetBackfillService, CryptoPriceTargetBackfillService>();
 
+    // Infrastructure - Massive Indicator Queue Publisher
+    builder.Services.AddSingleton<IMassiveIndicatorQueuePublisher, MassiveIndicatorQueuePublisher>();
+
     // Infrastructure - Alpaca Provider
     builder.Services.AddScoped<IAlpacaStockPriceRepository, AlpacaStockPriceRepository>();
     builder.Services.AddScoped<IAlpacaCryptoPriceRepository, AlpacaCryptoPriceRepository>();
