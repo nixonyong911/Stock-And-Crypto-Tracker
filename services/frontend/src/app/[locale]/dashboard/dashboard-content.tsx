@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import { UserButton, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +10,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+
 import { ChannelPairingCard } from "@/components/pairing/channel-pairing-card";
+import Link from "next/link";
 
 interface ClerkUser {
   id: string;
@@ -35,28 +35,6 @@ interface Props {
 
 export function DashboardContent({ clerkUser, dbUser }: Props) {
   const { openUserProfile } = useClerk();
-  const [billingLoading, setBillingLoading] = useState(false);
-
-  const handleManageSubscription = useCallback(async () => {
-    setBillingLoading(true);
-    try {
-      const response = await fetch("/api/stripe/billing-portal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ returnUrl: window.location.href }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create portal session");
-      }
-
-      const data = await response.json();
-      window.location.href = data.url;
-    } catch (error) {
-      console.error("Error opening billing portal:", error);
-      setBillingLoading(false);
-    }
-  }, []);
 
   const displayName =
     [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
@@ -122,20 +100,10 @@ export function DashboardContent({ clerkUser, dbUser }: Props) {
                   You&apos;re on the <strong>Pro</strong> plan.
                 </p>
                 <div className="mt-auto">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleManageSubscription}
-                    disabled={billingLoading}
-                  >
-                    {billingLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      "Manage Subscription"
-                    )}
+                  <Button variant="outline" className="w-full" asChild>
+                    <Link href="/dashboard/billing">
+                      Manage Subscription
+                    </Link>
                   </Button>
                 </div>
               </div>
