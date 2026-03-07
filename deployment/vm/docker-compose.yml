@@ -192,7 +192,9 @@ services:
       - MetricsService__WorkerName=data-fetcher-2.0
       - MetricsService__Enabled=true
     networks:
-      - stocktracker
+      stocktracker:
+        aliases:
+          - data-fetcher
     depends_on:
       metrics:
         condition: service_healthy
@@ -367,7 +369,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook
       # - TWELVEDATA_INTERNAL_URL=http://twelvedata:8080  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
-      - DATA_FETCHER_INTERNAL_URL=http://data-fetcher-2.0:8080
+      - DATA_FETCHER_INTERNAL_URL=http://data-fetcher:8080
       - PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - CURSOR_API_KEY=${CURSOR_API_KEY}
     volumes:
