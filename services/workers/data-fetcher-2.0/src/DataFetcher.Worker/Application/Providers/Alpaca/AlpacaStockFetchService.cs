@@ -80,7 +80,7 @@ public class AlpacaStockFetchService : IAlpacaStockFetchService
                     HighPrice = (decimal)bar.High,
                     LowPrice = (decimal)bar.Low,
                     ClosePrice = (decimal)bar.Close,
-                    Volume = bar.Volume
+                    Volume = (long)bar.Volume
                 }).ToList();
 
                 await _priceRepository.UpsertStockPricesBatchAsync(prices);

@@ -82,7 +82,7 @@ public class AlpacaCryptoBackfillService : IAlpacaCryptoBackfillService
                     HighPrice = (decimal)bar.High,
                     LowPrice = (decimal)bar.Low,
                     ClosePrice = (decimal)bar.Close,
-                    Volume = bar.Volume,
+                    Volume = (long)bar.Volume,
                     MarketCap = null
                 }).ToList();
 

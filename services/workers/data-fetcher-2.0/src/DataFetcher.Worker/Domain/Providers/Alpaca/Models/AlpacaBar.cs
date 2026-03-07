@@ -20,7 +20,7 @@ public class AlpacaBar
     public double Close { get; set; }
 
     [JsonPropertyName("v")]
-    public long Volume { get; set; }
+    public double Volume { get; set; }
 
     [JsonPropertyName("n")]
     public long TradeCount { get; set; }
