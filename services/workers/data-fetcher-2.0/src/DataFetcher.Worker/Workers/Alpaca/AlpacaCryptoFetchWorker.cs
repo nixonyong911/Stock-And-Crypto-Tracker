@@ -39,18 +39,19 @@ public class AlpacaCryptoFetchWorker : BackgroundService
             {
                 var nowEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz);
 
-                if (nowEt.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-                {
-                    var nextMonday = nowEt.Date.AddDays(nowEt.DayOfWeek == DayOfWeek.Saturday ? 2 : 1)
-                        .Add(TimeSpan.FromHours(4));
-                    var sleepUntil = TimeZoneInfo.ConvertTimeToUtc(nextMonday, EasternTz) - DateTime.UtcNow;
-                    if (sleepUntil > TimeSpan.Zero)
-                    {
-                        _logger.LogInformation("Weekend detected. Crypto worker sleeping until Monday ({Duration})", sleepUntil);
-                        await Task.Delay(sleepUntil, stoppingToken);
-                    }
-                    continue;
-                }
+                // TEMP: Weekend check disabled for testing
+                // if (nowEt.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                // {
+                //     var nextMonday = nowEt.Date.AddDays(nowEt.DayOfWeek == DayOfWeek.Saturday ? 2 : 1)
+                //         .Add(TimeSpan.FromHours(4));
+                //     var sleepUntil = TimeZoneInfo.ConvertTimeToUtc(nextMonday, EasternTz) - DateTime.UtcNow;
+                //     if (sleepUntil > TimeSpan.Zero)
+                //     {
+                //         _logger.LogInformation("Weekend detected. Crypto worker sleeping until Monday ({Duration})", sleepUntil);
+                //         await Task.Delay(sleepUntil, stoppingToken);
+                //     }
+                //     continue;
+                // }
 
                 using var scope = _serviceProvider.CreateScope();
                 var fetchService = scope.ServiceProvider.GetRequiredService<IAlpacaCryptoFetchService>();
