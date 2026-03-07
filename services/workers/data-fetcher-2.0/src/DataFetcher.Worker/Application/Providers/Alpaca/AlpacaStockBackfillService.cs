@@ -49,7 +49,7 @@ public class AlpacaStockBackfillService : IAlpacaStockBackfillService
                 throw new InvalidOperationException($"Stock ticker '{request.Symbol}' not found");
 
             var start = DateTime.UtcNow.AddMonths(-_settings.MonthsToBackfill);
-            var end = DateTime.UtcNow.AddMinutes(-15);
+            var end = DateTime.UtcNow.AddMinutes(-16);
             string? pageToken = null;
             var totalRecords = 0;
             var pages = 0;

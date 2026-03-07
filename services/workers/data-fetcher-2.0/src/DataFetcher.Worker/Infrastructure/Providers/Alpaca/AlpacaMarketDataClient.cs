@@ -124,7 +124,8 @@ public class AlpacaMarketDataClient : IAlpacaMarketDataClient
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Alpaca API error {StatusCode}: {Content}", response.StatusCode, content);
+                _logger.LogWarning("Alpaca API error {StatusCode} for {Url}: {Content}",
+                    response.StatusCode, urlForLogging, content);
                 response.EnsureSuccessStatusCode();
             }
 

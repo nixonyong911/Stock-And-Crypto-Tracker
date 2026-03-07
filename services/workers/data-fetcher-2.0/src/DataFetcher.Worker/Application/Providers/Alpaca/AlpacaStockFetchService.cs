@@ -44,7 +44,7 @@ public class AlpacaStockFetchService : IAlpacaStockFetchService
         var tickerMap = tickers.ToDictionary(t => t.Symbol, t => t.Id);
         var symbols = tickers.Select(t => t.Symbol).ToList();
         var start = since ?? DateTime.UtcNow.AddMinutes(-45);
-        var end = DateTime.UtcNow.AddMinutes(-15); // free tier 15-min delay
+        var end = DateTime.UtcNow.AddMinutes(-16); // free tier requires 15-min delay for SIP; 16 for safety buffer
 
         _logger.LogInformation("Fetching stock bars for {Count} symbols from {Start} to {End}",
             symbols.Count, start, end);

@@ -182,7 +182,7 @@ services:
       - Providers__Alpaca__MaxBarsPerRequest=10000
       - Providers__Alpaca__StockTimeframe=15Min
       - Providers__Alpaca__CryptoTimeframe=15Min
-      - Providers__Alpaca__StockFeed=iex
+      - Providers__Alpaca__StockFeed=sip
       - Providers__Alpaca__StockAdjustment=split
       - Providers__Alpaca__CryptoLoc=us
       - Providers__Alpaca__FetchIntervalMinutes=30
