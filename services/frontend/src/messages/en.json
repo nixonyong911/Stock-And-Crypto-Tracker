@@ -8,6 +8,7 @@
     "pricing": "Pricing",
     "about": "About",
     "indicators": "Indicators",
+    "affiliate": "Affiliate",
     "blog": "Blog"
   },
   "hero": {
@@ -797,6 +798,56 @@
       "na": "N/A"
     },
     "error": "Failed to load economic indicators"
+  },
+  "affiliate": {
+    "meta": {
+      "title": "Affiliate Program - Stock And Crypto Tracker",
+      "description": "Join our affiliate program. Share your code and earn rewards when friends subscribe."
+    },
+    "hero": {
+      "title": "Affiliate Program",
+      "subtitle": "Share our platform and earn rewards together"
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "step1": {
+        "title": "Share Your Code",
+        "description": "Get a unique affiliate code to share with friends and your audience"
+      },
+      "step2": {
+        "title": "Friends Subscribe",
+        "description": "When they subscribe using your code, they get $5 off their first month"
+      },
+      "step3": {
+        "title": "Track Referrals",
+        "description": "Monitor your referral activity from your affiliate dashboard"
+      }
+    },
+    "benefits": {
+      "title": "Benefits",
+      "forPromoter": "Promoter rewards coming soon",
+      "forReferred": "Referred users get $5 off their first month"
+    },
+    "join": {
+      "title": "Join the Program",
+      "signInRequired": "Sign in to join the affiliate program",
+      "signIn": "Sign In",
+      "phoneRequired": "You need to verify your phone number via Telegram before joining.",
+      "verifyPhone": "Verify Phone",
+      "joinButton": "Join Affiliate Program",
+      "joining": "Joining...",
+      "requirements": "Requirements: Registered account with verified phone number"
+    },
+    "dashboard": {
+      "title": "Your Affiliate Dashboard",
+      "yourCode": "Your Affiliate Code",
+      "copyCode": "Copy",
+      "copied": "Copied!",
+      "totalReferrals": "Total Referrals",
+      "thisMonth": "This Month",
+      "shareText": "Share this code with friends. They'll get $5 off their first month when subscribing!"
+    },
+    "error": "Something went wrong. Please try again."
   },
   "notFound": {
     "title": "Page not found",

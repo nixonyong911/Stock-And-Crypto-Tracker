@@ -8,6 +8,7 @@
     "pricing": "定价",
     "about": "关于",
     "indicators": "经济指标",
+    "affiliate": "推广计划",
     "blog": "博客"
   },
   "hero": {
@@ -797,6 +798,56 @@
       "na": "N/A"
     },
     "error": "无法加载经济指标"
+  },
+  "affiliate": {
+    "meta": {
+      "title": "推广计划 - Stock And Crypto Tracker",
+      "description": "加入我们的推广计划。分享您的代码，当朋友订阅时获得奖励。"
+    },
+    "hero": {
+      "title": "推广计划",
+      "subtitle": "分享我们的平台，一起获得奖励"
+    },
+    "howItWorks": {
+      "title": "如何运作",
+      "step1": {
+        "title": "分享您的代码",
+        "description": "获取独特的推广代码，与朋友和观众分享"
+      },
+      "step2": {
+        "title": "朋友订阅",
+        "description": "当他们使用您的代码订阅时，首月可享$5优惠"
+      },
+      "step3": {
+        "title": "追踪推荐",
+        "description": "从您的推广仪表盘监控推荐活动"
+      }
+    },
+    "benefits": {
+      "title": "福利",
+      "forPromoter": "推广者奖励即将推出",
+      "forReferred": "被推荐用户首月订阅可享$5优惠"
+    },
+    "join": {
+      "title": "加入计划",
+      "signInRequired": "登录以加入推广计划",
+      "signIn": "登录",
+      "phoneRequired": "您需要通过Telegram验证手机号码才能加入。",
+      "verifyPhone": "验证手机",
+      "joinButton": "加入推广计划",
+      "joining": "加入中...",
+      "requirements": "要求：已注册账户并已验证手机号码"
+    },
+    "dashboard": {
+      "title": "您的推广仪表盘",
+      "yourCode": "您的推广代码",
+      "copyCode": "复制",
+      "copied": "已复制！",
+      "totalReferrals": "总推荐数",
+      "thisMonth": "本月",
+      "shareText": "与朋友分享此代码。他们订阅时首月可享$5优惠！"
+    },
+    "error": "出了点问题，请重试。"
   },
   "notFound": {
     "title": "页面未找到",

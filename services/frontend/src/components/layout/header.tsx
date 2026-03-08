@@ -23,6 +23,7 @@ export function Header() {
     { href: "/pricing", label: t("pricing") },
     { href: "/about", label: t("about") },
     { href: "/indicators", label: t("indicators") },
+    { href: "/affiliate", label: t("affiliate") },
     { href: "/blog", label: t("blog") },
   ];
 

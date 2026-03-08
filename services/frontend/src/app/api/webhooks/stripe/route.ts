@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe, unixToDate, isActiveSubscription } from "@/lib/stripe/stripe";
+import { stripe, unixToDate, isActiveSubscription, ensureAffiliateCoupon } from "@/lib/stripe/stripe";
+import { getAffiliateMemberByCode, createAffiliateReferral } from "@/lib/db/affiliate";
 import { getSupabaseAdmin } from "@/lib/db/supabase";
 import { invalidateUserTierCache } from "@/lib/db/user-tier";
 
@@ -420,12 +421,6 @@ async function handleCheckoutSessionCompleted(
   const customFields = session.custom_fields;
   if (!customFields || customFields.length === 0) return;
 
-  const referralField = customFields.find((f) => f.key === "referral_source");
-  const otherField = customFields.find((f) => f.key === "referral_source_other");
-
-  const referralKey = referralField?.dropdown?.value;
-  if (!referralKey) return;
-
   // Resolve user from client_reference_id (format: "web_{userId}")
   const clientRef = session.client_reference_id;
   const userId = clientRef?.startsWith("web_")
@@ -437,45 +432,91 @@ async function handleCheckoutSessionCompleted(
     return;
   }
 
-  // Don't overwrite if already set (e.g. re-subscribe)
-  const { data: user } = await supabase
-    .from("users")
-    .select("referral_source_id")
-    .eq("id", userId)
-    .single();
+  const referralField = customFields.find((f) => f.key === "referral_source");
+  const otherField = customFields.find((f) => f.key === "referral_source_other");
+  const referralKey = referralField?.dropdown?.value;
 
-  if (!user || user.referral_source_id !== null) return;
+  if (referralKey) {
+    // Don't overwrite if already set (e.g. re-subscribe)
+    const { data: user } = await supabase
+      .from("users")
+      .select("referral_source_id")
+      .eq("id", userId)
+      .single();
 
-  // Look up the referral source ID
-  const { data: source } = await supabase
-    .from("lookup_referral_sources")
-    .select("id")
-    .eq("key", referralKey)
-    .single();
+    if (user && user.referral_source_id === null) {
+      // Look up the referral source ID
+      const { data: source } = await supabase
+        .from("lookup_referral_sources")
+        .select("id")
+        .eq("key", referralKey)
+        .single();
 
-  if (!source) {
-    console.error(`Stripe webhook: Unknown referral source key "${referralKey}"`);
-    return;
+      if (source) {
+        const otherText =
+          referralKey === "other" ? otherField?.text?.value || null : null;
+
+        const { error } = await supabase
+          .from("users")
+          .update({
+            referral_source_id: source.id,
+            referral_source_other: otherText,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+
+        if (error) {
+          console.error("Stripe webhook: Error saving referral source", error);
+        } else {
+          console.log(
+            `Stripe webhook: Saved referral source "${referralKey}" for user ${userId}`
+          );
+        }
+      } else {
+        console.error(`Stripe webhook: Unknown referral source key "${referralKey}"`);
+      }
+    }
   }
 
-  const otherText =
-    referralKey === "other" ? otherField?.text?.value || null : null;
+  // Process affiliate code if present
+  const affiliateField = customFields?.find((f) => f.key === "affiliate_code");
+  const affiliateCode = affiliateField?.text?.value?.trim().toUpperCase();
 
-  const { error } = await supabase
-    .from("users")
-    .update({
-      referral_source_id: source.id,
-      referral_source_other: otherText,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
+  if (affiliateCode && userId && !isNaN(userId)) {
+    try {
+      const affiliateMember = await getAffiliateMemberByCode(affiliateCode);
+      if (affiliateMember && affiliateMember.user_id !== userId) {
+        // Create referral record
+        await createAffiliateReferral({
+          affiliateMemberId: affiliateMember.id,
+          referredUserId: userId,
+          affiliateCode: affiliateCode,
+        });
 
-  if (error) {
-    console.error("Stripe webhook: Error saving referral source", error);
-  } else {
-    console.log(
-      `Stripe webhook: Saved referral source "${referralKey}" for user ${userId}`
-    );
+        // Apply $5 off coupon to the subscription
+        const subscriptionId =
+          typeof session.subscription === "string"
+            ? session.subscription
+            : session.subscription?.id;
+
+        if (subscriptionId) {
+          const couponId = await ensureAffiliateCoupon();
+          await stripe.subscriptions.update(subscriptionId, {
+            coupon: couponId,
+          });
+          console.log(
+            `Affiliate: Applied $5 coupon to subscription ${subscriptionId} for user ${userId}, referred by ${affiliateCode}`
+          );
+        }
+      } else if (affiliateMember && affiliateMember.user_id === userId) {
+        console.log(
+          `Affiliate: Self-referral attempt blocked for user ${userId} with code ${affiliateCode}`
+        );
+      }
+    } catch (affiliateError) {
+      // Non-blocking: don't fail the checkout if affiliate processing fails
+      console.error("Stripe webhook: Error processing affiliate code", affiliateError);
+    }
   }
 }
 

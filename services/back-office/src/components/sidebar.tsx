@@ -15,6 +15,7 @@ import {
   Server,
   Layers,
   Calendar,
+  Users,
 } from "lucide-react";
 import { WorkerRegistry } from "@/lib/db/workers";
 
@@ -105,6 +106,18 @@ export function Sidebar({ className }: SidebarProps) {
         >
           <Home className="w-4 h-4" />
           Dashboard
+        </Link>
+
+        <Link
+          href="/affiliates"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
+            isActive("/affiliates")
+              ? "bg-violet-500/20 text-violet-400"
+              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Affiliates
         </Link>
 
         {/* CLI Testing Section */}

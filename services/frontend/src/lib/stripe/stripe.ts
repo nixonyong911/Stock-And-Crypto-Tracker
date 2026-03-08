@@ -233,6 +233,12 @@ export async function createCheckoutSession(options: {
         type: "text",
         optional: true,
       },
+      {
+        key: "affiliate_code",
+        label: { type: "custom", custom: "Affiliate code (if you have one)" },
+        type: "text",
+        optional: true,
+      },
     ],
   };
 
@@ -250,4 +256,20 @@ export async function createCheckoutSession(options: {
 
   const session = await stripe.checkout.sessions.create(sessionConfig);
   return session;
+}
+
+export async function ensureAffiliateCoupon(): Promise<string> {
+  const couponId = "AFFILIATE_5_OFF";
+  try {
+    await getStripe().coupons.retrieve(couponId);
+  } catch {
+    await getStripe().coupons.create({
+      id: couponId,
+      amount_off: 500,
+      currency: "usd",
+      duration: "once",
+      name: "Affiliate referral - $5 off first month",
+    });
+  }
+  return couponId;
 }
