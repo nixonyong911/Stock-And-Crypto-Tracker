@@ -910,7 +910,26 @@
       "thisMonth": "This Month",
       "shareText": "Share this code with friends. They'll get $5 off their first month when subscribing!"
     },
-    "error": "Something went wrong. Please try again."
+    "error": "Something went wrong. Please try again.",
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "q1": {
+        "question": "What is the affiliate program?",
+        "answer": "Our affiliate program lets verified users earn rewards by referring friends. Join the program to get a unique referral code, then share it with others."
+      },
+      "q2": {
+        "question": "How does the $5 referral discount work?",
+        "answer": "New users who enter a valid referral code before subscribing to a monthly plan get $5 off their first month. The discount only applies to first-time subscribers who have never had a subscription before."
+      },
+      "q3": {
+        "question": "Can I use my own referral code?",
+        "answer": "No, self-referral is not allowed. The system will detect and reject attempts to use your own referral code."
+      },
+      "q4": {
+        "question": "How do I join the affiliate program?",
+        "answer": "Link your Telegram account and verify your phone number, then visit the Affiliate page or your Dashboard to join and get your unique code."
+      }
+    }
   },
   "notFound": {
     "title": "Page not found",

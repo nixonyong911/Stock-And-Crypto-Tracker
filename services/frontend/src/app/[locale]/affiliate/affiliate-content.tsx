@@ -175,6 +175,23 @@ export function AffiliateContent({ user }: AffiliateContentProps) {
         </div>
       </section>
 
+      {/* FAQ */}
+      <section className="py-16">
+        <h2 className="text-2xl font-semibold text-center mb-8">
+          {t("faq.title")}
+        </h2>
+        <div className="max-w-3xl mx-auto space-y-6">
+          {(["q1", "q2", "q3", "q4"] as const).map((key) => (
+            <div key={key} className="border-b pb-6">
+              <h3 className="mb-2 font-medium">{t(`faq.${key}.question`)}</h3>
+              <p className="text-sm text-muted-foreground">
+                {t(`faq.${key}.answer`)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Join / Dashboard */}
       <section className="py-16">
         <h2 className="text-2xl font-semibold text-center mb-8">
