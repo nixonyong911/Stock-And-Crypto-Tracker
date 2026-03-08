@@ -60,18 +60,8 @@ export async function GET(request: NextRequest) {
     if (referralsError) throw referralsError;
 
     // Group referrals by affiliate_member_id
-    const referralsByMember: Record<
-      number,
-      Array<{
-        id: number;
-        affiliate_member_id: number;
-        referred_user_id: number;
-        affiliate_code: string;
-        status: string;
-        created_at: string;
-        users?: { email?: string; display_name?: string } | null;
-      }>
-    > = {};
+    const referralsByMember: Record<number, Array<(typeof referrals)[number]>> =
+      {};
     for (const ref of referrals || []) {
       if (!referralsByMember[ref.affiliate_member_id]) {
         referralsByMember[ref.affiliate_member_id] = [];
@@ -79,27 +69,44 @@ export async function GET(request: NextRequest) {
       referralsByMember[ref.affiliate_member_id].push(ref);
     }
 
+    const unwrapUser = (u: unknown) => {
+      if (Array.isArray(u)) return u[0] ?? null;
+      return u ?? null;
+    };
+
     // Build response
-    const affiliates = (members || []).map((member: any) => ({
-      id: member.id,
-      affiliateCode: member.affiliate_code,
-      status: member.status,
-      createdAt: member.created_at,
-      promoter: {
-        email: member.users?.email,
-        displayName: member.users?.display_name,
-      },
-      referralCount: (referralsByMember[member.id] || []).length,
-      referrals: (referralsByMember[member.id] || []).map((ref: any) => ({
-        id: ref.id,
-        referredUser: {
-          email: ref.users?.email,
-          displayName: ref.users?.display_name,
+    const affiliates = (members || []).map((member) => {
+      const promoterUser = unwrapUser(member.users) as {
+        email?: string;
+        display_name?: string;
+      } | null;
+      return {
+        id: member.id,
+        affiliateCode: member.affiliate_code,
+        status: member.status,
+        createdAt: member.created_at,
+        promoter: {
+          email: promoterUser?.email,
+          displayName: promoterUser?.display_name,
         },
-        status: ref.status,
-        createdAt: ref.created_at,
-      })),
-    }));
+        referralCount: (referralsByMember[member.id] || []).length,
+        referrals: (referralsByMember[member.id] || []).map((ref) => {
+          const refUser = unwrapUser(ref.users) as {
+            email?: string;
+            display_name?: string;
+          } | null;
+          return {
+            id: ref.id,
+            referredUser: {
+              email: refUser?.email,
+              displayName: refUser?.display_name,
+            },
+            status: ref.status,
+            createdAt: ref.created_at,
+          };
+        }),
+      };
+    });
 
     const totalAffiliates = affiliates.length;
     const totalReferrals = (referrals || []).length;

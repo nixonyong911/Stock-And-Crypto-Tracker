@@ -502,7 +502,7 @@ async function handleCheckoutSessionCompleted(
         if (subscriptionId) {
           const couponId = await ensureAffiliateCoupon();
           await stripe.subscriptions.update(subscriptionId, {
-            coupon: couponId,
+            discounts: [{ coupon: couponId }],
           });
           console.log(
             `Affiliate: Applied $5 coupon to subscription ${subscriptionId} for user ${userId}, referred by ${affiliateCode}`
