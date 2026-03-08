@@ -114,7 +114,11 @@ export function PricingSection({
       return;
     }
 
-    if (billingPeriod === "monthly") {
+    const hasSubscribedBefore =
+      trialEligibility?.reason === "already_subscribed" ||
+      trialEligibility?.reason === "trial_already_used";
+
+    if (billingPeriod === "monthly" && !hasSubscribedBefore) {
       setAffiliateCode("");
       setAffiliateResult(null);
       setShowAffiliateDialog(true);

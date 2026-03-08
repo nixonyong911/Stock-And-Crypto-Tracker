@@ -8,6 +8,7 @@ import {
 } from "@/lib/stripe/stripe";
 import { getStripePrices } from "@/lib/stripe/prices";
 import { getAffiliateReferralByUser } from "@/lib/db/affiliate";
+import { getSupabaseAdmin } from "@/lib/db/supabase";
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,12 +61,24 @@ export async function POST(request: NextRequest) {
     const successUrl = `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${appUrl}/pricing`;
 
-    // Check if user has an affiliate referral for monthly discount
+    // Check if user has an affiliate referral for monthly discount (first-time subscribers only)
     let affiliateDiscount = false;
     if (billingPeriod === "monthly") {
       try {
-        const referral = await getAffiliateReferralByUser(user.id);
-        affiliateDiscount = referral !== null && referral.status === "registered";
+        const supabase = getSupabaseAdmin();
+        const { data: existingSub } = await supabase
+          .from("users_subscriptions")
+          .select("id")
+          .eq("user_id", user.id)
+          .limit(1)
+          .maybeSingle();
+
+        const hasSubscribedBefore = trialUsed || !!existingSub;
+
+        if (!hasSubscribedBefore) {
+          const referral = await getAffiliateReferralByUser(user.id);
+          affiliateDiscount = referral !== null && referral.status === "registered";
+        }
       } catch {
         // Non-blocking
       }

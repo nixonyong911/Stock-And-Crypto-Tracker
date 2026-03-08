@@ -14,6 +14,7 @@ const faqCategories = [
   { key: "pricing", questionsCount: 4 },
   { key: "technical", questionsCount: 3 },
   { key: "account", questionsCount: 3 },
+  { key: "affiliate", questionsCount: 4 },
 ] as const;
 
 type CategoryKey = (typeof faqCategories)[number]["key"];

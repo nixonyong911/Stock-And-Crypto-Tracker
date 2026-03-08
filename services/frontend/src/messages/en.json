@@ -387,6 +387,10 @@
         "trialPeriod": {
           "question": "Is there a free trial for Pro?",
           "answer": "We don't offer a free trial, but our Free plan lets you experience the core features. Plus, we have a 7-day money-back guarantee."
+        },
+        "affiliateDiscount": {
+          "question": "What is the referral discount?",
+          "answer": "If you have a referral code from an affiliate, enter it before checkout to get $5 off your first monthly subscription. This discount is for first-time subscribers only."
         }
       }
     }
@@ -579,6 +583,27 @@
           "q3": {
             "question": "Can I use the service on multiple devices?",
             "answer": "Yes! Since everything runs through Telegram, you can access the service on any device where you have Telegram installed—phone, tablet, or desktop."
+          }
+        }
+      },
+      "affiliate": {
+        "title": "Affiliate Program",
+        "questions": {
+          "q1": {
+            "question": "What is the affiliate program?",
+            "answer": "Our affiliate program lets verified users earn rewards by referring friends. Join the program to get a unique referral code, then share it with others."
+          },
+          "q2": {
+            "question": "How does the $5 referral discount work?",
+            "answer": "New users who enter a valid referral code before subscribing to a monthly plan get $5 off their first month. The discount only applies to first-time subscribers who have never had a subscription before."
+          },
+          "q3": {
+            "question": "Can I use my own referral code?",
+            "answer": "No, self-referral is not allowed. The system will detect and reject attempts to use your own referral code."
+          },
+          "q4": {
+            "question": "How do I join the affiliate program?",
+            "answer": "Link your Telegram account and verify your phone number, then visit the Affiliate page or your Dashboard to join and get your unique code."
           }
         }
       }

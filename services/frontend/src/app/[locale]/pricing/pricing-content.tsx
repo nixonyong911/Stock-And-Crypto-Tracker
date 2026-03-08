@@ -28,6 +28,7 @@ const pricingFaqs = [
   "refundPolicy",
   "upgradeDowngrade",
   "trialPeriod",
+  "affiliateDiscount",
 ] as const;
 
 // Benefits data with icons
