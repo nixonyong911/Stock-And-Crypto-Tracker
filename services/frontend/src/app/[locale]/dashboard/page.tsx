@@ -47,6 +47,7 @@ export default async function DashboardPage({ params }: Props) {
             id: dbUser.id,
             tier: dbUser.tier,
             telegramLinked: dbUser.telegram_user_id !== null,
+            phoneVerified: !!dbUser.phone_hash,
           }}
         />
       </main>

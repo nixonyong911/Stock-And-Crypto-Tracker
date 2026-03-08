@@ -116,7 +116,19 @@
       "startingTrial": "Starting trial...",
       "processing": "Processing..."
     },
-    "disclaimer": "Not financial advice. Cancel anytime."
+    "disclaimer": "Not financial advice. Cancel anytime.",
+    "affiliateDialog": {
+      "title": "Have a referral code?",
+      "description": "Enter a referral code to get $5 off your first month.",
+      "placeholder": "Enter code",
+      "apply": "Apply",
+      "skip": "No code, continue to checkout",
+      "success": "$5 discount will be applied to your first month!",
+      "errorInvalidCode": "Invalid referral code. Please check and try again.",
+      "errorSelfReferral": "You cannot use your own referral code.",
+      "errorAlreadyReferred": "You have already applied a referral code.",
+      "errorGeneric": "Something went wrong. Please try again."
+    }
   },
   "trust": {
     "headingPrefix": "Built for ",
@@ -616,7 +628,30 @@
     "onPlan": "You're on the {plan} plan.",
     "manageSubscription": "Manage Subscription",
     "upgradeDescription": "Upgrade to Pro for unlimited analysis and real-time alerts.",
-    "upgradeToPro": "Upgrade to Pro"
+    "upgradeToPro": "Upgrade to Pro",
+    "affiliate": {
+      "title": "Affiliate Program",
+      "description": "Earn rewards by referring friends",
+      "viewDetails": "View details",
+      "referralSection": "Have a referral code?",
+      "referredBy": "Referred by",
+      "enterCode": "Enter code",
+      "applyCode": "Apply",
+      "applied": "Referral code applied! You'll get $5 off your first month.",
+      "errorInvalidCode": "Invalid referral code.",
+      "errorSelfReferral": "You cannot use your own code.",
+      "errorAlreadyReferred": "You already have a referral code applied.",
+      "errorGeneric": "Something went wrong. Try again.",
+      "affiliateSection": "Your affiliate code",
+      "linkTelegramFirst": "Link your Telegram account to join the affiliate program.",
+      "linkTelegram": "Link Telegram",
+      "verifyPhoneFirst": "Verify your phone via Telegram to join.",
+      "verifyPhone": "Verify Phone",
+      "joinDescription": "Join and get your unique code to share with friends.",
+      "joinButton": "Join & Get Code",
+      "joining": "Joining...",
+      "totalReferrals": "Referrals"
+    }
   },
   "billing": {
     "title": "Billing & Subscription",
@@ -832,8 +867,11 @@
       "title": "Join the Program",
       "signInRequired": "Sign in to join the affiliate program",
       "signIn": "Sign In",
-      "phoneRequired": "You need to verify your phone number via Telegram before joining.",
+      "linkTelegramRequired": "Link your Telegram account first to join the affiliate program.",
+      "linkTelegram": "Link Telegram",
+      "phoneRequired": "Verify your phone number via Telegram to join the affiliate program.",
       "verifyPhone": "Verify Phone",
+      "verifyViaTelegram": "Verify via Telegram",
       "joinButton": "Join Affiliate Program",
       "joining": "Joining...",
       "requirements": "Requirements: Registered account with verified phone number"

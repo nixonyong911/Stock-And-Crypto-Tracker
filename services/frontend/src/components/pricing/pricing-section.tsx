@@ -7,6 +7,16 @@ import { BillingToggle, type BillingPeriod } from "./billing-toggle";
 import { FreePricingCard } from "./free-pricing-card";
 import { ProPricingCard } from "./pro-pricing-card";
 import type { TrialEligibilityResponse } from "@/app/api/trial/eligibility/route";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
 
 const TELEGRAM_BOT_USERNAME = "StockAndCryptoAdvisorBot";
 
@@ -37,6 +47,13 @@ export function PricingSection({
   const [error, setError] = useState<string | null>(null);
   const [trialEligibility, setTrialEligibility] =
     useState<TrialEligibilityResponse | null>(null);
+  const [showAffiliateDialog, setShowAffiliateDialog] = useState(false);
+  const [affiliateCode, setAffiliateCode] = useState("");
+  const [affiliateApplying, setAffiliateApplying] = useState(false);
+  const [affiliateResult, setAffiliateResult] = useState<{
+    valid?: boolean;
+    error?: string;
+  } | null>(null);
 
   const displayPrices = prices ?? DEFAULT_PRICES;
 
@@ -62,12 +79,7 @@ export function PricingSection({
     fetchTrialEligibility();
   }, [fetchTrialEligibility]);
 
-  const handleCheckout = async () => {
-    if (!isSignedIn) {
-      window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/pricing")}`;
-      return;
-    }
-
+  const proceedToCheckout = async () => {
     setIsLoading(true);
     setError(null);
 
@@ -94,6 +106,54 @@ export function PricingSection({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCheckout = async () => {
+    if (!isSignedIn) {
+      window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/pricing")}`;
+      return;
+    }
+
+    if (billingPeriod === "monthly") {
+      setAffiliateCode("");
+      setAffiliateResult(null);
+      setShowAffiliateDialog(true);
+      return;
+    }
+
+    await proceedToCheckout();
+  };
+
+  const handleApplyAffiliateCode = async () => {
+    if (!affiliateCode.trim()) return;
+    setAffiliateApplying(true);
+    setAffiliateResult(null);
+
+    try {
+      const res = await fetch("/api/affiliate/apply-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: affiliateCode.trim() }),
+      });
+      const data = await res.json();
+      setAffiliateResult(data);
+
+      if (data.valid) {
+        setTimeout(() => {
+          setShowAffiliateDialog(false);
+          proceedToCheckout();
+        }, 1500);
+      }
+    } catch {
+      setAffiliateResult({ valid: false, error: "server_error" });
+    } finally {
+      setAffiliateApplying(false);
+    }
+  };
+
+  const handleSkipAffiliate = () => {
+    setShowAffiliateDialog(false);
+    proceedToCheckout();
   };
 
   const handleStartTrial = async () => {
@@ -196,6 +256,75 @@ export function PricingSection({
       <p className="mt-8 text-center text-sm text-muted-foreground">
         {t("disclaimer")}
       </p>
+
+      {/* Affiliate code dialog for monthly subscriptions */}
+      <Dialog open={showAffiliateDialog} onOpenChange={setShowAffiliateDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("affiliateDialog.title")}</DialogTitle>
+            <DialogDescription>
+              {t("affiliateDialog.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder={t("affiliateDialog.placeholder")}
+                value={affiliateCode}
+                onChange={(e) => {
+                  setAffiliateCode(e.target.value.toUpperCase());
+                  setAffiliateResult(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleApplyAffiliateCode();
+                }}
+                maxLength={8}
+                className="font-mono uppercase"
+                disabled={affiliateApplying || affiliateResult?.valid === true}
+              />
+              <Button
+                onClick={handleApplyAffiliateCode}
+                disabled={!affiliateCode.trim() || affiliateApplying || affiliateResult?.valid === true}
+              >
+                {affiliateApplying ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  t("affiliateDialog.apply")
+                )}
+              </Button>
+            </div>
+
+            {affiliateResult?.valid && (
+              <div className="flex items-center gap-2 text-sm text-emerald-600">
+                <CheckCircle className="h-4 w-4" />
+                {t("affiliateDialog.success")}
+              </div>
+            )}
+
+            {affiliateResult?.error && (
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                {affiliateResult.error === "self_referral"
+                  ? t("affiliateDialog.errorSelfReferral")
+                  : affiliateResult.error === "already_referred"
+                    ? t("affiliateDialog.errorAlreadyReferred")
+                    : affiliateResult.error === "invalid_code"
+                      ? t("affiliateDialog.errorInvalidCode")
+                      : t("affiliateDialog.errorGeneric")}
+              </div>
+            )}
+
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={handleSkipAffiliate}
+              disabled={affiliateApplying || affiliateResult?.valid === true}
+            >
+              {t("affiliateDialog.skip")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -116,7 +116,19 @@
       "startingTrial": "正在开始试用...",
       "processing": "处理中..."
     },
-    "disclaimer": "非财务建议。随时取消。"
+    "disclaimer": "非财务建议。随时取消。",
+    "affiliateDialog": {
+      "title": "有推荐码吗？",
+      "description": "输入推荐码可享首月优惠 $5。",
+      "placeholder": "输入推荐码",
+      "apply": "应用",
+      "skip": "没有推荐码，继续结账",
+      "success": "首月将享受 $5 折扣！",
+      "errorInvalidCode": "无效的推荐码，请检查后重试。",
+      "errorSelfReferral": "不能使用自己的推荐码。",
+      "errorAlreadyReferred": "您已经使用过推荐码了。",
+      "errorGeneric": "出了点问题，请重试。"
+    }
   },
   "trust": {
     "headingPrefix": "为",
@@ -616,7 +628,30 @@
     "onPlan": "您当前使用的是{plan}计划。",
     "manageSubscription": "管理订阅",
     "upgradeDescription": "升级到Pro，获取无限分析和实时提醒。",
-    "upgradeToPro": "升级到Pro"
+    "upgradeToPro": "升级到Pro",
+    "affiliate": {
+      "title": "推广计划",
+      "description": "推荐好友赚取奖励",
+      "viewDetails": "查看详情",
+      "referralSection": "有推荐码？",
+      "referredBy": "推荐来自",
+      "enterCode": "输入推荐码",
+      "applyCode": "应用",
+      "applied": "推荐码已应用！首月订阅可享 $5 折扣。",
+      "errorInvalidCode": "无效的推荐码。",
+      "errorSelfReferral": "不能使用自己的推荐码。",
+      "errorAlreadyReferred": "您已经使用过推荐码了。",
+      "errorGeneric": "出了点问题，请重试。",
+      "affiliateSection": "您的推广码",
+      "linkTelegramFirst": "请先绑定 Telegram 账户以加入推广计划。",
+      "linkTelegram": "绑定 Telegram",
+      "verifyPhoneFirst": "请通过 Telegram 验证手机号以加入。",
+      "verifyPhone": "验证手机号",
+      "joinDescription": "加入推广计划，获取您的专属推荐码与好友分享。",
+      "joinButton": "加入并获取推广码",
+      "joining": "加入中...",
+      "totalReferrals": "推荐用户"
+    }
   },
   "billing": {
     "title": "账单与订阅",
@@ -832,8 +867,11 @@
       "title": "加入计划",
       "signInRequired": "登录以加入推广计划",
       "signIn": "登录",
-      "phoneRequired": "您需要通过Telegram验证手机号码才能加入。",
+      "linkTelegramRequired": "请先绑定 Telegram 账户才能加入推广计划。",
+      "linkTelegram": "绑定 Telegram",
+      "phoneRequired": "请通过 Telegram 验证手机号码才能加入。",
       "verifyPhone": "验证手机",
+      "verifyViaTelegram": "通过 Telegram 验证",
       "joinButton": "加入推广计划",
       "joining": "加入中...",
       "requirements": "要求：已注册账户并已验证手机号码"

@@ -7,6 +7,7 @@ import {
   createCheckoutSession 
 } from "@/lib/stripe/stripe";
 import { getStripePrices } from "@/lib/stripe/prices";
+import { getAffiliateReferralByUser } from "@/lib/db/affiliate";
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,6 +60,17 @@ export async function POST(request: NextRequest) {
     const successUrl = `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${appUrl}/pricing`;
 
+    // Check if user has an affiliate referral for monthly discount
+    let affiliateDiscount = false;
+    if (billingPeriod === "monthly") {
+      try {
+        const referral = await getAffiliateReferralByUser(user.id);
+        affiliateDiscount = referral !== null && referral.status === "registered";
+      } catch {
+        // Non-blocking
+      }
+    }
+
     // Create checkout session with conditional trial
     const session = await createCheckoutSession({
       priceId: selectedPrice.id,
@@ -68,6 +80,7 @@ export async function POST(request: NextRequest) {
       cancelUrl,
       clientReferenceId: `web_${user.id}`,
       includeTrial: !trialUsed,
+      affiliateDiscount,
     });
 
     // Log for debugging

@@ -202,6 +202,7 @@ export async function createCheckoutSession(options: {
   cancelUrl: string;
   clientReferenceId?: string;
   includeTrial: boolean;
+  affiliateDiscount?: boolean;
 }) {
   const sessionConfig: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
@@ -233,12 +234,6 @@ export async function createCheckoutSession(options: {
         type: "text",
         optional: true,
       },
-      {
-        key: "affiliate_code",
-        label: { type: "custom", custom: "Affiliate code (if you have one)" },
-        type: "text",
-        optional: true,
-      },
     ],
   };
 
@@ -252,6 +247,12 @@ export async function createCheckoutSession(options: {
         },
       },
     };
+  }
+
+  // Apply affiliate discount coupon if user has a valid referral
+  if (options.affiliateDiscount) {
+    const couponId = await ensureAffiliateCoupon();
+    sessionConfig.discounts = [{ coupon: couponId }];
   }
 
   const session = await stripe.checkout.sessions.create(sessionConfig);

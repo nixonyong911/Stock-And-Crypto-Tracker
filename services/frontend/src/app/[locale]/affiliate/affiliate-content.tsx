@@ -31,10 +31,13 @@ interface AffiliateStatus {
   };
 }
 
+const TELEGRAM_BOT_USERNAME = "StockAndCryptoAdvisorBot";
+
 interface AffiliateContentProps {
   user: {
     id: number;
     phoneVerified: boolean;
+    telegramLinked: boolean;
   } | null;
 }
 
@@ -190,11 +193,29 @@ export function AffiliateContent({ user }: AffiliateContentProps) {
                   </Link>
                 </Button>
               </div>
+            ) : !user.telegramLinked ? (
+              <div className="space-y-4 text-center">
+                <p className="text-muted-foreground">{t("join.linkTelegramRequired")}</p>
+                <Button asChild variant="outline">
+                  <Link href="/get-started">{t("join.linkTelegram")}</Link>
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {t("join.requirements")}
+                </p>
+              </div>
             ) : !user.phoneVerified ? (
               <div className="space-y-4 text-center">
                 <p className="text-muted-foreground">{t("join.phoneRequired")}</p>
-                <Button asChild variant="outline">
-                  <Link href="/dashboard">{t("join.verifyPhone")}</Link>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    window.open(
+                      `https://t.me/${TELEGRAM_BOT_USERNAME}?start=verify_phone`,
+                      "_blank"
+                    )
+                  }
+                >
+                  {t("join.verifyViaTelegram")}
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   {t("join.requirements")}

@@ -35,7 +35,7 @@ export default async function AffiliatePage({ params }: Props) {
   setRequestLocale(locale);
 
   const user = await currentUser();
-  let userProps: { id: number; phoneVerified: boolean } | null = null;
+  let userProps: { id: number; phoneVerified: boolean; telegramLinked: boolean } | null = null;
 
   if (user) {
     const dbUser = await ensureUserExists({
@@ -45,7 +45,11 @@ export default async function AffiliatePage({ params }: Props) {
       lastName: user.lastName,
       imageUrl: user.imageUrl,
     });
-    userProps = { id: dbUser.id, phoneVerified: !!dbUser.phone_hash };
+    userProps = {
+      id: dbUser.id,
+      phoneVerified: !!dbUser.phone_hash,
+      telegramLinked: dbUser.telegram_user_id !== null,
+    };
   }
 
   return (

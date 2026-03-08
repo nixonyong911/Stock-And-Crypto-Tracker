@@ -130,6 +130,18 @@ export async function getAffiliateReferralByUser(
   return data;
 }
 
+export async function updateAffiliateReferralStatus(
+  referralId: number,
+  status: "registered" | "subscribed" | "churned"
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("affiliate_referrals")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", referralId);
+  if (error) throw error;
+}
+
 export interface AffiliateStats {
   totalReferrals: number;
   referralsByMonth: Record<string, number>;
