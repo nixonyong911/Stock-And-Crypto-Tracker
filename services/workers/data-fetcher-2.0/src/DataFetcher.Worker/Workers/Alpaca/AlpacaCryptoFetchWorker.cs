@@ -1,5 +1,6 @@
 using DataFetcher.Worker.Application.Providers.Alpaca;
 using DataFetcher.Worker.Configuration.Providers;
+using DataFetcher.Worker.Infrastructure.Common;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using Microsoft.Extensions.Options;
 using StockTracker.Common.Metrics;
@@ -12,6 +13,7 @@ public class AlpacaCryptoFetchWorker : BackgroundService
     private readonly AlpacaSettings _settings;
     private readonly ILogger<AlpacaCryptoFetchWorker> _logger;
     private readonly IMetricsClient _metrics;
+    private readonly IGatewayAlertNotifier _alertNotifier;
     private DateTime? _lastFetchTime;
 
     private static readonly TimeZoneInfo EasternTz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
@@ -20,12 +22,14 @@ public class AlpacaCryptoFetchWorker : BackgroundService
         IServiceProvider serviceProvider,
         IOptions<AlpacaSettings> settings,
         ILogger<AlpacaCryptoFetchWorker> logger,
-        IMetricsClient metrics)
+        IMetricsClient metrics,
+        IGatewayAlertNotifier alertNotifier)
     {
         _serviceProvider = serviceProvider;
         _settings = settings.Value;
         _logger = logger;
         _metrics = metrics;
+        _alertNotifier = alertNotifier;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -68,6 +72,8 @@ public class AlpacaCryptoFetchWorker : BackgroundService
 
                     await _metrics.IncrementCounterAsync("alpaca_crypto_fetch_total", 1,
                         new Dictionary<string, string> { ["status"] = "success" });
+
+                    _ = _alertNotifier.NotifyAsync("crypto", stoppingToken);
                 }
                 catch (Exception ex)
                 {

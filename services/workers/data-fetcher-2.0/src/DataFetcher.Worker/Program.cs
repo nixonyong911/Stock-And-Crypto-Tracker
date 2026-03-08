@@ -66,6 +66,8 @@ try
         builder.Configuration.GetSection("RabbitMQ"));
     builder.Services.Configure<AlpacaSettings>(
         builder.Configuration.GetSection("Providers:Alpaca"));
+    builder.Services.Configure<GatewaySettings>(
+        builder.Configuration.GetSection("Gateway"));
 
     // Infrastructure - Common
     builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
@@ -153,6 +155,9 @@ try
 
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();
+
+    // Gateway alert notifier
+    builder.Services.AddHttpClient<IGatewayAlertNotifier, GatewayAlertNotifier>();
 
     // Metrics client
     builder.Services.AddMetricsClient(builder.Configuration);

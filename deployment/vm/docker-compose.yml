@@ -187,10 +187,15 @@ services:
       - Providers__Alpaca__CryptoLoc=us
       - Providers__Alpaca__FetchIntervalMinutes=30
       - Providers__Alpaca__RateLimitThreshold=10
+      # Gateway (price alert notifications)
+      - Gateway__BaseUrl=http://gateway-2.0:8080
+      - Gateway__InternalServiceKey=${INTERNAL_SERVICE_KEY}
       # Metrics service
       - MetricsService__BaseUrl=http://metrics:8080
       - MetricsService__WorkerName=data-fetcher-2.0
       - MetricsService__Enabled=true
+    depends_on:
+      - gateway-2.0
     networks:
       stocktracker:
         aliases:

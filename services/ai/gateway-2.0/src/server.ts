@@ -42,6 +42,7 @@ import { registerSessionRoutes } from "./http/session.js";
 import { registerUsageRoutes } from "./http/usage.js";
 import { registerChannelRoutes } from "./http/channel.js";
 import { registerAdminRoutes } from "./http/admin.js";
+import { registerAlertRoutes } from "./http/alerts.js";
 
 // Middleware
 import { registerAuthMiddleware } from "./middleware/auth.js";
@@ -303,6 +304,7 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
   registerUsageRoutes(app, usage);
   registerChannelRoutes(app, extensions);
   registerAdminRoutes(app, { metrics, queue, db: pool });
+  registerAlertRoutes(app, { config, db: pool, extensions });
 
   // ---- 10. Extension routes (webhooks) ----
 

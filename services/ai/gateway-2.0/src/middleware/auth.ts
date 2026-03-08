@@ -23,6 +23,11 @@ export function registerAuthMiddleware(
       return;
     }
 
+    // Skip API-key auth for internal paths (they verify X-Service-Key themselves)
+    if (request.url.startsWith("/internal")) {
+      return;
+    }
+
     // Skip auth if no API key is configured (dev mode)
     if (!config.apiKey) {
       return;

@@ -33,6 +33,12 @@ const KNOWN_COMMANDS = new Set([
   "wishlist",
   "watchlist",
   "subscribe",
+  "alert",
+  "track",
+  "alertlist",
+  "tracklist",
+  "alertremove",
+  "trackremove",
 ]);
 
 // ---------------------------------------------------------------------------
