@@ -1,9 +1,13 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataFetcher.Worker", "src\DataFetcher.Worker\DataFetcher.Worker.csproj", "{87654321-4321-4321-4321-210987654321}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{4F2B0B91-1182-455B-B366-6975A46D4198}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataFetcher.Worker.Tests", "tests\DataFetcher.Worker.Tests\DataFetcher.Worker.Tests.csproj", "{1D600C51-C81E-49D8-9578-6FEFCC909652}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,5 +19,12 @@ Global
 		{87654321-4321-4321-4321-210987654321}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{87654321-4321-4321-4321-210987654321}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{87654321-4321-4321-4321-210987654321}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1D600C51-C81E-49D8-9578-6FEFCC909652}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1D600C51-C81E-49D8-9578-6FEFCC909652}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1D600C51-C81E-49D8-9578-6FEFCC909652}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1D600C51-C81E-49D8-9578-6FEFCC909652}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1D600C51-C81E-49D8-9578-6FEFCC909652} = {4F2B0B91-1182-455B-B366-6975A46D4198}
 	EndGlobalSection
 EndGlobal

@@ -26,6 +26,8 @@ using DataFetcher.Worker.Application.Providers.Alpaca;
 using DataFetcher.Worker.Infrastructure.Providers.Alpaca;
 using DataFetcher.Worker.Infrastructure.Providers.Alpaca.Repositories;
 using DataFetcher.Worker.Workers.Alpaca;
+using DataFetcher.Worker.Application.Providers.LocalIndicators;
+using DataFetcher.Worker.Workers.LocalIndicators;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using Polly;
@@ -174,6 +176,10 @@ try
     // CandlestickAnalysis workers
     builder.Services.AddHostedService<DataFetcher.Worker.Workers.CandlestickAnalysis.CandlestickAnalysisWorker>();
     builder.Services.AddHostedService<DataFetcher.Worker.Workers.CandlestickAnalysis.AnalysisBackfillQueueConsumer>();
+
+    // Local indicator computation (replaces Massive API for scheduled runs)
+    builder.Services.AddScoped<ILocalIndicatorCalculatorService, LocalIndicatorCalculatorService>();
+    builder.Services.AddHostedService<LocalIndicatorWorker>();
 
     // PriceTargetAnalysis worker
     builder.Services.AddHostedService<PriceTargetWorker>();

@@ -1,19 +1,26 @@
 using System.Text.Json;
 using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 using DataFetcher.Worker.Domain.Providers.PriceTargetAnalysis.Models;
+using DataFetcher.Worker.Infrastructure.Common;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.PriceTargetAnalysis.Repositories;
 using StockTracker.Common.Metrics;
 
 namespace DataFetcher.Worker.Workers.PriceTargetAnalysis;
 
+/// <summary>
+/// Background worker that computes price targets on a schedule.
+/// Supports both interval-based (e.g. every 30 min) and daily time-of-day scheduling
+/// via the worker_fetch_schedules table.
+/// </summary>
 public class PriceTargetWorker : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<PriceTargetWorker> _logger;
     private readonly IMetricsClient _metrics;
     private const string DataSourceName = "PriceTargetAnalysis";
-    private const string WorkerVersion = "1.0.0";
+    private const string WorkerVersion = "2.0.0";
+    private static readonly TimeZoneInfo EasternTz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
 
     public PriceTargetWorker(
         IServiceProvider serviceProvider,
@@ -62,12 +69,16 @@ public class PriceTargetWorker : BackgroundService
                         ? JsonSerializer.Deserialize<PriceTargetConfig>(schedule.FetchConfig) ?? new PriceTargetConfig()
                         : new PriceTargetConfig();
 
-                    var (delay, nextRunUtc) = CalculateDelayUntilScheduledTime(schedule.ScheduleTime, schedule.ScheduleTimezone);
+                    var (delay, nextRunUtc) = schedule.IntervalMinutes.HasValue
+                        ? IntervalScheduleHelper.CalculateDelayUntilNextInterval(schedule.IntervalMinutes.Value, schedule.OffsetMinutes)
+                        : IntervalScheduleHelper.CalculateDelayUntilScheduledTime(schedule.ScheduleTime, schedule.ScheduleTimezone);
 
                     _logger.LogInformation(
-                        "Schedule '{Name}' loaded. Next run at {Time} {Tz} ({Utc} UTC, in {H}h {M}m)",
-                        schedule.Name, schedule.ScheduleTime, schedule.ScheduleTimezone,
-                        nextRunUtc.ToString("HH:mm"), (int)delay.TotalHours, delay.Minutes);
+                        "Schedule '{Name}' loaded ({Mode}). Next run at {Utc} UTC, in {H}h {M}m {S}s",
+                        schedule.Name,
+                        schedule.IntervalMinutes.HasValue ? $"every {schedule.IntervalMinutes}min, offset={schedule.OffsetMinutes}" : "daily",
+                        nextRunUtc.ToString("HH:mm"),
+                        (int)delay.TotalHours, delay.Minutes, delay.Seconds);
 
                     try
                     {
@@ -143,7 +154,8 @@ public class PriceTargetWorker : BackgroundService
                             new Dictionary<string, string> { ["status"] = "failed", ["worker"] = "price-target" });
                     }
 
-                    await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                    if (!schedule.IntervalMinutes.HasValue)
+                        await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -190,30 +202,18 @@ public class PriceTargetWorker : BackgroundService
         }
     }
 
-    private static (TimeSpan delay, DateTime nextRunUtc) CalculateDelayUntilScheduledTime(TimeSpan scheduleTime, string scheduleTimezone)
-    {
-        var now = DateTime.UtcNow;
-        TimeZoneInfo tz;
-        try { tz = TimeZoneInfo.FindSystemTimeZoneById(scheduleTimezone); }
-        catch (TimeZoneNotFoundException) { tz = TimeZoneInfo.Utc; }
-
-        var nowInTz = TimeZoneInfo.ConvertTimeFromUtc(now, tz);
-        var todayScheduledInTz = nowInTz.Date.Add(scheduleTime);
-
-        if (nowInTz >= todayScheduledInTz)
-            todayScheduledInTz = todayScheduledInTz.AddDays(1);
-
-        var scheduledUtc = TimeZoneInfo.ConvertTimeToUtc(todayScheduledInTz, tz);
-        return (scheduledUtc - now, scheduledUtc);
-    }
-
+    /// <summary>
+    /// Returns the current market date in Eastern Time for interval-based scheduling.
+    /// Falls back to config-based date for backward compatibility.
+    /// </summary>
     private static DateOnly GetAnalyzeDate(string config)
     {
         return config.ToLower() switch
         {
-            "yesterday" => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)),
-            "today" => DateOnly.FromDateTime(DateTime.UtcNow),
-            _ => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1))
+            "yesterday" => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz).AddDays(-1)),
+            "today" => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz)),
+            "latest" => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz)),
+            _ => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz))
         };
     }
 }

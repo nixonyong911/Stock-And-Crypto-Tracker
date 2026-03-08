@@ -34,6 +34,8 @@ public class FetchScheduleRepository : IFetchScheduleRepository
                 fs.last_run_at as LastRunAt,
                 fs.last_run_status as LastRunStatus,
                 fs.last_run_message as LastRunMessage,
+                fs.interval_minutes as IntervalMinutes,
+                fs.offset_minutes as OffsetMinutes,
                 fs.created_at as CreatedAt,
                 fs.updated_at as UpdatedAt
             FROM worker_fetch_schedules fs
@@ -61,6 +63,8 @@ public class FetchScheduleRepository : IFetchScheduleRepository
                 fs.last_run_at as LastRunAt,
                 fs.last_run_status as LastRunStatus,
                 fs.last_run_message as LastRunMessage,
+                fs.interval_minutes as IntervalMinutes,
+                fs.offset_minutes as OffsetMinutes,
                 fs.created_at as CreatedAt,
                 fs.updated_at as UpdatedAt
             FROM worker_fetch_schedules fs

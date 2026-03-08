@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="DataFetcher.Worker.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- ASP.NET Core & Hosting -->
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />

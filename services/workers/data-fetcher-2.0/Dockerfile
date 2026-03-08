@@ -8,13 +8,20 @@ WORKDIR /src
 # Copy common library first
 COPY ["common/StockTracker.Common/StockTracker.Common.csproj", "common/StockTracker.Common/"]
 
-# Copy project file and restore dependencies
+# Copy project files and restore dependencies
 COPY ["workers/data-fetcher-2.0/src/DataFetcher.Worker/DataFetcher.Worker.csproj", "workers/data-fetcher-2.0/src/DataFetcher.Worker/"]
-RUN dotnet restore "workers/data-fetcher-2.0/src/DataFetcher.Worker/DataFetcher.Worker.csproj"
+COPY ["workers/data-fetcher-2.0/tests/DataFetcher.Worker.Tests/DataFetcher.Worker.Tests.csproj", "workers/data-fetcher-2.0/tests/DataFetcher.Worker.Tests/"]
+RUN dotnet restore "workers/data-fetcher-2.0/src/DataFetcher.Worker/DataFetcher.Worker.csproj" && \
+    dotnet restore "workers/data-fetcher-2.0/tests/DataFetcher.Worker.Tests/DataFetcher.Worker.Tests.csproj"
 
 # Copy all source code
 COPY common/ common/
 COPY workers/data-fetcher-2.0/src/ workers/data-fetcher-2.0/src/
+COPY workers/data-fetcher-2.0/tests/ workers/data-fetcher-2.0/tests/
+
+# Run tests (fail build if any test fails)
+RUN dotnet test "workers/data-fetcher-2.0/tests/DataFetcher.Worker.Tests/DataFetcher.Worker.Tests.csproj" \
+    -c Release --no-restore --logger "console;verbosity=normal"
 
 # Build and publish
 WORKDIR "/src/workers/data-fetcher-2.0/src/DataFetcher.Worker"

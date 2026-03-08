@@ -41,11 +41,11 @@ flowchart TD
 
 | Aspect | Detail |
 |--------|--------|
-| **Worker** | TwelveData worker (data-fetcher) |
-| **Table** | `stock_prices` |
-| **Schedule** | `worker_fetch_schedules` — daily ~22:00 UTC |
-| **Config** | `data_sources` (API keys, rate limits) |
-| **Interval** | 10-minute candles |
+| **Worker** | Alpaca workers (AlpacaStockFetchWorker, AlpacaCryptoFetchWorker) |
+| **Table** | `stock_prices`, `crypto_prices` |
+| **Schedule** | Every 30 min (via `Task.Delay(FetchIntervalMinutes)`) |
+| **Config** | `Providers__Alpaca__FetchIntervalMinutes=30` |
+| **Interval** | 15-minute candles (with ~15 min market delay) |
 | **Fields** | open_price, high_price, low_price, close_price, volume per interval |
 | **Retention** | 90 days |
 
@@ -81,7 +81,7 @@ Converts 10-minute candles into daily OHLCV:
 
 **Output table:** `analysis_stock_candlestick_pattern`
 
-**Schedule:** Daily 01:00 UTC (3 hours after TwelveData ingestion)
+**Schedule:** Every 30 min at :05/:35 (5 min after Alpaca OHLCV fetch). Analyzes current market date.
 
 ### 8 Single-Candle Patterns
 
@@ -111,8 +111,9 @@ Converts 10-minute candles into daily OHLCV:
 
 | Aspect | Detail |
 |--------|--------|
-| **Source** | Massive API |
-| **Flow** | MassiveFetchWorker → RabbitMQ → MassiveQueueConsumer (FIFO) |
+| **Source** | Local computation from `analysis_stock_candlestick_pattern` daily closes (Massive API available for backfill) |
+| **Flow** | LocalIndicatorWorker → LocalIndicatorCalculatorService → analysis_stock_indicator |
+| **Schedule** | Every 30 min at :10/:40 |
 | **Table** | `analysis_stock_indicator` |
 
 **Indicators:**
@@ -142,7 +143,7 @@ Converts 10-minute candles into daily OHLCV:
 
 **Service:** `PriceTargetService` (data-fetcher-2.0, `Application/Providers/PriceTargetAnalysis/`)
 
-**Schedule:** Daily ~01:30 UTC (30 min after candlestick analysis)
+**Schedule:** Every 30 min at :15/:45 (15 min after Alpaca OHLCV fetch)
 
 **Table:** `analysis_ticker_price_targets` (new row per day, 90-day retention)
 
@@ -228,23 +229,43 @@ erDiagram
 
 ## 10. Scheduling Dependency Chain
 
+### 30-Minute Pipeline (Active)
+
+Every 30 minutes, the pipeline runs in sequence with 5-minute stagger offsets:
+
+| Order | Job | Schedule | Offset | Output |
+|-------|-----|----------|--------|--------|
+| 1 | Alpaca OHLCV | Every 30 min | :00 / :30 | stock_prices, crypto_prices |
+| 2 | CandlestickAnalysis | Every 30 min | :05 / :35 | analysis_stock_candlestick_pattern |
+| 3 | LocalIndicatorComputation | Every 30 min | :10 / :40 | analysis_stock_indicator |
+| 4 | PriceTargetAnalysis | Every 30 min | :15 / :45 | analysis_ticker_price_targets |
+
+```mermaid
+sequenceDiagram
+    participant A as Alpaca OHLCV
+    participant C as CandlestickAnalysis
+    participant I as LocalIndicators
+    participant P as PriceTargetAnalysis
+
+    Note over A,P: Every 30-min cycle
+    A->>A: :00 / :30 - Fetch 15-min candles
+    C->>C: :05 / :35 - Aggregate + patterns (current market date)
+    I->>I: :10 / :40 - Compute SMA/EMA/MACD/RSI from local data
+    P->>P: :15 / :45 - Calculate entry/target/stop-loss
+```
+
+### Key Design Notes
+
+- **Clock-aligned intervals**: Workers run at fixed minutes past the hour via `interval_minutes` and `offset_minutes` in `worker_fetch_schedules`. This ensures predictable staggering even after container restarts.
+- **Local indicator computation**: SMA-20, EMA-20, MACD (12,26,9), RSI-14 are computed locally from daily closes in `analysis_stock_candlestick_pattern`. Eliminates Massive API dependency for scheduled runs.
+- **Incremental daily candle**: Today's candlestick pattern record is upserted every 30 min with the latest aggregated partial-day data. After market close, it becomes the final daily record.
+- **Massive API**: Disabled for scheduled runs. Kept available for manual backfill via API endpoints.
+
+### Legacy Daily Pipeline (Disabled)
+
 | Order | Job | Time (UTC) | Output |
 |-------|-----|------------|--------|
 | 1 | TwelveData | 22:00 | stock_prices |
 | 2 | Massive | Variable | analysis_stock_indicator |
 | 3 | CandlestickAnalysis | 01:00 | analysis_stock_candlestick_pattern |
 | 4 | PriceTargetAnalysis | 01:30 | analysis_ticker_price_targets |
-
-```mermaid
-sequenceDiagram
-    participant T as TwelveData
-    participant M as Massive
-    participant C as CandlestickAnalysis
-    participant P as PriceTargetAnalysis
-
-    Note over T,P: Day N
-    T->>T: 22:00 - Fetch prices
-    M->>M: Variable - Fetch indicators
-    C->>C: 01:00 - Aggregate + patterns
-    P->>P: 01:30 - Price targets
-```

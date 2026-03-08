@@ -1,14 +1,16 @@
 using System.Text.Json;
 using DataFetcher.Worker.Application.Providers.CandlestickAnalysis;
 using DataFetcher.Worker.Domain.Providers.CandlestickAnalysis.Models;
+using DataFetcher.Worker.Infrastructure.Common;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using StockTracker.Common.Metrics;
 
 namespace DataFetcher.Worker.Workers.CandlestickAnalysis;
 
 /// <summary>
-/// Background worker that runs candlestick pattern analysis at scheduled time.
-/// Default schedule: 01:00 UTC (3 hours after TwelveData at 22:00 UTC).
+/// Background worker that runs candlestick pattern analysis on a schedule.
+/// Supports both interval-based (e.g. every 30 min) and daily time-of-day scheduling
+/// via the worker_fetch_schedules table.
 /// </summary>
 public class CandlestickAnalysisWorker : BackgroundService
 {
@@ -16,7 +18,8 @@ public class CandlestickAnalysisWorker : BackgroundService
     private readonly ILogger<CandlestickAnalysisWorker> _logger;
     private readonly IMetricsClient _metrics;
     private const string DataSourceName = "CandlestickAnalysis";
-    private const string WorkerVersion = "1.0.0";
+    private const string WorkerVersion = "2.0.0";
+    private static readonly TimeZoneInfo EasternTz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
 
     public CandlestickAnalysisWorker(
         IServiceProvider serviceProvider,
@@ -33,8 +36,6 @@ public class CandlestickAnalysisWorker : BackgroundService
         _logger.LogInformation("Candlestick Analysis Worker starting");
 
         await ReportWorkerStartAsync();
-
-        // Wait a bit for the database to be ready
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
 
         try
@@ -46,7 +47,6 @@ public class CandlestickAnalysisWorker : BackgroundService
                     await _metrics.SetGaugeAsync("worker_last_activity_timestamp",
                         DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
-                    // Load schedule from database
                     using var scope = _serviceProvider.CreateScope();
                     var scheduleRepository = scope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
 
@@ -66,24 +66,23 @@ public class CandlestickAnalysisWorker : BackgroundService
                         continue;
                     }
 
-                    // Parse analysis config
                     var config = !string.IsNullOrEmpty(schedule.FetchConfig)
                         ? JsonSerializer.Deserialize<AnalysisConfig>(schedule.FetchConfig) ?? new AnalysisConfig()
                         : new AnalysisConfig();
 
-                    // Calculate delay until next scheduled run (timezone-aware)
-                    var (delay, nextRunUtc) = CalculateDelayUntilScheduledTime(schedule.ScheduleTime, schedule.ScheduleTimezone);
+                    var (delay, nextRunUtc) = schedule.IntervalMinutes.HasValue
+                        ? IntervalScheduleHelper.CalculateDelayUntilNextInterval(schedule.IntervalMinutes.Value, schedule.OffsetMinutes)
+                        : IntervalScheduleHelper.CalculateDelayUntilScheduledTime(schedule.ScheduleTime, schedule.ScheduleTimezone);
 
                     _logger.LogInformation(
-                        "Schedule '{ScheduleName}' loaded. Next run at {ScheduleTime} {Timezone} ({NextRunUtc} UTC, in {Hours}h {Minutes}m)",
+                        "Schedule '{ScheduleName}' loaded ({Mode}). Next run at {NextRunUtc} UTC, in {Hours}h {Minutes}m {Seconds}s",
                         schedule.Name,
-                        schedule.ScheduleTime,
-                        schedule.ScheduleTimezone,
+                        schedule.IntervalMinutes.HasValue ? $"every {schedule.IntervalMinutes}min, offset={schedule.OffsetMinutes}" : "daily",
                         nextRunUtc.ToString("HH:mm"),
                         (int)delay.TotalHours,
-                        delay.Minutes);
+                        delay.Minutes,
+                        delay.Seconds);
 
-                    // Wait until scheduled time
                     try
                     {
                         await Task.Delay(delay, stoppingToken);
@@ -93,7 +92,6 @@ public class CandlestickAnalysisWorker : BackgroundService
                         break;
                     }
 
-                    // Execute analysis
                     _logger.LogInformation("Starting scheduled analysis for '{ScheduleName}' at {Time} UTC",
                         schedule.Name, DateTime.UtcNow);
 
@@ -115,7 +113,6 @@ public class CandlestickAnalysisWorker : BackgroundService
                         var statusMessage = $"Stock: {result.SuccessCount}/{result.TotalStocks} analyzed, " +
                                           $"{result.PatternsDetected} patterns, {result.DurationSeconds:F1}s";
 
-                        // Immediately run crypto analysis (no external API, no rate limit concern)
                         _logger.LogInformation("Stock analysis complete. Starting crypto candlestick analysis for {Date}", analyzeDate);
                         var cryptoAnalysisService = analysisScope.ServiceProvider.GetRequiredService<ICryptoCandlestickAnalysisService>();
                         var cryptoResult = await cryptoAnalysisService.AnalyzeAllCryptoAsync(analyzeDate, stoppingToken);
@@ -156,7 +153,8 @@ public class CandlestickAnalysisWorker : BackgroundService
                             new Dictionary<string, string> { ["status"] = "failed" });
                     }
 
-                    await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                    if (!schedule.IntervalMinutes.HasValue)
+                        await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -210,47 +208,18 @@ public class CandlestickAnalysisWorker : BackgroundService
     }
 
     /// <summary>
-    /// Calculate delay until the next occurrence of the scheduled time.
-    /// Converts from the specified timezone to UTC, handling DST automatically.
-    /// </summary>
-    private static (TimeSpan delay, DateTime nextRunUtc) CalculateDelayUntilScheduledTime(TimeSpan scheduleTime, string scheduleTimezone)
-    {
-        var now = DateTime.UtcNow;
-
-        TimeZoneInfo tz;
-        try
-        {
-            tz = TimeZoneInfo.FindSystemTimeZoneById(scheduleTimezone);
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            tz = TimeZoneInfo.Utc;
-        }
-
-        var nowInTz = TimeZoneInfo.ConvertTimeFromUtc(now, tz);
-        var todayScheduledInTz = nowInTz.Date.Add(scheduleTime);
-
-        if (nowInTz >= todayScheduledInTz)
-        {
-            todayScheduledInTz = todayScheduledInTz.AddDays(1);
-        }
-
-        var scheduledUtc = TimeZoneInfo.ConvertTimeToUtc(todayScheduledInTz, tz);
-        var delay = scheduledUtc - now;
-
-        return (delay, scheduledUtc);
-    }
-
-    /// <summary>
-    /// Get the date to analyze based on config.
+    /// Returns the current market date in Eastern Time. For interval-based scheduling,
+    /// this gives us the "today" date so partial-day candles are continuously updated.
+    /// Falls back to config-based date for backward compatibility.
     /// </summary>
     private static DateOnly GetAnalyzeDate(string analyzeDateConfig)
     {
         return analyzeDateConfig.ToLower() switch
         {
-            "yesterday" => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)),
-            "today" => DateOnly.FromDateTime(DateTime.UtcNow),
-            _ => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1))
+            "yesterday" => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz).AddDays(-1)),
+            "today" => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz)),
+            "latest" => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz)),
+            _ => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz))
         };
     }
 }
