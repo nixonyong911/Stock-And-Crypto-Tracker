@@ -194,13 +194,13 @@ services:
       - MetricsService__BaseUrl=http://metrics:8080
       - MetricsService__WorkerName=data-fetcher-2.0
       - MetricsService__Enabled=true
-    depends_on:
-      - gateway-2.0
     networks:
       stocktracker:
         aliases:
           - data-fetcher
     depends_on:
+      gateway-2.0:
+        condition: service_started
       metrics:
         condition: service_healthy
       rabbitmq:
