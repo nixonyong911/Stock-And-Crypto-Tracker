@@ -1,0 +1,321 @@
+# Verification Runbook
+
+Manual investigation procedures for when automated scripts flag issues.
+
+## Prerequisites
+
+- Supabase dashboard access or `psql` connection
+- SSH access to VM: `ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1`
+- Docker access on VM (all services run as containers)
+
+---
+
+## 1. Price Fetching (30-Min Interval)
+
+### Check recent prices for a stock
+
+```sql
+SELECT sp.id, st.symbol, sp.price_time, sp.open_price, sp.high_price,
+       sp.low_price, sp.close_price, sp.volume, sp.created_at
+FROM stock_prices sp
+JOIN stock_tickers st ON st.id = sp.stock_ticker_id
+WHERE st.symbol = 'AAPL'
+ORDER BY sp.price_time DESC
+LIMIT 20;
+```
+
+### Verify 30-min intervals
+
+```sql
+WITH ordered AS (
+  SELECT sp.price_time,
+         LAG(sp.price_time) OVER (ORDER BY sp.price_time DESC) AS prev_time
+  FROM stock_prices sp
+  JOIN stock_tickers st ON st.id = sp.stock_ticker_id
+  WHERE st.symbol = 'AAPL'
+  ORDER BY sp.price_time DESC
+  LIMIT 50
+)
+SELECT price_time, prev_time,
+       EXTRACT(EPOCH FROM (prev_time - price_time)) / 60 AS gap_minutes
+FROM ordered
+WHERE prev_time IS NOT NULL
+ORDER BY price_time DESC;
+```
+
+Expect ~30 min gaps during market hours. Larger gaps overnight/weekends are normal.
+
+### Check indicator freshness
+
+```sql
+SELECT st.symbol,
+       MAX(sp.price_time)    AS latest_price_time,
+       MAX(si.indicator_time) AS latest_indicator_time,
+       MAX(sp.price_time) - MAX(si.indicator_time) AS indicator_lag
+FROM stock_tickers st
+JOIN stock_prices sp ON sp.stock_ticker_id = st.id
+LEFT JOIN analysis_stock_indicator si ON si.stock_ticker_id = st.id
+WHERE st.symbol = 'AAPL'
+GROUP BY st.symbol;
+```
+
+Indicator lag should be ≤ 35 minutes (price fetch + 5-min offset for indicator calculation).
+
+### Check worker schedule status
+
+```sql
+SELECT wfs.name, wfs.is_enabled, wfs.interval_minutes, wfs.offset_minutes,
+       wfs.last_run_at, wfs.last_run_status, wfs.last_run_message,
+       NOW() - wfs.last_run_at AS time_since_last_run
+FROM worker_fetch_schedules wfs
+ORDER BY wfs.last_run_at DESC;
+```
+
+### Troubleshooting
+
+- **Prices are stale**: SSH to VM, check data-fetcher logs:
+  ```bash
+  docker logs data-fetcher-2.0 --tail 100 --since 1h
+  ```
+- **Indicators missing**: Verify candlestick analysis ran first (it has `offset_minutes = 5` to wait for prices):
+  ```sql
+  SELECT name, offset_minutes, last_run_at, last_run_status
+  FROM worker_fetch_schedules
+  WHERE name ILIKE '%candlestick%' OR name ILIKE '%indicator%'
+  ORDER BY name;
+  ```
+- **Worker not running**: Check container health:
+  ```bash
+  docker ps --filter name=data-fetcher
+  curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/health/live
+  ```
+
+---
+
+## 2. Backfill Verification
+
+### Check if ticker exists and has data
+
+```sql
+SELECT
+  st.id, st.symbol, st.name, st.is_active, st.created_at,
+  (SELECT COUNT(*) FROM stock_prices sp WHERE sp.stock_ticker_id = st.id) AS price_count,
+  (SELECT COUNT(*) FROM analysis_stock_candlestick_pattern cp WHERE cp.stock_ticker_id = st.id) AS pattern_count,
+  (SELECT COUNT(*) FROM analysis_stock_indicator si WHERE si.stock_ticker_id = st.id) AS indicator_count,
+  (SELECT COUNT(*) FROM analysis_ticker_price_targets pt WHERE pt.ticker_symbol = st.symbol) AS price_target_count
+FROM stock_tickers st
+WHERE st.symbol = 'AAPL';
+```
+
+For crypto:
+
+```sql
+SELECT
+  ct.id, ct.symbol, ct.name, ct.is_active, ct.created_at,
+  (SELECT COUNT(*) FROM crypto_prices cp WHERE cp.crypto_ticker_id = ct.id) AS price_count,
+  (SELECT COUNT(*) FROM analysis_crypto_candlestick_pattern ap WHERE ap.crypto_ticker_id = ct.id) AS pattern_count,
+  (SELECT COUNT(*) FROM analysis_crypto_indicator ci WHERE ci.crypto_ticker_id = ct.id) AS indicator_count,
+  (SELECT COUNT(*) FROM analysis_ticker_price_targets pt WHERE pt.ticker_symbol = ct.symbol) AS price_target_count
+FROM crypto_tickers ct
+WHERE ct.symbol = 'BTC';
+```
+
+### Check backfill queue
+
+SSH to VM and inspect RabbitMQ:
+
+```bash
+docker exec rabbitmq rabbitmqctl list_queues name messages consumers
+```
+
+Look for queues with accumulated messages and zero consumers (indicates stuck consumer).
+
+### Check webhook configuration
+
+Supabase webhooks trigger backfill when new tickers are inserted. Verify via Supabase dashboard:
+
+1. Go to **Database > Webhooks** in Supabase dashboard
+2. Confirm webhooks exist for `stock_tickers` and `crypto_tickers` on `INSERT`
+3. Verify the webhook URL points to the data-fetcher backfill endpoint
+
+Or check via SQL:
+
+```sql
+SELECT tgname, tgrelid::regclass, tgenabled
+FROM pg_trigger
+WHERE tgrelid IN ('stock_tickers'::regclass, 'crypto_tickers'::regclass);
+```
+
+---
+
+## 3. Free Trial One-Time Enforcement
+
+### Check for duplicate phone_hash claims
+
+```sql
+SELECT phone_hash, COUNT(*) AS claim_count
+FROM trial_claims
+GROUP BY phone_hash
+HAVING COUNT(*) > 1;
+```
+
+### Check for duplicate user_id claims
+
+```sql
+SELECT user_id, COUNT(*) AS claim_count
+FROM trial_claims
+GROUP BY user_id
+HAVING COUNT(*) > 1;
+```
+
+Both queries should return **zero rows**. Any results indicate a constraint bypass.
+
+### Check specific user's trial status
+
+```sql
+SELECT
+  u.id AS user_id, u.clerk_user_id, u.phone_hash,
+  tc.claimed_at, tc.trial_end_at, tc.source, tc.stripe_subscription_id AS trial_stripe_sub,
+  us.stripe_subscription_id, us.status AS sub_status, us.plan_type,
+  us.trial_start, us.trial_end, us.current_period_end
+FROM users u
+LEFT JOIN trial_claims tc ON tc.user_id = u.id
+LEFT JOIN users_subscriptions us ON us.user_id = u.id
+WHERE u.clerk_user_id = 'user_REPLACE_ME';
+```
+
+### Verify DB constraint exists
+
+```sql
+SELECT conname, conrelid::regclass, contype
+FROM pg_constraint
+WHERE conname LIKE '%trial%';
+```
+
+Expected: `uq_trial_claims_phone_hash` (unique constraint on `phone_hash`).
+
+### Test eligibility API
+
+```bash
+curl -s https://www.stocktracker.com/api/trial/eligibility \
+  -H "Authorization: Bearer <CLERK_SESSION_TOKEN>" | jq .
+```
+
+Response should include `eligible: true/false` and `reason` if ineligible.
+
+---
+
+## 4. SmartDigest Verification
+
+### Recent recommendations sent
+
+```sql
+SELECT recommendation_type, priority, COUNT(*) AS total,
+       MIN(sent_at) AS earliest, MAX(sent_at) AS latest
+FROM user_recommendation_log
+WHERE sent_at > NOW() - INTERVAL '24 hours'
+GROUP BY recommendation_type, priority
+ORDER BY total DESC;
+```
+
+### Check daily cap enforcement
+
+No user should receive more than 6 recommendations per day:
+
+```sql
+SELECT clerk_user_id, sent_at::date AS day, COUNT(*) AS daily_count
+FROM user_recommendation_log
+WHERE sent_at > NOW() - INTERVAL '7 days'
+GROUP BY clerk_user_id, sent_at::date
+HAVING COUNT(*) > 6
+ORDER BY daily_count DESC;
+```
+
+Should return **zero rows**.
+
+### Check Redis dedup keys (via SSH)
+
+```bash
+docker exec gateway-2.0 node -e "
+  const Redis = require('ioredis');
+  const r = new Redis(process.env.REDIS_URL);
+  r.keys('digest:signal:*').then(k => { console.log('Signal keys:', k.length); k.slice(0,10).forEach(x => console.log(' ', x)); });
+  r.keys('digest:count:*').then(k => { console.log('Count keys:', k.length); k.slice(0,10).forEach(x => console.log(' ', x)); r.quit(); });
+"
+```
+
+Or if Redis is accessible directly:
+
+```bash
+docker exec redis redis-cli KEYS "digest:signal:*"
+docker exec redis redis-cli KEYS "digest:count:*"
+```
+
+### Check gateway health
+
+```bash
+curl -s http://localhost:8080/internal/check-recommendations \
+  -H "X-Service-Key: $GATEWAY_SERVICE_KEY" | jq .
+```
+
+Run this from inside the VM (the internal endpoint is not exposed externally).
+
+---
+
+## 5. Affiliate System
+
+### Active affiliate members
+
+```sql
+SELECT am.id, u.clerk_user_id, am.affiliate_code, am.status, am.created_at,
+       (SELECT COUNT(*) FROM affiliate_referrals ar WHERE ar.affiliate_member_id = am.id) AS referral_count
+FROM affiliate_members am
+JOIN users u ON u.id = am.user_id
+WHERE am.status = 'active'
+ORDER BY am.created_at DESC;
+```
+
+### Referral lifecycle
+
+```sql
+SELECT
+  am.affiliate_code,
+  u_promoter.clerk_user_id AS promoter,
+  u_referred.clerk_user_id AS referred_user,
+  ar.status AS referral_status,
+  ar.created_at AS referred_at,
+  ar.updated_at AS last_status_change
+FROM affiliate_referrals ar
+JOIN affiliate_members am ON am.id = ar.affiliate_member_id
+JOIN users u_promoter ON u_promoter.id = am.user_id
+JOIN users u_referred ON u_referred.id = ar.referred_user_id
+ORDER BY ar.created_at DESC
+LIMIT 50;
+```
+
+### Check for self-referrals
+
+```sql
+SELECT ar.id, am.affiliate_code, am.user_id AS promoter_user_id,
+       ar.referred_user_id
+FROM affiliate_referrals ar
+JOIN affiliate_members am ON am.id = ar.affiliate_member_id
+WHERE ar.referred_user_id = am.user_id;
+```
+
+Should return **zero rows**. Any results mean a user referred themselves.
+
+### Verify Stripe coupon
+
+Check via Stripe dashboard or CLI:
+
+```bash
+# If stripe CLI is installed:
+stripe coupons retrieve AFFILIATE_5_OFF
+
+# Or via API:
+curl -s https://api.stripe.com/v1/coupons/AFFILIATE_5_OFF \
+  -u "$STRIPE_SECRET_KEY:" | jq '{id, valid, amount_off, currency, percent_off, duration}'
+```
+
+Verify the coupon is `valid: true` and has the expected discount amount.

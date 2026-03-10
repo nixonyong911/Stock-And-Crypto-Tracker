@@ -1,0 +1,59 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/ai/gateway-2.0/**"
+      - "services/frontend/**"
+      - "services/workers/data-fetcher-2.0/**"
+      - "services/common/**"
+  pull_request:
+    branches: [main]
+
+jobs:
+  gateway-tests:
+    name: Gateway 2.0 Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: services/ai/gateway-2.0/package-lock.json
+      - name: Install dependencies
+        working-directory: services/ai/gateway-2.0
+        run: npm ci
+      - name: Run tests
+        working-directory: services/ai/gateway-2.0
+        run: npm test
+
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: services/frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: services/frontend
+        run: npm ci
+      - name: Run tests
+        working-directory: services/frontend
+        run: npm test
+
+  data-fetcher-tests:
+    name: Data Fetcher Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Run tests
+        working-directory: services/workers/data-fetcher-2.0
+        run: dotnet test --verbosity normal

@@ -170,20 +170,20 @@ function buildWhatToWatch(s: TickerSignal): string {
   return parts.join(" ");
 }
 
-function deriveOutlook(s: TickerSignal): string {
+export function deriveOutlook(s: TickerSignal): string {
   if (s.timeframeAlignment === "full") return capitalize(s.rawData.swingSignal);
   if (s.timeframeAlignment === "partial") return capitalize(s.rawData.daySignal);
   return "Mixed";
 }
 
-function deriveHorizon(s: TickerSignal): string {
+export function deriveHorizon(s: TickerSignal): string {
   if (s.timeframeAlignment === "conflict") return "Uncertain";
   if (s.type === "notable_pattern") return "Short-term (days)";
   if (s.type === "signal_change") return "Position (2-4 weeks)";
   return "Swing (1-3 weeks)";
 }
 
-function deriveConfidence(s: TickerSignal): string {
+export function deriveConfidence(s: TickerSignal): string {
   const conf = s.rawData.confidence;
   if (s.timeframeAlignment === "conflict") return "Low";
   if (conf != null && conf < 0.4) return "Low";
@@ -192,7 +192,7 @@ function deriveConfidence(s: TickerSignal): string {
   return "Medium";
 }
 
-function deriveRisk(s: TickerSignal): string {
+export function deriveRisk(s: TickerSignal): string {
   const d = s.rawData;
   const stopPct =
     d.stopLoss != null && d.close > 0
@@ -212,7 +212,7 @@ function capitalize(s: string): string {
 
 // ── Template engine ─────────────────────────────────────────────────────
 
-function templateForSignal(s: TickerSignal): Explanation {
+export function templateForSignal(s: TickerSignal): Explanation {
   return {
     whatsHappening: buildWhatsHappening(s),
     whatToWatch: buildWhatToWatch(s),
@@ -223,7 +223,7 @@ function templateForSignal(s: TickerSignal): Explanation {
   };
 }
 
-function stackTemplates(signals: TickerSignal[]): Explanation {
+export function stackTemplates(signals: TickerSignal[]): Explanation {
   const whats = signals.map(buildWhatsHappening);
   const watches = signals.map(buildWhatToWatch);
   const first = signals[0]!;

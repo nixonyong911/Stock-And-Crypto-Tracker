@@ -39,7 +39,7 @@ export interface TickerSignal {
 
 // ── Internal row types ──────────────────────────────────────────────────
 
-interface PriceTargetRow {
+export interface PriceTargetRow {
   ticker_symbol: string;
   asset_type: string;
   trader_type: string;
@@ -63,13 +63,13 @@ interface PriceTargetMeta {
   lookback_days?: number;
 }
 
-interface IndicatorRow {
+export interface IndicatorRow {
   ticker_symbol: string;
   analysis_date: string;
   macd_histogram: string | null;
 }
 
-interface CandlestickRow {
+export interface CandlestickRow {
   ticker_symbol: string;
   detected_patterns: Array<{
     pattern: string;
@@ -93,7 +93,7 @@ function toSig(val: string | null | undefined): SignalDir {
   return "neutral";
 }
 
-function computeAlignment(
+export function computeAlignment(
   day: SignalDir,
   swing: SignalDir,
   longTerm: SignalDir,
@@ -220,7 +220,7 @@ async function fetchCandlesticks(
 
 // ── Context assembly ────────────────────────────────────────────────────
 
-interface TickerCtx {
+export interface TickerCtx {
   symbol: string;
   assetType: "stock" | "crypto";
   close: number;
@@ -237,7 +237,7 @@ interface TickerCtx {
   confidence?: number;
 }
 
-function buildContexts(
+export function buildContexts(
   assetType: "stock" | "crypto",
   targets: PriceTargetRow[],
   indicators: IndicatorRow[],
@@ -359,7 +359,7 @@ function makeRawData(ctx: TickerCtx): TickerSignal["rawData"] {
   return raw;
 }
 
-function detectForTicker(ctx: TickerCtx): TickerSignal[] {
+export function detectForTicker(ctx: TickerCtx): TickerSignal[] {
   const out: TickerSignal[] = [];
   const { symbol, assetType, close, alignment, swing } = ctx;
 

@@ -1,0 +1,17 @@
+{
+  "name": "verify-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "verify:prices": "npx tsx verify-prices.ts",
+    "verify:backfill": "npx tsx verify-backfill.ts",
+    "verify:trial": "npx tsx verify-trial.ts",
+    "verify:digest": "npx tsx verify-digest.ts",
+    "verify:affiliate": "npx tsx verify-affiliate.ts",
+    "verify:all": "npx tsx verify-prices.ts && npx tsx verify-trial.ts && npx tsx verify-digest.ts && npx tsx verify-affiliate.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.90.1",
+    "tsx": "^4"
+  }
+}
