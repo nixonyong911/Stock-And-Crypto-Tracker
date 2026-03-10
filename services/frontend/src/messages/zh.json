@@ -9,7 +9,10 @@
     "about": "关于",
     "indicators": "经济指标",
     "affiliate": "推广计划",
-    "blog": "博客"
+    "blog": "博客",
+    "features": "功能",
+    "smartDigest": "智能摘要",
+    "smartDigestDesc": "AI驱动的自选股洞察"
   },
   "hero": {
     "headline": "股票和加密货币市场的清晰洞察。",
@@ -74,6 +77,109 @@
       "education": "每次更新都附带教育性见解"
     },
     "tagline": "为重视纪律而非炒作的投资者打造。"
+  },
+  "smartDigest": {
+    "headingPrefix": "你的专属",
+    "headingAccent": "AI分析师",
+    "headingSuffix": "，时刻关注市场。",
+    "bullets": {
+      "multiTimeframe": "跨多个时间周期分析你的自选股，发现真正的信号，过滤噪音。",
+      "plainEnglish": "用通俗易懂的语言解释发生了什么以及需要关注什么。无图表，无术语。",
+      "noSpam": "只在有意义的事情发生时才发送。没有持续轰炸，没有垃圾信息。"
+    },
+    "tagline": "将股票添加到你的自选股。AI会处理剩下的一切。",
+    "cta": "在Telegram上免费开始",
+    "learnMore": "了解更多",
+    "mockMessage": {
+      "ticker": "NVDA",
+      "headline": "接近支撑区间",
+      "whatsHappeningLabel": "正在发生：",
+      "whatsHappening": "英伟达回调至$180，接近过去20个交易日一直保持的支撑位（$176-$183）。该股在短期均线下方交易，但所有时间周期的技术面展望仍然看涨。",
+      "whatToWatchLabel": "需要关注：",
+      "whatToWatch": "守住$176以上可能确认该水平为底部。跌破$170则可能进一步下探至39天低点。",
+      "outlook": "看涨",
+      "horizon": "波段（1-3周）",
+      "confidence": "高",
+      "risk": "中等"
+    }
+  },
+  "smartDigestPage": {
+    "meta": {
+      "title": "智能摘要 - AI驱动的自选股洞察",
+      "description": "获取通俗易懂的自选股市场分析，直接发送到Telegram。多时间周期信号，附带置信度和风险等级。"
+    },
+    "hero": {
+      "title": "智能摘要",
+      "subtitle": "AI驱动的市场洞察，直接推送到你的Telegram。没有噪音，没有术语，只有清晰的分析。"
+    },
+    "howItWorks": {
+      "heading": "智能摘要如何运作",
+      "step1": {
+        "title": "创建你的自选股",
+        "description": "添加你关注的股票和加密货币。这是唯一需要的设置。"
+      },
+      "step2": {
+        "title": "我们持续分析",
+        "description": "每30分钟，我们的AI会跨多个时间周期扫描你的自选股，检测有意义的变化。"
+      },
+      "step3": {
+        "title": "你获得清晰的洞察",
+        "description": "当有重要变化时，你会收到通俗易懂的解释——正在发生什么、需要关注什么以及风险等级。"
+      }
+    },
+    "multiTimeframe": {
+      "heading": "为什么多时间周期分析很重要",
+      "description": "一只股票可能在单日反弹，但如果周线和月线趋势仍在下行，这可能是一个陷阱。智能摘要在提醒你之前会检查所有时间周期。",
+      "basicLabel": "基础提醒",
+      "basicMessage": "SOFI触及$18.91——价格提醒触发！",
+      "smartLabel": "智能摘要",
+      "smartMessage": "SoFi接近支撑位，但所有时间周期的技术面展望均为看跌。这可能是暂时的底部，而非确认的反转。"
+    },
+    "examples": {
+      "heading": "实际效果展示",
+      "nvda": {
+        "ticker": "NVDA",
+        "headline": "接近支撑区间",
+        "whatsHappening": "英伟达回调至$180，接近过去20个交易日一直保持的支撑位（$176-$183）。该股在短期均线下方交易，但所有时间周期的技术面展望仍然看涨。",
+        "whatToWatch": "守住$176以上可能确认该水平为底部。跌破$170则可能进一步下探至39天低点。",
+        "outlook": "看涨",
+        "horizon": "波段（1-3周）",
+        "confidence": "高",
+        "risk": "中等"
+      },
+      "sofi": {
+        "ticker": "SOFI",
+        "headline": "接近支撑，但需谨慎",
+        "whatsHappening": "SoFi交易价格接近$18.91，靠近支撑区间。然而，日线、波段和长期时间周期的技术面展望均为看跌。动量指标显示抛售压力持续。",
+        "whatToWatch": "跌破$18.50可能加速下跌。在考虑这是底部之前，关注日线RSI的反转信号。",
+        "outlook": "看跌",
+        "horizon": "日内（1-3天）",
+        "confidence": "高",
+        "risk": "高"
+      },
+      "aapl": {
+        "ticker": "AAPL",
+        "headline": "入场区间 + 锤子线形态",
+        "whatsHappening": "苹果回调至一个已维持3周的支撑区间。今天出现锤子线蜡烛形态，表明卖出动量正在减弱，可能正在形成反弹。",
+        "whatToWatch": "守住$178以上确认该形态。跌破$172则失效。下一交易日的成交量将是关键。",
+        "outlook": "看涨",
+        "horizon": "波段（1-2周）",
+        "confidence": "高",
+        "risk": "低-中"
+      }
+    },
+    "includes": {
+      "heading": "每条消息包含什么",
+      "signal": "信号类型和方向",
+      "horizon": "该形态的时间范围",
+      "confidence": "基于数据质量的置信度",
+      "risk": "风险等级和明确的失效价格"
+    },
+    "cta": {
+      "heading": "一分钟内即可开始。",
+      "primary": "在Telegram上免费开始",
+      "secondary": "查看定价"
+    }
   },
   "pricing": {
     "heading": "简单定价。无锁定。",

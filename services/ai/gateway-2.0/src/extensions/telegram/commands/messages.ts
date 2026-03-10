@@ -35,10 +35,6 @@ const KNOWN_COMMANDS = new Set([
   "subscribe",
   "alert",
   "track",
-  "alertlist",
-  "tracklist",
-  "alertremove",
-  "trackremove",
 ]);
 
 // ---------------------------------------------------------------------------

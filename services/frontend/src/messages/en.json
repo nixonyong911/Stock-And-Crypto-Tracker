@@ -9,7 +9,10 @@
     "about": "About",
     "indicators": "Indicators",
     "affiliate": "Affiliate",
-    "blog": "Blog"
+    "blog": "Blog",
+    "features": "Features",
+    "smartDigest": "Smart Digest",
+    "smartDigestDesc": "AI-powered watchlist insights"
   },
   "hero": {
     "headline": "Clarity for Stock and Crypto Markets.",
@@ -74,6 +77,109 @@
       "education": "Educational insights with every update"
     },
     "tagline": "Built for investors who value discipline over hype."
+  },
+  "smartDigest": {
+    "headingPrefix": "Your personal ",
+    "headingAccent": "AI analyst",
+    "headingSuffix": ", always watching.",
+    "bullets": {
+      "multiTimeframe": "Analyzes your watchlist across multiple timeframes to spot real signals and filter out noise.",
+      "plainEnglish": "Explains what's happening and what to watch in plain English. No charts. No jargon.",
+      "noSpam": "Only sends when something meaningful happens. No constant alerts. No spam."
+    },
+    "tagline": "Add tickers to your watchlist. The AI does the rest.",
+    "cta": "Start Free on Telegram",
+    "learnMore": "Learn more",
+    "mockMessage": {
+      "ticker": "NVDA",
+      "headline": "Approaching Support Zone",
+      "whatsHappeningLabel": "What's happening:",
+      "whatsHappening": "NVIDIA has pulled back to $180, near a support level ($176-$183) that has held across the past 20 trading sessions. The stock is trading below its short-term averages, but the technical outlook remains bullish across all timeframes.",
+      "whatToWatchLabel": "What to watch:",
+      "whatToWatch": "A hold above $176 could confirm this level as a floor. A break below $170 would suggest further downside toward the 39-day low.",
+      "outlook": "Bullish",
+      "horizon": "Swing (1-3 weeks)",
+      "confidence": "High",
+      "risk": "Medium"
+    }
+  },
+  "smartDigestPage": {
+    "meta": {
+      "title": "Smart Digest - AI-Powered Watchlist Insights",
+      "description": "Get plain-English market analysis for your watchlist, delivered to Telegram. Multi-timeframe signals with confidence and risk levels."
+    },
+    "hero": {
+      "title": "Smart Digest",
+      "subtitle": "AI-powered market insights, delivered to your Telegram. No noise. No jargon. Just clarity."
+    },
+    "howItWorks": {
+      "heading": "How Smart Digest Works",
+      "step1": {
+        "title": "Build your watchlist",
+        "description": "Add the stocks and crypto you care about. That's the only setup needed."
+      },
+      "step2": {
+        "title": "We analyze continuously",
+        "description": "Every 30 minutes, our AI scans your tickers across multiple timeframes to detect meaningful changes."
+      },
+      "step3": {
+        "title": "You get clear insights",
+        "description": "When something matters, you receive a plain-English explanation with what's happening, what to watch, and the risk level."
+      }
+    },
+    "multiTimeframe": {
+      "heading": "Why multi-timeframe matters",
+      "description": "A stock might bounce on a single day, but if the weekly and monthly trends are still pointing down, it could be a trap. Smart Digest checks all timeframes before alerting you.",
+      "basicLabel": "Basic Alert",
+      "basicMessage": "SOFI hit $18.91 -- Price Alert Triggered!",
+      "smartLabel": "Smart Digest",
+      "smartMessage": "SoFi is near a support level, but the technical outlook is bearish across all timeframes. This could be a temporary floor, not a confirmed reversal."
+    },
+    "examples": {
+      "heading": "See it in action",
+      "nvda": {
+        "ticker": "NVDA",
+        "headline": "Approaching Support Zone",
+        "whatsHappening": "NVIDIA has pulled back to $180, near a support level ($176-$183) that has held across the past 20 trading sessions. The stock is trading below its short-term averages, but the technical outlook remains bullish across all timeframes.",
+        "whatToWatch": "A hold above $176 could confirm this level as a floor. A break below $170 would suggest further downside toward the 39-day low.",
+        "outlook": "Bullish",
+        "horizon": "Swing (1-3 weeks)",
+        "confidence": "High",
+        "risk": "Medium"
+      },
+      "sofi": {
+        "ticker": "SOFI",
+        "headline": "Near Support, But Proceed With Caution",
+        "whatsHappening": "SoFi is trading near $18.91, close to a support zone. However, the technical outlook is bearish across day, swing, and long-term timeframes. Momentum indicators suggest continued selling pressure.",
+        "whatToWatch": "A break below $18.50 could accelerate the decline. Watch for a reversal in the daily RSI before considering this a bottom.",
+        "outlook": "Bearish",
+        "horizon": "Day (1-3 days)",
+        "confidence": "High",
+        "risk": "High"
+      },
+      "aapl": {
+        "ticker": "AAPL",
+        "headline": "Entry Zone + Hammer Pattern",
+        "whatsHappening": "Apple pulled back into a support zone that has held for 3 weeks. A hammer candlestick pattern appeared today, suggesting selling momentum is fading and a potential bounce is forming.",
+        "whatToWatch": "Hold above $178 confirms the setup. Break below $172 invalidates it. Volume on the next session will be key.",
+        "outlook": "Bullish",
+        "horizon": "Swing (1-2 weeks)",
+        "confidence": "High",
+        "risk": "Low-Medium"
+      }
+    },
+    "includes": {
+      "heading": "What each message includes",
+      "signal": "Signal type and direction",
+      "horizon": "Time horizon for the setup",
+      "confidence": "Confidence level based on data quality",
+      "risk": "Risk level with clear invalidation price"
+    },
+    "cta": {
+      "heading": "Get started in under a minute.",
+      "primary": "Start Free on Telegram",
+      "secondary": "View Pricing"
+    }
   },
   "pricing": {
     "heading": "Simple pricing. No lock-in.",

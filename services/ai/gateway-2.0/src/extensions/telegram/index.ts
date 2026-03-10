@@ -25,8 +25,6 @@ import removehelpComposer from "./commands/removehelp.js";
 import wishlistComposer from "./commands/wishlist.js";
 import subscribeComposer from "./commands/subscribe.js";
 import alertComposer from "./commands/alert.js";
-import alertlistComposer from "./commands/alertlist.js";
-import alertremoveComposer from "./commands/alertremove.js";
 import messagesComposer from "./commands/messages.js";
 
 export function createTelegramExtension(): IChannelExtension {
@@ -114,8 +112,6 @@ export function createTelegramExtension(): IChannelExtension {
       bot.use(wishlistComposer);
       bot.use(subscribeComposer);
       bot.use(alertComposer);
-      bot.use(alertlistComposer);
-      bot.use(alertremoveComposer);
       bot.use(messagesComposer);
 
       // Error handler — always attempt to notify the user

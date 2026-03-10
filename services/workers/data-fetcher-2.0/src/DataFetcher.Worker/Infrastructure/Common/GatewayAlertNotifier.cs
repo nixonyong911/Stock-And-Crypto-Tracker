@@ -34,7 +34,7 @@ public class GatewayAlertNotifier : IGatewayAlertNotifier
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(30));
 
-            var url = $"{_settings.BaseUrl.TrimEnd('/')}/internal/check-alerts";
+            var url = $"{_settings.BaseUrl.TrimEnd('/')}/internal/check-recommendations";
 
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("X-Service-Key", _settings.InternalServiceKey);

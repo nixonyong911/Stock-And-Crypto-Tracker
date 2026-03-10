@@ -1,6 +1,9 @@
 import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
 import { Tier } from "../../../extension/types.js";
+import { detectSignalsForTicker } from "../../../core/analysis/recommendation-engine.js";
+import { generateExplanation } from "../../../core/analysis/explanation-generator.js";
+import { formatRecommendation } from "../../../core/analysis/digest-formatter.js";
 
 const VALID_ASSET_TYPES = new Set(["stock", "etf", "crypto"]);
 const SYMBOL_REGEX = /^[A-Za-z0-9/\-.]+$/;
@@ -226,6 +229,28 @@ composer.command("add", async (ctx) => {
       );
     } else {
       await ctx.reply(`${displaySymbol} has been added to your watchlist.`);
+
+      // Send welcome insight if an active signal exists for this ticker
+      try {
+        const signalAssetType = assetType === "crypto" ? "crypto" as const : "stock" as const;
+        const signals = await detectSignalsForTicker(db, symbol, signalAssetType);
+        if (signals.length > 0) {
+          const explanation = await generateExplanation(
+            signals,
+            logger,
+            ctx.gatewayAPI.redis,
+          );
+          const primary = signals[0]!;
+          const message = formatRecommendation(
+            primary.symbol,
+            primary.headline,
+            explanation,
+          );
+          await ctx.reply(message, { parse_mode: "Markdown" });
+        }
+      } catch (insightErr) {
+        logger.warn({ err: insightErr, symbol }, "Failed to send welcome insight");
+      }
     }
   } catch (err) {
     logger.error({ err, symbol, userId }, "Error in /add command");
