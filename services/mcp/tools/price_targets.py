@@ -1,4 +1,4 @@
-"""Price target analysis tools: entry/target/stop-loss levels with confidence scoring."""
+"""Price target analysis: entry/target/stop-loss levels for stocks and crypto."""
 
 import asyncio
 import json
@@ -16,11 +16,14 @@ async def get_price_targets(
     days: int = 1,
 ) -> str:
     """
-    Get pre-computed price target analysis for a stock.
+    Get pre-computed price target analysis for a stock or crypto.
+
+    Works for both stocks (e.g., 'AAPL') and crypto (e.g., 'BTC/USD').
+    The analysis_ticker_price_targets table stores both asset types.
 
     Args:
         conn: Database connection
-        symbol: Stock ticker symbol
+        symbol: Ticker symbol (stock or crypto)
         days: Number of recent days to return (1-30)
 
     Returns:
@@ -29,14 +32,11 @@ async def get_price_targets(
     """
     query = """
         SELECT
-            analysis_date,
-            latest_close,
-            entry_price,
-            target_price,
-            stop_loss,
-            signal_summary,
-            confidence,
-            metadata
+            analysis_date, asset_type, trader_type,
+            latest_close, latest_open,
+            entry_price, entry_price_low, entry_price_high,
+            target_price, stop_loss,
+            signal_summary, confidence, metadata
         FROM analysis_ticker_price_targets
         WHERE UPPER(ticker_symbol) = UPPER($1)
         ORDER BY analysis_date DESC
@@ -70,8 +70,14 @@ async def get_price_targets(
 
         targets.append({
             "analysis_date": str(row["analysis_date"]),
+            "asset_type": row["asset_type"],
+            "trader_type": row["trader_type"],
             "latest_close": _float(row["latest_close"]),
             "entry_price": _float(row["entry_price"]),
+            "entry_range": {
+                "low": _float(row["entry_price_low"]),
+                "high": _float(row["entry_price_high"]),
+            },
             "target_price": _float(row["target_price"]),
             "stop_loss": _float(row["stop_loss"]),
             "signal_summary": row["signal_summary"],

@@ -53,17 +53,21 @@ Cursor/AI Agent
 | HTTP | (default) | VM/Docker deployment on port 8085 |
 | stdio | `--stdio` | Local Cursor MCP integration |
 
-## Available Tools
+## Available Tools (9 Consolidated)
 
-Track tools in `server.py` - each `@mcp.tool()` decorator defines a tool.
+Track tools in `server.py` - each tool is registered via `_TOOL_REGISTRY`.
 
 | Tool | Description | Input |
 |------|-------------|-------|
-| `analysis_get_stock` | Query candlestick analysis for a symbol | symbol, start_date, end_date |
-| `analysis_list_patterns` | List detected patterns for a date | analysis_date, pattern_type? |
-| `analysis_get_bullish` | Get stocks with bullish patterns | analysis_date |
-| `analysis_get_bearish` | Get stocks with bearish patterns | analysis_date |
-| `analysis_get_statistics` | Aggregate pattern stats over N days | days (1-90) |
+| `analysis_ticker_overview` | Full single-call analysis for one ticker | symbol, sections? |
+| `analysis_technical_signals` | Detailed indicator time series with signals | symbol, start_date, end_date |
+| `analysis_price_targets` | Entry/target/stop-loss levels | symbol, days? |
+| `analysis_market_scan` | Market-wide sentiment and patterns | asset_type?, direction?, days?, pattern_type? |
+| `analysis_screen` | Multi-filter stock screener | rsi_above?, max_pe?, pattern_signal?, etc. |
+| `analysis_compare` | Peer comparison of 2-10 stocks | symbols |
+| `analysis_macro` | Macro-economic environment | category? |
+| `analysis_market_earnings` | Market-wide earnings dashboard | days_ahead?, days_back?, min_surprise_pct? |
+| `analysis_earnings_history` | Per-ticker earnings track record | symbol, quarters? |
 
 ## Testing Methods
 

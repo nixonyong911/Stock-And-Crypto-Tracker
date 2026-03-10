@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MCP Analysis Server - Read-only Financial Data Queries
+MCP Analysis Server - Read-only Financial Data Queries (Consolidated)
 
 Per-tier endpoints with cumulative tool access (free < pro < max < dev):
   /mcp/free -> free-tier tools
@@ -9,11 +9,16 @@ Per-tier endpoints with cumulative tool access (free < pro < max < dev):
   /mcp/dev  -> all tools
   /mcp      -> all tools (backward compat, to be removed)
 
-cursor-agent does NOT support client-side tools.allow in mcp.json,
-so tool visibility is controlled server-side via separate endpoints.
-
-Each tool is annotated with a `min_tier` (the lowest tier that can access it).
-Tiers are cumulative: a higher tier always includes all lower-tier tools.
+9 consolidated tools (down from 19):
+  1. analysis_ticker_overview   - Full single-ticker analysis (candlestick + indicators + fundamentals + earnings + price targets)
+  2. analysis_technical_signals - Detailed indicator time series with signal detection
+  3. analysis_price_targets     - Price target history (entry/target/stop-loss)
+  4. analysis_market_scan       - Market-wide sentiment, movers, and patterns
+  5. analysis_screen            - Multi-filter stock screener
+  6. analysis_compare           - Peer comparison (2-10 stocks)
+  7. analysis_macro             - Macro-economic environment
+  8. analysis_market_earnings   - Upcoming + recent earnings market-wide
+  9. analysis_earnings_history  - Per-ticker earnings track record
 
 Features:
 - Redis caching with 24-hour TTL (daily data)
@@ -46,27 +51,14 @@ from config import (
     REDIS_HOST,
     REDIS_PORT,
 )
-from tools.analysis import (
-    get_stock_analysis,
-    list_detected_patterns,
-    get_bullish_stocks,
-    get_bearish_stocks,
-    get_pattern_statistics,
-)
-from tools.crypto_analysis import (
-    get_crypto_analysis,
-    list_detected_crypto_patterns,
-    get_bullish_crypto,
-    get_bearish_crypto,
-    get_crypto_pattern_statistics,
-)
+from tools.ticker_overview import get_ticker_overview
 from tools.indicators import get_technical_signals
-from tools.crypto_indicators import get_crypto_technical_signals
-from tools.fundamentals import get_fundamentals_trend, compare_stocks
+from tools.price_targets import get_price_targets
+from tools.market_scan import get_market_scan
+from tools.screener import screen_stocks
+from tools.fundamentals import compare_stocks
 from tools.economic import get_macro_environment
 from tools.earnings import get_earnings_history, get_market_earnings
-from tools.screener import screen_stocks
-from tools.price_targets import get_price_targets
 
 
 # ===========================================
@@ -95,62 +87,32 @@ def _tier_includes(user_tier: str, min_tier: str) -> bool:
 
 
 # ===========================================
-# Pydantic Input Models
+# Pydantic Input Models (Consolidated)
 # ===========================================
 
-class StockAnalysisInput(BaseModel):
-    """Input for stock analysis query."""
-    symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL', 'MSFT')", min_length=1, max_length=10)
-    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
-    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+class TickerOverviewInput(BaseModel):
+    """Input for unified ticker analysis."""
+    symbol: str = Field(..., description="Ticker symbol (e.g., 'AAPL' for stock, 'BTC/USD' for crypto)", min_length=1, max_length=20)
+    sections: Optional[list[str]] = Field(
+        None,
+        description="Sections to include (default: all applicable). Options: candlestick, technical, fundamentals, earnings, price_targets",
+    )
 
-    @field_validator('start_date', 'end_date')
+    @field_validator('sections')
     @classmethod
-    def validate_date_format(cls, v: str) -> str:
-        try:
-            date.fromisoformat(v)
+    def validate_sections(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        if v is None:
             return v
-        except ValueError:
-            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
-
-
-class PatternListInput(BaseModel):
-    """Input for pattern listing."""
-    analysis_date: str = Field(..., description="Date in YYYY-MM-DD format")
-    pattern_type: Optional[str] = Field(None, description="Filter by pattern type (e.g., 'doji', 'hammer', 'marubozu_bullish')")
-
-    @field_validator('analysis_date')
-    @classmethod
-    def validate_date(cls, v: str) -> str:
-        try:
-            date.fromisoformat(v)
-            return v
-        except ValueError:
-            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
-
-
-class DateInput(BaseModel):
-    """Input for date-based queries."""
-    analysis_date: str = Field(..., description="Date in YYYY-MM-DD format")
-
-    @field_validator('analysis_date')
-    @classmethod
-    def validate_date(cls, v: str) -> str:
-        try:
-            date.fromisoformat(v)
-            return v
-        except ValueError:
-            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
-
-
-class StatisticsInput(BaseModel):
-    """Input for statistics query."""
-    days: int = Field(default=7, description="Number of days to analyze", ge=1, le=90)
+        valid = {"candlestick", "technical", "fundamentals", "earnings", "price_targets"}
+        for s in v:
+            if s not in valid:
+                raise ValueError(f"Invalid section '{s}'. Valid: {sorted(valid)}")
+        return v
 
 
 class TechnicalSignalsInput(BaseModel):
-    """Input for technical indicator signals query."""
-    symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
+    """Input for technical indicator time series."""
+    symbol: str = Field(..., description="Ticker symbol (e.g., 'AAPL' or 'BTC/USD')", min_length=1, max_length=20)
     start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
     end_date: str = Field(..., description="End date in YYYY-MM-DD format")
 
@@ -164,56 +126,35 @@ class TechnicalSignalsInput(BaseModel):
             raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
 
 
-class FundamentalsTrendInput(BaseModel):
-    """Input for fundamentals trend query."""
-    symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
-    quarters: int = Field(default=4, description="Number of quarters to analyze", ge=1, le=12)
+class PriceTargetsInput(BaseModel):
+    """Input for price target query."""
+    symbol: str = Field(..., description="Ticker symbol (e.g., 'AAPL' or 'BTC/USD')", min_length=1, max_length=20)
+    days: int = Field(default=1, description="Number of recent days to return", ge=1, le=30)
 
 
-class CompareStocksInput(BaseModel):
-    """Input for peer comparison."""
-    symbols: list[str] = Field(
-        ...,
-        description="List of 2-10 ticker symbols to compare (e.g., ['AAPL', 'MSFT', 'GOOGL'])",
-        min_length=2,
-        max_length=10,
-    )
+class MarketScanInput(BaseModel):
+    """Input for market-wide scan."""
+    asset_type: str = Field(default="all", description="Asset type: 'stock', 'crypto', or 'all'")
+    direction: str = Field(default="all", description="Filter by direction: 'bullish', 'bearish', or 'all'")
+    days: int = Field(default=1, description="Number of days to analyze", ge=1, le=90)
+    pattern_type: Optional[str] = Field(None, description="Filter by pattern (e.g., 'doji', 'hammer', 'shooting_star')")
 
-    @field_validator('symbols')
+    @field_validator('asset_type')
     @classmethod
-    def validate_symbols(cls, v: list[str]) -> list[str]:
-        cleaned = [s.strip().upper() for s in v if s.strip()]
-        if len(cleaned) < 2:
-            raise ValueError("At least 2 symbols required for comparison")
-        return cleaned
+    def validate_asset_type(cls, v: str) -> str:
+        if v not in ("stock", "crypto", "all"):
+            raise ValueError(f"asset_type must be 'stock', 'crypto', or 'all', got '{v}'")
+        return v
+
+    @field_validator('direction')
+    @classmethod
+    def validate_direction(cls, v: str) -> str:
+        if v not in ("bullish", "bearish", "all"):
+            raise ValueError(f"direction must be 'bullish', 'bearish', or 'all', got '{v}'")
+        return v
 
 
-class MacroEnvironmentInput(BaseModel):
-    """Input for macro environment query."""
-    category: Optional[str] = Field(
-        None,
-        description="Filter by category (e.g., 'inflation', 'employment', 'growth', 'interest_rates')",
-    )
-
-
-class EarningsHistoryInput(BaseModel):
-    """Input for earnings history query."""
-    symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
-    quarters: int = Field(default=4, description="Number of past quarters to show", ge=1, le=12)
-
-
-class MarketEarningsInput(BaseModel):
-    """Input for market-wide earnings query."""
-    days_ahead: int = Field(default=7, description="Days ahead for upcoming earnings", ge=1, le=30)
-    days_back: int = Field(default=14, description="Days back for recent surprises", ge=1, le=90)
-    min_surprise_pct: Optional[float] = Field(
-        None,
-        description="Minimum abs(surprise %) to include — filters out trivial beats/misses",
-        ge=0,
-    )
-
-
-class ScreenStocksInput(BaseModel):
+class ScreenInput(BaseModel):
     """Input for multi-signal stock screener."""
     rsi_above: Optional[float] = Field(None, description="RSI must be above this value", ge=0, le=100)
     rsi_below: Optional[float] = Field(None, description="RSI must be below this value", ge=0, le=100)
@@ -228,7 +169,7 @@ class ScreenStocksInput(BaseModel):
     pattern_signal: Optional[str] = Field(None, description="Candlestick pattern signal: 'bullish' or 'bearish'")
     earnings_within_days: Optional[int] = Field(None, description="Stocks with earnings within N days", ge=1, le=30)
     limit: int = Field(default=20, description="Maximum results to return", ge=1, le=50)
-    sort_by: Optional[str] = Field(None, description="Sort by metric: 'pe_ratio', 'roe', 'revenue_growth_yoy', 'rsi', 'market_cap'")
+    sort_by: Optional[str] = Field(None, description="Sort by: 'pe_ratio', 'roe', 'revenue_growth_yoy', 'rsi', 'market_cap'")
 
     @field_validator('macd_signal', 'pattern_signal')
     @classmethod
@@ -246,57 +187,47 @@ class ScreenStocksInput(BaseModel):
         return v
 
 
-class PriceTargetsInput(BaseModel):
-    """Input for price target analysis query."""
+class CompareInput(BaseModel):
+    """Input for peer comparison."""
+    symbols: list[str] = Field(
+        ...,
+        description="List of 2-10 ticker symbols to compare (e.g., ['AAPL', 'MSFT', 'GOOGL'])",
+        min_length=2,
+        max_length=10,
+    )
+
+    @field_validator('symbols')
+    @classmethod
+    def validate_symbols(cls, v: list[str]) -> list[str]:
+        cleaned = [s.strip().upper() for s in v if s.strip()]
+        if len(cleaned) < 2:
+            raise ValueError("At least 2 symbols required for comparison")
+        return cleaned
+
+
+class MacroInput(BaseModel):
+    """Input for macro environment query."""
+    category: Optional[str] = Field(
+        None,
+        description="Filter by category: 'inflation', 'employment', 'growth', 'interest_rates', 'yield_curve', 'sentiment', 'money_supply', 'credit'",
+    )
+
+
+class MarketEarningsInput(BaseModel):
+    """Input for market-wide earnings query."""
+    days_ahead: int = Field(default=7, description="Days ahead for upcoming earnings", ge=1, le=30)
+    days_back: int = Field(default=14, description="Days back for recent surprises", ge=1, le=90)
+    min_surprise_pct: Optional[float] = Field(
+        None,
+        description="Minimum abs(surprise %) to include — filters out trivial beats/misses",
+        ge=0,
+    )
+
+
+class EarningsHistoryInput(BaseModel):
+    """Input for per-ticker earnings history."""
     symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
-    days: int = Field(default=1, description="Number of recent days to return", ge=1, le=30)
-
-
-class CryptoAnalysisInput(BaseModel):
-    """Input for crypto candlestick analysis query."""
-    symbol: str = Field(..., description="Crypto ticker symbol (e.g., 'BTC/USD', 'ETH/USD')", min_length=1, max_length=20)
-    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
-    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
-
-    @field_validator('start_date', 'end_date')
-    @classmethod
-    def validate_date_format(cls, v: str) -> str:
-        try:
-            date.fromisoformat(v)
-            return v
-        except ValueError:
-            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
-
-
-class CryptoPatternListInput(BaseModel):
-    """Input for crypto pattern listing."""
-    analysis_date: str = Field(..., description="Date in YYYY-MM-DD format")
-    pattern_type: Optional[str] = Field(None, description="Filter by pattern type (e.g., 'doji', 'hammer', 'marubozu_bullish')")
-
-    @field_validator('analysis_date')
-    @classmethod
-    def validate_date(cls, v: str) -> str:
-        try:
-            date.fromisoformat(v)
-            return v
-        except ValueError:
-            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
-
-
-class CryptoTechnicalSignalsInput(BaseModel):
-    """Input for crypto technical indicator signals query."""
-    symbol: str = Field(..., description="Crypto ticker symbol (e.g., 'BTC/USD')", min_length=1, max_length=20)
-    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
-    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
-
-    @field_validator('start_date', 'end_date')
-    @classmethod
-    def validate_date_format(cls, v: str) -> str:
-        try:
-            date.fromisoformat(v)
-            return v
-        except ValueError:
-            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
+    quarters: int = Field(default=4, description="Number of past quarters to show", ge=1, le=12)
 
 
 # ===========================================
@@ -311,117 +242,43 @@ _RO_ANNOTATIONS = {
 }
 
 
-def _register_get_stock(app: FastMCP) -> None:
-    """Register analysis_get_stock tool on a FastMCP instance."""
+def _register_ticker_overview(app: FastMCP) -> None:
     @app.tool(
-        name="analysis_get_stock",
-        annotations={"title": "Get Stock Candlestick Analysis", **_RO_ANNOTATIONS},
+        name="analysis_ticker_overview",
+        annotations={"title": "Ticker Overview", **_RO_ANNOTATIONS},
     )
-    async def analysis_get_stock(params: StockAnalysisInput, conn=Depends(get_db)) -> str:
+    async def analysis_ticker_overview(params: TickerOverviewInput, conn=Depends(get_db)) -> str:
         """
-        Query candlestick analysis data for a specific stock symbol within a date range.
+        Comprehensive single-call analysis for one ticker (stock or crypto).
 
-        Returns daily candlestick data including:
-        - Open, High, Low, Close prices and Volume
-        - Candle characteristics (body size, wicks, bullish/bearish)
-        - Detected candlestick patterns with confidence scores
+        Auto-detects asset type from symbol format (BTC/USD = crypto).
+        Returns latest candlestick data with patterns, current technical indicators
+        (SMA, EMA, MACD, RSI) with assessment, fundamentals snapshot, earnings
+        track record, and price targets — all in one response.
+
+        Use 'sections' to limit output when you only need specific data.
+        Crypto tickers return candlestick, technical, and price_targets only.
         """
-        return await get_stock_analysis(
-            conn=conn, symbol=params.symbol,
-            start_date=params.start_date, end_date=params.end_date,
+        return await get_ticker_overview(
+            conn=conn, symbol=params.symbol, sections=params.sections,
         )
 
 
-def _register_list_patterns(app: FastMCP) -> None:
-    """Register analysis_list_patterns tool on a FastMCP instance."""
+def _register_technical_signals(app: FastMCP) -> None:
     @app.tool(
-        name="analysis_list_patterns",
-        annotations={"title": "List Detected Patterns", **_RO_ANNOTATIONS},
+        name="analysis_technical_signals",
+        annotations={"title": "Technical Signals Time Series", **_RO_ANNOTATIONS},
     )
-    async def analysis_list_patterns(params: PatternListInput, conn=Depends(get_db)) -> str:
+    async def analysis_technical_signals(params: TechnicalSignalsInput, conn=Depends(get_db)) -> str:
         """
-        List all detected candlestick patterns for a specific date.
-
-        Optionally filter by pattern type. Supported patterns:
-        - doji, long_legged_doji
-        - hammer, inverted_hammer
-        - shooting_star
-        - marubozu_bullish, marubozu_bearish
-        - spinning_top
-        """
-        return await list_detected_patterns(
-            conn=conn, analysis_date=params.analysis_date,
-            pattern_type=params.pattern_type,
-        )
-
-
-def _register_get_bullish(app: FastMCP) -> None:
-    """Register analysis_get_bullish tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_bullish",
-        annotations={"title": "Get Bullish Stocks", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_bullish(params: DateInput, conn=Depends(get_db)) -> str:
-        """
-        Get all stocks showing bullish patterns for a specific date, ordered by strength.
-
-        Returns stocks where is_bullish=true, ordered by body size (strongest first).
-        Includes any bullish reversal or strong bullish pattern signals.
-        """
-        return await get_bullish_stocks(conn=conn, analysis_date=params.analysis_date)
-
-
-def _register_get_bearish(app: FastMCP) -> None:
-    """Register analysis_get_bearish tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_bearish",
-        annotations={"title": "Get Bearish Stocks", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_bearish(params: DateInput, conn=Depends(get_db)) -> str:
-        """
-        Get all stocks showing bearish patterns for a specific date, ordered by strength.
-
-        Returns stocks where is_bullish=false, ordered by body size (strongest first).
-        Includes any bearish reversal or strong bearish pattern signals.
-        """
-        return await get_bearish_stocks(conn=conn, analysis_date=params.analysis_date)
-
-
-def _register_get_statistics(app: FastMCP) -> None:
-    """Register analysis_get_statistics tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_statistics",
-        annotations={"title": "Get Pattern Statistics", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_statistics(params: StatisticsInput, conn=Depends(get_db)) -> str:
-        """
-        Get aggregate statistics for candlestick patterns over the last N days (1-90).
-
-        Returns:
-        - Overall bullish/bearish ratio
-        - Most common patterns detected
-        - Daily breakdown of market sentiment
-        """
-        return await get_pattern_statistics(conn=conn, days=params.days)
-
-
-def _register_get_technical_signals(app: FastMCP) -> None:
-    """Register analysis_get_technical_signals tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_technical_signals",
-        annotations={"title": "Get Technical Signals", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_technical_signals(params: TechnicalSignalsInput, conn=Depends(get_db)) -> str:
-        """
-        Get daily technical indicators for a stock with built-in signal detection.
+        Detailed daily technical indicators over a date range with signal detection.
 
         Returns time-series SMA, EMA, MACD, RSI plus detected signals:
-        - MACD bullish/bearish crossovers (histogram sign flip)
-        - RSI overbought/oversold zone entries and exits
-        - EMA/SMA crossovers (golden cross / death cross)
-        - Current assessment: RSI zone, MACD momentum, trend direction
+        MACD bullish/bearish crossovers, RSI overbought/oversold zone entries/exits,
+        EMA/SMA crossovers. Works for both stocks and crypto (auto-detected).
 
-        Note: Indicator data has 90-day retention. Requests beyond that will be flagged.
+        Use this when you need multi-day indicator history. For latest snapshot only,
+        use analysis_ticker_overview instead. 90-day data retention.
         """
         return await get_technical_signals(
             conn=conn, symbol=params.symbol,
@@ -429,137 +286,61 @@ def _register_get_technical_signals(app: FastMCP) -> None:
         )
 
 
-def _register_get_fundamentals_trend(app: FastMCP) -> None:
-    """Register analysis_get_fundamentals_trend tool on a FastMCP instance."""
+def _register_price_targets(app: FastMCP) -> None:
     @app.tool(
-        name="analysis_get_fundamentals_trend",
-        annotations={"title": "Get Fundamentals Trend", **_RO_ANNOTATIONS},
+        name="analysis_price_targets",
+        annotations={"title": "Price Targets", **_RO_ANNOTATIONS},
     )
-    async def analysis_get_fundamentals_trend(params: FundamentalsTrendInput, conn=Depends(get_db)) -> str:
+    async def analysis_price_targets(params: PriceTargetsInput, conn=Depends(get_db)) -> str:
         """
-        Get quarter-over-quarter fundamentals trajectory for a stock.
+        Pre-computed entry price, target price, and stop-loss for a stock or crypto.
 
-        Returns for each quarter:
-        - Valuation: P/E, Forward P/E, PEG, FCF yield, market cap
-        - Growth: Revenue TTM, revenue growth YoY, EPS TTM, EPS growth YoY
-        - Profitability: ROE, ROIC, operating margin
-        - Health: Debt/equity, interest coverage, FCF, dividend yield
-        - QoQ change: Computed deltas for key metrics vs prior quarter
-        - Earnings surprise: EPS and revenue surprise % (integrated from earnings data)
-
-        Trajectory summary: direction of revenue growth, EPS growth, margins,
-        leverage (accelerating/decelerating/stable/mixed), plus earnings beat streak.
+        Returns daily levels with signal summary and confidence score.
+        Covers the most recent N days (default 1, max 30).
+        Works for both stocks and crypto.
         """
-        return await get_fundamentals_trend(
-            conn=conn, symbol=params.symbol, quarters=params.quarters,
+        return await get_price_targets(
+            conn=conn, symbol=params.symbol, days=params.days,
         )
 
 
-def _register_compare_stocks(app: FastMCP) -> None:
-    """Register analysis_compare_stocks tool on a FastMCP instance."""
+def _register_market_scan(app: FastMCP) -> None:
     @app.tool(
-        name="analysis_compare_stocks",
-        annotations={"title": "Compare Stocks", **_RO_ANNOTATIONS},
+        name="analysis_market_scan",
+        annotations={"title": "Market Scan", **_RO_ANNOTATIONS},
     )
-    async def analysis_compare_stocks(params: CompareStocksInput, conn=Depends(get_db)) -> str:
+    async def analysis_market_scan(params: MarketScanInput, conn=Depends(get_db)) -> str:
         """
-        Side-by-side peer comparison of 2-10 stocks with per-metric ranking.
+        Market-wide sentiment scan across stocks and/or crypto.
 
-        Compares latest fundamentals (P/E, ROE, growth, margins, leverage)
-        and current technical indicators (RSI, MACD).
+        Returns overall bullish/bearish ratio, top movers by body size,
+        detected candlestick patterns, and daily sentiment breakdown.
 
-        Each stock gets a rank per metric (1 = best). Includes best-in-class
-        summary: cheapest P/E, highest profitability, best growth, best value.
+        Filter by asset_type (stock/crypto/all), direction (bullish/bearish/all),
+        time range (days), and specific pattern_type.
         """
-        return await compare_stocks(conn=conn, symbols=params.symbols)
-
-
-def _register_get_macro_environment(app: FastMCP) -> None:
-    """Register analysis_get_macro_environment tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_macro_environment",
-        annotations={"title": "Get Macro Environment", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_macro_environment(params: MacroEnvironmentInput, conn=Depends(get_db)) -> str:
-        """
-        Get the current macro-economic environment assessment.
-
-        Returns:
-        - Regime classification: risk-on, risk-off, or mixed (based on signal counts)
-        - All active economic indicators with value, trend, signal, and why (bullish_when)
-        - Upcoming catalysts: economic data releases within 14 days with current signal context
-
-        Optional category filter: inflation, employment, growth, interest_rates,
-        yield_curve, sentiment, money_supply, credit.
-        """
-        return await get_macro_environment(conn=conn, category=params.category)
-
-
-def _register_get_earnings_history(app: FastMCP) -> None:
-    """Register analysis_get_earnings_history tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_earnings_history",
-        annotations={"title": "Get Earnings History", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_earnings_history(params: EarningsHistoryInput, conn=Depends(get_db)) -> str:
-        """
-        Get earnings history for a stock with track record analysis.
-
-        Returns:
-        - Next upcoming earnings date with estimates
-        - Historical quarters with EPS and revenue: estimates, actuals, surprise %
-        - Track record: beat streak, beat/miss counts, average surprise %
-          for both EPS and revenue
-
-        A company with a 6-quarter beat streak and 3%+ average EPS surprise
-        is very different from one that alternates beats and misses.
-        """
-        return await get_earnings_history(
-            conn=conn, symbol=params.symbol, quarters=params.quarters,
+        return await get_market_scan(
+            conn=conn, asset_type=params.asset_type, direction=params.direction,
+            days=params.days, pattern_type=params.pattern_type,
         )
 
 
-def _register_get_market_earnings(app: FastMCP) -> None:
-    """Register analysis_get_market_earnings tool on a FastMCP instance."""
+def _register_screen(app: FastMCP) -> None:
     @app.tool(
-        name="analysis_get_market_earnings",
-        annotations={"title": "Get Market Earnings", **_RO_ANNOTATIONS},
+        name="analysis_screen",
+        annotations={"title": "Stock Screener", **_RO_ANNOTATIONS},
     )
-    async def analysis_get_market_earnings(params: MarketEarningsInput, conn=Depends(get_db)) -> str:
-        """
-        Market-wide earnings dashboard: who's reporting soon and who recently surprised.
-
-        Returns:
-        - Upcoming: stocks reporting within days_ahead, with EPS/revenue estimates
-        - Recent surprises: biggest beats and biggest misses within days_back,
-          sorted by surprise magnitude (both EPS and revenue surprise %)
-
-        Use min_surprise_pct to filter out trivial beats/misses.
-        """
-        return await get_market_earnings(
-            conn=conn, days_ahead=params.days_ahead, days_back=params.days_back,
-            min_surprise_pct=params.min_surprise_pct,
-        )
-
-
-def _register_screen_stocks(app: FastMCP) -> None:
-    """Register analysis_screen_stocks tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_screen_stocks",
-        annotations={"title": "Screen Stocks", **_RO_ANNOTATIONS},
-    )
-    async def analysis_screen_stocks(params: ScreenStocksInput, conn=Depends(get_db)) -> str:
+    async def analysis_screen(params: ScreenInput, conn=Depends(get_db)) -> str:
         """
         Multi-signal cross-domain stock screener.
 
         Filter across technical indicators, fundamentals, candlestick patterns,
-        and earnings schedule simultaneously. Only joins tables for active filters.
+        and earnings schedule simultaneously. At least one filter required.
 
-        At least one filter is required. Examples:
-        - Oversold quality stocks: rsi_below=30, min_roe=0.15, max_debt_to_equity=1.0
-        - Cheap growth stocks: max_pe=20, min_revenue_growth=0.15
+        Examples:
+        - Oversold quality: rsi_below=30, min_roe=0.15, max_debt_to_equity=1.0
+        - Cheap growth: max_pe=20, min_revenue_growth=0.15
         - Bullish momentum: macd_signal='bullish', pattern_signal='bullish'
-        - Earnings plays: earnings_within_days=7, min_roe=0.10
         """
         return await screen_stocks(
             conn=conn,
@@ -577,182 +358,85 @@ def _register_screen_stocks(app: FastMCP) -> None:
         )
 
 
-def _register_get_price_targets(app: FastMCP) -> None:
-    """Register analysis_get_price_targets tool on a FastMCP instance."""
+def _register_compare(app: FastMCP) -> None:
     @app.tool(
-        name="analysis_get_price_targets",
-        annotations={"title": "Get Price Targets", **_RO_ANNOTATIONS},
+        name="analysis_compare",
+        annotations={"title": "Compare Stocks", **_RO_ANNOTATIONS},
     )
-    async def analysis_get_price_targets(params: PriceTargetsInput, conn=Depends(get_db)) -> str:
+    async def analysis_compare(params: CompareInput, conn=Depends(get_db)) -> str:
         """
-        Get pre-computed price target analysis for a stock.
+        Side-by-side peer comparison of 2-10 stocks with per-metric ranking.
 
-        Returns daily entry price, target price, stop loss, signal summary,
-        confidence score, and calculation metadata. Covers the most recent N days
-        (default 1, max 30).
-
-        Use this to quickly see where a stock's computed support, entry, and
-        upside target levels sit relative to its latest close.
+        Compares latest fundamentals (P/E, ROE, growth, margins, leverage)
+        and current technical indicators (RSI, MACD).
+        Each stock gets a rank per metric (1 = best).
         """
-        return await get_price_targets(
-            conn=conn, symbol=params.symbol, days=params.days,
+        return await compare_stocks(conn=conn, symbols=params.symbols)
+
+
+def _register_macro(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_macro",
+        annotations={"title": "Macro Environment", **_RO_ANNOTATIONS},
+    )
+    async def analysis_macro(params: MacroInput, conn=Depends(get_db)) -> str:
+        """
+        Current macro-economic environment assessment.
+
+        Returns regime classification (risk-on/risk-off/mixed), all active
+        economic indicators with value, trend, signal, and upcoming catalysts
+        (economic data releases within 14 days).
+        """
+        return await get_macro_environment(conn=conn, category=params.category)
+
+
+def _register_market_earnings(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_market_earnings",
+        annotations={"title": "Market Earnings", **_RO_ANNOTATIONS},
+    )
+    async def analysis_market_earnings(params: MarketEarningsInput, conn=Depends(get_db)) -> str:
+        """
+        Market-wide earnings dashboard: who's reporting soon and who recently surprised.
+
+        Returns upcoming earnings within days_ahead and biggest beats/misses
+        within days_back, sorted by surprise magnitude.
+        """
+        return await get_market_earnings(
+            conn=conn, days_ahead=params.days_ahead, days_back=params.days_back,
+            min_surprise_pct=params.min_surprise_pct,
         )
 
 
-# -------------------------------------------
-# Crypto Tool Registration Functions
-# -------------------------------------------
-
-def _register_get_crypto_analysis(app: FastMCP) -> None:
-    """Register analysis_get_crypto tool on a FastMCP instance."""
+def _register_earnings_history(app: FastMCP) -> None:
     @app.tool(
-        name="analysis_get_crypto",
-        annotations={"title": "Get Crypto Candlestick Analysis", **_RO_ANNOTATIONS},
+        name="analysis_earnings_history",
+        annotations={"title": "Earnings History", **_RO_ANNOTATIONS},
     )
-    async def analysis_get_crypto(params: CryptoAnalysisInput, conn=Depends(get_db)) -> str:
+    async def analysis_earnings_history(params: EarningsHistoryInput, conn=Depends(get_db)) -> str:
         """
-        Query candlestick analysis data for a cryptocurrency within a date range.
-
-        Returns daily candlestick data including:
-        - Open, High, Low, Close prices and Volume
-        - Candle characteristics (body size, wicks, bullish/bearish)
-        - Detected candlestick patterns with confidence scores
+        Earnings track record for a single stock: quarterly EPS and revenue
+        estimates vs actuals, surprise percentages, and beat streak analysis.
         """
-        return await get_crypto_analysis(
-            conn=conn, symbol=params.symbol,
-            start_date=params.start_date, end_date=params.end_date,
+        return await get_earnings_history(
+            conn=conn, symbol=params.symbol, quarters=params.quarters,
         )
 
 
-def _register_list_crypto_patterns(app: FastMCP) -> None:
-    """Register analysis_list_crypto_patterns tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_list_crypto_patterns",
-        annotations={"title": "List Detected Crypto Patterns", **_RO_ANNOTATIONS},
-    )
-    async def analysis_list_crypto_patterns(params: CryptoPatternListInput, conn=Depends(get_db)) -> str:
-        """
-        List all detected candlestick patterns for crypto assets on a specific date.
+# ===========================================
+# Tool Registry (9 tools, all free tier)
+# ===========================================
 
-        Optionally filter by pattern type. Supported patterns:
-        - doji, long_legged_doji
-        - hammer, inverted_hammer
-        - shooting_star
-        - marubozu_bullish, marubozu_bearish
-        - spinning_top
-        """
-        return await list_detected_crypto_patterns(
-            conn=conn, analysis_date=params.analysis_date,
-            pattern_type=params.pattern_type,
-        )
-
-
-def _register_get_bullish_crypto(app: FastMCP) -> None:
-    """Register analysis_get_bullish_crypto tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_bullish_crypto",
-        annotations={"title": "Get Bullish Crypto", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_bullish_crypto(params: DateInput, conn=Depends(get_db)) -> str:
-        """
-        Get all crypto assets showing bullish patterns for a specific date, ordered by strength.
-
-        Returns crypto where is_bullish=true, ordered by body size (strongest first).
-        Includes any bullish reversal or strong bullish pattern signals.
-        """
-        return await get_bullish_crypto(conn=conn, analysis_date=params.analysis_date)
-
-
-def _register_get_bearish_crypto(app: FastMCP) -> None:
-    """Register analysis_get_bearish_crypto tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_bearish_crypto",
-        annotations={"title": "Get Bearish Crypto", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_bearish_crypto(params: DateInput, conn=Depends(get_db)) -> str:
-        """
-        Get all crypto assets showing bearish patterns for a specific date, ordered by strength.
-
-        Returns crypto where is_bullish=false, ordered by body size (strongest first).
-        Includes any bearish reversal or strong bearish pattern signals.
-        """
-        return await get_bearish_crypto(conn=conn, analysis_date=params.analysis_date)
-
-
-def _register_get_crypto_statistics(app: FastMCP) -> None:
-    """Register analysis_get_crypto_statistics tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_crypto_statistics",
-        annotations={"title": "Get Crypto Pattern Statistics", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_crypto_statistics(params: StatisticsInput, conn=Depends(get_db)) -> str:
-        """
-        Get aggregate statistics for crypto candlestick patterns over the last N days (1-90).
-
-        Returns:
-        - Overall bullish/bearish ratio
-        - Most common patterns detected
-        - Daily breakdown of crypto market sentiment
-        """
-        return await get_crypto_pattern_statistics(conn=conn, days=params.days)
-
-
-def _register_get_crypto_technical_signals(app: FastMCP) -> None:
-    """Register analysis_get_crypto_signals tool on a FastMCP instance."""
-    @app.tool(
-        name="analysis_get_crypto_signals",
-        annotations={"title": "Get Crypto Technical Signals", **_RO_ANNOTATIONS},
-    )
-    async def analysis_get_crypto_signals(params: CryptoTechnicalSignalsInput, conn=Depends(get_db)) -> str:
-        """
-        Get daily technical indicators for a cryptocurrency with built-in signal detection.
-
-        Returns time-series SMA, EMA, MACD, RSI plus detected signals:
-        - MACD bullish/bearish crossovers (histogram sign flip)
-        - RSI overbought/oversold zone entries and exits
-        - EMA/SMA crossovers (golden cross / death cross)
-        - Current assessment: RSI zone, MACD momentum, trend direction
-
-        Note: Indicator data has 90-day retention. Requests beyond that will be flagged.
-        """
-        return await get_crypto_technical_signals(
-            conn=conn, symbol=params.symbol,
-            start_date=params.start_date, end_date=params.end_date,
-        )
-
-
-# Tool name -> ToolEntry with min_tier annotation.
-# Tiers are cumulative: free < pro < max < dev.
-# A tool with min_tier="pro" is available to pro, max, and dev users.
 _TOOL_REGISTRY: dict[str, ToolEntry] = {
-    # Candlestick pattern tools (existing)
-    "analysis_get_stock":               ToolEntry(fn=_register_get_stock,               min_tier="free"),
-    "analysis_get_statistics":           ToolEntry(fn=_register_get_statistics,           min_tier="free"),
-    "analysis_list_patterns":            ToolEntry(fn=_register_list_patterns,            min_tier="pro"),
-    "analysis_get_bullish":              ToolEntry(fn=_register_get_bullish,              min_tier="pro"),
-    "analysis_get_bearish":              ToolEntry(fn=_register_get_bearish,              min_tier="pro"),
-    # Technical indicators
-    "analysis_get_technical_signals":    ToolEntry(fn=_register_get_technical_signals,    min_tier="free"),
-    # Fundamentals
-    "analysis_get_fundamentals_trend":   ToolEntry(fn=_register_get_fundamentals_trend,   min_tier="free"),
-    "analysis_compare_stocks":           ToolEntry(fn=_register_compare_stocks,           min_tier="free"),
-    # Macro environment
-    "analysis_get_macro_environment":    ToolEntry(fn=_register_get_macro_environment,    min_tier="free"),
-    # Earnings
-    "analysis_get_earnings_history":     ToolEntry(fn=_register_get_earnings_history,     min_tier="free"),
-    "analysis_get_market_earnings":      ToolEntry(fn=_register_get_market_earnings,      min_tier="free"),
-    # Cross-domain screener
-    "analysis_screen_stocks":            ToolEntry(fn=_register_screen_stocks,            min_tier="free"),
-    # Price targets
-    "analysis_get_price_targets":        ToolEntry(fn=_register_get_price_targets,        min_tier="free"),
-    # Crypto candlestick pattern tools
-    "analysis_get_crypto":               ToolEntry(fn=_register_get_crypto_analysis,        min_tier="free"),
-    "analysis_get_crypto_statistics":    ToolEntry(fn=_register_get_crypto_statistics,       min_tier="free"),
-    "analysis_list_crypto_patterns":     ToolEntry(fn=_register_list_crypto_patterns,        min_tier="pro"),
-    "analysis_get_bullish_crypto":       ToolEntry(fn=_register_get_bullish_crypto,          min_tier="pro"),
-    "analysis_get_bearish_crypto":       ToolEntry(fn=_register_get_bearish_crypto,          min_tier="pro"),
-    # Crypto technical indicators
-    "analysis_get_crypto_signals":       ToolEntry(fn=_register_get_crypto_technical_signals, min_tier="free"),
+    "analysis_ticker_overview":   ToolEntry(fn=_register_ticker_overview,   min_tier="free"),
+    "analysis_technical_signals": ToolEntry(fn=_register_technical_signals, min_tier="free"),
+    "analysis_price_targets":     ToolEntry(fn=_register_price_targets,     min_tier="free"),
+    "analysis_market_scan":       ToolEntry(fn=_register_market_scan,       min_tier="free"),
+    "analysis_screen":            ToolEntry(fn=_register_screen,            min_tier="free"),
+    "analysis_compare":           ToolEntry(fn=_register_compare,           min_tier="free"),
+    "analysis_macro":             ToolEntry(fn=_register_macro,             min_tier="free"),
+    "analysis_market_earnings":   ToolEntry(fn=_register_market_earnings,   min_tier="free"),
+    "analysis_earnings_history":  ToolEntry(fn=_register_earnings_history,  min_tier="free"),
 }
 
 
@@ -792,13 +476,7 @@ def create_mcp_app(tier: str | None = None) -> FastMCP:
 # ===========================================
 
 def setup_middleware(app: FastMCP, cache_prefix: str = "mcp-analysis") -> None:
-    """Setup caching and rate limiting middleware on a FastMCP instance.
-
-    Args:
-        app: FastMCP instance to add middleware to.
-        cache_prefix: Redis key prefix for this instance's cache.
-            Must be unique per tier to avoid cross-tier cache pollution.
-    """
+    """Setup caching and rate limiting middleware on a FastMCP instance."""
     try:
         from fastmcp.server.middleware.rate_limiting import SlidingWindowRateLimitingMiddleware
         from fastmcp.server.middleware.caching import (
@@ -847,9 +525,6 @@ def build_asgi_app():
       /mcp/dev  -> all tools
       /mcp      -> all tools (backward compat, remove after next release)
       /health/tools -> diagnostic JSON of tier-to-tool mapping
-
-    Uses streamable HTTP transport (cursor-agent CLI always uses
-    streamable HTTP regardless of mcp.json "transport" setting).
     """
     from contextlib import AsyncExitStack
     from starlette.applications import Starlette
@@ -860,7 +535,6 @@ def build_asgi_app():
     routes: list[Mount | Route] = []
     http_apps = []
 
-    # Create per-tier FastMCP instances with middleware
     for tier in TIER_ORDER:
         mcp_app = create_mcp_app(tier)
         setup_middleware(mcp_app, cache_prefix=f"mcp-analysis-{tier}")
@@ -870,8 +544,6 @@ def build_asgi_app():
         routes.append(Mount(f"/mcp/{tier}", app=http_app))
         http_apps.append(http_app)
 
-    # Backward compat: /mcp -> all tools (same as dev).
-    # TODO: Remove after confirming no clients use this path.
     mcp_full = create_mcp_app()
     setup_middleware(mcp_full, cache_prefix="mcp-analysis-full")
     full_http = mcp_full.http_app(path="/")
@@ -879,7 +551,6 @@ def build_asgi_app():
     routes.append(Mount("/mcp", app=full_http))
     http_apps.append(full_http)
 
-    # Diagnostic endpoint: tier-to-tool mapping (internal, no auth)
     async def health_tools(request: Request) -> JSONResponse:
         return JSONResponse({
             tier: _tools_for_tier(tier) for tier in TIER_ORDER
@@ -891,14 +562,6 @@ def build_asgi_app():
 
     @asynccontextmanager
     async def combined_lifespan(starlette_app):
-        """
-        Combine our DB pool lifecycle with each FastMCP HTTP app's lifespan.
-
-        Each http_app's lifespan initialises the StreamableHTTPSessionManager's
-        task group. The parent Starlette app does not propagate nested lifespans
-        automatically, so we invoke them here explicitly.
-        See: https://gofastmcp.com/v2/deployment/http#mounting-in-starlette
-        """
         print("=" * 50)
         print("MCP Analysis Server Starting Up")
         print("=" * 50)
@@ -939,7 +602,6 @@ def build_asgi_app():
 
 if __name__ == "__main__":
     if "--stdio" in sys.argv:
-        # Stdio transport: full tool set for local Cursor MCP testing
         mcp_full = create_mcp_app()
         setup_middleware(mcp_full)
         mcp_full.run(transport="stdio")

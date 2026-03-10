@@ -1,269 +1,222 @@
 # Analysis MCP Tools Reference
 
-Detailed documentation for all available MCP tools in the Analysis MCP server.
+Detailed documentation for all 9 MCP tools in the Analysis MCP server.
 
 ## Table of Contents
 
-1. [analysis_get_stock](#analysis_get_stock)
-2. [analysis_list_patterns](#analysis_list_patterns)
-3. [analysis_get_bullish](#analysis_get_bullish)
-4. [analysis_get_bearish](#analysis_get_bearish)
-5. [analysis_get_statistics](#analysis_get_statistics)
+1. [analysis_ticker_overview](#analysis_ticker_overview)
+2. [analysis_technical_signals](#analysis_technical_signals)
+3. [analysis_price_targets](#analysis_price_targets)
+4. [analysis_market_scan](#analysis_market_scan)
+5. [analysis_screen](#analysis_screen)
+6. [analysis_compare](#analysis_compare)
+7. [analysis_macro](#analysis_macro)
+8. [analysis_market_earnings](#analysis_market_earnings)
+9. [analysis_earnings_history](#analysis_earnings_history)
 
 ---
 
-## analysis_get_stock
+## analysis_ticker_overview
 
-Query candlestick analysis data for a specific stock symbol within a date range.
+Comprehensive single-call analysis for one ticker (stock or crypto). Auto-detects asset type from symbol format (BTC/USD = crypto).
 
 ### Input Schema
 
 ```json
 {
   "symbol": "AAPL",
-  "start_date": "2024-01-01",
-  "end_date": "2024-01-07"
+  "sections": ["candlestick", "technical", "fundamentals", "earnings", "price_targets"]
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| symbol | string | Yes | Stock ticker (1-10 chars, e.g., 'AAPL') |
+| symbol | string | Yes | Ticker symbol (e.g., 'AAPL' or 'BTC/USD') |
+| sections | array | No | Sections to include (default: all applicable) |
+
+### Response
+
+```json
+{
+  "symbol": "AAPL",
+  "asset_type": "stock",
+  "candlestick": { "latest": {...}, "patterns": [...], "recent_sentiment": {...} },
+  "technical": { "sma_20": 185.0, "ema_20": 186.0, "rsi": 55.0, "macd": {...}, "assessment": {...} },
+  "fundamentals": { "valuation": {...}, "growth": {...}, "profitability": {...}, "health": {...} },
+  "earnings": { "next_earnings": {...}, "beat_streak": 4, "avg_eps_surprise_pct": 3.2 },
+  "price_targets": { "entry_price": 180.0, "target_price": 195.0, "stop_loss": 175.0, "signal": "bullish" }
+}
+```
+
+---
+
+## analysis_technical_signals
+
+Detailed daily technical indicators over a date range with signal detection. Works for both stocks and crypto.
+
+### Input Schema
+
+```json
+{
+  "symbol": "AAPL",
+  "start_date": "2026-02-01",
+  "end_date": "2026-03-01"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| symbol | string | Yes | Ticker symbol (stock or crypto) |
 | start_date | string | Yes | Start date (YYYY-MM-DD) |
 | end_date | string | Yes | End date (YYYY-MM-DD) |
 
-### Response
+---
+
+## analysis_price_targets
+
+Pre-computed entry price, target price, and stop-loss for a stock or crypto.
+
+### Input Schema
 
 ```json
 {
   "symbol": "AAPL",
-  "start_date": "2024-01-01",
-  "end_date": "2024-01-07",
-  "total_results": 5,
-  "results": [
-    {
-      "symbol": "AAPL",
-      "date": "2024-01-05",
-      "daily_candle": {
-        "open": 185.50,
-        "high": 187.25,
-        "low": 184.75,
-        "close": 186.50,
-        "volume": 45000000
-      },
-      "characteristics": {
-        "body_size": 1.0,
-        "range_size": 2.5,
-        "upper_wick": 0.75,
-        "lower_wick": 0.75,
-        "is_bullish": true
-      },
-      "detected_patterns": [
-        {"pattern": "hammer", "confidence": 0.85, "signal": "bullish_reversal"}
-      ],
-      "candles_aggregated": 1
-    }
-  ]
-}
-```
-
----
-
-## analysis_list_patterns
-
-List all detected candlestick patterns for a specific date, optionally filtered by pattern type.
-
-### Input Schema
-
-```json
-{
-  "analysis_date": "2024-01-05",
-  "pattern_type": "doji"
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| analysis_date | string | Yes | Date (YYYY-MM-DD) |
-| pattern_type | string | No | Filter by pattern (see Supported Patterns) |
-
-### Supported Patterns
-
-- `doji` - Market indecision
-- `long_legged_doji` - Strong indecision
-- `hammer` - Bullish reversal
-- `inverted_hammer` - Bullish reversal
-- `shooting_star` - Bearish reversal
-- `marubozu_bullish` - Strong bullish
-- `marubozu_bearish` - Strong bearish
-- `spinning_top` - Indecision
-
-### Response
-
-```json
-{
-  "date": "2024-01-05",
-  "pattern_filter": "doji",
-  "stocks_with_patterns": 12,
-  "results": [
-    {
-      "symbol": "MSFT",
-      "is_bullish": true,
-      "patterns": [
-        {"pattern": "doji", "confidence": 0.92, "signal": "indecision"}
-      ]
-    }
-  ]
-}
-```
-
----
-
-## analysis_get_bullish
-
-Get all stocks showing bullish patterns for a specific date, ordered by body size (strongest first).
-
-### Input Schema
-
-```json
-{
-  "analysis_date": "2024-01-05"
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| analysis_date | string | Yes | Date (YYYY-MM-DD) |
-
-### Response
-
-```json
-{
-  "date": "2024-01-05",
-  "signal": "bullish",
-  "total_bullish_stocks": 45,
-  "results": [
-    {
-      "symbol": "NVDA",
-      "name": "NVIDIA Corporation",
-      "close_price": 485.50,
-      "body_size": 15.25,
-      "bullish_patterns": [
-        {"pattern": "marubozu_bullish", "signal": "strong_bullish"}
-      ],
-      "all_patterns": [...]
-    }
-  ]
-}
-```
-
----
-
-## analysis_get_bearish
-
-Get all stocks showing bearish patterns for a specific date, ordered by body size (strongest first).
-
-### Input Schema
-
-```json
-{
-  "analysis_date": "2024-01-05"
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| analysis_date | string | Yes | Date (YYYY-MM-DD) |
-
-### Response
-
-```json
-{
-  "date": "2024-01-05",
-  "signal": "bearish",
-  "total_bearish_stocks": 32,
-  "results": [
-    {
-      "symbol": "XYZ",
-      "name": "XYZ Corp",
-      "close_price": 45.25,
-      "body_size": 8.50,
-      "bearish_patterns": [
-        {"pattern": "shooting_star", "signal": "bearish_reversal"}
-      ],
-      "all_patterns": [...]
-    }
-  ]
-}
-```
-
----
-
-## analysis_get_statistics
-
-Get aggregate statistics for candlestick patterns over the last N days.
-
-### Input Schema
-
-```json
-{
-  "days": 7
+  "days": 1
 }
 ```
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| days | integer | No | 7 | Days to analyze (1-90) |
+| symbol | string | Yes | - | Ticker symbol |
+| days | integer | No | 1 | Recent days to return (1-30) |
 
-### Response
+---
+
+## analysis_market_scan
+
+Market-wide sentiment scan across stocks and/or crypto. Replaces the old bullish/bearish/statistics/patterns tools.
+
+### Input Schema
 
 ```json
 {
-  "period": {
-    "start_date": "2024-01-01",
-    "end_date": "2024-01-07",
-    "days": 7
-  },
-  "summary": {
-    "total_bullish": 245,
-    "total_bearish": 189,
-    "overall_bullish_ratio": 56.5,
-    "overall_bearish_ratio": 43.5
-  },
-  "most_common_patterns": [
-    {"pattern": "doji", "count": 87},
-    {"pattern": "spinning_top", "count": 65},
-    {"pattern": "hammer", "count": 43}
-  ],
-  "daily_breakdown": [
-    {
-      "date": "2024-01-07",
-      "total_stocks": 100,
-      "bullish_count": 55,
-      "bearish_count": 45,
-      "stocks_with_patterns": 78,
-      "bullish_ratio": 55.0
-    }
-  ]
+  "asset_type": "all",
+  "direction": "bullish",
+  "days": 1,
+  "pattern_type": "doji"
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| asset_type | string | No | all | 'stock', 'crypto', or 'all' |
+| direction | string | No | all | 'bullish', 'bearish', or 'all' |
+| days | integer | No | 1 | Days to analyze (1-90) |
+| pattern_type | string | No | null | Filter by pattern name |
+
+---
+
+## analysis_screen
+
+Multi-signal cross-domain stock screener. At least one filter required.
+
+### Input Schema
+
+```json
+{
+  "rsi_below": 30,
+  "min_roe": 0.15,
+  "max_debt_to_equity": 1.0,
+  "limit": 20,
+  "sort_by": "rsi"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| rsi_above / rsi_below | float | No | RSI thresholds |
+| macd_signal | string | No | 'bullish' or 'bearish' |
+| max_pe / min_roe / ... | float | No | Fundamental filters |
+| pattern_signal | string | No | 'bullish' or 'bearish' |
+| earnings_within_days | int | No | Stocks with upcoming earnings |
+| limit | int | No | Max results (1-50, default 20) |
+| sort_by | string | No | Sort metric |
+
+---
+
+## analysis_compare
+
+Side-by-side peer comparison of 2-10 stocks with per-metric ranking.
+
+### Input Schema
+
+```json
+{
+  "symbols": ["AAPL", "MSFT", "GOOGL"]
 }
 ```
 
 ---
 
-## Database Table
+## analysis_macro
 
-All tools query the `analysis_stock_candlestick_pattern` table joined with `stock_tickers`.
+Current macro-economic environment assessment.
 
-### Key Columns
+### Input Schema
 
-| Column | Type | Description |
-|--------|------|-------------|
-| analysis_date | date | Analysis date |
-| daily_open/high/low/close | decimal | OHLC prices |
-| daily_volume | bigint | Trading volume |
-| body_size | decimal | Candle body size |
-| range_size | decimal | High-low range |
-| upper_wick / lower_wick | decimal | Wick sizes |
-| is_bullish | boolean | Bullish candle flag |
-| detected_patterns | jsonb | Array of detected patterns |
-| candles_aggregated | integer | Number of candles used |
+```json
+{
+  "category": "inflation"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| category | string | No | Filter: inflation, employment, growth, interest_rates, etc. |
+
+---
+
+## analysis_market_earnings
+
+Market-wide earnings dashboard: upcoming reporters and recent surprises.
+
+### Input Schema
+
+```json
+{
+  "days_ahead": 7,
+  "days_back": 14,
+  "min_surprise_pct": 2.0
+}
+```
+
+---
+
+## analysis_earnings_history
+
+Earnings track record for a single stock with beat streak analysis.
+
+### Input Schema
+
+```json
+{
+  "symbol": "AAPL",
+  "quarters": 4
+}
+```
+
+---
+
+## Database Tables
+
+| Table | Used By |
+|-------|---------|
+| analysis_stock_candlestick_pattern | ticker_overview, market_scan, screen |
+| analysis_crypto_candlestick_pattern | ticker_overview, market_scan |
+| analysis_stock_indicator | ticker_overview, technical_signals, screen, compare |
+| analysis_crypto_indicator | ticker_overview, technical_signals |
+| analysis_stock_fundamentals | ticker_overview, screen, compare |
+| analysis_earnings_release_schedule | ticker_overview, screen, market_earnings, earnings_history |
+| analysis_economic_indicators | macro |
+| analysis_release_calendar | macro |
+| analysis_ticker_price_targets | ticker_overview, price_targets |

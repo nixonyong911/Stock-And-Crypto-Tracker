@@ -42,11 +42,11 @@ const RAW_PATTERNS: ReadonlyArray<{ source: string; flags: string }> = [
   { source: "\\bcursor-agent\\b", flags: "i" },
   { source: "\\bCursor IDE\\b", flags: "i" },
   { source: "\\banalysis_mcp\\b", flags: "i" },
-  { source: "\\banalysis_get_stock\\b", flags: "" },
-  { source: "\\banalysis_get_statistics\\b", flags: "" },
-  { source: "\\banalysis_list_patterns\\b", flags: "" },
-  { source: "\\banalysis_get_bullish\\b", flags: "" },
-  { source: "\\banalysis_get_bearish\\b", flags: "" },
+  { source: "\\banalysis_ticker_overview\\b", flags: "" },
+  { source: "\\banalysis_technical_signals\\b", flags: "" },
+  { source: "\\banalysis_market_scan\\b", flags: "" },
+  { source: "\\banalysis_price_targets\\b", flags: "" },
+  { source: "\\banalysis_screen\\b", flags: "" },
   {
     source:
       "^.*\\b(Shell|Read tool|Write tool|Grep tool|SemanticSearch|WebFetch|WebSearch)\\b.*$",

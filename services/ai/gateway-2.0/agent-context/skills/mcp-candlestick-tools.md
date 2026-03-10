@@ -1,77 +1,74 @@
-# Candlestick Analysis MCP Tools
+# Analysis MCP Tools
 
-Query candlestick patterns and market signals via the `analysis_mcp` server.
+Query financial data, candlestick patterns, technical indicators, and market signals via the `analysis_mcp` server.
 
-## MCP Tools Reference
+## MCP Tools Reference (9 Tools)
 
 | Tool | Purpose |
 |------|---------|
-| `analysis_get_stock` | Get OHLCV data and patterns for a symbol |
-| `analysis_list_patterns` | List all detected patterns for a date |
-| `analysis_get_bullish` | Get bullish stocks ordered by strength |
-| `analysis_get_bearish` | Get bearish stocks ordered by strength |
-| `analysis_get_statistics` | Aggregate stats over N days |
+| `analysis_ticker_overview` | Full single-call analysis for one ticker (candlestick + indicators + fundamentals + earnings + price targets) |
+| `analysis_technical_signals` | Detailed indicator time series with signal detection over a date range |
+| `analysis_price_targets` | Entry price, target price, and stop-loss levels |
+| `analysis_market_scan` | Market-wide sentiment, movers, and patterns (stock/crypto/all) |
+| `analysis_screen` | Multi-filter stock screener (technicals + fundamentals + patterns + earnings) |
+| `analysis_compare` | Peer comparison of 2-10 stocks with rankings |
+| `analysis_macro` | Macro-economic environment (regime, indicators, catalysts) |
+| `analysis_market_earnings` | Upcoming and recent earnings across the market |
+| `analysis_earnings_history` | Per-ticker earnings track record with beat streaks |
 
-## Workflow: Query by Symbol
+## Workflow: Analyze a Ticker
 
-Get candlestick data and patterns for a specific stock.
+Single call returns everything about one stock or crypto.
 
 ```
-analysis_get_stock(symbol="AAPL", start_date="2024-01-15", end_date="2024-01-19")
+analysis_ticker_overview(symbol="AAPL")
 ```
 
-**Response structure:**
-```json
-{
-  "symbol": "AAPL",
-  "data": [
-    {
-      "date": "2024-01-15",
-      "open": 182.50,
-      "high": 185.20,
-      "low": 181.80,
-      "close": 184.90,
-      "volume": 45000000,
-      "body_size": 2.40,
-      "upper_wick": 0.30,
-      "lower_wick": 0.70,
-      "is_bullish": true,
-      "detected_patterns": ["hammer"]
-    }
-  ]
-}
+For crypto:
+```
+analysis_ticker_overview(symbol="BTC/USD")
 ```
 
-**Key fields:**
-- `body_size`: Absolute difference between open and close
-- `upper_wick` / `lower_wick`: Wick lengths relative to body
-- `is_bullish`: Close > Open
-- `detected_patterns`: Array of pattern names found
+Limit sections if you only need specific data:
+```
+analysis_ticker_overview(symbol="AAPL", sections=["technical", "price_targets"])
+```
 
 ## Workflow: Find Daily Signals
 
-### Bullish signals (long opportunities)
+Scan market for bullish/bearish movers:
 ```
-analysis_get_bullish(analysis_date="2024-01-15")
-```
-
-Returns stocks with bullish patterns, strongest first (ordered by body size).
-
-### Bearish signals (short opportunities or exits)
-```
-analysis_get_bearish(analysis_date="2024-01-15")
+analysis_market_scan(direction="bullish", days=1)
+analysis_market_scan(asset_type="crypto", direction="bearish", days=1)
+analysis_market_scan(pattern_type="doji", days=7)
 ```
 
-Returns stocks with bearish patterns, strongest first.
+## Workflow: Screen Stocks
 
-### All patterns for a date
 ```
-analysis_list_patterns(analysis_date="2024-01-15")
+analysis_screen(rsi_below=30, min_roe=0.15, max_debt_to_equity=1.0)
+analysis_screen(max_pe=20, min_revenue_growth=0.15)
+analysis_screen(macd_signal="bullish", pattern_signal="bullish")
 ```
 
-Filter by pattern type:
+## Workflow: Check Macro Environment
+
 ```
-analysis_list_patterns(analysis_date="2024-01-15", pattern_type="doji")
+analysis_macro()
+analysis_macro(category="inflation")
+```
+
+## Workflow: Compare Peers
+
+```
+analysis_compare(symbols=["AAPL", "MSFT", "GOOGL"])
+```
+
+## Workflow: Detailed Technical History
+
+When you need multi-day indicator time series (not just latest snapshot):
+```
+analysis_technical_signals(symbol="AAPL", start_date="2026-02-01", end_date="2026-03-01")
 ```
 
 ## Common Pattern Types
@@ -83,29 +80,7 @@ analysis_list_patterns(analysis_date="2024-01-15", pattern_type="doji")
 | `shooting_star` | Bearish reversal | Small body, long upper wick |
 | `marubozu_bullish` | Strong bullish | Full body, no wicks |
 | `marubozu_bearish` | Strong bearish | Full body, no wicks |
-| `engulfing_bullish` | Bullish reversal | Current candle engulfs previous |
-| `engulfing_bearish` | Bearish reversal | Current candle engulfs previous |
-
-## Comprehensive Analysis Workflow
-
-### Step 1: Get market context
-```
-analysis_get_statistics(days=7)
-```
-
-### Step 2: Find today's signals
-```
-analysis_get_bullish(analysis_date="2024-01-15")
-analysis_get_bearish(analysis_date="2024-01-15")
-```
-
-### Step 3: Deep dive on candidates
-```
-analysis_get_stock(symbol="AAPL", start_date="2024-01-08", end_date="2024-01-15")
-```
-
-### Step 4: Pattern validation
-Look for trend alignment, support/resistance levels, volume confirmation, and prior pattern accuracy.
+| `spinning_top` | Indecision | Small body, shadows both sides |
 
 ## Error Handling
 
@@ -113,4 +88,4 @@ Look for trend alignment, support/resistance levels, volume confirmation, and pr
 |-------|-------|-----|
 | "No data for symbol" | Symbol not tracked | Verify symbol exists in database |
 | "Invalid date range" | Future date or > 90 days | Use historical dates within range |
-| "Pattern type not found" | Typo in pattern_type | Use exact pattern names from table above |
+| "No valid sections" | Invalid section name | Use: candlestick, technical, fundamentals, earnings, price_targets |

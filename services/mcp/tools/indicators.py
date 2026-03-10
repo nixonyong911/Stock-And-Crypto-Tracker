@@ -1,4 +1,4 @@
-"""Technical indicator tools with signal detection (crossovers, RSI zones)."""
+"""Unified technical indicator tools with signal detection (stocks + crypto)."""
 
 import asyncio
 import json
@@ -11,6 +11,10 @@ def _float(val) -> float | None:
     return float(val) if val is not None else None
 
 
+def _is_crypto(symbol: str) -> bool:
+    return "/" in symbol
+
+
 async def get_technical_signals(
     conn,
     symbol: str,
@@ -18,19 +22,21 @@ async def get_technical_signals(
     end_date: str,
 ) -> str:
     """
-    Get daily technical indicators for a stock with built-in signal detection.
+    Get daily technical indicators with signal detection for a stock or crypto.
+
+    Auto-detects asset type from symbol format (BTC/USD = crypto).
 
     Computes MACD crossovers, RSI zone transitions, and EMA/SMA crossovers
     using SQL window functions over daily snapshots (latest reading per day).
 
     Args:
         conn: Database connection
-        symbol: Stock ticker symbol
+        symbol: Ticker symbol (e.g., 'AAPL' or 'BTC/USD')
         start_date: Start date YYYY-MM-DD
         end_date: End date YYYY-MM-DD
 
     Returns:
-        JSON string with daily indicators, detected signals, and current assessment
+        JSON with daily indicators, detected signals, and current assessment
     """
     start_dt = date.fromisoformat(start_date)
     end_dt = date.fromisoformat(end_date)
@@ -47,22 +53,33 @@ async def get_technical_signals(
             ),
         })
 
-    # Daily snapshot: pick the latest indicator_time per day.
-    # LAG() over the ordered daily snapshots to detect signal transitions.
-    query = """
+    is_crypto = _is_crypto(symbol)
+
+    if is_crypto:
+        tz_expr = "AT TIME ZONE 'UTC'"
+        indicator_table = "analysis_crypto_indicator"
+        ticker_table = "crypto_tickers"
+        fk_col = "crypto_ticker_id"
+    else:
+        tz_expr = "AT TIME ZONE 'America/New_York'"
+        indicator_table = "analysis_stock_indicator"
+        ticker_table = "stock_tickers"
+        fk_col = "stock_ticker_id"
+
+    query = f"""
         WITH daily AS (
-            SELECT DISTINCT ON ((i.indicator_time AT TIME ZONE 'America/New_York')::date)
-                st.symbol,
-                (i.indicator_time AT TIME ZONE 'America/New_York')::date AS indicator_date,
+            SELECT DISTINCT ON ((i.indicator_time {tz_expr})::date)
+                t.symbol,
+                (i.indicator_time {tz_expr})::date AS indicator_date,
                 i.sma, i.ema,
                 i.macd_value, i.macd_signal, i.macd_histogram,
                 i.rsi
-            FROM analysis_stock_indicator i
-            JOIN stock_tickers st ON i.stock_ticker_id = st.id
-            WHERE UPPER(st.symbol) = UPPER($1)
+            FROM {indicator_table} i
+            JOIN {ticker_table} t ON i.{fk_col} = t.id
+            WHERE UPPER(t.symbol) = UPPER($1)
               AND i.indicator_time >= $2::date
               AND i.indicator_time < ($3::date + 1)
-            ORDER BY (i.indicator_time AT TIME ZONE 'America/New_York')::date,
+            ORDER BY (i.indicator_time {tz_expr})::date,
                      i.indicator_time DESC
         )
         SELECT
@@ -88,6 +105,7 @@ async def get_technical_signals(
     if not rows:
         return json.dumps({
             "symbol": symbol.upper(),
+            "asset_type": "crypto" if is_crypto else "stock",
             "start_date": start_date,
             "end_date": end_date,
             "message": f"No indicator data found for {symbol.upper()} in the specified date range",
@@ -111,8 +129,8 @@ async def get_technical_signals(
 
         daily_indicators.append({
             "date": day_str,
-            "sma": _float(row["sma"]),
-            "ema": _float(row["ema"]),
+            "sma": sma,
+            "ema": ema,
             "rsi": rsi,
             "macd": {
                 "value": _float(row["macd_value"]),
@@ -121,7 +139,6 @@ async def get_technical_signals(
             },
         })
 
-        # --- Signal detection ---
         if prev_hist is not None and macd_hist is not None:
             if prev_hist <= 0 < macd_hist:
                 detected_signals.append({
@@ -177,7 +194,6 @@ async def get_technical_signals(
                     "detail": "EMA crossed below SMA (bearish trend shift)",
                 })
 
-    # Current assessment from the most recent day
     latest = rows[-1]
     latest_rsi = _float(latest["rsi"])
     latest_hist = _float(latest["macd_histogram"])
@@ -201,6 +217,7 @@ async def get_technical_signals(
 
     return json.dumps({
         "symbol": symbol.upper(),
+        "asset_type": "crypto" if is_crypto else "stock",
         "period": {
             "start": start_date,
             "end": end_date,
