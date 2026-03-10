@@ -812,50 +812,29 @@
       "money_supply": "Money Supply",
       "credit": "Credit"
     },
-    "signals": {
-      "bullish": "Bullish",
-      "bearish": "Bearish",
-      "neutral": "Neutral"
+    "status": {
+      "rising": "Rising",
+      "falling": "Falling",
+      "stable": "Stable"
     },
     "table": {
       "indicator": "Indicator",
       "current": "Current",
       "previous": "Previous",
       "change": "Change",
-      "trend": "Trend",
-      "signal": "Signal",
+      "signal": "Status",
       "updated": "Updated",
-      "nextRelease": "Next Release",
+      "nextRelease": "Next",
       "daily": "Daily",
       "na": "N/A"
     },
     "toggles": {
-      "raw": "Raw",
-      "media": "Media",
       "compact": "Compact",
       "detail": "Detail"
     },
-    "calendar": {
-      "upcomingReleases": "Upcoming Releases",
-      "today": "Today",
-      "tomorrow": "Tomorrow",
-      "thisWeek": "This Week",
-      "nextWeek": "Next Week",
-      "noUpcoming": "No upcoming releases",
-      "countThisWeek": "{count} this week"
-    },
-    "miniCard": {
-      "previous": "Previous:",
-      "change": "Change:",
-      "updated": "Updated:"
-    },
-    "detailCard": {
-      "current": "Current",
-      "previous": "Previous",
-      "updated": "Updated:",
-      "next": "Next:",
-      "daily": "Daily",
-      "na": "N/A"
+    "marketPulse": {
+      "title": "Market Pulse",
+      "nextRelease": "Next:"
     },
     "error": "Failed to load economic indicators"
   },

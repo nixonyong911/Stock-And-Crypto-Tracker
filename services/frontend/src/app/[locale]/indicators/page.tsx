@@ -10,16 +10,13 @@ import {
   ReleaseCalendarEntry,
 } from "@/lib/db/indicators";
 
-// Force dynamic rendering to ensure fresh data from Supabase
 export const dynamic = "force-dynamic";
 import {
   ViewToggle,
-  DataToggle,
   CompactView,
   DetailView,
-  IndicatorsLayout,
+  MarketPulse,
 } from "./components";
-import { createValueFormatter, DataMode } from "./lib/format";
 
 export async function generateMetadata({
   params,
@@ -48,17 +45,16 @@ export async function generateMetadata({
 
 type Props = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ view?: string; data?: string }>;
+  searchParams: Promise<{ view?: string }>;
 };
 
 export default async function IndicatorsPage({ params, searchParams }: Props) {
   const { locale } = await params;
-  const { view = "compact", data = "media" } = await searchParams;
+  const { view = "compact" } = await searchParams;
 
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "indicatorsPage" });
 
-  // Fetch data in parallel
   let indicators: EconomicIndicator[] = [];
   let releases: ReleaseCalendarEntry[] = [];
   let error: string | null = null;
@@ -73,9 +69,12 @@ export default async function IndicatorsPage({ params, searchParams }: Props) {
     error = "Failed to load economic indicators";
   }
 
-  const dataMode = (data === "raw" ? "raw" : "media") as DataMode;
-  const formatValue = createValueFormatter(dataMode);
   const currentView = view === "detail" ? "detail" : "compact";
+
+  const releaseMap = new Map<string, string | null>();
+  for (const r of releases) {
+    releaseMap.set(r.series_id, r.next_release_date);
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -93,27 +92,18 @@ export default async function IndicatorsPage({ params, searchParams }: Props) {
                   {t("hero.subtitle")}
                 </p>
               </div>
-              <div className="flex items-center gap-4">
-                <Suspense
-                  fallback={
-                    <div className="h-9 w-32 bg-muted animate-pulse rounded-lg" />
-                  }
-                >
-                  <ViewToggle />
-                </Suspense>
-                <Suspense
-                  fallback={
-                    <div className="h-6 w-20 bg-muted animate-pulse rounded" />
-                  }
-                >
-                  <DataToggle />
-                </Suspense>
-              </div>
+              <Suspense
+                fallback={
+                  <div className="h-9 w-32 bg-muted animate-pulse rounded-lg" />
+                }
+              >
+                <ViewToggle />
+              </Suspense>
             </div>
           </div>
         </section>
 
-        {/* Indicators Content */}
+        {/* Content */}
         {error ? (
           <div className="container mx-auto px-4 py-12 text-center">
             <p className="text-muted-foreground">{error}</p>
@@ -123,13 +113,14 @@ export default async function IndicatorsPage({ params, searchParams }: Props) {
             <p className="text-muted-foreground">{t("noData")}</p>
           </div>
         ) : (
-          <IndicatorsLayout releases={releases}>
+          <div className="container mx-auto px-4 py-8 space-y-8">
+            <MarketPulse indicators={indicators} releaseMap={releaseMap} />
             {currentView === "compact" ? (
-              <CompactView indicators={indicators} formatValue={formatValue} />
+              <CompactView indicators={indicators} releaseMap={releaseMap} />
             ) : (
-              <DetailView indicators={indicators} formatValue={formatValue} />
+              <DetailView indicators={indicators} releaseMap={releaseMap} />
             )}
-          </IndicatorsLayout>
+          </div>
         )}
       </main>
       <Footer />

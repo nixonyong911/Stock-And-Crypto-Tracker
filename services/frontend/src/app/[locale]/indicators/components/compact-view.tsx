@@ -3,22 +3,22 @@ import { CategoryRow } from "./category-row";
 
 interface Props {
   indicators: EconomicIndicator[];
-  formatValue: (indicator: EconomicIndicator, field: "current" | "previous") => string;
+  releaseMap: Map<string, string | null>;
 }
 
-export function CompactView({ indicators, formatValue }: Props) {
+export function CompactView({ indicators, releaseMap }: Props) {
   const grouped = groupIndicatorsByCategory(indicators);
   const sortedCategories = getSortedCategories(grouped);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {sortedCategories.map((category) => (
         <CategoryRow
           key={category}
           category={category}
           categoryDisplayName={CATEGORY_CONFIG[category]?.displayName ?? category}
           indicators={grouped[category]}
-          formatValue={formatValue}
+          releaseMap={releaseMap}
         />
       ))}
     </div>

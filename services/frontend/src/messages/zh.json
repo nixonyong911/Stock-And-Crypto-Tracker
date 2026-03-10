@@ -812,50 +812,29 @@
       "money_supply": "货币供应",
       "credit": "信贷"
     },
-    "signals": {
-      "bullish": "看涨",
-      "bearish": "看跌",
-      "neutral": "中性"
+    "status": {
+      "rising": "上升",
+      "falling": "下降",
+      "stable": "稳定"
     },
     "table": {
       "indicator": "指标",
       "current": "当前",
       "previous": "前值",
       "change": "变化",
-      "trend": "趋势",
-      "signal": "信号",
+      "signal": "状态",
       "updated": "更新时间",
-      "nextRelease": "下次发布",
+      "nextRelease": "下次",
       "daily": "每日",
       "na": "N/A"
     },
     "toggles": {
-      "raw": "原始",
-      "media": "处理后",
       "compact": "紧凑",
       "detail": "详细"
     },
-    "calendar": {
-      "upcomingReleases": "即将发布",
-      "today": "今天",
-      "tomorrow": "明天",
-      "thisWeek": "本周",
-      "nextWeek": "下周",
-      "noUpcoming": "暂无即将发布的数据",
-      "countThisWeek": "本周{count}项"
-    },
-    "miniCard": {
-      "previous": "前值：",
-      "change": "变化：",
-      "updated": "更新："
-    },
-    "detailCard": {
-      "current": "当前",
-      "previous": "前值",
-      "updated": "更新：",
-      "next": "下次：",
-      "daily": "每日",
-      "na": "N/A"
+    "marketPulse": {
+      "title": "市场脉搏",
+      "nextRelease": "下次："
     },
     "error": "无法加载经济指标"
   },

@@ -3,24 +3,12 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { EconomicIndicator } from "@/lib/db/indicators";
 import { TrendIcon } from "./trend-icon";
 import { SignalBadge } from "./signal-badge";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface FormattedIndicator {
-  indicator: EconomicIndicator;
-  formattedCurrent: string;
-  formattedPrevious: string;
-}
-
-interface FormattedCategory {
-  category: string;
-  displayName: string;
-  indicators: FormattedIndicator[];
-}
+import type { FormattedCategory, FormattedIndicator } from "./detail-view";
 
 interface Props {
   formattedCategories: FormattedCategory[];
@@ -74,62 +62,77 @@ export function IndicatorsTableClient({ formattedCategories }: Props) {
   );
 
   return (
-    <div className="space-y-8">
-      {formattedCategories.map(({ category, displayName, indicators }) => (
-        <div key={category}>
-          <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-background py-2">
-            {displayName}
-          </h3>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead><SortHeader field="name">{t("table.indicator")}</SortHeader></TableHead>
-                  <TableHead className="text-right"><SortHeader field="current">{t("table.current")}</SortHeader></TableHead>
-                  <TableHead className="text-right">{t("table.previous")}</TableHead>
-                  <TableHead className="text-right"><SortHeader field="change">{t("table.change")}</SortHeader></TableHead>
-                  <TableHead>{t("table.trend")}</TableHead>
-                  <TableHead>{t("table.signal")}</TableHead>
-                  <TableHead className="text-right"><SortHeader field="date">{t("table.updated")}</SortHeader></TableHead>
-                  <TableHead className="text-right">{t("table.nextRelease")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortIndicators(indicators).map(({ indicator, formattedCurrent, formattedPrevious }) => (
-                  <TableRow key={indicator.series_id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">{indicator.display_name}</TableCell>
-                    <TableCell className="text-right font-mono">{formattedCurrent}</TableCell>
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead><SortHeader field="name">{t("table.indicator")}</SortHeader></TableHead>
+            <TableHead className="text-right"><SortHeader field="current">{t("table.current")}</SortHeader></TableHead>
+            <TableHead className="text-right">{t("table.previous")}</TableHead>
+            <TableHead className="text-right"><SortHeader field="change">{t("table.change")}</SortHeader></TableHead>
+            <TableHead>{t("table.signal")}</TableHead>
+            <TableHead className="text-right"><SortHeader field="date">{t("table.updated")}</SortHeader></TableHead>
+            <TableHead className="text-right">{t("table.nextRelease")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {formattedCategories.map(({ category, displayName, indicators }) => (
+            <>
+              <TableRow key={`header-${category}`} className="bg-muted/50 hover:bg-muted/50">
+                <TableCell colSpan={7} className="font-semibold text-sm py-2">
+                  {displayName}
+                </TableCell>
+              </TableRow>
+              {sortIndicators(indicators).map(({ indicator, displayName: name, formattedCurrent, formattedPrevious, formattedChange, nextRelease }) => {
+                const isStable = formattedChange === "stable";
+
+                return (
+                  <TableRow key={indicator.series_id} className="hover:bg-muted/30">
+                    <TableCell className="font-medium pl-6">{name}</TableCell>
+                    <TableCell className="text-right font-mono font-bold">{formattedCurrent}</TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">{formattedPrevious}</TableCell>
                     <TableCell className="text-right">
-                      {indicator.change_percent !== null && (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <TrendIcon trend={indicator.trend} className="h-3 w-3" />
                         <span className={cn(
-                          "font-mono",
-                          indicator.change_percent > 0 && "text-green-600",
-                          indicator.change_percent < 0 && "text-red-600"
+                          "text-sm font-mono",
+                          isStable
+                            ? "text-muted-foreground"
+                            : indicator.trend === "up"
+                              ? "text-green-600"
+                              : indicator.trend === "down"
+                                ? "text-red-600"
+                                : "text-muted-foreground"
                         )}>
-                          {indicator.change_percent > 0 ? "+" : ""}{indicator.change_percent.toFixed(1)}%
+                          {isStable ? t("status.stable") : formattedChange}
                         </span>
-                      )}
+                      </div>
                     </TableCell>
-                    <TableCell><TrendIcon trend={indicator.trend} /></TableCell>
                     <TableCell><SignalBadge signal={indicator.current_signal} /></TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      {(indicator.last_release_date ?? indicator.current_observation_date) && 
-                        new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString()}
+                      {(indicator.last_release_date ?? indicator.current_observation_date) &&
+                        new Date(indicator.last_release_date ?? indicator.current_observation_date!).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       {indicator.release_frequency === "Daily"
                         ? t("table.daily")
-                        : indicator.next_release_date &&
-                          new Date(indicator.next_release_date).toLocaleDateString()}
+                        : nextRelease
+                          ? new Date(nextRelease).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                            })
+                          : t("table.na")}
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      ))}
+                );
+              })}
+            </>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

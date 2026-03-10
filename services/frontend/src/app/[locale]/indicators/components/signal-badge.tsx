@@ -7,7 +7,6 @@ type Signal = "bullish" | "bearish" | "neutral" | null;
 export function SignalBadge({ signal, compact = false }: { signal: Signal; compact?: boolean }) {
   const t = useTranslations("indicators");
   if (compact) {
-    // Just a colored dot for compact view
     return (
       <span
         className={cn(
@@ -19,20 +18,20 @@ export function SignalBadge({ signal, compact = false }: { signal: Signal; compa
       />
     );
   }
-  
+
   if (signal === "bullish") {
     return (
       <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-0">
-        {t("signals.bullish")}
+        {t("status.rising")}
       </Badge>
     );
   }
   if (signal === "bearish") {
     return (
       <Badge className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-0">
-        {t("signals.bearish")}
+        {t("status.falling")}
       </Badge>
     );
   }
-  return <Badge variant="secondary">{t("signals.neutral")}</Badge>;
+  return <Badge variant="secondary">{t("status.stable")}</Badge>;
 }
