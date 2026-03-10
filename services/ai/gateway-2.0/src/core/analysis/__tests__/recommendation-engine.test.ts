@@ -419,8 +419,8 @@ describe("buildContexts", () => {
     const ctxs = buildContexts("stock", targets, [], []);
 
     expect(ctxs).toHaveLength(1);
-    expect(ctxs[0].close).toBe(150);
-    expect(ctxs[0].swing).toBeDefined();
+    expect(ctxs[0]!.close).toBe(150);
+    expect(ctxs[0]!.swing).toBeDefined();
   });
 
   it("falls back to long_term when no swing row exists", () => {
@@ -439,8 +439,8 @@ describe("buildContexts", () => {
     const ctxs = buildContexts("stock", targets, [], []);
 
     expect(ctxs).toHaveLength(1);
-    expect(ctxs[0].close).toBe(200);
-    expect(ctxs[0].swing).toBeUndefined();
+    expect(ctxs[0]!.close).toBe(200);
+    expect(ctxs[0]!.swing).toBeUndefined();
   });
 
   it("maps today and yesterday MACD histogram from indicators", () => {
@@ -462,8 +462,8 @@ describe("buildContexts", () => {
 
     const ctxs = buildContexts("stock", targets, indicators, []);
 
-    expect(ctxs[0].todayMacdHist).toBe(1.5);
-    expect(ctxs[0].yesterdayMacdHist).toBe(-0.8);
+    expect(ctxs[0]!.todayMacdHist).toBe(1.5);
+    expect(ctxs[0]!.yesterdayMacdHist).toBe(-0.8);
   });
 
   it("includes candlestick patterns for matching symbol", () => {
@@ -481,7 +481,7 @@ describe("buildContexts", () => {
 
     const ctxs = buildContexts("stock", targets, [], candles);
 
-    expect(ctxs[0].patterns).toHaveLength(1);
-    expect(ctxs[0].patterns[0].pattern).toBe("engulfing");
+    expect(ctxs[0]!.patterns).toHaveLength(1);
+    expect(ctxs[0]!.patterns[0]!.pattern).toBe("engulfing");
   });
 });

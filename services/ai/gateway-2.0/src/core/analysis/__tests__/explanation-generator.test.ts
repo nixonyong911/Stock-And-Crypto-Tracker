@@ -7,7 +7,6 @@ import {
   templateForSignal,
   stackTemplates,
   generateExplanation,
-  type Explanation,
 } from "../explanation-generator.js";
 import type { TickerSignal } from "../recommendation-engine.js";
 
