@@ -9,19 +9,36 @@ description: Use when adding new MCP tools to the analysis server, creating new 
 
 MCP tools use a `min_tier` annotation pattern for tier-based access control. Each tool in `_TOOL_REGISTRY` declares the lowest tier that can access it. Tiers are cumulative: `free < pro < max < dev` -- a higher tier always includes all lower-tier tools.
 
+## Current Tool Registry (9 Tools)
+
+All tools are currently at `free` tier:
+
+| Tool | Module | Purpose |
+|------|--------|---------|
+| `analysis_ticker_overview` | `ticker_overview.py` | Full single-call analysis for one ticker |
+| `analysis_technical_signals` | `indicators.py` | Indicator time series with signal detection |
+| `analysis_price_targets` | `price_targets.py` | Entry/target/stop-loss levels |
+| `analysis_market_scan` | `market_scan.py` | Market-wide sentiment and patterns |
+| `analysis_screen` | `screener.py` | Multi-filter stock screener |
+| `analysis_compare` | `fundamentals.py` | Peer comparison (2-10 stocks) |
+| `analysis_macro` | `economic.py` | Macro-economic environment |
+| `analysis_market_earnings` | `earnings.py` | Market-wide earnings dashboard |
+| `analysis_earnings_history` | `earnings.py` | Per-ticker earnings track record |
+
 ## Quick Reference
 
-| Task                        | Files to modify                                                             |
-| --------------------------- | --------------------------------------------------------------------------- |
-| Add tool to existing server | `tools/<module>.py`, `tools/__init__.py`, `server.py` (`_TOOL_REGISTRY`)    |
-| Change a tool's tier        | `server.py` -- one `min_tier` value                                         |
-| Add new MCP server          | `mcp-manifest.json`, `docker-compose.yml`, new server code, rebuild gateway |
+| Task | Files to modify |
+|------|-----------------|
+| Add tool to existing server | `tools/<module>.py`, `tools/__init__.py`, `server.py` (`_TOOL_REGISTRY`) |
+| Change a tool's tier | `server.py` -- one `min_tier` value |
+| Update security filters | `gateway-2.0/src/core/filter/keyword-filter.ts` + `filter.ts` |
+| Add new MCP server | `mcp-manifest.json`, `docker-compose.yml`, new server code, rebuild gateway |
 
 ## Adding a Tool (Step-by-Step)
 
 All paths relative to `services/mcp/`.
 
-### 1. Write the tool function in `tools/analysis.py`
+### 1. Write the tool function in `tools/<module>.py`
 
 ```python
 async def get_momentum_signals(conn, symbol: str, days: int = 14) -> str:
@@ -32,7 +49,7 @@ async def get_momentum_signals(conn, symbol: str, days: int = 14) -> str:
 ### 2. Export from `tools/__init__.py`
 
 ```python
-from .analysis import get_momentum_signals
+from .module import get_momentum_signals
 ```
 
 ### 3. Add Pydantic input model and registration function in `server.py`
@@ -56,23 +73,33 @@ def _register_get_momentum(app: FastMCP) -> None:
 
 ```python
 _TOOL_REGISTRY: dict[str, ToolEntry] = {
-    # ... existing tools ...
-    "analysis_get_momentum": ToolEntry(fn=_register_get_momentum, min_tier="max"),
+    # ... existing 9 tools ...
+    "analysis_get_momentum": ToolEntry(fn=_register_get_momentum, min_tier="free"),
 }
 ```
 
-### 5. Deploy
+### 5. Update security filters (if tool name should be blocked from user output)
 
-Only the MCP server needs rebuilding. The gateway does NOT need rebuilding -- `cursor-agent` discovers new tools at runtime via `list_tools`.
+Add the new tool name pattern to **both** filter files in `gateway-2.0/src/core/filter/`:
+- `filter.ts` -- output filter (strips tool names from LLM responses)
+- `keyword-filter.ts` -- input filter (blocks users probing for tool names)
+
+### 6. Update agent-context skill
+
+Add the tool to `gateway-2.0/agent-context/skills/mcp-candlestick-tools.md` so the LLM knows when and how to use it.
+
+### 7. Deploy
+
+Only the MCP server needs rebuilding. The gateway does NOT need rebuilding -- `cursor-agent` discovers new tools at runtime via `list_tools`. Exception: if you changed filter files, gateway also needs a rebuild.
 
 ## Tier Hierarchy
 
-| min_tier | Accessible by       |
-| -------- | ------------------- |
+| min_tier | Accessible by |
+|----------|---------------|
 | `"free"` | free, pro, max, dev |
-| `"pro"`  | pro, max, dev       |
-| `"max"`  | max, dev            |
-| `"dev"`  | dev only            |
+| `"pro"` | pro, max, dev |
+| `"max"` | max, dev |
+| `"dev"` | dev only |
 
 ## Common Mistakes
 
@@ -81,7 +108,9 @@ Only the MCP server needs rebuilding. The gateway does NOT need rebuilding -- `c
 - **Missing `analysis_` prefix** -- all tools in the analysis server use this naming convention
 - **Missing `_RO_ANNOTATIONS`** -- read-only tools must declare `readOnlyHint=True`
 - **No Pydantic model** -- all tool inputs must use a Pydantic `BaseModel` with `Field` descriptions
-- **Rebuilding gateway unnecessarily** -- only needed when adding a NEW MCP server, not new tools
+- **Forgetting security filters** -- new tool names must be added to both `filter.ts` and `keyword-filter.ts`
+- **Forgetting agent-context** -- LLM won't know when/how to use the tool without updating the skill file
+- **Rebuilding gateway unnecessarily** -- only needed when adding a NEW MCP server or changing filter files, not new tools
 
 ## Adding a New MCP Server
 
