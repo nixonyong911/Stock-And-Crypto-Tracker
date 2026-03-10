@@ -128,7 +128,7 @@ async function fanOutToWatchers(
     clerk_user_id: string;
     platform_user_id: string;
   }>(
-    `SELECT uw.clerk_user_id, ca.platform_user_id
+    `SELECT DISTINCT ON (uw.clerk_user_id) uw.clerk_user_id, ca.platform_user_id
      FROM user_watchlist uw
      JOIN channel_accounts ca
        ON ca.clerk_user_id = uw.clerk_user_id AND ca.channel_type = 'telegram'
@@ -142,6 +142,14 @@ async function fanOutToWatchers(
 
   const telegram = extensions.get("telegram");
   if (!telegram) return 0;
+
+  const explanation = await generateExplanation(signals, log, redis);
+  const primary = signals[0]!;
+  const message = formatRecommendation(
+    primary.symbol,
+    primary.headline,
+    explanation,
+  );
 
   let sent = 0;
   const ttl = secondsUntilMidnightUTC();
@@ -159,14 +167,6 @@ async function fanOutToWatchers(
         [watcher.clerk_user_id],
       );
       if (prefResult.rows[0]?.is_enabled === false) continue;
-
-      const explanation = await generateExplanation(signals, log, redis);
-      const primary = signals[0]!;
-      const message = formatRecommendation(
-        primary.symbol,
-        primary.headline,
-        explanation,
-      );
 
       await telegram.sendText({
         platformChatId: watcher.platform_user_id,
