@@ -90,83 +90,89 @@ export function ScheduleCard({
 
   if (variant === "compact") {
     return (
-      <div className="flex items-center justify-between p-4 rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-900/70 transition-colors">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          {/* Status indicator */}
-          <div
-            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-              schedule.is_enabled ? "bg-emerald-400" : "bg-slate-600"
-            }`}
-          />
+      <div className="rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-900/70 transition-colors">
+        <div className="flex items-center justify-between p-4 pb-2">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            {/* Status indicator */}
+            <div
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                schedule.is_enabled ? "bg-emerald-400" : "bg-slate-600"
+              }`}
+            />
 
-          {/* Schedule info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-slate-200 truncate">
-                {schedule.name}
-              </span>
-              {worker && (
-                <span
-                  className={`text-xs px-2 py-0.5 rounded ${getServiceTypeBadgeColor()}`}
-                >
-                  {worker.service_type}
+            {/* Schedule info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-slate-200 truncate">
+                  {schedule.name}
                 </span>
-              )}
-            </div>
-            <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
-              {worker && (
-                <span className="flex items-center gap-1">
-                  {workerPath ? (
-                    <Link
-                      href={workerPath}
-                      className="hover:text-slate-200 transition-colors"
-                    >
-                      {worker.display_name}
-                    </Link>
-                  ) : (
-                    worker.display_name
-                  )}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                {schedule.schedule_time} {schedule.schedule_timezone}
-              </span>
-            </div>
-            {schedule.description && (
-              <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">
-                {schedule.description}
-              </p>
-            )}
-            {executionHistory && executionHistory.length > 0 && (
-              <div className="mt-1.5">
-                <ExecutionHistoryBar entries={executionHistory} />
+                {worker && (
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded ${getServiceTypeBadgeColor()}`}
+                  >
+                    {worker.service_type}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
+              <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
+                {worker && (
+                  <span className="flex items-center gap-1">
+                    {workerPath ? (
+                      <Link
+                        href={workerPath}
+                        className="hover:text-slate-200 transition-colors"
+                      >
+                        {worker.display_name}
+                      </Link>
+                    ) : (
+                      worker.display_name
+                    )}
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  {schedule.schedule_time} {schedule.schedule_timezone}
+                </span>
+              </div>
+              {schedule.description && (
+                <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">
+                  {schedule.description}
+                </p>
+              )}
+            </div>
 
-          {/* Last run status */}
-          <div className="hidden md:flex items-center gap-2 shrink-0">
-            {getStatusIcon()}
-            <span className={`text-sm ${getStatusColor()}`}>
-              {schedule.last_run_status || "Never"}
-            </span>
+            {/* Last run status */}
+            <div className="hidden md:flex items-center gap-2 shrink-0">
+              {getStatusIcon()}
+              <span className={`text-sm ${getStatusColor()}`}>
+                {schedule.last_run_status || "Never"}
+              </span>
+            </div>
+
+            {/* Toggle button */}
+            <Button
+              onClick={handleToggle}
+              disabled={isToggling}
+              size="sm"
+              className={`shrink-0 ${
+                schedule.is_enabled
+                  ? "bg-emerald-600 hover:bg-emerald-700"
+                  : "bg-slate-700 hover:bg-slate-600"
+              }`}
+            >
+              {isToggling ? "..." : schedule.is_enabled ? "Enabled" : "Disabled"}
+            </Button>
           </div>
         </div>
 
-        {/* Toggle button */}
-        <Button
-          onClick={handleToggle}
-          disabled={isToggling}
-          size="sm"
-          className={`ml-4 shrink-0 ${
-            schedule.is_enabled
-              ? "bg-emerald-600 hover:bg-emerald-700"
-              : "bg-slate-700 hover:bg-slate-600"
-          }`}
-        >
-          {isToggling ? "..." : schedule.is_enabled ? "Enabled" : "Disabled"}
-        </Button>
+        {/* Execution history bar - full width across the bottom */}
+        {executionHistory && executionHistory.length > 0 ? (
+          <div className="px-4 pb-3 pt-1">
+            <ExecutionHistoryBar entries={executionHistory} />
+          </div>
+        ) : (
+          <div className="pb-2" />
+        )}
       </div>
     );
   }
