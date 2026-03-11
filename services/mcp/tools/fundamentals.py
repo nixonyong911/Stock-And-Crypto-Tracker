@@ -33,7 +33,8 @@ async def compare_stocks(
             f.pe_ratio, f.forward_pe, f.peg_ratio, f.fcf_yield,
             f.roe, f.roic, f.operating_margin,
             f.revenue_growth_yoy, f.eps_growth_yoy,
-            f.debt_to_equity, f.market_cap, f.dividend_yield
+            f.debt_to_equity, f.market_cap, f.dividend_yield,
+            f.beta, f.dividend_per_share
         FROM analysis_stock_fundamentals f
         JOIN stock_tickers st ON f.stock_ticker_id = st.id
         WHERE UPPER(st.symbol) IN ({placeholders})
@@ -92,6 +93,8 @@ async def compare_stocks(
                 "debt_to_equity": _float(row["debt_to_equity"]),
                 "market_cap": _float(row["market_cap"]),
                 "dividend_yield": _float(row["dividend_yield"]),
+                "beta": _float(row["beta"]),
+                "dividend_per_share": _float(row["dividend_per_share"]),
             },
             "technicals": tech,
         })

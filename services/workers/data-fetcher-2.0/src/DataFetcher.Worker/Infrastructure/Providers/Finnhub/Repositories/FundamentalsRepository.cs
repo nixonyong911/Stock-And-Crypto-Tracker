@@ -29,17 +29,19 @@ public class FundamentalsRepository : IFundamentalsRepository
                 market_cap, pe_ratio, forward_pe, peg_ratio, fcf_yield,
                 roe, roic, operating_margin,
                 revenue_ttm, revenue_growth_yoy, eps_ttm, eps_growth_yoy,
-                debt_to_equity, interest_coverage,
+                debt_to_equity, interest_coverage, beta,
                 free_cash_flow, fcf_growth_yoy,
-                dividend_yield, data_source, last_fetched_at, updated_at
+                dividend_yield, dividend_per_share,
+                data_source, last_fetched_at, updated_at
             ) VALUES (
                 @StockTickerId, @FiscalYear, @FiscalQuarter,
                 @MarketCap, @PeRatio, @ForwardPe, @PegRatio, @FcfYield,
                 @Roe, @Roic, @OperatingMargin,
                 @RevenueTtm, @RevenueGrowthYoy, @EpsTtm, @EpsGrowthYoy,
-                @DebtToEquity, @InterestCoverage,
+                @DebtToEquity, @InterestCoverage, @Beta,
                 @FreeCashFlow, @FcfGrowthYoy,
-                @DividendYield, @DataSource, @LastFetchedAt, NOW()
+                @DividendYield, @DividendPerShare,
+                @DataSource, @LastFetchedAt, NOW()
             )
             ON CONFLICT (stock_ticker_id, fiscal_year, fiscal_quarter)
             DO UPDATE SET
@@ -57,9 +59,11 @@ public class FundamentalsRepository : IFundamentalsRepository
                 eps_growth_yoy = EXCLUDED.eps_growth_yoy,
                 debt_to_equity = EXCLUDED.debt_to_equity,
                 interest_coverage = EXCLUDED.interest_coverage,
+                beta = EXCLUDED.beta,
                 free_cash_flow = EXCLUDED.free_cash_flow,
                 fcf_growth_yoy = EXCLUDED.fcf_growth_yoy,
                 dividend_yield = EXCLUDED.dividend_yield,
+                dividend_per_share = EXCLUDED.dividend_per_share,
                 data_source = EXCLUDED.data_source,
                 last_fetched_at = EXCLUDED.last_fetched_at,
                 updated_at = NOW()";
@@ -94,9 +98,11 @@ public class FundamentalsRepository : IFundamentalsRepository
                 eps_growth_yoy as EpsGrowthYoy,
                 debt_to_equity as DebtToEquity,
                 interest_coverage as InterestCoverage,
+                beta as Beta,
                 free_cash_flow as FreeCashFlow,
                 fcf_growth_yoy as FcfGrowthYoy,
                 dividend_yield as DividendYield,
+                dividend_per_share as DividendPerShare,
                 data_source as DataSource,
                 last_fetched_at as LastFetchedAt,
                 created_at as CreatedAt,
@@ -134,9 +140,11 @@ public class FundamentalsRepository : IFundamentalsRepository
                 eps_growth_yoy as EpsGrowthYoy,
                 debt_to_equity as DebtToEquity,
                 interest_coverage as InterestCoverage,
+                beta as Beta,
                 free_cash_flow as FreeCashFlow,
                 fcf_growth_yoy as FcfGrowthYoy,
                 dividend_yield as DividendYield,
+                dividend_per_share as DividendPerShare,
                 data_source as DataSource,
                 last_fetched_at as LastFetchedAt,
                 created_at as CreatedAt,

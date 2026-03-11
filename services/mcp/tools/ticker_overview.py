@@ -215,8 +215,8 @@ async def _fetch_fundamentals(conn, symbol: str) -> dict:
             f.roe, f.roic, f.operating_margin,
             f.revenue_ttm, f.revenue_growth_yoy,
             f.eps_ttm, f.eps_growth_yoy,
-            f.debt_to_equity, f.interest_coverage,
-            f.free_cash_flow, f.dividend_yield
+            f.debt_to_equity, f.interest_coverage, f.beta,
+            f.free_cash_flow, f.dividend_yield, f.dividend_per_share
         FROM analysis_stock_fundamentals f
         JOIN stock_tickers st ON f.stock_ticker_id = st.id
         WHERE UPPER(st.symbol) = UPPER($1)
@@ -250,7 +250,9 @@ async def _fetch_fundamentals(conn, symbol: str) -> dict:
         "health": {
             "debt_to_equity": _float(row["debt_to_equity"]),
             "interest_coverage": _float(row["interest_coverage"]),
+            "beta": _float(row["beta"]),
             "dividend_yield": _float(row["dividend_yield"]),
+            "dividend_per_share": _float(row["dividend_per_share"]),
         },
     }
 

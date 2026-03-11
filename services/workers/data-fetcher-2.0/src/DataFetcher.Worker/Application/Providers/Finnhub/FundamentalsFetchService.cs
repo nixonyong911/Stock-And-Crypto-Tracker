@@ -148,8 +148,11 @@ public class FundamentalsFetchService : IFundamentalsFetchService
                                   _calcService.ExtractMetric(metrics, "operatingMarginAnnual"),
                 DebtToEquity = _calcService.ExtractMetric(metrics, "totalDebt/totalEquityQuarterly") ??
                                _calcService.ExtractMetric(metrics, "totalDebt/totalEquityAnnual"),
+                Beta = _calcService.ExtractMetric(metrics, "beta"),
                 DividendYield = _calcService.ExtractMetric(metrics, "dividendYieldIndicatedAnnual") ??
                                 _calcService.ExtractMetric(metrics, "dividendYield5Y"),
+                DividendPerShare = _calcService.ExtractMetric(metrics, "dividendPerShareAnnual") ??
+                                   _calcService.ExtractMetric(metrics, "dividendPerShareTTM"),
                 RevenueTtm = _calcService.ExtractMetric(metrics, "revenuePerShareTTM") ??
                              _calcService.ExtractMetric(metrics, "revenuePerShareAnnual"),
                 EpsTtm = _calcService.ExtractMetric(metrics, "epsBasicExclExtraItemsTTM") ??

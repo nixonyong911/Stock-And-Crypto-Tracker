@@ -32,6 +32,7 @@ public class FundamentalsData
     // Stability Metrics
     public decimal? DebtToEquity { get; set; }
     public decimal? InterestCoverage { get; set; }
+    public decimal? Beta { get; set; }
 
     // Cash Flow Metrics
     public decimal? FreeCashFlow { get; set; }
@@ -39,6 +40,7 @@ public class FundamentalsData
 
     // Shareholder Value
     public decimal? DividendYield { get; set; }
+    public decimal? DividendPerShare { get; set; }
 
     // Metadata
     public string DataSource { get; set; } = "Finnhub";

@@ -108,7 +108,8 @@ async def screen_stocks(
         from_parts.append("""
             LATERAL (
                 SELECT f.pe_ratio, f.roe, f.revenue_growth_yoy, f.debt_to_equity,
-                       f.operating_margin, f.fcf_yield, f.peg_ratio, f.market_cap
+                       f.operating_margin, f.fcf_yield, f.peg_ratio, f.market_cap,
+                       f.beta, f.dividend_per_share
                 FROM analysis_stock_fundamentals f
                 WHERE f.stock_ticker_id = st.id
                 ORDER BY f.fiscal_year DESC, f.fiscal_quarter DESC
@@ -118,6 +119,7 @@ async def screen_stocks(
             "fund.pe_ratio", "fund.roe", "fund.revenue_growth_yoy",
             "fund.debt_to_equity", "fund.operating_margin", "fund.fcf_yield",
             "fund.peg_ratio", "fund.market_cap",
+            "fund.beta", "fund.dividend_per_share",
         ])
 
         if max_pe is not None:
@@ -243,6 +245,8 @@ async def screen_stocks(
             matched_data["fcf_yield"] = _float(row.get("fcf_yield"))
             matched_data["peg_ratio"] = _float(row.get("peg_ratio"))
             matched_data["market_cap"] = _float(row.get("market_cap"))
+            matched_data["beta"] = _float(row.get("beta"))
+            matched_data["dividend_per_share"] = _float(row.get("dividend_per_share"))
 
         if has_pattern:
             patterns_raw = row.get("detected_patterns")
