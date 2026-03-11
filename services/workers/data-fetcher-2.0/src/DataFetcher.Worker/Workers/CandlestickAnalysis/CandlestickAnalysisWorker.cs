@@ -98,6 +98,7 @@ public class CandlestickAnalysisWorker : BackgroundService
                     await _metrics.IncrementCounterAsync("job_executions_total", 1,
                         new Dictionary<string, string> { ["status"] = "started" });
 
+                    var startedAt = DateTime.UtcNow;
                     try
                     {
                         using var analysisScope = _serviceProvider.CreateScope();
@@ -133,6 +134,13 @@ public class CandlestickAnalysisWorker : BackgroundService
                             overallSuccess ? "success" : "partial",
                             statusMessage);
 
+                        await fetchScheduleRepo.LogExecutionAsync(
+                            schedule.Id,
+                            overallSuccess ? "success" : "partial",
+                            statusMessage,
+                            (int)(DateTime.UtcNow - startedAt).TotalMilliseconds,
+                            startedAt);
+
                         await _metrics.IncrementCounterAsync("job_executions_total", 1,
                             new Dictionary<string, string> { ["status"] = "completed" });
                     }
@@ -148,6 +156,10 @@ public class CandlestickAnalysisWorker : BackgroundService
                         using var errorScope = _serviceProvider.CreateScope();
                         var fetchScheduleRepo = errorScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
                         await fetchScheduleRepo.UpdateLastRunAsync(schedule.Id, "failed", ex.Message);
+
+                        await fetchScheduleRepo.LogExecutionAsync(
+                            schedule.Id, "failed", ex.Message,
+                            (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
 
                         await _metrics.IncrementCounterAsync("job_executions_total", 1,
                             new Dictionary<string, string> { ["status"] = "failed" });

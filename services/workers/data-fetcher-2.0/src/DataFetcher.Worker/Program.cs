@@ -27,7 +27,11 @@ using DataFetcher.Worker.Infrastructure.Providers.Alpaca;
 using DataFetcher.Worker.Infrastructure.Providers.Alpaca.Repositories;
 using DataFetcher.Worker.Workers.Alpaca;
 using DataFetcher.Worker.Application.Providers.LocalIndicators;
+using DataFetcher.Worker.Application.Providers.MarketAuxNews;
+using DataFetcher.Worker.Infrastructure.Providers.MarketAuxNews;
+using DataFetcher.Worker.Infrastructure.Providers.MarketAuxNews.Repositories;
 using DataFetcher.Worker.Workers.LocalIndicators;
+using DataFetcher.Worker.Workers.MarketAuxNews;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using Polly;
@@ -70,6 +74,8 @@ try
         builder.Configuration.GetSection("Providers:Alpaca"));
     builder.Services.Configure<GatewaySettings>(
         builder.Configuration.GetSection("Gateway"));
+    builder.Services.Configure<MarketAuxSettings>(
+        builder.Configuration.GetSection("Providers:MarketAux"));
 
     // Infrastructure - Common
     builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
@@ -141,6 +147,12 @@ try
     // Infrastructure - Massive Indicator Queue Publisher
     builder.Services.AddSingleton<IMassiveIndicatorQueuePublisher, MassiveIndicatorQueuePublisher>();
 
+    // Application & Infrastructure - MarketAux Provider
+    builder.Services.AddScoped<IMarketAuxNewsFetchService, MarketAuxNewsFetchService>();
+    builder.Services.AddScoped<INewsArticleRepository, NewsArticleRepository>();
+    builder.Services.AddHttpClient<IMarketAuxApiClient, MarketAuxApiClient>()
+        .AddPolicyHandler(GetRetryPolicy());
+
     // Infrastructure - Alpaca Provider
     builder.Services.AddScoped<IAlpacaStockPriceRepository, AlpacaStockPriceRepository>();
     builder.Services.AddScoped<IAlpacaCryptoPriceRepository, AlpacaCryptoPriceRepository>();
@@ -183,6 +195,9 @@ try
 
     // PriceTargetAnalysis worker
     builder.Services.AddHostedService<PriceTargetWorker>();
+
+    // MarketAux workers
+    builder.Services.AddHostedService<MarketAuxNewsWorker>();
 
     // Alpaca workers
     builder.Services.AddHostedService<AlpacaStockFetchWorker>();

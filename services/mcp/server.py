@@ -59,6 +59,7 @@ from tools.screener import screen_stocks
 from tools.fundamentals import compare_stocks
 from tools.economic import get_macro_environment
 from tools.earnings import get_earnings_history, get_market_earnings
+from tools.news import get_news_sentiment
 
 
 # ===========================================
@@ -222,6 +223,29 @@ class MarketEarningsInput(BaseModel):
         description="Minimum abs(surprise %) to include — filters out trivial beats/misses",
         ge=0,
     )
+
+
+class NewsSentimentInput(BaseModel):
+    """Input for news sentiment analysis."""
+    ticker: Optional[str] = Field(None, description="Ticker symbol to filter news by (e.g., 'AAPL', 'NVDA'). Omit for all market news.", max_length=20)
+    days_back: int = Field(default=7, description="Number of days to look back", ge=1, le=30)
+    category: Optional[str] = Field(None, description="News category filter: 'macro', 'geopolitical', 'policy', 'market'")
+    sentiment: Optional[str] = Field(None, description="Sentiment filter: 'positive', 'negative', 'neutral'")
+    limit: int = Field(default=20, description="Maximum articles to return", ge=1, le=50)
+
+    @field_validator('category')
+    @classmethod
+    def validate_category(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ("macro", "geopolitical", "policy", "market"):
+            raise ValueError(f"category must be 'macro', 'geopolitical', 'policy', or 'market', got '{v}'")
+        return v
+
+    @field_validator('sentiment')
+    @classmethod
+    def validate_sentiment(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ("positive", "negative", "neutral"):
+            raise ValueError(f"sentiment must be 'positive', 'negative', or 'neutral', got '{v}'")
+        return v
 
 
 class EarningsHistoryInput(BaseModel):
@@ -408,6 +432,27 @@ def _register_market_earnings(app: FastMCP) -> None:
         )
 
 
+def _register_news_sentiment(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_news_sentiment",
+        annotations={"title": "News Sentiment", **_RO_ANNOTATIONS},
+    )
+    async def analysis_news_sentiment(params: NewsSentimentInput, conn=Depends(get_db)) -> str:
+        """
+        Market-moving news with entity-level sentiment analysis.
+
+        Returns recent news articles from MarketAux covering Fed/FOMC, geopolitical
+        events, policy changes, and market-wide moves. Each article includes sentiment
+        scores and affected entities (tickers/indices). Provides aggregate sentiment
+        summary for the requested period.
+        """
+        return await get_news_sentiment(
+            conn=conn, ticker=params.ticker, days_back=params.days_back,
+            category=params.category, sentiment=params.sentiment,
+            limit=params.limit,
+        )
+
+
 def _register_earnings_history(app: FastMCP) -> None:
     @app.tool(
         name="analysis_earnings_history",
@@ -424,7 +469,7 @@ def _register_earnings_history(app: FastMCP) -> None:
 
 
 # ===========================================
-# Tool Registry (9 tools, all free tier)
+# Tool Registry (10 tools, all free tier)
 # ===========================================
 
 _TOOL_REGISTRY: dict[str, ToolEntry] = {
@@ -437,6 +482,7 @@ _TOOL_REGISTRY: dict[str, ToolEntry] = {
     "analysis_macro":             ToolEntry(fn=_register_macro,             min_tier="free"),
     "analysis_market_earnings":   ToolEntry(fn=_register_market_earnings,   min_tier="free"),
     "analysis_earnings_history":  ToolEntry(fn=_register_earnings_history,  min_tier="free"),
+    "analysis_news_sentiment":   ToolEntry(fn=_register_news_sentiment,   min_tier="free"),
 }
 
 

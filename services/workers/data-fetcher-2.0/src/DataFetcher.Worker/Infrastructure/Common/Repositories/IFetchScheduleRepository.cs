@@ -21,4 +21,14 @@ public interface IFetchScheduleRepository
     /// Updates the last run details for a schedule.
     /// </summary>
     Task UpdateLastRunAsync(int scheduleId, string status, string? message);
+
+    /// <summary>
+    /// Updates the fetch_config JSONB for a schedule.
+    /// </summary>
+    Task UpdateFetchConfigAsync(int scheduleId, string fetchConfigJson);
+
+    /// <summary>
+    /// Logs a worker execution to the execution history table and prunes old entries.
+    /// </summary>
+    Task LogExecutionAsync(int scheduleId, string status, string? message, int? durationMs, DateTime startedAt);
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ScheduleCard } from "@/components/schedule-card";
-import { FetchSchedule } from "@/lib/db/schedules";
+import { FetchSchedule, ExecutionLogEntry } from "@/lib/db/schedules";
 import { WorkerRegistry } from "@/lib/db/workers";
 import { Calendar, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ interface ScheduleWithWorker {
 
 export default function SchedulesPage() {
   const [schedulesWithWorkers, setSchedulesWithWorkers] = useState<ScheduleWithWorker[]>([]);
+  const [executionHistories, setExecutionHistories] = useState<Record<number, ExecutionLogEntry[]>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
@@ -48,6 +49,22 @@ export default function SchedulesPage() {
       });
 
       setSchedulesWithWorkers(joined);
+
+      // Fetch execution history for all schedules in one batch
+      const scheduleIds = joined.map((j: ScheduleWithWorker) => j.schedule.id);
+      if (scheduleIds.length > 0) {
+        try {
+          const histRes = await fetch(
+            `/back-office/api/schedules/history?ids=${scheduleIds.join(",")}`
+          );
+          if (histRes.ok) {
+            const { history } = await histRes.json();
+            setExecutionHistories(history || {});
+          }
+        } catch (histErr) {
+          console.error("Failed to load execution history:", histErr);
+        }
+      }
     } catch (err) {
       console.error("Failed to load schedules:", err);
     } finally {
@@ -209,6 +226,7 @@ export default function SchedulesPage() {
                       onToggle={handleToggle}
                       variant="compact"
                       isToggling={togglingIds.has(schedule.id)}
+                      executionHistory={executionHistories[schedule.id]}
                     />
                   ))}
                 </div>

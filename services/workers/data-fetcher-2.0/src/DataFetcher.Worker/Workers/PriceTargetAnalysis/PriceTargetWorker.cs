@@ -93,6 +93,7 @@ public class PriceTargetWorker : BackgroundService
                     await _metrics.IncrementCounterAsync("job_executions_total", 1,
                         new Dictionary<string, string> { ["status"] = "started", ["worker"] = "price-target" });
 
+                    var startedAt = DateTime.UtcNow;
                     try
                     {
                         using var analysisScope = _serviceProvider.CreateScope();
@@ -136,6 +137,13 @@ public class PriceTargetWorker : BackgroundService
                             overallSuccess ? "success" : "partial",
                             statusMessage);
 
+                        await fetchScheduleRepo.LogExecutionAsync(
+                            schedule.Id,
+                            overallSuccess ? "success" : "partial",
+                            statusMessage,
+                            (int)(DateTime.UtcNow - startedAt).TotalMilliseconds,
+                            startedAt);
+
                         await _metrics.IncrementCounterAsync("job_executions_total", 1,
                             new Dictionary<string, string> { ["status"] = "completed", ["worker"] = "price-target" });
                     }
@@ -149,6 +157,10 @@ public class PriceTargetWorker : BackgroundService
                         using var errorScope = _serviceProvider.CreateScope();
                         var fetchScheduleRepo = errorScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
                         await fetchScheduleRepo.UpdateLastRunAsync(schedule.Id, "failed", ex.Message);
+
+                        await fetchScheduleRepo.LogExecutionAsync(
+                            schedule.Id, "failed", ex.Message,
+                            (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
 
                         await _metrics.IncrementCounterAsync("job_executions_total", 1,
                             new Dictionary<string, string> { ["status"] = "failed", ["worker"] = "price-target" });

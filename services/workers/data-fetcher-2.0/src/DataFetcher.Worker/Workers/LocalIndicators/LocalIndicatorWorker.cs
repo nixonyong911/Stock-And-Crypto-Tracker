@@ -84,6 +84,7 @@ public class LocalIndicatorWorker : BackgroundService
                     await _metrics.IncrementCounterAsync($"{MetricsPrefix}_job_executions_total", 1,
                         new Dictionary<string, string> { ["status"] = "started" });
 
+                    var startedAt = DateTime.UtcNow;
                     var status = "success";
                     string? message = null;
 
@@ -112,6 +113,7 @@ public class LocalIndicatorWorker : BackgroundService
                         status = overallSuccess ? "success" : "partial";
 
                         await fetchScheduleRepo.UpdateLastRunAsync(schedule.Id, status, message);
+                        await fetchScheduleRepo.LogExecutionAsync(schedule.Id, status, message, (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
 
                         await _metrics.IncrementCounterAsync($"{MetricsPrefix}_job_executions_total", 1,
                             new Dictionary<string, string> { ["status"] = "completed" });
@@ -129,6 +131,7 @@ public class LocalIndicatorWorker : BackgroundService
                         using var errorScope = _serviceProvider.CreateScope();
                         var fetchScheduleRepo = errorScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
                         await fetchScheduleRepo.UpdateLastRunAsync(schedule.Id, "failed", ex.Message);
+                        await fetchScheduleRepo.LogExecutionAsync(schedule.Id, "failed", ex.Message, (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
 
                         await _metrics.IncrementCounterAsync($"{MetricsPrefix}_job_executions_total", 1,
                             new Dictionary<string, string> { ["status"] = "failed" });

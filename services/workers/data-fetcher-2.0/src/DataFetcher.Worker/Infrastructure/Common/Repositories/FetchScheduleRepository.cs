@@ -98,4 +98,58 @@ public class FetchScheduleRepository : IFetchScheduleRepository
 
         _logger.LogDebug("Updated last run for schedule {ScheduleId}: {Status}", scheduleId, status);
     }
+
+    /// <inheritdoc />
+    public async Task UpdateFetchConfigAsync(int scheduleId, string fetchConfigJson)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            UPDATE worker_fetch_schedules
+            SET fetch_config = @FetchConfig::jsonb,
+                updated_at = @UpdatedAt
+            WHERE id = @ScheduleId";
+
+        await connection.ExecuteAsync(sql, new
+        {
+            ScheduleId = scheduleId,
+            FetchConfig = fetchConfigJson,
+            UpdatedAt = DateTime.UtcNow
+        });
+    }
+
+    /// <inheritdoc />
+    public async Task LogExecutionAsync(int scheduleId, string status, string? message, int? durationMs, DateTime startedAt)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+
+            const string sql = @"
+                INSERT INTO worker_execution_log (schedule_id, status, message, duration_ms, started_at)
+                VALUES (@ScheduleId, @Status, @Message, @DurationMs, @StartedAt);
+                DELETE FROM worker_execution_log
+                WHERE id IN (
+                    SELECT id FROM worker_execution_log
+                    WHERE schedule_id = @ScheduleId
+                    ORDER BY completed_at DESC
+                    OFFSET 100
+                )";
+
+            await connection.ExecuteAsync(sql, new
+            {
+                ScheduleId = scheduleId,
+                Status = status,
+                Message = message,
+                DurationMs = durationMs,
+                StartedAt = startedAt
+            });
+
+            _logger.LogDebug("Logged execution for schedule {ScheduleId}: {Status} ({DurationMs}ms)", scheduleId, status, durationMs);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to log execution for schedule {ScheduleId} (non-fatal)", scheduleId);
+        }
+    }
 }

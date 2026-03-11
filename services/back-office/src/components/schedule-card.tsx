@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { FetchSchedule } from "@/lib/db/schedules";
+import { FetchSchedule, ExecutionLogEntry } from "@/lib/db/schedules";
 import { WorkerRegistry } from "@/lib/db/workers";
+import { ExecutionHistoryBar } from "@/components/execution-history-bar";
 import {
   Clock,
   Activity,
@@ -18,6 +19,7 @@ interface ScheduleCardProps {
   onToggle?: (scheduleId: number) => Promise<void>;
   variant?: "full" | "compact";
   isToggling?: boolean;
+  executionHistory?: ExecutionLogEntry[];
 }
 
 /**
@@ -31,6 +33,7 @@ export function ScheduleCard({
   onToggle,
   variant = "full",
   isToggling = false,
+  executionHistory,
 }: ScheduleCardProps) {
   const handleToggle = async () => {
     if (onToggle) {
@@ -134,6 +137,11 @@ export function ScheduleCard({
               <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">
                 {schedule.description}
               </p>
+            )}
+            {executionHistory && executionHistory.length > 0 && (
+              <div className="mt-1.5">
+                <ExecutionHistoryBar entries={executionHistory} />
+              </div>
             )}
           </div>
 
@@ -241,6 +249,14 @@ export function ScheduleCard({
             {schedule.last_run_status || "Never"}
           </span>
         </div>
+
+        {/* Execution history */}
+        {executionHistory && executionHistory.length > 0 && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-slate-500 w-20">History:</span>
+            <ExecutionHistoryBar entries={executionHistory} />
+          </div>
+        )}
       </div>
     </div>
   );

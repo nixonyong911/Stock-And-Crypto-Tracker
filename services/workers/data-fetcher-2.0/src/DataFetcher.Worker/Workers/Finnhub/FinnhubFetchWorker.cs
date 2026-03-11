@@ -73,6 +73,7 @@ public class FinnhubFetchWorker : BackgroundService
                 if (stoppingToken.IsCancellationRequested) break;
 
                 // Execute the work
+                var startedAt = DateTime.UtcNow;
                 var status = "success";
                 string? message = null;
 
@@ -104,6 +105,7 @@ public class FinnhubFetchWorker : BackgroundService
                 {
                     // Update last run with status and message
                     await scheduleRepo.UpdateLastRunAsync(schedule.Id, status, message);
+                    await scheduleRepo.LogExecutionAsync(schedule.Id, status, message, (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
                 }
             }
         }

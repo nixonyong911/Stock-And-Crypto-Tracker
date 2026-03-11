@@ -9,7 +9,8 @@ export interface TickerSignal {
     | "stop_loss_warning"
     | "signal_change"
     | "momentum_shift"
-    | "notable_pattern";
+    | "notable_pattern"
+    | "news_sentiment";
   priority: "high" | "medium" | "low";
   timeframeAlignment: "full" | "partial" | "conflict";
   headline: string;
@@ -34,6 +35,9 @@ export interface TickerSignal {
     currentSignal?: string;
     macdHistogram?: number;
     previousMacdHistogram?: number;
+    newsArticleCount?: number;
+    newsAvgSentiment?: number;
+    newsSentimentLabel?: string;
   };
 }
 
@@ -213,6 +217,39 @@ async function fetchCandlesticks(
      FROM ${table} cp
      JOIN ${tickerTable} t ON cp.${fk} = t.id
      WHERE cp.analysis_date = CURRENT_DATE${symbolClause}`,
+    params,
+  );
+  return rows;
+}
+
+export interface NewsSentimentRow {
+  symbol: string;
+  article_count: number;
+  avg_sentiment: string;
+}
+
+async function fetchNewsSentiment(
+  db: Pool,
+  symbolFilter?: string,
+): Promise<NewsSentimentRow[]> {
+  const params: unknown[] = [];
+  let symbolClause = "";
+  if (symbolFilter) {
+    symbolClause = " AND entities @> $1::jsonb";
+    params.push(JSON.stringify([{ symbol: symbolFilter.toUpperCase() }]));
+  }
+
+  const { rows } = await db.query<NewsSentimentRow>(
+    `SELECT
+       e.value->>'symbol' AS symbol,
+       COUNT(*) AS article_count,
+       AVG(avg_sentiment_score)::text AS avg_sentiment
+     FROM analysis_news_marketaux,
+          jsonb_array_elements(entities) AS e(value)
+     WHERE published_at >= NOW() - INTERVAL '48 hours'
+       AND avg_sentiment_score IS NOT NULL${symbolClause}
+     GROUP BY e.value->>'symbol'
+     HAVING COUNT(*) >= 3`,
     params,
   );
   return rows;
@@ -474,19 +511,61 @@ export function detectForTicker(ctx: TickerCtx): TickerSignal[] {
 
 // ── Public API ──────────────────────────────────────────────────────────
 
+function detectNewsSentimentSignals(
+  newsRows: NewsSentimentRow[],
+): TickerSignal[] {
+  const signals: TickerSignal[] = [];
+
+  for (const row of newsRows) {
+    const avg = toNum(row.avg_sentiment);
+    if (avg == null) continue;
+    const count = Number(row.article_count);
+
+    let direction: "bullish" | "bearish" | null = null;
+    if (avg >= 0.3) direction = "bullish";
+    else if (avg <= -0.3) direction = "bearish";
+    if (!direction) continue;
+
+    signals.push({
+      symbol: row.symbol,
+      assetType: "stock",
+      type: "news_sentiment",
+      priority: count >= 5 ? "high" : "medium",
+      timeframeAlignment: "partial",
+      headline: `${row.symbol} has ${direction} news sentiment (${count} articles, avg ${avg.toFixed(2)})`,
+      rawData: {
+        close: 0,
+        daySignal: "neutral",
+        swingSignal: "neutral",
+        longTermSignal: "neutral",
+        newsArticleCount: count,
+        newsAvgSentiment: avg,
+        newsSentimentLabel: direction,
+      },
+    });
+  }
+
+  return signals;
+}
+
 export async function detectSignals(
   db: Pool,
   assetType: "stock" | "crypto",
 ): Promise<TickerSignal[]> {
-  const [targets, indicators, candles] = await Promise.all([
+  const [targets, indicators, candles, newsRows] = await Promise.all([
     fetchPriceTargets(db, assetType),
     fetchIndicators(db, assetType),
     fetchCandlesticks(db, assetType),
+    fetchNewsSentiment(db),
   ]);
 
-  return buildContexts(assetType, targets, indicators, candles).flatMap(
+  const technicalSignals = buildContexts(assetType, targets, indicators, candles).flatMap(
     detectForTicker,
   );
+
+  const newsSignals = detectNewsSentimentSignals(newsRows);
+
+  return [...technicalSignals, ...newsSignals];
 }
 
 export async function detectSignalsForTicker(
@@ -494,13 +573,18 @@ export async function detectSignalsForTicker(
   symbol: string,
   assetType: "stock" | "crypto",
 ): Promise<TickerSignal[]> {
-  const [targets, indicators, candles] = await Promise.all([
+  const [targets, indicators, candles, newsRows] = await Promise.all([
     fetchPriceTargets(db, assetType, symbol),
     fetchIndicators(db, assetType, symbol),
     fetchCandlesticks(db, assetType, symbol),
+    fetchNewsSentiment(db, symbol),
   ]);
 
-  return buildContexts(assetType, targets, indicators, candles).flatMap(
+  const technicalSignals = buildContexts(assetType, targets, indicators, candles).flatMap(
     detectForTicker,
   );
+
+  const newsSignals = detectNewsSentimentSignals(newsRows);
+
+  return [...technicalSignals, ...newsSignals];
 }

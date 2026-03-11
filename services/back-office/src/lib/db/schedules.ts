@@ -148,3 +148,51 @@ export async function refreshSchedulesCache(): Promise<FetchSchedule[]> {
   // Fetch fresh from database and re-cache
   return getSchedules();
 }
+
+// Execution history types
+export interface ExecutionLogEntry {
+  id: number;
+  schedule_id: number;
+  status: string;
+  message: string | null;
+  duration_ms: number | null;
+  started_at: string;
+  completed_at: string;
+}
+
+/**
+ * Get execution history for multiple schedules in a single query.
+ * Returns last N executions per schedule, keyed by schedule_id.
+ */
+export async function getExecutionHistory(
+  scheduleIds: number[],
+  limit = 20,
+): Promise<Record<number, ExecutionLogEntry[]>> {
+  if (scheduleIds.length === 0) return {};
+
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("worker_execution_log")
+    .select("id, schedule_id, status, message, duration_ms, started_at, completed_at")
+    .in("schedule_id", scheduleIds)
+    .order("completed_at", { ascending: false })
+    .limit(limit * scheduleIds.length);
+
+  if (error) {
+    console.error("Failed to fetch execution history:", error);
+    throw error;
+  }
+
+  const grouped: Record<number, ExecutionLogEntry[]> = {};
+  for (const row of data || []) {
+    if (!grouped[row.schedule_id]) {
+      grouped[row.schedule_id] = [];
+    }
+    if (grouped[row.schedule_id].length < limit) {
+      grouped[row.schedule_id].push(row);
+    }
+  }
+
+  return grouped;
+}

@@ -187,6 +187,10 @@ services:
       - Providers__Alpaca__CryptoLoc=us
       - Providers__Alpaca__FetchIntervalMinutes=30
       - Providers__Alpaca__RateLimitThreshold=10
+      # MarketAux Provider (news sentiment)
+      - Providers__MarketAux__ApiKey=${MARKETAUX_API_KEY}
+      - Providers__MarketAux__BaseUrl=https://api.marketaux.com/v1
+      - Providers__MarketAux__DailyRequestBudget=80
       # Gateway (price alert notifications)
       - Gateway__BaseUrl=http://gateway-2.0:8080
       - Gateway__InternalServiceKey=${INTERNAL_SERVICE_KEY}

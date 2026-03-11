@@ -60,6 +60,7 @@ public class AlpacaCryptoFetchWorker : BackgroundService
                 var fetchService = scope.ServiceProvider.GetRequiredService<IAlpacaCryptoFetchService>();
                 var scheduleRepo = scope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
 
+                var startedAt = DateTime.UtcNow;
                 var status = "success";
                 string? message = null;
 
@@ -87,7 +88,10 @@ public class AlpacaCryptoFetchWorker : BackgroundService
 
                 var schedule = await scheduleRepo.GetScheduleByNameAsync("Alpaca Crypto Fetch");
                 if (schedule != null)
+                {
                     await scheduleRepo.UpdateLastRunAsync(schedule.Id, status, message);
+                    await scheduleRepo.LogExecutionAsync(schedule.Id, status, message, (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)

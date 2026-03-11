@@ -85,6 +85,7 @@ public class MassiveFetchWorker : BackgroundService
                 if (stoppingToken.IsCancellationRequested) break;
 
                 // Execute the work - publish messages to queue
+                var startedAt = DateTime.UtcNow;
                 var status = "success";
                 string? message = null;
 
@@ -164,6 +165,7 @@ public class MassiveFetchWorker : BackgroundService
                 {
                     // Update last run with status and message
                     await scheduleRepo.UpdateLastRunAsync(schedule.Id, status, message);
+                    await scheduleRepo.LogExecutionAsync(schedule.Id, status, message, (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
                 }
             }
         }
