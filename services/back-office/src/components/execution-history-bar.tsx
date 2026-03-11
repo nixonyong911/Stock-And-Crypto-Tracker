@@ -47,18 +47,18 @@ export function ExecutionHistoryBar({
   const successCount = slots.filter((e) => e.status === "success").length;
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-px">
+    <div className="flex items-center gap-2 w-full">
+      <div className="flex items-center gap-[2px] flex-1 min-w-0">
         {Array.from({ length: emptyCount }).map((_, i) => (
           <div
             key={`empty-${i}`}
-            className="w-[4px] h-4 rounded-[1px] bg-slate-700/50"
+            className="flex-1 h-4 rounded-[1px] bg-slate-700/50 min-w-[3px]"
           />
         ))}
         {slots.map((entry) => (
-          <div key={entry.id} className="relative group">
+          <div key={entry.id} className="relative group flex-1 min-w-[3px]">
             <div
-              className={`w-[4px] h-4 rounded-[1px] ${STATUS_COLORS[entry.status] || "bg-slate-600"}`}
+              className={`h-4 rounded-[1px] ${STATUS_COLORS[entry.status] || "bg-slate-600"}`}
             />
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
               <div className="bg-slate-800 border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-slate-200 whitespace-nowrap shadow-lg">
