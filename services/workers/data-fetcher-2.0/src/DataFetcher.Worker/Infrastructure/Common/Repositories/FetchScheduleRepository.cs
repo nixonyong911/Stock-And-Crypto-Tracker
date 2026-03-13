@@ -178,6 +178,9 @@ public class FetchScheduleRepository : IFetchScheduleRepository
                 fs.created_at as CreatedAt,
                 fs.updated_at as UpdatedAt
             FROM worker_fetch_schedules fs
+            LEFT JOIN worker_registry wr ON fs.worker_id = wr.id
+            WHERE wr.name = 'data-fetcher-2.0'
+               OR fs.worker_id IS NULL
             ORDER BY fs.name";
 
         var results = await connection.QueryAsync<FetchSchedule>(sql);
