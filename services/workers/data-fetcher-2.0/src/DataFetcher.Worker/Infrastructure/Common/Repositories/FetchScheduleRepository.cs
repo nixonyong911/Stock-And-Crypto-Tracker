@@ -27,6 +27,7 @@ public class FetchScheduleRepository : IFetchScheduleRepository
                 fs.id as Id,
                 fs.data_source_id as DataSourceId,
                 fs.name as Name,
+                fs.description as Description,
                 fs.schedule_time as ScheduleTime,
                 fs.schedule_timezone as ScheduleTimezone,
                 fs.is_enabled as IsEnabled,
@@ -56,6 +57,7 @@ public class FetchScheduleRepository : IFetchScheduleRepository
                 fs.id as Id,
                 fs.data_source_id as DataSourceId,
                 fs.name as Name,
+                fs.description as Description,
                 fs.schedule_time as ScheduleTime,
                 fs.schedule_timezone as ScheduleTimezone,
                 fs.is_enabled as IsEnabled,
@@ -151,5 +153,68 @@ public class FetchScheduleRepository : IFetchScheduleRepository
         {
             _logger.LogWarning(ex, "Failed to log execution for schedule {ScheduleId} (non-fatal)", scheduleId);
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<FetchSchedule>> GetAllSchedulesAsync()
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            SELECT
+                fs.id as Id,
+                fs.data_source_id as DataSourceId,
+                fs.name as Name,
+                fs.description as Description,
+                fs.schedule_time as ScheduleTime,
+                fs.schedule_timezone as ScheduleTimezone,
+                fs.is_enabled as IsEnabled,
+                fs.fetch_config::text as FetchConfig,
+                fs.last_run_at as LastRunAt,
+                fs.last_run_status as LastRunStatus,
+                fs.last_run_message as LastRunMessage,
+                fs.interval_minutes as IntervalMinutes,
+                fs.offset_minutes as OffsetMinutes,
+                fs.created_at as CreatedAt,
+                fs.updated_at as UpdatedAt
+            FROM worker_fetch_schedules fs
+            ORDER BY fs.name";
+
+        var results = await connection.QueryAsync<FetchSchedule>(sql);
+        return results.ToList().AsReadOnly();
+    }
+
+    /// <inheritdoc />
+    public async Task<FetchSchedule?> ToggleScheduleAsync(int scheduleId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            UPDATE worker_fetch_schedules
+            SET is_enabled = NOT is_enabled,
+                updated_at = @UpdatedAt
+            WHERE id = @ScheduleId
+            RETURNING
+                id as Id,
+                data_source_id as DataSourceId,
+                name as Name,
+                description as Description,
+                schedule_time as ScheduleTime,
+                schedule_timezone as ScheduleTimezone,
+                is_enabled as IsEnabled,
+                fetch_config::text as FetchConfig,
+                last_run_at as LastRunAt,
+                last_run_status as LastRunStatus,
+                last_run_message as LastRunMessage,
+                interval_minutes as IntervalMinutes,
+                offset_minutes as OffsetMinutes,
+                created_at as CreatedAt,
+                updated_at as UpdatedAt";
+
+        return await connection.QueryFirstOrDefaultAsync<FetchSchedule>(sql, new
+        {
+            ScheduleId = scheduleId,
+            UpdatedAt = DateTime.UtcNow
+        });
     }
 }

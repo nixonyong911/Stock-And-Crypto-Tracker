@@ -8,6 +8,7 @@ public class FetchSchedule
     public int Id { get; set; }
     public int DataSourceId { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public TimeSpan ScheduleTime { get; set; }
     public string ScheduleTimezone { get; set; } = "America/New_York";
     public bool IsEnabled { get; set; }

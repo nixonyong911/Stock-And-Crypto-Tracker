@@ -78,6 +78,7 @@ func main() {
 	srv := server.New(cfg.HTTPPort, repository, fredClient, metricsClient,
 		func() error { return runFetch(ctx, repository, fredClient, metricsClient) },
 		func() error { return runCalendarSync(ctx, repository, fredClient, metricsClient) },
+		cfg.ScheduleTime, cfg.ScheduleTimezone,
 	)
 
 	// Start schedulers in background

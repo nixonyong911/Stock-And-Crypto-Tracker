@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -22,6 +23,8 @@ type Server struct {
 	triggerFunc      func() error
 	calendarSyncFunc func() error
 	httpServer       *http.Server
+	scheduleTime     string
+	scheduleTimezone string
 }
 
 // StatusResponse represents the /api/fred/status response
@@ -64,7 +67,7 @@ type TriggerResponse struct {
 }
 
 // New creates a new HTTP server
-func New(port string, repo *db.Repository, fredClient *fred.Client, metricsClient *metrics.Client, triggerFunc func() error, calendarSyncFunc func() error) *Server {
+func New(port string, repo *db.Repository, fredClient *fred.Client, metricsClient *metrics.Client, triggerFunc func() error, calendarSyncFunc func() error, scheduleTime string, scheduleTimezone string) *Server {
 	return &Server{
 		port:             port,
 		repository:       repo,
@@ -72,6 +75,8 @@ func New(port string, repo *db.Repository, fredClient *fred.Client, metricsClien
 		metricsClient:    metricsClient,
 		triggerFunc:      triggerFunc,
 		calendarSyncFunc: calendarSyncFunc,
+		scheduleTime:     scheduleTime,
+		scheduleTimezone: scheduleTimezone,
 	}
 }
 
@@ -91,6 +96,9 @@ func (s *Server) Start() error {
 	// Calendar endpoints
 	mux.HandleFunc("GET /calendar", s.handleGetCalendar)
 	mux.HandleFunc("POST /calendar/sync", s.handleCalendarSync)
+
+	// Schedule discovery endpoint
+	mux.HandleFunc("GET /schedules", s.handleSchedules)
 
 	s.httpServer = &http.Server{
 		Addr:         ":" + s.port,
@@ -396,3 +404,66 @@ func (s *Server) handleCalendarSync(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(response)
 }
+
+// ========================================
+// Schedule Discovery Endpoint
+// ========================================
+
+// SchedulesResponse represents the /schedules discovery response
+type SchedulesResponse struct {
+	Service   string             `json:"service"`
+	Schedules []ScheduleEntryDTO `json:"schedules"`
+}
+
+// ScheduleEntryDTO represents a single schedule entry
+type ScheduleEntryDTO struct {
+	Name             string  `json:"name"`
+	Description      string  `json:"description"`
+	IsEnabled        bool    `json:"is_enabled"`
+	Cadence          string  `json:"cadence"`
+	CadenceType      string  `json:"cadence_type"`
+	IntervalMinutes  *int    `json:"interval_minutes"`
+	OffsetMinutes    *int    `json:"offset_minutes"`
+	ScheduleTime     *string `json:"schedule_time"`
+	ScheduleTimezone *string `json:"schedule_timezone"`
+	LastRunAt        *string `json:"last_run_at"`
+	LastRunStatus    *string `json:"last_run_status"`
+	LastRunMessage   *string `json:"last_run_message"`
+	TriggerEndpoint  *string `json:"trigger_endpoint"`
+}
+
+func (s *Server) handleSchedules(w http.ResponseWriter, r *http.Request) {
+	triggerAll := "/trigger/all"
+	calendarSync := "/calendar/sync"
+
+	response := SchedulesResponse{
+		Service: "fred-worker",
+		Schedules: []ScheduleEntryDTO{
+			{
+				Name:             "FRED Daily Macro Fetch",
+				Description:      "Fetches latest observations for all active FRED economic indicators",
+				IsEnabled:        true,
+				Cadence:          fmt.Sprintf("Daily at %s %s", s.scheduleTime, s.scheduleTimezone),
+				CadenceType:      "daily",
+				ScheduleTime:     &s.scheduleTime,
+				ScheduleTimezone: &s.scheduleTimezone,
+				TriggerEndpoint:  &triggerAll,
+			},
+			{
+				Name:             "FRED Weekly Calendar Sync",
+				Description:      "Syncs release calendar dates for all tracked economic indicators",
+				IsEnabled:        true,
+				Cadence:          fmt.Sprintf("Weekly (Sunday) at 00:00 %s", s.scheduleTimezone),
+				CadenceType:      "weekly",
+				ScheduleTime:     strPtr("00:00"),
+				ScheduleTimezone: &s.scheduleTimezone,
+				TriggerEndpoint:  &calendarSync,
+			},
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func strPtr(s string) *string { return &s }

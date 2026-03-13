@@ -11,6 +11,7 @@ export interface WorkerRegistry {
   service_type: string;
   health_endpoint: string | null;
   status_endpoint: string | null;
+  schedules_endpoint: string | null;
   config_schema: Record<string, unknown> | null;
   is_active: boolean;
   last_health_check: string | null;

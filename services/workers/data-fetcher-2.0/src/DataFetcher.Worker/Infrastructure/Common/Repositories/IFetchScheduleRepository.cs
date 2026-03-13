@@ -31,4 +31,14 @@ public interface IFetchScheduleRepository
     /// Logs a worker execution to the execution history table and prunes old entries.
     /// </summary>
     Task LogExecutionAsync(int scheduleId, string status, string? message, int? durationMs, DateTime startedAt);
+
+    /// <summary>
+    /// Gets all schedules (for discovery endpoint).
+    /// </summary>
+    Task<IReadOnlyList<FetchSchedule>> GetAllSchedulesAsync();
+
+    /// <summary>
+    /// Toggles the is_enabled flag for a schedule.
+    /// </summary>
+    Task<FetchSchedule?> ToggleScheduleAsync(int scheduleId);
 }
