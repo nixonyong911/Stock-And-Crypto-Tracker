@@ -13,10 +13,12 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 public class ProvidersController : ControllerBase
 {
     private readonly IProviderRegistry _registry;
+    private readonly ILogger<ProvidersController> _logger;
 
-    public ProvidersController(IProviderRegistry registry)
+    public ProvidersController(IProviderRegistry registry, ILogger<ProvidersController> logger)
     {
         _registry = registry;
+        _logger = logger;
     }
 
     /// <summary>
@@ -26,6 +28,14 @@ public class ProvidersController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<ProviderInfo>), 200)]
     public IActionResult GetAll()
     {
-        return Ok(_registry.GetAll());
+        try
+        {
+            return Ok(_registry.GetAll());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetAll");
+            return StatusCode(500, new { message = "Failed to retrieve providers", error = ex.Message });
+        }
     }
 }

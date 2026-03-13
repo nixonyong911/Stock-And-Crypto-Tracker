@@ -174,13 +174,31 @@ jobs:
           done
 
   # ===========================================
+  # Run data-fetcher-2.0 unit tests before build
+  # ===========================================
+  test-datafetcher:
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.datafetcher2 == 'true' && github.event.inputs.rollback_service == ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Run data-fetcher-2.0 tests
+        working-directory: services/workers/data-fetcher-2.0
+        run: dotnet test --verbosity normal
+
+  # ===========================================
   # PHASE 3: Build only changed services (parallel)
   # ===========================================
   build:
-    needs: [detect-changes]
+    needs: [detect-changes, test-datafetcher]
     runs-on: ubuntu-latest
-    # Skip build job entirely if only config changed and not forcing
-    if: needs.detect-changes.outputs.any_service == 'true' || github.event.inputs.force_build == 'true'
+    if: |
+      always() &&
+      needs.test-datafetcher.result != 'failure' &&
+      (needs.detect-changes.outputs.any_service == 'true' || github.event.inputs.force_build == 'true')
     outputs:
       build_success: ${{ steps.build-result.outputs.success }}
       images_built: ${{ steps.build-result.outputs.images }}
@@ -449,9 +467,10 @@ jobs:
   # Deploy to VM
   # ===========================================
   deploy:
-    needs: [detect-changes, build]
+    needs: [detect-changes, build, test-datafetcher]
     # Always run deploy (even if build was skipped for config-only changes)
-    if: always() && !cancelled()
+    # But block if tests failed
+    if: always() && !cancelled() && needs.test-datafetcher.result != 'failure'
     runs-on: ubuntu-latest
 
     steps:

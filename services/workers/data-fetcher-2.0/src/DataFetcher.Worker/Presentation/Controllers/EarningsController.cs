@@ -35,24 +35,32 @@ public class EarningsController : ControllerBase
     [ProducesResponseType(typeof(EarningsSyncStatusResponse), 200)]
     public async Task<IActionResult> GetStatus()
     {
-        var schedule = await _scheduleRepo.GetScheduleByNameAsync("Monthly Earnings Sync");
-
-        return Ok(new EarningsSyncStatusResponse
+        try
         {
-            Service = "EarningsSync",
-            Description = "Combines Alpha Vantage (upcoming dates) + Finnhub (historical actuals)",
-            Status = schedule?.IsEnabled == true ? "Enabled" : "Disabled",
-            Schedule = schedule != null ? new ScheduleSummary
+            var schedule = await _scheduleRepo.GetScheduleByNameAsync("Monthly Earnings Sync");
+
+            return Ok(new EarningsSyncStatusResponse
             {
-                Name = schedule.Name,
-                ScheduleTime = schedule.ScheduleTime.ToString(@"hh\:mm\:ss"),
-                ScheduleTimezone = schedule.ScheduleTimezone,
-                IsEnabled = schedule.IsEnabled,
-                LastRunAt = schedule.LastRunAt,
-                LastRunStatus = schedule.LastRunStatus,
-                LastRunMessage = schedule.LastRunMessage
-            } : null
-        });
+                Service = "EarningsSync",
+                Description = "Combines Alpha Vantage (upcoming dates) + Finnhub (historical actuals)",
+                Status = schedule?.IsEnabled == true ? "Enabled" : "Disabled",
+                Schedule = schedule != null ? new ScheduleSummary
+                {
+                    Name = schedule.Name,
+                    ScheduleTime = schedule.ScheduleTime.ToString(@"hh\:mm\:ss"),
+                    ScheduleTimezone = schedule.ScheduleTimezone,
+                    IsEnabled = schedule.IsEnabled,
+                    LastRunAt = schedule.LastRunAt,
+                    LastRunStatus = schedule.LastRunStatus,
+                    LastRunMessage = schedule.LastRunMessage
+                } : null
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetStatus");
+            return StatusCode(500, new { message = "Failed to retrieve earnings status", error = ex.Message });
+        }
     }
 
     /// <summary>

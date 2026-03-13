@@ -43,29 +43,37 @@ public class FinnhubController : ControllerBase
     [ProducesResponseType(typeof(FinnhubStatusResponse), 200)]
     public async Task<IActionResult> GetStatus()
     {
-        var schedule = await _scheduleRepo.GetScheduleByDataSourceNameAsync("Finnhub");
-
-        return Ok(new FinnhubStatusResponse
+        try
         {
-            Provider = "Finnhub",
-            Status = schedule?.IsEnabled == true ? "Running" : "Disabled",
-            Config = new FinnhubConfigInfo
+            var schedule = await _scheduleRepo.GetScheduleByDataSourceNameAsync("Finnhub");
+
+            return Ok(new FinnhubStatusResponse
             {
-                BaseUrl = _settings.BaseUrl,
-                RateLimitDelayMs = _settings.RateLimitDelayMs,
-                HasApiKey = !string.IsNullOrEmpty(_settings.ApiKey)
-            },
-            Schedule = schedule != null ? new ScheduleInfo
-            {
-                Name = schedule.Name,
-                ScheduleTime = schedule.ScheduleTime.ToString(@"hh\:mm\:ss"),
-                ScheduleTimezone = schedule.ScheduleTimezone,
-                IsEnabled = schedule.IsEnabled,
-                LastRunAt = schedule.LastRunAt,
-                LastRunStatus = schedule.LastRunStatus,
-                LastRunMessage = schedule.LastRunMessage
-            } : null
-        });
+                Provider = "Finnhub",
+                Status = schedule?.IsEnabled == true ? "Running" : "Disabled",
+                Config = new FinnhubConfigInfo
+                {
+                    BaseUrl = _settings.BaseUrl,
+                    RateLimitDelayMs = _settings.RateLimitDelayMs,
+                    HasApiKey = !string.IsNullOrEmpty(_settings.ApiKey)
+                },
+                Schedule = schedule != null ? new ScheduleInfo
+                {
+                    Name = schedule.Name,
+                    ScheduleTime = schedule.ScheduleTime.ToString(@"hh\:mm\:ss"),
+                    ScheduleTimezone = schedule.ScheduleTimezone,
+                    IsEnabled = schedule.IsEnabled,
+                    LastRunAt = schedule.LastRunAt,
+                    LastRunStatus = schedule.LastRunStatus,
+                    LastRunMessage = schedule.LastRunMessage
+                } : null
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetStatus");
+            return StatusCode(500, new { message = "Failed to retrieve Finnhub status", error = ex.Message });
+        }
     }
 
     /// <summary>

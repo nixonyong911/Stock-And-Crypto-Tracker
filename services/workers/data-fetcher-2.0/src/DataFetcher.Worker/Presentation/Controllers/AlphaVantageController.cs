@@ -42,32 +42,40 @@ public class AlphaVantageController : ControllerBase
     [ProducesResponseType(typeof(AlphaVantageStatusResponse), 200)]
     public async Task<IActionResult> GetStatus()
     {
-        var schedule = await _scheduleRepo.GetScheduleByDataSourceNameAsync("AlphaVantage");
-        var tickers = await _tickerRepo.GetActiveTickersAsync();
-
-        return Ok(new AlphaVantageStatusResponse
+        try
         {
-            Provider = "AlphaVantage",
-            Status = schedule?.IsEnabled == true ? "Running" : "Disabled",
-            Config = new AlphaVantageConfigInfo
+            var schedule = await _scheduleRepo.GetScheduleByDataSourceNameAsync("AlphaVantage");
+            var tickers = await _tickerRepo.GetActiveTickersAsync();
+
+            return Ok(new AlphaVantageStatusResponse
             {
-                BaseUrl = _settings.BaseUrl,
-                RateLimitDelayMs = _settings.RateLimitDelayMs,
-                Horizon = _settings.Horizon,
-                HasApiKey = !string.IsNullOrEmpty(_settings.ApiKey)
-            },
-            ActiveTickers = tickers.Count(),
-            Schedule = schedule != null ? new ScheduleInfo
-            {
-                Name = schedule.Name,
-                ScheduleTime = schedule.ScheduleTime.ToString(@"hh\:mm\:ss"),
-                ScheduleTimezone = schedule.ScheduleTimezone,
-                IsEnabled = schedule.IsEnabled,
-                LastRunAt = schedule.LastRunAt,
-                LastRunStatus = schedule.LastRunStatus,
-                LastRunMessage = schedule.LastRunMessage
-            } : null
-        });
+                Provider = "AlphaVantage",
+                Status = schedule?.IsEnabled == true ? "Running" : "Disabled",
+                Config = new AlphaVantageConfigInfo
+                {
+                    BaseUrl = _settings.BaseUrl,
+                    RateLimitDelayMs = _settings.RateLimitDelayMs,
+                    Horizon = _settings.Horizon,
+                    HasApiKey = !string.IsNullOrEmpty(_settings.ApiKey)
+                },
+                ActiveTickers = tickers.Count(),
+                Schedule = schedule != null ? new ScheduleInfo
+                {
+                    Name = schedule.Name,
+                    ScheduleTime = schedule.ScheduleTime.ToString(@"hh\:mm\:ss"),
+                    ScheduleTimezone = schedule.ScheduleTimezone,
+                    IsEnabled = schedule.IsEnabled,
+                    LastRunAt = schedule.LastRunAt,
+                    LastRunStatus = schedule.LastRunStatus,
+                    LastRunMessage = schedule.LastRunMessage
+                } : null
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetStatus");
+            return StatusCode(500, new { message = "Failed to retrieve AlphaVantage status", error = ex.Message });
+        }
     }
 
     /// <summary>

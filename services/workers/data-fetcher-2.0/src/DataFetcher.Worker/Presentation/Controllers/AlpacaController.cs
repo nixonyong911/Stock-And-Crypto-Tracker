@@ -33,73 +33,121 @@ public class AlpacaController : ControllerBase
     [HttpGet("status")]
     public IActionResult GetStatus()
     {
-        return Ok(new { provider = "Alpaca", status = "running", timestamp = DateTime.UtcNow });
+        try
+        {
+            return Ok(new { provider = "Alpaca", status = "running", timestamp = DateTime.UtcNow });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetStatus");
+            return StatusCode(500, new { message = "Failed to retrieve Alpaca status", error = ex.Message });
+        }
     }
 
     [HttpPost("trigger/stocks")]
     public async Task<IActionResult> TriggerStockFetch(CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<IAlpacaStockFetchService>();
-        var records = await service.FetchLatestStockDataAsync(cancellationToken: cancellationToken);
-        return Ok(new { message = $"Fetched {records} stock records", records });
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<IAlpacaStockFetchService>();
+            var records = await service.FetchLatestStockDataAsync(cancellationToken: cancellationToken);
+            return Ok(new { message = $"Fetched {records} stock records", records });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in TriggerStockFetch");
+            return StatusCode(500, new { message = "Failed to fetch stock data", error = ex.Message });
+        }
     }
 
     [HttpPost("trigger/crypto")]
     public async Task<IActionResult> TriggerCryptoFetch(CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<IAlpacaCryptoFetchService>();
-        var records = await service.FetchLatestCryptoDataAsync(cancellationToken: cancellationToken);
-        return Ok(new { message = $"Fetched {records} crypto records", records });
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<IAlpacaCryptoFetchService>();
+            var records = await service.FetchLatestCryptoDataAsync(cancellationToken: cancellationToken);
+            return Ok(new { message = $"Fetched {records} crypto records", records });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in TriggerCryptoFetch");
+            return StatusCode(500, new { message = "Failed to fetch crypto data", error = ex.Message });
+        }
     }
 
     [HttpPost("backfill/{symbol}")]
     public IActionResult QueueStockBackfill(string symbol)
     {
-        var request = new AlpacaBackfillRequest { Symbol = symbol.ToUpperInvariant(), AssetType = "stock", RequestedAt = DateTime.UtcNow };
-        PublishToQueue(_rabbitSettings.BackfillQueueName, request);
-        return Accepted(new { message = $"Stock backfill queued for {symbol}", symbol });
+        try
+        {
+            var request = new AlpacaBackfillRequest { Symbol = symbol.ToUpperInvariant(), AssetType = "stock", RequestedAt = DateTime.UtcNow };
+            PublishToQueue(_rabbitSettings.BackfillQueueName, request);
+            return Accepted(new { message = $"Stock backfill queued for {symbol}", symbol });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in QueueStockBackfill");
+            return StatusCode(500, new { message = "Failed to queue stock backfill", error = ex.Message });
+        }
     }
 
     [HttpPost("crypto/backfill/{symbol}")]
     public IActionResult QueueCryptoBackfill(string symbol)
     {
-        var normalized = symbol.ToUpperInvariant();
-        if (!normalized.Contains('/')) normalized = $"{normalized}/USD";
-        var request = new AlpacaBackfillRequest { Symbol = normalized, AssetType = "crypto", RequestedAt = DateTime.UtcNow };
-        PublishToQueue(_rabbitSettings.CryptoBackfillQueueName, request);
-        return Accepted(new { message = $"Crypto backfill queued for {normalized}", symbol = normalized });
+        try
+        {
+            var normalized = symbol.ToUpperInvariant();
+            if (!normalized.Contains('/')) normalized = $"{normalized}/USD";
+            var request = new AlpacaBackfillRequest { Symbol = normalized, AssetType = "crypto", RequestedAt = DateTime.UtcNow };
+            PublishToQueue(_rabbitSettings.CryptoBackfillQueueName, request);
+            return Accepted(new { message = $"Crypto backfill queued for {normalized}", symbol = normalized });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in QueueCryptoBackfill");
+            return StatusCode(500, new { message = "Failed to queue crypto backfill", error = ex.Message });
+        }
     }
 
     [HttpPost("backfill/all")]
     public async Task<IActionResult> BackfillAll(CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
-        var stockTickerRepo = scope.ServiceProvider.GetRequiredService<IStockTickerRepository>();
-        var cryptoTickerRepo = scope.ServiceProvider.GetRequiredService<ICryptoTickerRepository>();
-
-        var stockTickers = (await stockTickerRepo.GetActiveTickersAsync()).ToList();
-        var cryptoTickers = (await cryptoTickerRepo.GetActiveTickersAsync()).ToList();
-
-        foreach (var ticker in stockTickers)
+        try
         {
-            var request = new AlpacaBackfillRequest { Symbol = ticker.Symbol, Exchange = ticker.Exchange, AssetType = "stock", TickerId = ticker.Id, RequestedAt = DateTime.UtcNow };
-            PublishToQueue(_rabbitSettings.BackfillQueueName, request);
+            using var scope = _serviceProvider.CreateScope();
+            var stockTickerRepo = scope.ServiceProvider.GetRequiredService<IStockTickerRepository>();
+            var cryptoTickerRepo = scope.ServiceProvider.GetRequiredService<ICryptoTickerRepository>();
+
+            var stockTickers = (await stockTickerRepo.GetActiveTickersAsync()).ToList();
+            var cryptoTickers = (await cryptoTickerRepo.GetActiveTickersAsync()).ToList();
+
+            foreach (var ticker in stockTickers)
+            {
+                var request = new AlpacaBackfillRequest { Symbol = ticker.Symbol, Exchange = ticker.Exchange, AssetType = "stock", TickerId = ticker.Id, RequestedAt = DateTime.UtcNow };
+                PublishToQueue(_rabbitSettings.BackfillQueueName, request);
+            }
+
+            foreach (var ticker in cryptoTickers)
+            {
+                var request = new AlpacaBackfillRequest { Symbol = ticker.Symbol, AssetType = "crypto", TickerId = ticker.Id, RequestedAt = DateTime.UtcNow };
+                PublishToQueue(_rabbitSettings.CryptoBackfillQueueName, request);
+            }
+
+            return Accepted(new
+            {
+                message = $"Queued backfill for {stockTickers.Count} stocks and {cryptoTickers.Count} crypto tickers",
+                stockCount = stockTickers.Count,
+                cryptoCount = cryptoTickers.Count
+            });
         }
-
-        foreach (var ticker in cryptoTickers)
+        catch (Exception ex)
         {
-            var request = new AlpacaBackfillRequest { Symbol = ticker.Symbol, AssetType = "crypto", TickerId = ticker.Id, RequestedAt = DateTime.UtcNow };
-            PublishToQueue(_rabbitSettings.CryptoBackfillQueueName, request);
+            _logger.LogError(ex, "Error in BackfillAll");
+            return StatusCode(500, new { message = "Failed to queue backfill for all tickers", error = ex.Message });
         }
-
-        return Accepted(new
-        {
-            message = $"Queued backfill for {stockTickers.Count} stocks and {cryptoTickers.Count} crypto tickers",
-            stockCount = stockTickers.Count,
-            cryptoCount = cryptoTickers.Count
-        });
     }
 
     [HttpPost("webhook/new-ticker")]

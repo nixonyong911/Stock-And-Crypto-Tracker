@@ -15,10 +15,12 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 public class SchedulesController : ControllerBase
 {
     private readonly IFetchScheduleRepository _scheduleRepo;
+    private readonly ILogger<SchedulesController> _logger;
 
-    public SchedulesController(IFetchScheduleRepository scheduleRepo)
+    public SchedulesController(IFetchScheduleRepository scheduleRepo, ILogger<SchedulesController> logger)
     {
         _scheduleRepo = scheduleRepo;
+        _logger = logger;
     }
 
     /// <summary>
@@ -28,15 +30,23 @@ public class SchedulesController : ControllerBase
     [ProducesResponseType(typeof(ScheduleDiscoveryResponse), 200)]
     public async Task<IActionResult> GetAll()
     {
-        var schedules = await _scheduleRepo.GetAllSchedulesAsync();
-
-        var response = new ScheduleDiscoveryResponse
+        try
         {
-            Service = "data-fetcher-2.0",
-            Schedules = schedules.Select(MapToDto).ToList()
-        };
+            var schedules = await _scheduleRepo.GetAllSchedulesAsync();
 
-        return Ok(response);
+            var response = new ScheduleDiscoveryResponse
+            {
+                Service = "data-fetcher-2.0",
+                Schedules = schedules.Select(MapToDto).ToList()
+            };
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetAll");
+            return StatusCode(500, new { message = "Failed to retrieve schedules", error = ex.Message });
+        }
     }
 
     /// <summary>
@@ -47,19 +57,27 @@ public class SchedulesController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> Toggle(int id)
     {
-        var schedule = await _scheduleRepo.ToggleScheduleAsync(id);
-        if (schedule == null)
+        try
         {
-            return NotFound(new { message = $"Schedule with ID {id} not found" });
-        }
+            var schedule = await _scheduleRepo.ToggleScheduleAsync(id);
+            if (schedule == null)
+            {
+                return NotFound(new { message = $"Schedule with ID {id} not found" });
+            }
 
-        return Ok(new ScheduleToggleResponse
+            return Ok(new ScheduleToggleResponse
+            {
+                Id = schedule.Id,
+                Name = schedule.Name,
+                IsEnabled = schedule.IsEnabled,
+                Message = $"Schedule '{schedule.Name}' is now {(schedule.IsEnabled ? "enabled" : "disabled")}"
+            });
+        }
+        catch (Exception ex)
         {
-            Id = schedule.Id,
-            Name = schedule.Name,
-            IsEnabled = schedule.IsEnabled,
-            Message = $"Schedule '{schedule.Name}' is now {(schedule.IsEnabled ? "enabled" : "disabled")}"
-        });
+            _logger.LogError(ex, "Error in Toggle");
+            return StatusCode(500, new { message = "Failed to toggle schedule", error = ex.Message });
+        }
     }
 
     private static ScheduleDiscoveryItem MapToDto(FetchSchedule s)

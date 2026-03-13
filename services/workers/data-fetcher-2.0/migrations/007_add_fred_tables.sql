@@ -77,6 +77,13 @@ BEGIN
            '08:00:00'::TIME, 'America/New_York', true,
            '{}'::JSONB, NOW(), NOW()
     WHERE NOT EXISTS (SELECT 1 FROM worker_fetch_schedules WHERE name = 'FRED Daily Macro Fetch');
+
+    -- Ensure existing FRED schedule points to data-fetcher-2.0 (handles migration from old fred-worker)
+    UPDATE worker_fetch_schedules
+    SET worker_id = (SELECT id FROM worker_registry WHERE name = 'data-fetcher-2.0'),
+        updated_at = NOW()
+    WHERE name = 'FRED Daily Macro Fetch'
+      AND (worker_id IS NULL OR worker_id != (SELECT id FROM worker_registry WHERE name = 'data-fetcher-2.0'));
 END $$;
 
 COMMIT;
