@@ -99,70 +99,85 @@ public class CandlestickAnalysisWorker : BackgroundService
                         new Dictionary<string, string> { ["status"] = "started" });
 
                     var startedAt = DateTime.UtcNow;
-                    try
+                    const int maxRetries = 2;
+                    for (var attempt = 0; attempt <= maxRetries; attempt++)
                     {
-                        using var analysisScope = _serviceProvider.CreateScope();
-                        var analysisService = analysisScope.ServiceProvider.GetRequiredService<ICandlestickAnalysisService>();
-                        var fetchScheduleRepo = analysisScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
-
-                        var analyzeDate = GetAnalyzeDate(config.AnalyzeDate);
-
-                        _logger.LogInformation("Analyzing candlestick patterns for {Date}", analyzeDate);
-
-                        var result = await analysisService.AnalyzeAllStocksAsync(analyzeDate, stoppingToken);
-
-                        var statusMessage = $"Stock: {result.SuccessCount}/{result.TotalStocks} analyzed, " +
-                                          $"{result.PatternsDetected} patterns, {result.DurationSeconds:F1}s";
-
-                        _logger.LogInformation("Stock analysis complete. Starting crypto candlestick analysis for {Date}", analyzeDate);
-                        var cryptoAnalysisService = analysisScope.ServiceProvider.GetRequiredService<ICryptoCandlestickAnalysisService>();
-                        var cryptoResult = await cryptoAnalysisService.AnalyzeAllCryptoAsync(analyzeDate, stoppingToken);
-
-                        statusMessage += $" | Crypto: {cryptoResult.SuccessCount}/{cryptoResult.TotalCrypto} analyzed, " +
-                                       $"{cryptoResult.PatternsDetected} patterns, {cryptoResult.DurationSeconds:F1}s";
-
-                        var allErrors = result.Errors.Concat(cryptoResult.Errors).ToList();
-                        if (allErrors.Count > 0)
+                        try
                         {
-                            statusMessage += $". Errors: {string.Join("; ", allErrors.Take(3))}";
+                            using var analysisScope = _serviceProvider.CreateScope();
+                            var analysisService = analysisScope.ServiceProvider.GetRequiredService<ICandlestickAnalysisService>();
+                            var fetchScheduleRepo = analysisScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
+
+                            var analyzeDate = GetAnalyzeDate(config.AnalyzeDate);
+
+                            _logger.LogInformation("Analyzing candlestick patterns for {Date}", analyzeDate);
+
+                            var result = await analysisService.AnalyzeAllStocksAsync(analyzeDate, stoppingToken);
+
+                            var statusMessage = $"Stock: {result.SuccessCount}/{result.TotalStocks} analyzed, " +
+                                              $"{result.PatternsDetected} patterns, {result.DurationSeconds:F1}s";
+
+                            _logger.LogInformation("Stock analysis complete. Starting crypto candlestick analysis for {Date}", analyzeDate);
+                            var cryptoAnalysisService = analysisScope.ServiceProvider.GetRequiredService<ICryptoCandlestickAnalysisService>();
+                            var cryptoResult = await cryptoAnalysisService.AnalyzeAllCryptoAsync(analyzeDate, stoppingToken);
+
+                            statusMessage += $" | Crypto: {cryptoResult.SuccessCount}/{cryptoResult.TotalCrypto} analyzed, " +
+                                           $"{cryptoResult.PatternsDetected} patterns, {cryptoResult.DurationSeconds:F1}s";
+
+                            var allErrors = result.Errors.Concat(cryptoResult.Errors).ToList();
+                            if (allErrors.Count > 0)
+                            {
+                                statusMessage += $". Errors: {string.Join("; ", allErrors.Take(3))}";
+                            }
+
+                            if (attempt > 0)
+                                statusMessage += $" | Succeeded on retry {attempt}";
+
+                            var overallSuccess = result.Success && cryptoResult.Success;
+
+                            await fetchScheduleRepo.UpdateLastRunAsync(
+                                schedule.Id,
+                                overallSuccess ? "success" : "partial",
+                                statusMessage);
+
+                            await fetchScheduleRepo.LogExecutionAsync(
+                                schedule.Id,
+                                overallSuccess ? "success" : "partial",
+                                statusMessage,
+                                (int)(DateTime.UtcNow - startedAt).TotalMilliseconds,
+                                startedAt);
+
+                            await _metrics.IncrementCounterAsync("job_executions_total", 1,
+                                new Dictionary<string, string> { ["status"] = "completed" });
+                            break;
                         }
+                        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex) when (attempt < maxRetries && IsTransient(ex))
+                        {
+                            _logger.LogWarning(ex, "Transient error during candlestick analysis (attempt {Attempt}/{Max}), retrying in 5s",
+                                attempt + 1, maxRetries + 1);
+                            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error occurred during candlestick analysis operation (attempt {Attempt}/{Max})",
+                                attempt + 1, maxRetries + 1);
 
-                        var overallSuccess = result.Success && cryptoResult.Success;
+                            using var errorScope = _serviceProvider.CreateScope();
+                            var fetchScheduleRepo = errorScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
+                            await fetchScheduleRepo.UpdateLastRunAsync(schedule.Id, "failed", ex.Message);
 
-                        await fetchScheduleRepo.UpdateLastRunAsync(
-                            schedule.Id,
-                            overallSuccess ? "success" : "partial",
-                            statusMessage);
+                            await fetchScheduleRepo.LogExecutionAsync(
+                                schedule.Id, "failed", ex.Message,
+                                (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
 
-                        await fetchScheduleRepo.LogExecutionAsync(
-                            schedule.Id,
-                            overallSuccess ? "success" : "partial",
-                            statusMessage,
-                            (int)(DateTime.UtcNow - startedAt).TotalMilliseconds,
-                            startedAt);
-
-                        await _metrics.IncrementCounterAsync("job_executions_total", 1,
-                            new Dictionary<string, string> { ["status"] = "completed" });
-                    }
-                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                    {
-                        _logger.LogInformation("Candlestick Analysis Worker cancellation requested during analysis");
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error occurred during candlestick analysis operation");
-
-                        using var errorScope = _serviceProvider.CreateScope();
-                        var fetchScheduleRepo = errorScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
-                        await fetchScheduleRepo.UpdateLastRunAsync(schedule.Id, "failed", ex.Message);
-
-                        await fetchScheduleRepo.LogExecutionAsync(
-                            schedule.Id, "failed", ex.Message,
-                            (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
-
-                        await _metrics.IncrementCounterAsync("job_executions_total", 1,
-                            new Dictionary<string, string> { ["status"] = "failed" });
+                            await _metrics.IncrementCounterAsync("job_executions_total", 1,
+                                new Dictionary<string, string> { ["status"] = "failed" });
+                            break;
+                        }
                     }
 
                     if (!schedule.IntervalMinutes.HasValue)
@@ -217,6 +232,14 @@ public class CandlestickAnalysisWorker : BackgroundService
         {
             _logger.LogWarning(ex, "Failed to report worker stop metrics");
         }
+    }
+
+    private static bool IsTransient(Exception ex)
+    {
+        if (ex is TimeoutException) return true;
+        if (ex.InnerException is TimeoutException) return true;
+        var typeName = ex.GetType().FullName ?? "";
+        return typeName.Contains("Npgsql") || typeName.Contains("Socket");
     }
 
     /// <summary>
