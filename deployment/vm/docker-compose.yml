@@ -58,79 +58,6 @@ services:
       - gateway-2.0
 
   # ===========================================
-  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
-  # TwelveData Worker
-  # Swagger at: /api/twelvedata/swagger
-  # ===========================================
-  # twelvedata:
-  #   image: stocktracker-twelvedata:${TWELVEDATA_VERSION:-latest}
-  #   build:
-  #     context: ./repo/services
-  #     dockerfile: workers/data-fetcher/TwelveData/Dockerfile
-  #   container_name: twelvedata
-  #   restart: unless-stopped
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
-  #   environment:
-  #     - ASPNETCORE_ENVIRONMENT=Production
-  #     - ASPNETCORE_URLS=http://+:8080
-  #     - PATH_BASE=/api/twelvedata
-  #     - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
-  #     - TwelveData__ApiKey=${TWELVE_DATA_API_KEY}
-  #     - TwelveData__BaseUrl=https://api.twelvedata.com
-  #     - RabbitMQ__HostName=rabbitmq
-  #     - RabbitMQ__UserName=stocktracker
-  #     - RabbitMQ__Password=${RABBITMQ_PASSWORD}
-  #     - RabbitMQ__QueueName=backfill-queue
-  #     - AI_HUB_URL=http://gateway-2.0:8080
-  #     - AI_HUB_API_KEY=${AI_HUB_API_KEY}
-  #   networks:
-  #     - stocktracker
-  #   depends_on:
-  #     - gateway-2.0
-  #     - rabbitmq
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
-  #     interval: 30s
-  #     timeout: 3s
-  #     retries: 3
-  #     start_period: 30s
-
-  # ===========================================
-  # FRED Worker - Economic Indicators
-  # API at: /api/fred/*
-  # ===========================================
-  fred-worker:
-    image: stocktracker-fred:${FRED_VERSION:-latest}
-    build:
-      context: ./repo/services/workers/data-fetcher/fred-worker
-      dockerfile: Dockerfile
-    container_name: fred-worker
-    restart: unless-stopped
-    environment:
-      # Database connection (Go format)
-      - DATABASE_URL=${DATABASE_URL_GO}
-      # FRED API key
-      - FRED_API_KEY=${FRED_API_KEY}
-      # Schedule: 08:00 AM Eastern Time
-      - SCHEDULE_TIME=08:00
-      - SCHEDULE_TIMEZONE=America/New_York
-      # HTTP server port
-      - HTTP_PORT=8080
-      # Metrics service for pushing metrics
-      - METRICS_SERVICE_URL=http://metrics:8080
-    networks:
-      - stocktracker
-    depends_on:
-      - metrics
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/live"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
-
-  # ===========================================
   # Data Fetcher 2.0 - Centralized Multi-Provider Data Fetcher
   # Swagger at: /api/data-fetcher-2.0/swagger
   # Providers: Finnhub (fundamentals), Alpha Vantage (earnings calendar)
@@ -191,6 +118,11 @@ services:
       - Providers__MarketAux__ApiKey=${MARKETAUX_API_KEY}
       - Providers__MarketAux__BaseUrl=https://api.marketaux.com/v1
       - Providers__MarketAux__DailyRequestBudget=80
+      # FRED Provider (economic indicators)
+      - Providers__Fred__ApiKey=${FRED_API_KEY}
+      - Providers__Fred__BaseUrl=https://api.stlouisfed.org
+      - Providers__Fred__ScheduleTime=08:00
+      - Providers__Fred__ScheduleTimezone=America/New_York
       # Gateway (price alert notifications)
       - Gateway__BaseUrl=http://gateway-2.0:8080
       - Gateway__InternalServiceKey=${INTERNAL_SERVICE_KEY}
@@ -276,7 +208,6 @@ services:
       - stocktracker
     depends_on:
       - metrics
-      # - twelvedata  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
 
   # ===========================================
   # Redis - Caching for MCP Server & Queue Locks
@@ -378,7 +309,6 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook
       - TELEGRAM_ERROR_CHAT_ID=${TELEGRAM_ERROR_CHAT_ID}
-      # - TWELVEDATA_INTERNAL_URL=http://twelvedata:8080  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
       - DATA_FETCHER_INTERNAL_URL=http://data-fetcher:8080
       - PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - CURSOR_API_KEY=${CURSOR_API_KEY}

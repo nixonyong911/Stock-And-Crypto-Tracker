@@ -35,7 +35,8 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │   │   :443 ──────────────────────────────────────────────────────    │    │  │
 │   │   │      │                                                           │    │  │
 │   │   │      ├── /                    → n8n:5678                         │    │  │
-│   │   │      ├── /api/twelvedata/*    → twelvedata:8080                  │    │  │
+│   │   │      ├── /api/data-fetcher-2.0/* → data-fetcher-2.0:8080        │    │  │
+│   │   │      ├── /api/fred/*          → data-fetcher-2.0:8080          │    │  │
 │   │   │      ├── /api/metrics/*       → metrics:8080                     │    │  │
 │   │   │      └── /back-office*        → back-office:3000                 │    │  │
 │   │   │                                                                  │    │  │
@@ -44,10 +45,10 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   │                                         │                                 │  │
 │   │   ┌─────────────────────────────────────┼───────────────────────────┐    │  │
 │   │   │              DOCKER CONTAINERS      │                           │    │  │
-│   │   ├──────────────┬──────────────┬───────┴──────┬──────────────┬─────┤    │  │
-│   │   │     n8n      │  TwelveData  │   Metrics    │  Back-office │Alloy│    │  │
-│   │   │   :5678      │    :8080     │    :8080     │    :3000     │     │    │  │
-│   │   │  Workflows   │  Stock Data  │  Aggregates  │   Admin UI   │Logs │    │  │
+│   │   ├──────────────┬──────────────────┬──────┴──┬──────────────┬─────┤    │  │
+│   │   │     n8n      │ DataFetcher 2.0 │ Metrics │  Back-office │Alloy│    │  │
+│   │   │   :5678      │     :8080       │  :8080  │    :3000     │     │    │  │
+│   │   │  Workflows   │  Market Data    │  Agg    │   Admin UI   │Logs │    │  │
 │   │   ├──────────────┴──────────────┴──────────────┴──────────────┴─────┤    │  │
 │   │   │                   Gateway 2.0 (TypeScript)                    │    │  │
 │   │   │                     gateway-2.0:8080                           │    │  │
@@ -83,7 +84,7 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   └──────────────┘      └──────────────┘      └──────────────────────────────┘  │
 │                                                                                  │
 │   Trigger Paths:                                                                 │
-│   - services/workers/data-fetcher/TwelveData/**                                 │
+│   - services/workers/data-fetcher-2.0/**                                         │
 │   - services/metrics/**                                                          │
 │   - services/ai/gateway-2.0/**                                                   │
 │   - services/back-office/**                                                      │
@@ -119,9 +120,8 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 │   ┌────────────────────────────────────┬───────────────────────────────────┐    │
 │   │ Secret                             │ Used By                           │    │
 │   ├────────────────────────────────────┼───────────────────────────────────┤    │
-│   │ DATABASE_CONNECTION_STRING         │ TwelveData, Gateway 2.0           │    │
-│   │ TWELVE_DATA_API_KEY                │ TwelveData Worker                 │    │
-│   │ AI_HUB_API_KEY                     │ gateway-2.0, n8n, TwelveData, Metrics, Back-office │
+│   │ DATABASE_CONNECTION_STRING         │ Data Fetcher 2.0, Gateway 2.0     │    │
+│   │ AI_HUB_API_KEY                     │ gateway-2.0, n8n, Data Fetcher 2.0, Metrics, Back-office │
 │   │ GRAFANA_CLOUD_API_KEY              │ Alloy (metrics forwarder)         │    │
 │   │ GRAFANA_CLOUD_LOKI_USER            │ Alloy (logs forwarder)            │    │
 │   │ NEXT_PUBLIC_SUPABASE_URL           │ Frontend, Back-office             │    │
@@ -154,7 +154,7 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 |---------|------|-------------|-------------|
 | Caddy | 80, 443, 2019 | — | Reverse proxy (2019 = admin API) |
 | n8n | 5678 | `/` (default) | Workflow automation |
-| TwelveData | 8080 | `/api/twelvedata/*` | Stock data worker |
+| Data Fetcher 2.0 | 8080 | `/api/data-fetcher-2.0/*`, `/api/fred/*` | Unified market data worker |
 | Metrics | 8080 | `/api/metrics/*` | Metrics aggregation |
 | Back-office | 3000 | `/back-office*` | Admin UI |
 | Alloy | 12345 | — (internal) | Metrics/logs forwarder to Grafana Cloud |
@@ -175,7 +175,7 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 ├── scripts/
 │   ├── setup.sh            # Initial VM setup
 │   ├── start-services.sh   # Docker compose with Infisical injection
-│   ├── run-twelvedata.sh   # Cron job script (if needed)
+│   ├── run-data-fetcher.sh  # Cron job script (if needed)
 │   └── weekly-cleanup.sh   # Old data cleanup
 └── repo/                   # Git clone of repository
     └── services/           # Source code
@@ -185,9 +185,14 @@ All backend services run on a single Azure VM using Docker Compose, with Caddy a
 
 ```caddyfile
 nxserver.malaysiawest.cloudapp.azure.com {
-    # TwelveData Worker API
-    handle_path /api/twelvedata/* {
-        reverse_proxy twelvedata:8080
+    # Data Fetcher 2.0 API
+    handle_path /api/data-fetcher-2.0/* {
+        reverse_proxy data-fetcher-2.0:8080
+    }
+    
+    # FRED API (routed via handle, not handle_path - preserves /api/fred prefix)
+    handle /api/fred/* {
+        reverse_proxy data-fetcher-2.0:8080
     }
     
     # Metrics Service API
@@ -215,8 +220,9 @@ nxserver.malaysiawest.cloudapp.azure.com {
 | Service | URL | Notes |
 |---------|-----|-------|
 | n8n | https://nxserver.malaysiawest.cloudapp.azure.com/ | Workflow automation |
-| TwelveData Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger | API docs |
-| TwelveData Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live | Health check |
+| Data Fetcher 2.0 Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/swagger | API docs |
+| Data Fetcher 2.0 Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/health/live | Health check |
+| FRED API | https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/* | Via data-fetcher-2.0 |
 | Metrics Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/swagger | API docs |
 | Metrics Health | https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live | Health check |
 | Back Office | https://nxserver.malaysiawest.cloudapp.azure.com/back-office/ | Admin UI |
@@ -226,7 +232,7 @@ nxserver.malaysiawest.cloudapp.azure.com {
 
 ```bash
 # Public endpoints
-curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/health/live
+curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/health/live
 curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/api/metrics/health/live
 curl -sf https://nxserver.malaysiawest.cloudapp.azure.com/back-office/
 

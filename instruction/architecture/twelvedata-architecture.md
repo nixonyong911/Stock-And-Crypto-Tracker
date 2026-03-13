@@ -1,5 +1,7 @@
 # TwelveData Worker Architecture
 
+> **OUTDATED (March 2026)**: The TwelveData worker has been deleted. Its functionality (stock price fetching) has been consolidated into **data-fetcher-2.0** via the Alpaca provider. The `services/workers/data-fetcher/` directory no longer exists. See `services/workers/data-fetcher-2.0/` for the current implementation.
+
 TwelveData data fetcher worker implementation with database-driven scheduling and Swagger API support.
 
 ---

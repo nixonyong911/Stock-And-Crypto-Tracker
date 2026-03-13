@@ -83,12 +83,12 @@ Project-wide constraints that ALL agents must follow:
 
 ## Service Endpoints
 
-| Service            | URL                                                                     |
-| ------------------ | ----------------------------------------------------------------------- |
-| n8n Dashboard      | https://nxserver.malaysiawest.cloudapp.azure.com/                       |
-| TwelveData Swagger | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger |
-| Back-Office        | https://nxserver.malaysiawest.cloudapp.azure.com/back-office            |
-| Frontend           | https://stock-tracker.vercel.app/                                       |
+| Service                | URL                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| n8n Dashboard          | https://nxserver.malaysiawest.cloudapp.azure.com/                             |
+| Data Fetcher 2.0       | https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/swagger |
+| Back-Office            | https://nxserver.malaysiawest.cloudapp.azure.com/back-office                  |
+| Frontend               | https://stock-tracker.vercel.app/                                             |
 
 ## Quick Links
 
@@ -103,8 +103,7 @@ Project-wide constraints that ALL agents must follow:
 ### Architecture (Service-Specific)
 
 - [VM Deployment](architecture/vm-deployment-architecture.md)
-- [TwelveData Worker](architecture/twelvedata-architecture.md)
-
+- [TwelveData Worker](architecture/twelvedata-architecture.md) *(outdated - consolidated into data-fetcher-2.0)*
 - [Infisical Secrets](architecture/infisical-secrets-management.md)
 
 ### Reference

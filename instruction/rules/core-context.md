@@ -5,8 +5,8 @@
 A microservices-based stock and cryptocurrency tracking application with:
 - **Frontend**: Next.js on Vercel (public-facing)
 - **Back-office**: Next.js admin UI on Azure VM (internal tools)
-- **Backend**: .NET 8 workers + Python AI services on Azure VM (Docker + Caddy)
-- **Database**: Supabase (PostgreSQL) with EF Core migrations
+- **Backend**: .NET 8 workers + TypeScript AI services on Azure VM (Docker + Caddy)
+- **Database**: Supabase (PostgreSQL) with SQL migrations (data-fetcher-2.0/migrations/)
 - **Observability**: Grafana Cloud (metrics + logs via Alloy)
 - **Purpose**: Fetch market data, store 10-min candles, enable AI trading analysis
 
@@ -18,8 +18,8 @@ A microservices-based stock and cryptocurrency tracking application with:
 | Back-office | Next.js 16, TypeScript, Tailwind, shadcn/ui (VM) |
 | Backend Workers | .NET 8, Dapper, ASP.NET Core |
 | AI Services | TypeScript, Fastify (gateway-2.0 in Docker) |
-| Database | PostgreSQL (Supabase), EF Core for migrations |
-| Shared Library | StockTracker.Data (entities), StockTracker.Common (utilities) |
+| Database | PostgreSQL (Supabase), SQL migrations in data-fetcher-2.0/migrations/ |
+| Shared Library | StockTracker.Common (utilities) |
 | CI/CD | GitHub Actions → SSH → Azure VM |
 | Reverse Proxy | Caddy (auto HTTPS via Let's Encrypt) |
 | Observability | Grafana Cloud, Grafana Alloy (metrics + logs) |
@@ -56,14 +56,10 @@ A microservices-based stock and cryptocurrency tracking application with:
 │   │   └── gateway-2.0/      # TypeScript AI gateway (Docker on VM)
 │   ├── back-office/          # Next.js admin UI (Docker on VM)
 │   ├── common/
-│   │   ├── StockTracker.Data/           # EF Core entities & DbContext
-│   │   ├── StockTracker.Data.Migrations/ # Migration CLI tool
 │   │   └── StockTracker.Common/         # Shared utilities (metrics, health)
 │   ├── workers/                         # All worker services
-│   │   ├── data-fetcher/
-│   │   │   └── TwelveData/             # Stock data worker (Docker on VM)
-│   │   └── analysis/
-│   │       └── CandlestickAnalysis/    # Analysis worker (Docker on VM)
+│   │   └── data-fetcher-2.0/           # Unified data fetcher (Alpaca, Finnhub, FRED, Massive, CandlestickAnalysis)
+│   │       └── migrations/             # SQL migrations (replaces EF Core)
 │   ├── frontend/                        # Next.js public app (Vercel)
 │   └── metrics/                         # Metrics aggregation service (Docker on VM)
 └── .github/workflows/

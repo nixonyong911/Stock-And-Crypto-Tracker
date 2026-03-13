@@ -34,19 +34,18 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 WORKDIR /src
 
 # Copy project files (layer cache optimization)
-COPY ["data-fetchers/TwelveData/TwelveData.csproj", "data-fetchers/TwelveData/"]
-COPY ["common/StockTracker.Data/StockTracker.Data.csproj", "common/StockTracker.Data/"]
+COPY ["workers/data-fetcher-2.0/src/DataFetcher.Worker/DataFetcher.Worker.csproj", "workers/data-fetcher-2.0/src/DataFetcher.Worker/"]
 COPY ["common/StockTracker.Common/StockTracker.Common.csproj", "common/StockTracker.Common/"]
 
 # Restore dependencies (cached if .csproj unchanged)
-RUN dotnet restore "data-fetchers/TwelveData/TwelveData.csproj"
+RUN dotnet restore "workers/data-fetcher-2.0/src/DataFetcher.Worker/DataFetcher.Worker.csproj"
 
 # Copy source code
 COPY . .
 
 # Build and publish
-WORKDIR "/src/data-fetchers/TwelveData"
-RUN dotnet publish "TwelveData.csproj" -c Release -o /app/publish /p:UseAppHost=false
+WORKDIR "/src/workers/data-fetcher-2.0/src/DataFetcher.Worker"
+RUN dotnet publish "DataFetcher.Worker.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # ===========================================
 # Stage 2: Runtime
@@ -67,7 +66,7 @@ USER appuser
 
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "TwelveData.dll"]
+ENTRYPOINT ["dotnet", "DataFetcher.Worker.dll"]
 ```
 
 ### Next.js Multi-Stage Example
@@ -482,10 +481,10 @@ services:
 
 ```yaml
 services:
-  twelvedata:
+  data-fetcher-2.0:
     build:
       context: ./repo/services
-      dockerfile: data-fetchers/TwelveData/Dockerfile
+      dockerfile: workers/data-fetcher-2.0/Dockerfile
     deploy:
       resources:
         limits:
@@ -511,7 +510,7 @@ services:
 your-service:
   build:
     context: ./repo/services
-    dockerfile: data-fetchers/YourWorker/Dockerfile
+    dockerfile: workers/data-fetcher-2.0/Dockerfile
     # Build arguments for Next.js NEXT_PUBLIC_* vars
     args:
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
@@ -609,7 +608,7 @@ services:
       - stocktracker
     # Can reach other services by container name:
     # http://metrics:8080
-    # http://twelvedata:8080
+    # http://data-fetcher-2.0:8080
 ```
 
 ---
@@ -669,26 +668,26 @@ services:
 docker compose logs -f
 
 # Logs for specific service
-docker logs -f twelvedata
+docker logs -f data-fetcher-2.0
 
 # Last 100 lines
-docker logs --tail 100 twelvedata
+docker logs --tail 100 data-fetcher-2.0
 
 # Logs since specific time
-docker logs --since 10m twelvedata
+docker logs --since 10m data-fetcher-2.0
 ```
 
 ### Inspect Container
 
 ```bash
 # Check running processes
-docker exec twelvedata ps aux
+docker exec data-fetcher-2.0 ps aux
 
 # Shell into container (if shell available)
-docker exec -it twelvedata sh
+docker exec -it data-fetcher-2.0 sh
 
 # Check environment variables
-docker exec twelvedata env
+docker exec data-fetcher-2.0 env
 
 # Check disk usage
 docker system df
@@ -701,10 +700,10 @@ docker system prune -a
 
 ```bash
 # View health status
-docker inspect --format='{{.State.Health.Status}}' twelvedata
+docker inspect --format='{{.State.Health.Status}}' data-fetcher-2.0
 
 # View health check logs
-docker inspect --format='{{json .State.Health}}' twelvedata | jq
+docker inspect --format='{{json .State.Health}}' data-fetcher-2.0 | jq
 ```
 
 ---

@@ -9,8 +9,7 @@
 
 | Component         | Service Type  | Status     | Last Change | Notes                                                                                           |
 | ----------------- | ------------- | ---------- | ----------- | ----------------------------------------------------------------------------------------------- |
-| TwelveData Worker | data-fetcher  | ✅ Running | 2026-01-02  | `services/workers/data-fetcher/TwelveData/`                                                     |
-| Data Fetcher 2.0  | data-fetcher  | ✅ Running | 2026-02-12  | `services/workers/data-fetcher-2.0/` (includes CandlestickAnalysis, Finnhub, Massive providers) |
+| Data Fetcher 2.0  | data-fetcher  | ✅ Running | 2026-03-13  | `services/workers/data-fetcher-2.0/` (Alpaca, Finnhub, FRED, Massive, CandlestickAnalysis providers) |
 | n8n               | workflow      | ✅ Running | 2025-12-27  | Workflow automation on VM (Docker)                                                              |
 | Caddy             | reverse-proxy | ✅ Running | 2025-12-27  | Auto HTTPS reverse proxy (Docker)                                                               |
 | Back-Office       | frontend      | ✅ Running | 2025-12-30  | Admin UI on VM (Docker)                                                                         |
@@ -25,6 +24,8 @@
 
 | Date       | Learning                                                                                                                    |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 2026-03-13 | Consolidated: TwelveData, fred-worker (Go), StockTracker.Data, StockTracker.Data.Migrations all deleted; data-fetcher-2.0 is the single worker with SQL migrations, Dapper entities, and providers for Alpaca, Finnhub, FRED, Massive, CandlestickAnalysis |
+| 2026-03-13 | FRED endpoints served via data-fetcher-2.0 under /api/fred/* (Caddy `handle`, not `handle_path`)                           |
 | 2026-01-02 | Workers consolidated: `services/workers/{type}/{name}/` structure (data-fetcher, analysis)                                  |
 | 2026-01-02 | Skill renamed: `creating-new-worker` → `worker-requirements` (standard for new AND existing workers)                        |
 | 2026-01-02 | Archived data-fetcher skill, data-fetcher-patterns.md, worker-metrics-implementation.md (replaced by worker-requirements)   |
@@ -92,8 +93,8 @@
 | Service                              | URL                                                                           |
 | ------------------------------------ | ----------------------------------------------------------------------------- |
 | n8n                                  | https://nxserver.malaysiawest.cloudapp.azure.com/                             |
-| TwelveData                           | https://nxserver.malaysiawest.cloudapp.azure.com/api/twelvedata/swagger       |
 | Data Fetcher 2.0 (includes Analysis) | https://nxserver.malaysiawest.cloudapp.azure.com/api/data-fetcher-2.0/swagger |
+| FRED API (via Data Fetcher 2.0)      | https://nxserver.malaysiawest.cloudapp.azure.com/api/fred/*                   |
 | Back-Office                          | https://nxserver.malaysiawest.cloudapp.azure.com/back-office                  |
 | Frontend                             | https://stock-tracker.vercel.app/                                             |
 

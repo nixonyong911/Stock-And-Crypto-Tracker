@@ -17,15 +17,6 @@ admin 0.0.0.0:2019
 nxserver.malaysiawest.cloudapp.azure.com { # =========================================== # NOTE: CaddyManager removed - use Caddy Admin API via SSH # SSH: curl localhost:2019/config/ # ===========================================
 
     # ===========================================
-    # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
-    # TwelveData Worker API
-    # Swagger UI: /api/twelvedata/swagger
-    # ===========================================
-    # handle_path /api/twelvedata/* {
-    #     reverse_proxy twelvedata:8080
-    # }
-
-    # ===========================================
     # Metrics Service API
     # Swagger at: /api/metrics/swagger
     # ===========================================
@@ -43,15 +34,15 @@ nxserver.malaysiawest.cloudapp.azure.com { # ===================================
     }
 
     # ===========================================
-    # FRED Worker API - Economic Indicators
-    # Endpoints: /api/fred/status, /api/fred/trigger/*
+    # FRED API (consolidated into data-fetcher-2.0)
+    # Uses handle (not handle_path) to preserve /api/fred prefix
     # ===========================================
-    handle_path /api/fred/* {
-        reverse_proxy fred-worker:8080
+    handle /api/fred/* {
+        reverse_proxy data-fetcher-2.0:8080
     }
 
     # ===========================================
-    # Data Fetcher 2.0 - Finnhub Fundamentals Worker API
+    # Data Fetcher 2.0 - Centralized Multi-Provider Data Fetcher
     # Swagger UI: /api/data-fetcher-2.0/swagger
     # ===========================================
     handle_path /api/data-fetcher-2.0/* {

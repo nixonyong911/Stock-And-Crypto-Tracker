@@ -50,7 +50,6 @@ Azure VM runs services via Docker
 
 The pipeline triggers on changes to:
 
-- `services/workers/data-fetcher/TwelveData/**`
 - `services/workers/data-fetcher-2.0/**`
 - `services/metrics/**`
 - `services/ai/gateway-2.0/**`
@@ -69,7 +68,6 @@ The pipeline uses `dorny/paths-filter` to detect which services changed:
 
 | Service          | Trigger Paths                                                       |
 | ---------------- | ------------------------------------------------------------------- |
-| TwelveData       | `services/workers/data-fetcher/TwelveData/**`, `services/common/**` |
 | Data Fetcher 2.0 | `services/workers/data-fetcher-2.0/**`                              |
 | Metrics          | `services/metrics/**`, `services/common/**`                         |
 | Back Office      | `services/back-office/**`                                           |
@@ -103,7 +101,7 @@ wait_healthy() {
   # Returns immediately when service responds
 }
 
-wait_healthy ".../api/twelvedata/health/live" "TwelveData"
+wait_healthy ".../api/data-fetcher-2.0/health/live" "DataFetcher2.0"
 wait_healthy ".../api/metrics/health/live" "Metrics"
 
 # Gateway 2.0: TypeScript container - check via docker exec
@@ -121,7 +119,7 @@ When loading Docker images on the VM, use **explicit service names** instead of 
 
 ```bash
 # CORRECT: Explicit service names
-for NAME in twelvedata metrics back-office; do
+for NAME in data-fetcher-2.0 metrics back-office; do
   img="/tmp/${NAME}.tar.gz"
   if [ -f "$img" ]; then
     gunzip -c "$img" | docker load
@@ -175,21 +173,20 @@ Options:
 
 ## Adding New Workers to CI/CD
 
-1. Add trigger path to `deploy-vm.yml` (use correct worker type path):
+1. Add trigger path to `deploy-vm.yml`:
 
    ```yaml
    paths:
-     # For data-fetcher workers:
-     - "services/workers/data-fetcher/YourWorker/**"
-     # For data-fetcher-2.0:
      - "services/workers/data-fetcher-2.0/**"
    ```
+
+   > **Note**: New data providers should be added to data-fetcher-2.0 as providers, not as separate workers.
 
 2. Add change detection filter:
 
    ```yaml
    yourworker:
-     - "services/workers/data-fetcher/YourWorker/**"
+     - "services/workers/data-fetcher-2.0/**"
      - "services/common/**"
    ```
 
@@ -201,7 +198,7 @@ Options:
      uses: docker/build-push-action@v5
      with:
        context: services/
-       file: services/workers/data-fetcher/YourWorker/Dockerfile
+       file: services/workers/data-fetcher-2.0/Dockerfile
        tags: yourworker:latest
        cache-from: type=gha,scope=yourworker
        cache-to: type=gha,mode=max,scope=yourworker

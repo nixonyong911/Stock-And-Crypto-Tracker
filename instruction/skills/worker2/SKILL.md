@@ -1,13 +1,13 @@
 ---
 name: worker2
-description: Use when deploying .NET workers to VM and encountering API errors, database column mismatches, or JSON deserialization failures. Reference for common worker deployment bugs and their fixes.
+description: Use when deploying .NET workers (data-fetcher-2.0) to VM and encountering API errors, database column mismatches, or JSON deserialization failures. Reference for common worker deployment bugs and their fixes.
 ---
 
 # Worker Deployment Debugging
 
 ## Overview
 
-This skill documents common bugs encountered when deploying .NET workers (data-fetchers) to the VM environment, particularly when integrating with external APIs (Finnhub, TwelveData, etc.) and PostgreSQL databases via Supabase.
+This skill documents common bugs encountered when deploying .NET workers (data-fetcher-2.0) to the VM environment, particularly when integrating with external APIs (Alpaca, Finnhub, FRED, etc.) and PostgreSQL databases via Supabase. Uses Dapper for database access.
 
 ## When to Use
 

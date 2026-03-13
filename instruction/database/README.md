@@ -13,13 +13,13 @@ The database serves as the central data store:
 
 ## Schema Management
 
-Database schema is managed via **EF Core migrations** in:
+Database schema is managed via **SQL migrations** in:
 
 ```
-services/common/StockTracker.Data.Migrations/
+services/workers/data-fetcher-2.0/migrations/
 ```
 
-See [EF Migrations CLI](../cli/ef-migrations.md) for commands.
+Migrations are plain `.sql` files applied via Supabase MCP `apply_migration` or directly. EF Core migrations (`StockTracker.Data.Migrations`) have been deleted.
 
 ## Tables
 
@@ -117,5 +117,5 @@ All tables have **Row Level Security (RLS)** enabled:
 ## Related Documentation
 
 - [Schema Reference](schema.md)
-- [EF Migrations CLI](../cli/ef-migrations.md)
-- Candlestick analysis is now part of data-fetcher-2.0 (CandlestickAnalysis provider)
+- Candlestick analysis is part of data-fetcher-2.0 (CandlestickAnalysis provider)
+- All entities use Dapper (not EF Core) in data-fetcher-2.0

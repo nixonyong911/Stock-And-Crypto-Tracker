@@ -21,10 +21,10 @@ This skill defines the **project standard** for all workers in the project. Use 
 
 **Worker Types:**
 
-- `data-fetcher` - Fetches external API data (e.g., TwelveData, CoinGecko)
-  - Location: `services/workers/data-fetcher/{name}/`
-- `data-fetcher-2.0` - Multi-provider fetcher + analysis (Finnhub, Massive, CandlestickAnalysis)
+- `data-fetcher-2.0` - Unified multi-provider fetcher + analysis (Alpaca, Finnhub, FRED, Massive, CandlestickAnalysis)
   - Location: `services/workers/data-fetcher-2.0/`
+  - Uses Dapper with its own entities (not EF Core)
+  - SQL migrations in `data-fetcher-2.0/migrations/`
 
 ---
 
@@ -34,9 +34,8 @@ This skill defines the **project standard** for all workers in the project. Use 
 
 ```
 What type of worker would you like to create/review?
-1. data-fetcher worker - Fetches external API data (e.g., TwelveData, CoinGecko)
-2. data-fetcher-2.0 provider - Add a new provider to data-fetcher-2.0 (e.g., CandlestickAnalysis)
-3. New type of worker - Define a new worker category
+1. data-fetcher-2.0 provider - Add a new provider to data-fetcher-2.0 (e.g., Alpaca, Finnhub, FRED)
+2. New type of worker - Define a new worker category
 ```
 
 ---
@@ -107,10 +106,9 @@ Every worker MUST implement:
 
 If worker requires new tables:
 
-1. Create entity class in `services/common/StockTracker.Data/Entities/`
-2. Add `DbSet<>` to `StockTrackerDbContext.cs`
-3. Create configuration in `Configurations/` folder
-4. Apply migration via Supabase MCP `apply_migration`
+1. Create entity class in `services/workers/data-fetcher-2.0/src/DataFetcher.Worker/Entities/`
+2. Create SQL migration in `services/workers/data-fetcher-2.0/migrations/`
+3. Apply migration via Supabase MCP `apply_migration`
 
 **Technical details:** [Database Setup Reference](references/database-setup/REFERENCE.md)
 

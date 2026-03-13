@@ -27,9 +27,13 @@ using DataFetcher.Worker.Infrastructure.Providers.Alpaca;
 using DataFetcher.Worker.Infrastructure.Providers.Alpaca.Repositories;
 using DataFetcher.Worker.Workers.Alpaca;
 using DataFetcher.Worker.Application.Providers.LocalIndicators;
+using DataFetcher.Worker.Application.Providers.Fred;
 using DataFetcher.Worker.Application.Providers.MarketAuxNews;
+using DataFetcher.Worker.Infrastructure.Providers.Fred;
+using DataFetcher.Worker.Infrastructure.Providers.Fred.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.MarketAuxNews;
 using DataFetcher.Worker.Infrastructure.Providers.MarketAuxNews.Repositories;
+using DataFetcher.Worker.Workers.Fred;
 using DataFetcher.Worker.Workers.LocalIndicators;
 using DataFetcher.Worker.Workers.MarketAuxNews;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -76,6 +80,8 @@ try
         builder.Configuration.GetSection("Gateway"));
     builder.Services.Configure<MarketAuxSettings>(
         builder.Configuration.GetSection("Providers:MarketAux"));
+    builder.Services.Configure<FredSettings>(
+        builder.Configuration.GetSection("Providers:Fred"));
 
     // Infrastructure - Common
     builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
@@ -147,6 +153,13 @@ try
     // Infrastructure - Massive Indicator Queue Publisher
     builder.Services.AddSingleton<IMassiveIndicatorQueuePublisher, MassiveIndicatorQueuePublisher>();
 
+    // Infrastructure & Application - FRED Provider
+    builder.Services.AddScoped<IFredRepository, FredRepository>();
+    builder.Services.AddScoped<IFredFetchService, FredFetchService>();
+    builder.Services.AddScoped<IFredCalendarSyncService, FredCalendarSyncService>();
+    builder.Services.AddHttpClient<IFredApiClient, FredApiClient>()
+        .AddPolicyHandler(GetRetryPolicy());
+
     // Application & Infrastructure - MarketAux Provider
     builder.Services.AddScoped<IMarketAuxNewsFetchService, MarketAuxNewsFetchService>();
     builder.Services.AddScoped<INewsArticleRepository, NewsArticleRepository>();
@@ -195,6 +208,10 @@ try
 
     // PriceTargetAnalysis worker
     builder.Services.AddHostedService<PriceTargetWorker>();
+
+    // FRED workers
+    builder.Services.AddHostedService<FredFetchWorker>();
+    builder.Services.AddHostedService<FredCalendarSyncWorker>();
 
     // MarketAux workers
     builder.Services.AddHostedService<MarketAuxNewsWorker>();
@@ -273,6 +290,14 @@ try
         SwaggerGroup = "alpaca",
         Capabilities = new List<string> { "ohlcv", "stocks", "crypto", "backfill", "ticker-management", "webhooks" }
     });
+    registry.Register(new ProviderInfo
+    {
+        Name = "FRED",
+        Description = "Federal Reserve Economic Data - macro indicators, release calendar, and media-friendly values",
+        StatusEndpoint = "/api/fred/status",
+        SwaggerGroup = "fred",
+        Capabilities = new List<string> { "economic-indicators", "release-calendar", "media-values", "trigger" }
+    });
     builder.Services.AddSingleton<IProviderRegistry>(registry);
 
     // Swagger
@@ -317,6 +342,12 @@ try
             Version = "v1",
             Description = "OHLCV market data from Alpaca API - stocks, crypto, backfill, and ticker management"
         });
+        c.SwaggerDoc("fred", new OpenApiInfo
+        {
+            Title = "FRED Provider",
+            Version = "v1",
+            Description = "Federal Reserve Economic Data - macro indicators, release calendar, and media-friendly values"
+        });
         c.SwaggerDoc("general", new OpenApiInfo
         {
             Title = "General / Discovery",
@@ -352,6 +383,7 @@ try
         c.SwaggerEndpoint("massive/swagger.json", "Massive Provider");
         c.SwaggerEndpoint("analysis/swagger.json", "Candlestick Analysis Provider");
         c.SwaggerEndpoint("alpaca/swagger.json", "Alpaca Provider");
+        c.SwaggerEndpoint("fred/swagger.json", "FRED Provider");
         c.SwaggerEndpoint("general/swagger.json", "General / Discovery");
         c.RoutePrefix = "swagger";
     });
@@ -382,6 +414,20 @@ try
         Predicate = check => check.Tags.Contains("ready")
     });
     app.MapHealthChecks("/api/analysis/health/live", new HealthCheckOptions
+    {
+        Predicate = _ => false
+    });
+
+    // FRED health checks (for Caddy routing that preserves /api/fred prefix)
+    app.MapHealthChecks("/api/fred/health", new HealthCheckOptions
+    {
+        Predicate = _ => true
+    });
+    app.MapHealthChecks("/api/fred/health/ready", new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready")
+    });
+    app.MapHealthChecks("/api/fred/health/live", new HealthCheckOptions
     {
         Predicate = _ => false
     });
