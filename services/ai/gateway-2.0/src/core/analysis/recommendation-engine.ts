@@ -594,13 +594,20 @@ export async function detectSignals(
   db: Pool,
   assetType: "stock" | "crypto",
 ): Promise<TickerSignal[]> {
-  const [targets, indicators, candles, newsRows, headlineMap] = await Promise.all([
+  const [targets, indicators, candles] = await Promise.all([
     fetchPriceTargets(db, assetType),
     fetchIndicators(db, assetType),
     fetchCandlesticks(db, assetType),
-    fetchNewsSentiment(db),
-    fetchNewsHeadlines(db),
   ]);
+
+  let newsRows: NewsSentimentRow[] = [];
+  let headlineMap = new Map<string, string[]>();
+  try {
+    [newsRows, headlineMap] = await Promise.all([
+      fetchNewsSentiment(db),
+      fetchNewsHeadlines(db),
+    ]);
+  } catch { /* non-critical: news table may not exist or be inaccessible */ }
 
   const technicalSignals = buildContexts(assetType, targets, indicators, candles).flatMap(
     detectForTicker,
@@ -616,13 +623,20 @@ export async function detectSignalsForTicker(
   symbol: string,
   assetType: "stock" | "crypto",
 ): Promise<TickerSignal[]> {
-  const [targets, indicators, candles, newsRows, headlineMap] = await Promise.all([
+  const [targets, indicators, candles] = await Promise.all([
     fetchPriceTargets(db, assetType, symbol),
     fetchIndicators(db, assetType, symbol),
     fetchCandlesticks(db, assetType, symbol),
-    fetchNewsSentiment(db, symbol),
-    fetchNewsHeadlines(db, symbol),
   ]);
+
+  let newsRows: NewsSentimentRow[] = [];
+  let headlineMap = new Map<string, string[]>();
+  try {
+    [newsRows, headlineMap] = await Promise.all([
+      fetchNewsSentiment(db, symbol),
+      fetchNewsHeadlines(db, symbol),
+    ]);
+  } catch { /* non-critical */ }
 
   const technicalSignals = buildContexts(assetType, targets, indicators, candles).flatMap(
     detectForTicker,
