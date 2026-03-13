@@ -33,7 +33,7 @@ INSERT INTO lookup_data_sources (name, base_url, is_active, created_at)
 SELECT 'MarketAux', 'https://api.marketaux.com/v1', true, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM lookup_data_sources WHERE name = 'MarketAux');
 
--- 3. Add MarketAux News Fetch schedule (every 2 hours, offset 25 min)
+-- 3. Add MarketAux News Fetch schedule (every 6 hours, priority-based pagination)
 DO $$
 DECLARE
     maux_ds_id INT;
@@ -49,9 +49,9 @@ BEGIN
     SELECT maux_ds_id,
            (SELECT id FROM worker_registry WHERE name = 'data-fetcher-2.0'),
            'MarketAux News Fetch',
-           'Fetches market-moving news (Fed, geopolitical, policy, indices) from MarketAux API with built-in sentiment scoring. Runs every 2 hours, 4 queries per cycle.',
-           '00:25:00'::TIME, 'UTC', true, 120, 25,
-           '{"daily_request_budget": 80, "requests_today": 0, "counter_date": "2026-01-01", "queries": ["macro", "geopolitical", "policy", "market"]}'::JSONB, NOW(), NOW()
+           'Fetches market-moving news (Fed, geopolitical, policy, indices) from MarketAux API. Runs every 6 hours with priority-based pagination: focused queries (macro/geopolitical/policy) capped at 5 pages each, market/index gets remaining budget. 25 API calls per cycle, 100/day.',
+           '00:15:00'::TIME, 'UTC', true, 360, 15,
+           '{"daily_request_budget": 100, "cycle_budget": 25, "requests_today": 0, "counter_date": "2026-01-01", "queries": ["macro", "geopolitical", "policy", "market"]}'::JSONB, NOW(), NOW()
     WHERE NOT EXISTS (SELECT 1 FROM worker_fetch_schedules WHERE name = 'MarketAux News Fetch');
 END $$;
 

@@ -38,6 +38,7 @@ export interface TickerSignal {
     newsArticleCount?: number;
     newsAvgSentiment?: number;
     newsSentimentLabel?: string;
+    newsHeadlines?: string[];
   };
 }
 
@@ -253,6 +254,43 @@ async function fetchNewsSentiment(
     params,
   );
   return rows;
+}
+
+interface NewsHeadlineRow {
+  symbol: string;
+  title: string;
+}
+
+async function fetchNewsHeadlines(
+  db: Pool,
+  symbolFilter?: string,
+): Promise<Map<string, string[]>> {
+  const params: unknown[] = [];
+  let symbolClause = "";
+  if (symbolFilter) {
+    symbolClause = " AND entities @> $1::jsonb";
+    params.push(JSON.stringify([{ symbol: symbolFilter.toUpperCase() }]));
+  }
+
+  const { rows } = await db.query<NewsHeadlineRow>(
+    `SELECT e.value->>'symbol' AS symbol, title
+     FROM analysis_news_marketaux,
+          jsonb_array_elements(entities) AS e(value)
+     WHERE published_at >= NOW() - INTERVAL '48 hours'
+       AND avg_sentiment_score IS NOT NULL${symbolClause}
+     ORDER BY published_at DESC`,
+    params,
+  );
+
+  const headlineMap = new Map<string, string[]>();
+  for (const row of rows) {
+    const existing = headlineMap.get(row.symbol) ?? [];
+    if (existing.length < 3) {
+      existing.push(row.title);
+      headlineMap.set(row.symbol, existing);
+    }
+  }
+  return headlineMap;
 }
 
 // ── Context assembly ────────────────────────────────────────────────────
@@ -513,6 +551,7 @@ export function detectForTicker(ctx: TickerCtx): TickerSignal[] {
 
 function detectNewsSentimentSignals(
   newsRows: NewsSentimentRow[],
+  headlineMap: Map<string, string[]>,
 ): TickerSignal[] {
   const signals: TickerSignal[] = [];
 
@@ -525,6 +564,8 @@ function detectNewsSentimentSignals(
     if (avg >= 0.3) direction = "bullish";
     else if (avg <= -0.3) direction = "bearish";
     if (!direction) continue;
+
+    const headlines = headlineMap.get(row.symbol) ?? [];
 
     signals.push({
       symbol: row.symbol,
@@ -541,6 +582,7 @@ function detectNewsSentimentSignals(
         newsArticleCount: count,
         newsAvgSentiment: avg,
         newsSentimentLabel: direction,
+        newsHeadlines: headlines.length > 0 ? headlines : undefined,
       },
     });
   }
@@ -552,18 +594,19 @@ export async function detectSignals(
   db: Pool,
   assetType: "stock" | "crypto",
 ): Promise<TickerSignal[]> {
-  const [targets, indicators, candles, newsRows] = await Promise.all([
+  const [targets, indicators, candles, newsRows, headlineMap] = await Promise.all([
     fetchPriceTargets(db, assetType),
     fetchIndicators(db, assetType),
     fetchCandlesticks(db, assetType),
     fetchNewsSentiment(db),
+    fetchNewsHeadlines(db),
   ]);
 
   const technicalSignals = buildContexts(assetType, targets, indicators, candles).flatMap(
     detectForTicker,
   );
 
-  const newsSignals = detectNewsSentimentSignals(newsRows);
+  const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap);
 
   return [...technicalSignals, ...newsSignals];
 }
@@ -573,18 +616,19 @@ export async function detectSignalsForTicker(
   symbol: string,
   assetType: "stock" | "crypto",
 ): Promise<TickerSignal[]> {
-  const [targets, indicators, candles, newsRows] = await Promise.all([
+  const [targets, indicators, candles, newsRows, headlineMap] = await Promise.all([
     fetchPriceTargets(db, assetType, symbol),
     fetchIndicators(db, assetType, symbol),
     fetchCandlesticks(db, assetType, symbol),
     fetchNewsSentiment(db, symbol),
+    fetchNewsHeadlines(db, symbol),
   ]);
 
   const technicalSignals = buildContexts(assetType, targets, indicators, candles).flatMap(
     detectForTicker,
   );
 
-  const newsSignals = detectNewsSentimentSignals(newsRows);
+  const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap);
 
   return [...technicalSignals, ...newsSignals];
 }

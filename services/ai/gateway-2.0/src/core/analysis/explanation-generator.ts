@@ -88,6 +88,18 @@ function buildWhatsHappening(s: TickerSignal): string {
         );
       }
       break;
+    case "news_sentiment": {
+      const label = d.newsSentimentLabel ?? "mixed";
+      const count = d.newsArticleCount ?? 0;
+      parts.push(
+        `Recent news coverage of ${sym} has been predominantly ${label} across ${count} articles.`,
+      );
+      if (d.newsHeadlines && d.newsHeadlines.length > 0) {
+        const headlineList = d.newsHeadlines.slice(0, 2).join("; ");
+        parts.push(`Key headlines: ${headlineList}.`);
+      }
+      break;
+    }
   }
 
   if (d.rsi != null) {
@@ -161,6 +173,11 @@ function buildWhatToWatch(s: TickerSignal): string {
         );
       }
       break;
+    case "news_sentiment":
+      parts.push(
+        "Watch for a shift in news sentiment or whether the current narrative is already priced in. Cross-reference with technical levels for confirmation.",
+      );
+      break;
   }
 
   if (parts.length === 0) {
@@ -171,12 +188,14 @@ function buildWhatToWatch(s: TickerSignal): string {
 }
 
 export function deriveOutlook(s: TickerSignal): string {
+  if (s.type === "news_sentiment") return capitalize(s.rawData.newsSentimentLabel ?? "neutral");
   if (s.timeframeAlignment === "full") return capitalize(s.rawData.swingSignal);
   if (s.timeframeAlignment === "partial") return capitalize(s.rawData.daySignal);
   return "Mixed";
 }
 
 export function deriveHorizon(s: TickerSignal): string {
+  if (s.type === "news_sentiment") return "Short-term (days)";
   if (s.timeframeAlignment === "conflict") return "Uncertain";
   if (s.type === "notable_pattern") return "Short-term (days)";
   if (s.type === "signal_change") return "Position (2-4 weeks)";
@@ -184,6 +203,12 @@ export function deriveHorizon(s: TickerSignal): string {
 }
 
 export function deriveConfidence(s: TickerSignal): string {
+  if (s.type === "news_sentiment") {
+    const count = s.rawData.newsArticleCount ?? 0;
+    if (count >= 7) return "Medium";
+    if (count >= 5) return "Low-Medium";
+    return "Low";
+  }
   const conf = s.rawData.confidence;
   if (s.timeframeAlignment === "conflict") return "Low";
   if (conf != null && conf < 0.4) return "Low";
@@ -193,6 +218,7 @@ export function deriveConfidence(s: TickerSignal): string {
 }
 
 export function deriveRisk(s: TickerSignal): string {
+  if (s.type === "news_sentiment") return "Medium";
   const d = s.rawData;
   const stopPct =
     d.stopLoss != null && d.close > 0
@@ -261,12 +287,22 @@ async function tryLlmSynthesis(
     timeframeAlignment: s.timeframeAlignment,
   }));
 
+  const newsHeadlines = signals
+    .filter((s) => s.rawData.newsHeadlines && s.rawData.newsHeadlines.length > 0)
+    .flatMap((s) => s.rawData.newsHeadlines!);
+
+  let newsContext = "";
+  if (newsHeadlines.length > 0) {
+    const unique = [...new Set(newsHeadlines)].slice(0, 3);
+    newsContext = `\n\nRecent news headlines for ${sym}:\n${unique.map((h) => `- ${h}`).join("\n")}\nConsider how this news may impact the technical setup described above.`;
+  }
+
   const prompt = `You are a stock analyst writing a brief for a retail investor.
 Given this data for ${sym}, write two short paragraphs:
 1. "What's happening" -- plain English, reference the data
 2. "What to watch" -- what confirms and what invalidates
 
-Data: ${JSON.stringify(signalData)}
+Data: ${JSON.stringify(signalData)}${newsContext}
 
 Tone: cautious, data-driven. Use "appears to", "suggests", "historically". Never say BUY or SELL.
 Return ONLY the two paragraphs, no headers.`;

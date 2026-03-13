@@ -31,6 +31,7 @@ public class MarketAuxApiClient : IMarketAuxApiClient
         string searchQuery,
         string? publishedAfter = null,
         string? entityTypes = null,
+        int page = 1,
         CancellationToken cancellationToken = default)
     {
         try
@@ -41,7 +42,8 @@ public class MarketAuxApiClient : IMarketAuxApiClient
                 "language=en",
                 "must_have_entities=true",
                 "group_similar=true",
-                "limit=3"
+                "limit=3",
+                "sort=published_at"
             };
 
             if (!string.IsNullOrEmpty(searchQuery))
@@ -52,6 +54,9 @@ public class MarketAuxApiClient : IMarketAuxApiClient
 
             if (!string.IsNullOrEmpty(entityTypes))
                 queryParams.Add($"entity_types={Uri.EscapeDataString(entityTypes)}");
+
+            if (page > 1)
+                queryParams.Add($"page={page}");
 
             var url = $"news/all?{string.Join("&", queryParams)}";
             _logger.LogDebug("Fetching MarketAux news: {Url}", url.Replace(_settings.ApiKey, "***"));

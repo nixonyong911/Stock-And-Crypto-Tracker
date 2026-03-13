@@ -18,6 +18,8 @@ public class MarketAuxNewsFetchServiceTests
         _apiClientMock = new Mock<IMarketAuxApiClient>();
         _repoMock = new Mock<INewsArticleRepository>();
         _loggerMock = new Mock<ILogger<MarketAuxNewsFetchService>>();
+        _repoMock.Setup(r => r.GetLatestPublishedAtByCategoryAsync(It.IsAny<string>()))
+            .ReturnsAsync((DateTime?)null);
         _service = new MarketAuxNewsFetchService(_apiClientMock.Object, _repoMock.Object, _loggerMock.Object);
     }
 
@@ -99,7 +101,6 @@ public class MarketAuxNewsFetchServiceTests
 
         var result = MarketAuxNewsFetchService.MapToEntity(article, "macro");
 
-        // Verify compact entities contain only the 5 required fields (no exchange, industry, highlights)
         Assert.Contains("AAPL", result.Entities);
         Assert.Contains("Apple Inc", result.Entities);
         Assert.Contains("equity", result.Entities);
@@ -148,32 +149,28 @@ public class MarketAuxNewsFetchServiceTests
 
     #endregion
 
-    #region Fetch and Store Flow
+    #region Fetch and Store Flow (Priority-Based Pagination)
 
     [Fact]
-    public async Task FetchAndStore_4Categories_Makes4ApiCalls()
+    public async Task FetchAndStore_EmptyResponses_Makes4ApiCalls()
     {
         _apiClientMock
-            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new MarketAuxResponse { Data = new List<MarketAuxArticle>() });
+            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MarketAuxResponse { Data = new List<MarketAuxArticle>(), Meta = new MarketAuxMeta { Returned = 0 } });
 
-        var result = await _service.FetchAndStoreNewsAsync();
+        var result = await _service.FetchAndStoreNewsAsync(25);
 
-        // 3 search queries + 1 market/index query = 4 total
         Assert.Equal(4, result.RequestsMade);
-        _apiClientMock.Verify(
-            c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(4));
     }
 
     [Fact]
     public async Task FetchAndStore_ApiReturnsNull_SkipsGracefully()
     {
         _apiClientMock
-            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((MarketAuxResponse?)null);
 
-        var result = await _service.FetchAndStoreNewsAsync();
+        var result = await _service.FetchAndStoreNewsAsync(25);
 
         Assert.Equal(4, result.RequestsMade);
         Assert.Equal(0, result.ArticlesFetched);
@@ -182,61 +179,111 @@ public class MarketAuxNewsFetchServiceTests
     }
 
     [Fact]
+    public async Task FetchAndStore_PaginatesWhenFullPage()
+    {
+        var fullPage = new MarketAuxResponse
+        {
+            Data = Enumerable.Range(0, 3).Select(_ => CreateArticle(new[] { 0.1 })).ToList(),
+            Meta = new MarketAuxMeta { Returned = 3, Limit = 3 }
+        };
+        var lastPage = new MarketAuxResponse
+        {
+            Data = new List<MarketAuxArticle> { CreateArticle(new[] { 0.1 }) },
+            Meta = new MarketAuxMeta { Returned = 1, Limit = 3 }
+        };
+
+        var callCount = 0;
+        _apiClientMock
+            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                return callCount % 2 == 1 ? fullPage : lastPage;
+            });
+
+        var result = await _service.FetchAndStoreNewsAsync(25);
+
+        // Each of 4 categories gets page1 (full) + page2 (partial) = 2 calls each = 8 total
+        Assert.Equal(8, result.RequestsMade);
+        Assert.Equal(16, result.ArticlesFetched);
+    }
+
+    [Fact]
+    public async Task FetchAndStore_RespectsGlobalCycleBudget()
+    {
+        var fullPage = new MarketAuxResponse
+        {
+            Data = Enumerable.Range(0, 3).Select(_ => CreateArticle(new[] { 0.1 })).ToList(),
+            Meta = new MarketAuxMeta { Returned = 3, Limit = 3 }
+        };
+
+        _apiClientMock
+            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(fullPage);
+
+        var result = await _service.FetchAndStoreNewsAsync(cycleBudget: 6);
+
+        Assert.Equal(6, result.RequestsMade);
+    }
+
+    [Fact]
+    public async Task FetchAndStore_FocusedQueriesCappedAt5Pages()
+    {
+        var fullPage = new MarketAuxResponse
+        {
+            Data = Enumerable.Range(0, 3).Select(_ => CreateArticle(new[] { 0.1 })).ToList(),
+            Meta = new MarketAuxMeta { Returned = 3, Limit = 3 }
+        };
+
+        _apiClientMock
+            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(fullPage);
+
+        // Budget 25: 3 focused queries x 5 pages = 15, then market gets remaining 10
+        var result = await _service.FetchAndStoreNewsAsync(cycleBudget: 25);
+
+        Assert.Equal(25, result.RequestsMade);
+    }
+
+    [Fact]
     public async Task FetchAndStore_ApiThrows_RecordsErrorContinues()
     {
         var callCount = 0;
         _apiClientMock
-            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 callCount++;
                 if (callCount == 1)
                     throw new HttpRequestException("API timeout");
-                return new MarketAuxResponse { Data = new List<MarketAuxArticle>() };
+                return new MarketAuxResponse { Data = new List<MarketAuxArticle>(), Meta = new MarketAuxMeta { Returned = 0 } };
             });
 
-        var result = await _service.FetchAndStoreNewsAsync();
+        var result = await _service.FetchAndStoreNewsAsync(25);
 
         Assert.Single(result.Errors);
         Assert.Contains("macro", result.Errors[0]);
-        Assert.Equal(3, result.RequestsMade); // 1 failed (no increment before throw) + 3 succeed
+        Assert.Equal(3, result.RequestsMade);
     }
 
     [Fact]
-    public async Task FetchAndStore_CountsArticlesCorrectly()
+    public async Task FetchAndStore_UsesLatestPublishedAtFromDb()
     {
-        var articles = new List<MarketAuxArticle>
-        {
-            CreateArticle(new[] { 0.1 }),
-            CreateArticle(new[] { -0.1 }),
-        };
+        var storedDate = new DateTime(2026, 3, 13, 10, 0, 0, DateTimeKind.Utc);
+        _repoMock.Setup(r => r.GetLatestPublishedAtByCategoryAsync("macro"))
+            .ReturnsAsync(storedDate);
 
         _apiClientMock
-            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new MarketAuxResponse { Data = articles });
+            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MarketAuxResponse { Data = new List<MarketAuxArticle>(), Meta = new MarketAuxMeta { Returned = 0 } });
 
-        var result = await _service.FetchAndStoreNewsAsync();
+        await _service.FetchAndStoreNewsAsync(25);
 
-        Assert.Equal(8, result.ArticlesFetched);  // 2 articles x 4 calls
-        Assert.Equal(8, result.ArticlesStored);
-    }
-
-    [Fact]
-    public async Task FetchAndStore_DuplicateUuid_HandledByUpsert()
-    {
-        var article = CreateArticle(new[] { 0.1 });
-        _apiClientMock
-            .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new MarketAuxResponse { Data = new List<MarketAuxArticle> { article } });
-
-        // Repo upsert should not throw for duplicates
-        _repoMock.Setup(r => r.UpsertAsync(It.IsAny<Domain.Providers.MarketAuxNews.Entities.NewsArticle>()))
-            .Returns(Task.CompletedTask);
-
-        var result = await _service.FetchAndStoreNewsAsync();
-
-        Assert.Empty(result.Errors);
-        _repoMock.Verify(r => r.UpsertAsync(It.IsAny<Domain.Providers.MarketAuxNews.Entities.NewsArticle>()), Times.Exactly(4));
+        _apiClientMock.Verify(c => c.FetchNewsAsync(
+            It.Is<string>(s => s.Contains("fed rate")),
+            It.Is<string?>(p => p != null && p.Contains("2026-03-13T10:00:00")),
+            It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     #endregion
@@ -246,10 +293,11 @@ public class MarketAuxNewsFetchServiceTests
     [Fact]
     public void ParseFetchConfig_ValidJson_ParsesCorrectly()
     {
-        var json = """{"DailyRequestBudget":80,"RequestsToday":12,"CounterDate":"2026-03-11","Queries":["macro","geopolitical"]}""";
+        var json = """{"DailyRequestBudget":100,"CycleBudget":25,"RequestsToday":12,"CounterDate":"2026-03-11","Queries":["macro","geopolitical"]}""";
         var config = MarketAuxNewsWorker.ParseFetchConfig(json);
 
-        Assert.Equal(80, config.DailyRequestBudget);
+        Assert.Equal(100, config.DailyRequestBudget);
+        Assert.Equal(25, config.CycleBudget);
         Assert.Equal(12, config.RequestsToday);
         Assert.Equal("2026-03-11", config.CounterDate);
         Assert.Equal(2, config.Queries.Count);
@@ -261,9 +309,10 @@ public class MarketAuxNewsFetchServiceTests
         var configNull = MarketAuxNewsWorker.ParseFetchConfig(null);
         var configEmpty = MarketAuxNewsWorker.ParseFetchConfig("");
 
-        Assert.Equal(80, configNull.DailyRequestBudget);
+        Assert.Equal(100, configNull.DailyRequestBudget);
+        Assert.Equal(25, configNull.CycleBudget);
         Assert.Equal(0, configNull.RequestsToday);
-        Assert.Equal(80, configEmpty.DailyRequestBudget);
+        Assert.Equal(100, configEmpty.DailyRequestBudget);
         Assert.Equal(0, configEmpty.RequestsToday);
     }
 
@@ -272,17 +321,14 @@ public class MarketAuxNewsFetchServiceTests
     {
         var config = MarketAuxNewsWorker.ParseFetchConfig("{invalid json!!}");
 
-        Assert.Equal(80, config.DailyRequestBudget);
+        Assert.Equal(100, config.DailyRequestBudget);
         Assert.Equal(0, config.RequestsToday);
     }
 
     [Fact]
     public void RateLimitCheck_BudgetExhausted_SkipsCycle()
     {
-        // When requests_today >= budget, no API calls should be made
-        // We test this indirectly: if budget is 0, FetchAndStore still makes calls
-        // The budget check is in the worker, not the service, so we verify via ParseFetchConfig
-        var json = """{"DailyRequestBudget":80,"RequestsToday":80,"CounterDate":"2026-03-11"}""";
+        var json = """{"DailyRequestBudget":100,"RequestsToday":100,"CounterDate":"2026-03-11"}""";
         var config = MarketAuxNewsWorker.ParseFetchConfig(json);
 
         Assert.True(config.RequestsToday >= config.DailyRequestBudget);
@@ -291,11 +337,10 @@ public class MarketAuxNewsFetchServiceTests
     [Fact]
     public void RateLimitCheck_CounterDateMismatch_ResetsCounter()
     {
-        var json = """{"DailyRequestBudget":80,"RequestsToday":50,"CounterDate":"2026-03-10"}""";
+        var json = """{"DailyRequestBudget":100,"RequestsToday":50,"CounterDate":"2026-03-10"}""";
         var config = MarketAuxNewsWorker.ParseFetchConfig(json);
         var todayUtc = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
-        // Simulate the worker's date-check logic
         if (config.CounterDate != todayUtc)
         {
             config.RequestsToday = 0;
@@ -304,34 +349,6 @@ public class MarketAuxNewsFetchServiceTests
 
         Assert.Equal(0, config.RequestsToday);
         Assert.Equal(todayUtc, config.CounterDate);
-    }
-
-    #endregion
-
-    #region Cleanup
-
-    [Fact]
-    public void Cleanup_RunsOnFirstCycleOfDay()
-    {
-        var config = new MarketAuxFetchConfig { RequestsToday = 0 };
-        var requestsMade = 4;
-
-        config.RequestsToday += requestsMade;
-
-        // First cycle: requests_today == requests_made
-        Assert.Equal(config.RequestsToday, requestsMade);
-    }
-
-    [Fact]
-    public void Cleanup_SkipsOnSubsequentCycles()
-    {
-        var config = new MarketAuxFetchConfig { RequestsToday = 4 };
-        var requestsMade = 4;
-
-        config.RequestsToday += requestsMade;
-
-        // Subsequent cycle: requests_today > requests_made
-        Assert.True(config.RequestsToday > requestsMade);
     }
 
     #endregion

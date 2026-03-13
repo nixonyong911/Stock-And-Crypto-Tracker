@@ -1,6 +1,6 @@
 # Analysis MCP Tools — Expert Analyst Guide
 
-You have 9 tools for stock and crypto analysis. This guide tells you **which tool to use**, **when**, and **how to combine them** for complex questions.
+You have 10 tools for stock and crypto analysis. This guide tells you **which tool to use**, **when**, and **how to combine them** for complex questions.
 
 ---
 
@@ -17,6 +17,7 @@ You have 9 tools for stock and crypto analysis. This guide tells you **which too
 | `analysis_macro` | Economic environment & regime | `category?` |
 | `analysis_market_earnings` | Who's reporting soon, biggest surprises | `days_ahead?`, `days_back?` |
 | `analysis_earnings_history` | Ticker's quarterly EPS track record | `symbol`, `quarters?` |
+| `analysis_news_sentiment` | Recent market-moving news with sentiment | `ticker?`, `days_back?`, `category?`, `sentiment?`, `limit?` |
 
 ---
 
@@ -29,12 +30,22 @@ Question about ONE specific ticker?
   → analysis_ticker_overview (start here, always)
   → Need detailed technical history? Add analysis_technical_signals
   → Need full earnings record? Add analysis_earnings_history
+  → "What news is affecting AAPL?" → Add analysis_news_sentiment(ticker="AAPL")
 
 Question about THE MARKET overall?
   → "Is the market bullish?" → analysis_market_scan
   → "Find me good stocks" → analysis_screen
   → "How's the economy?" → analysis_macro
   → "Who's reporting earnings?" → analysis_market_earnings
+  → "What's in the news?" → analysis_news_sentiment (no ticker = all market news)
+  → "How is war/tariffs affecting the market?" → analysis_news_sentiment(category="geopolitical")
+
+Question about news or recent events?
+  → Specific ticker news? → analysis_news_sentiment(ticker="AAPL")
+  → Fed/inflation news? → analysis_news_sentiment(category="macro")
+  → Geopolitical/war/tariffs? → analysis_news_sentiment(category="geopolitical")
+  → Policy/regulation? → analysis_news_sentiment(category="policy")
+  → General market news? → analysis_news_sentiment(category="market")
 
 Comparing multiple tickers?
   → analysis_compare (2-10 symbols)
@@ -61,6 +72,9 @@ Most questions need only **one** tool call:
 | "Where should I set stop-loss for TSLA?" | `price_targets` | `symbol="TSLA"` |
 | "Who's reporting earnings this week?" | `market_earnings` | `days_ahead=7` |
 | "What's AAPL's earnings track record?" | `earnings_history` | `symbol="AAPL"` |
+| "What news is moving NVDA?" | `news_sentiment` | `ticker="NVDA"` |
+| "Any geopolitical news today?" | `news_sentiment` | `category="geopolitical", days_back=1` |
+| "What's the Fed doing?" | `news_sentiment` | `category="macro"` |
 
 ---
 
@@ -89,7 +103,17 @@ Use **3 calls**:
 
 1. `analysis_market_scan(asset_type="all", days=1)` — today's sentiment, top movers
 2. `analysis_macro()` — economic backdrop
-3. `analysis_market_earnings(days_ahead=7, days_back=7)` — earnings catalysts
+3. `analysis_news_sentiment(days_back=1)` — today's market-moving headlines
+
+### "Is the market crashing because of the war?"
+
+Use **3 calls**:
+
+1. `analysis_market_scan(asset_type="stock", days=7)` — actual market data (sentiment, movers)
+2. `analysis_news_sentiment(category="geopolitical", days_back=7)` — war/conflict news and sentiment
+3. `analysis_macro()` — check if economic fundamentals support a crash narrative
+
+**Synthesis:** Distinguish between volatility and a real crash. Geopolitical events often cause VIX spikes and wider ranges without sustained directional moves in major indexes.
 
 ### "Is it a good time to buy crypto?"
 
@@ -100,10 +124,11 @@ Use **2 calls**:
 
 ### "AAPL has been volatile — what's happening?"
 
-Use **2 calls**:
+Use **3 calls**:
 
 1. `analysis_ticker_overview(symbol="AAPL")` — latest snapshot
 2. `analysis_technical_signals(symbol="AAPL", start_date="...", end_date="...")` — 30-day indicator history to see signal crossovers
+3. `analysis_news_sentiment(ticker="AAPL", days_back=7)` — check if news is driving the volatility
 
 ### "Which of these stocks is cheapest: AAPL, MSFT, GOOGL, AMZN?"
 
@@ -132,7 +157,9 @@ Use **2 calls**:
 
 5. **Use `screen` → `compare` pipeline for "find me stocks"** — screen narrows the universe, compare ranks the shortlist.
 
-6. **Limit to 3 tool calls per response** — more than 3 means you're overcomplicating. Re-think the approach.
+6. **Use `news_sentiment` when the user asks about events, sentiment, or "why"** — war, tariffs, Fed, policy. Combine with technicals for a complete picture. News sentiment alone is never a trading signal.
+
+7. **Limit to 3 tool calls per response** — more than 3 means you're overcomplicating. Re-think the approach.
 
 ---
 
@@ -173,6 +200,13 @@ For **crypto**, only `candlestick`, `technical`, and `price_targets` are availab
 - Mixed signals across indicators
 - Doji or spinning_top patterns (indecision)
 - Say: "Mixed signals — wait for a clearer setup before entering"
+
+### News-Driven Analysis
+- **News reinforces technicals** (bullish news + bullish technicals) → stronger conviction
+- **News contradicts technicals** (bearish news but bullish technicals) → market may have already priced it in
+- **Geopolitical news** (war, sanctions) → typically causes volatility, not directional moves in indexes; directly impacts commodities and related sectors
+- **Macro news** (Fed, inflation) → broad market impact, check `analysis_macro` for full picture
+- **Always combine news with technical data** — never form a view based on news sentiment alone
 
 ---
 

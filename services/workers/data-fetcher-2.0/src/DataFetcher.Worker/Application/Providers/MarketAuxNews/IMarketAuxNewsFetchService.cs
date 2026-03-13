@@ -2,7 +2,7 @@ namespace DataFetcher.Worker.Application.Providers.MarketAuxNews;
 
 public interface IMarketAuxNewsFetchService
 {
-    Task<MarketAuxFetchResult> FetchAndStoreNewsAsync(string? publishedAfter = null, CancellationToken cancellationToken = default);
+    Task<MarketAuxFetchResult> FetchAndStoreNewsAsync(int cycleBudget = 25, CancellationToken cancellationToken = default);
 }
 
 public class MarketAuxFetchResult

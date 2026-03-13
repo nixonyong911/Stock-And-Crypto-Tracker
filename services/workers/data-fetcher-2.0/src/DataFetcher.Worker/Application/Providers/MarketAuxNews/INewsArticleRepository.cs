@@ -4,4 +4,5 @@ public interface INewsArticleRepository
 {
     Task UpsertAsync(Domain.Providers.MarketAuxNews.Entities.NewsArticle article);
     Task<int> CleanupOldArticlesAsync(int retentionDays = 30);
+    Task<DateTime?> GetLatestPublishedAtByCategoryAsync(string category);
 }

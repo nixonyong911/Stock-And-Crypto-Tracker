@@ -12,9 +12,10 @@ public class MarketAuxNewsWorker : BackgroundService
     private readonly ILogger<MarketAuxNewsWorker> _logger;
     private readonly IMetricsClient _metrics;
     private const string DataSourceName = "MarketAux";
-    private const string WorkerVersion = "1.0.0";
+    private const string WorkerVersion = "1.1.0";
     private const string MetricsPrefix = "data_fetcher_2_marketaux_news";
-    private const int DefaultDailyBudget = 80;
+    private const int DefaultDailyBudget = 100;
+    private const int DefaultCycleBudget = 25;
 
     public MarketAuxNewsWorker(
         IServiceProvider serviceProvider,
@@ -73,7 +74,6 @@ public class MarketAuxNewsWorker : BackgroundService
                         break;
                     }
 
-                    // Parse fetch_config for rate limiting
                     var config = ParseFetchConfig(schedule.FetchConfig);
                     var todayUtc = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
@@ -83,20 +83,24 @@ public class MarketAuxNewsWorker : BackgroundService
                         config.CounterDate = todayUtc;
                     }
 
-                    var budget = config.DailyRequestBudget > 0 ? config.DailyRequestBudget : DefaultDailyBudget;
+                    var dailyBudget = config.DailyRequestBudget > 0 ? config.DailyRequestBudget : DefaultDailyBudget;
+                    var cycleBudget = config.CycleBudget > 0 ? config.CycleBudget : DefaultCycleBudget;
+                    var remainingDaily = dailyBudget - config.RequestsToday;
+                    var effectiveCycleBudget = Math.Min(cycleBudget, remainingDaily);
                     var startedAt = DateTime.UtcNow;
 
-                    if (config.RequestsToday >= budget)
+                    if (remainingDaily <= 0)
                     {
                         _logger.LogWarning("Daily request budget exhausted ({Used}/{Budget}). Skipping cycle.",
-                            config.RequestsToday, budget);
-                        await scheduleRepo.UpdateLastRunAsync(schedule.Id, "skipped", $"Budget exhausted: {config.RequestsToday}/{budget}");
-                        await scheduleRepo.LogExecutionAsync(schedule.Id, "skipped", $"Budget exhausted: {config.RequestsToday}/{budget}", 0, startedAt);
+                            config.RequestsToday, dailyBudget);
+                        await scheduleRepo.UpdateLastRunAsync(schedule.Id, "skipped", $"Budget exhausted: {config.RequestsToday}/{dailyBudget}");
+                        await scheduleRepo.LogExecutionAsync(schedule.Id, "skipped", $"Budget exhausted: {config.RequestsToday}/{dailyBudget}", 0, startedAt);
                         continue;
                     }
 
-                    _logger.LogInformation("Starting MarketAux news fetch (requests today: {Used}/{Budget})",
-                        config.RequestsToday, budget);
+                    _logger.LogInformation(
+                        "Starting MarketAux news fetch (cycle budget: {CycleBudget}, daily: {Used}/{DailyBudget})",
+                        effectiveCycleBudget, config.RequestsToday, dailyBudget);
 
                     try
                     {
@@ -105,21 +109,18 @@ public class MarketAuxNewsWorker : BackgroundService
                         var newsRepo = fetchScope.ServiceProvider.GetRequiredService<INewsArticleRepository>();
                         var fetchScheduleRepo = fetchScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
 
-                        var publishedAfter = schedule.LastRunAt?.ToString("yyyy-MM-ddTHH:mm");
-
-                        var result = await fetchService.FetchAndStoreNewsAsync(publishedAfter, stoppingToken);
+                        var result = await fetchService.FetchAndStoreNewsAsync(effectiveCycleBudget, stoppingToken);
 
                         config.RequestsToday += result.RequestsMade;
                         await UpdateFetchConfigAsync(fetchScheduleRepo, schedule.Id, config);
 
-                        // Cleanup old articles (once per day, first cycle)
                         if (config.RequestsToday == result.RequestsMade)
                         {
                             result.CleanedUp = await newsRepo.CleanupOldArticlesAsync(30);
                         }
 
                         var statusMessage = $"Fetched {result.ArticlesFetched}, stored {result.ArticlesStored}, " +
-                                          $"requests {result.RequestsMade} (today: {config.RequestsToday}/{budget})";
+                                          $"requests {result.RequestsMade}/{effectiveCycleBudget} (today: {config.RequestsToday}/{dailyBudget})";
                         if (result.CleanedUp > 0) statusMessage += $", cleaned {result.CleanedUp}";
                         if (result.Errors.Count > 0) statusMessage += $", errors: {string.Join("; ", result.Errors.Take(3))}";
 
@@ -221,7 +222,8 @@ public class MarketAuxNewsWorker : BackgroundService
 
 public class MarketAuxFetchConfig
 {
-    public int DailyRequestBudget { get; set; } = 80;
+    public int DailyRequestBudget { get; set; } = 100;
+    public int CycleBudget { get; set; } = 25;
     public int RequestsToday { get; set; }
     public string CounterDate { get; set; } = "";
     public List<string> Queries { get; set; } = new() { "macro", "geopolitical", "policy", "market" };

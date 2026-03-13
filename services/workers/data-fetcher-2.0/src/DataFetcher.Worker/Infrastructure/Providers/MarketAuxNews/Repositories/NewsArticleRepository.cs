@@ -59,4 +59,16 @@ public class NewsArticleRepository : INewsArticleRepository
         }
         return deleted;
     }
+
+    public async Task<DateTime?> GetLatestPublishedAtByCategoryAsync(string category)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            SELECT MAX(published_at)
+            FROM analysis_news_marketaux
+            WHERE search_category = @Category";
+
+        return await connection.QuerySingleOrDefaultAsync<DateTime?>(sql, new { Category = category });
+    }
 }

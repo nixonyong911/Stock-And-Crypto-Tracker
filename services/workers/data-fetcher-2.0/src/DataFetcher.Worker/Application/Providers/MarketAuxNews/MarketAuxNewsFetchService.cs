@@ -17,6 +17,8 @@ public class MarketAuxNewsFetchService : IMarketAuxNewsFetchService
     };
 
     private const string MarketEntityType = "index";
+    private const int FocusedQueryMaxPages = 5;
+    private const int FreetierPageLimit = 3;
 
     public MarketAuxNewsFetchService(
         IMarketAuxApiClient apiClient,
@@ -29,42 +31,27 @@ public class MarketAuxNewsFetchService : IMarketAuxNewsFetchService
     }
 
     public async Task<MarketAuxFetchResult> FetchAndStoreNewsAsync(
-        string? publishedAfter = null,
+        int cycleBudget = 25,
         CancellationToken cancellationToken = default)
     {
         var result = new MarketAuxFetchResult();
+        var defaultAfter = DateTime.UtcNow.AddHours(-6).ToString("yyyy-MM-ddTHH:mm");
 
+        // Step 1: Focused queries (macro, geopolitical, policy) -- capped at 5 pages each
         foreach (var (category, searchQuery) in SearchQueries)
         {
-            if (cancellationToken.IsCancellationRequested) break;
+            if (cancellationToken.IsCancellationRequested || result.RequestsMade >= cycleBudget)
+                break;
 
             try
             {
-                var response = await _apiClient.FetchNewsAsync(searchQuery, publishedAfter, cancellationToken: cancellationToken);
-                result.RequestsMade++;
+                var publishedAfter = await GetPublishedAfterForCategory(category, defaultAfter);
+                var pagesUsed = await FetchCategoryWithPagination(
+                    result, searchQuery, publishedAfter, null,
+                    category, FocusedQueryMaxPages, cycleBudget,
+                    cancellationToken);
 
-                if (response?.Data == null || response.Data.Count == 0)
-                {
-                    _logger.LogDebug("No articles returned for category '{Category}'", category);
-                    continue;
-                }
-
-                result.ArticlesFetched += response.Data.Count;
-
-                foreach (var article in response.Data)
-                {
-                    try
-                    {
-                        var entity = MapToEntity(article, category);
-                        await _repository.UpsertAsync(entity);
-                        result.ArticlesStored++;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to store article {Uuid}", article.Uuid);
-                        result.Errors.Add($"{article.Uuid}: {ex.Message}");
-                    }
-                }
+                _logger.LogDebug("Category '{Category}': {Pages} pages fetched", category, pagesUsed);
             }
             catch (Exception ex)
             {
@@ -73,32 +60,20 @@ public class MarketAuxNewsFetchService : IMarketAuxNewsFetchService
             }
         }
 
-        // Market-wide query (entity_types=index, no search param)
-        if (!cancellationToken.IsCancellationRequested)
+        // Step 2: Market/index -- gets ALL remaining budget
+        if (!cancellationToken.IsCancellationRequested && result.RequestsMade < cycleBudget)
         {
             try
             {
-                var response = await _apiClient.FetchNewsAsync(string.Empty, publishedAfter, entityTypes: MarketEntityType, cancellationToken: cancellationToken);
-                result.RequestsMade++;
+                var remaining = cycleBudget - result.RequestsMade;
+                var publishedAfter = await GetPublishedAfterForCategory("market", defaultAfter);
+                var pagesUsed = await FetchCategoryWithPagination(
+                    result, string.Empty, publishedAfter, MarketEntityType,
+                    "market", remaining, cycleBudget,
+                    cancellationToken);
 
-                if (response?.Data != null)
-                {
-                    result.ArticlesFetched += response.Data.Count;
-                    foreach (var article in response.Data)
-                    {
-                        try
-                        {
-                            var entity = MapToEntity(article, "market");
-                            await _repository.UpsertAsync(entity);
-                            result.ArticlesStored++;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to store market article {Uuid}", article.Uuid);
-                            result.Errors.Add($"{article.Uuid}: {ex.Message}");
-                        }
-                    }
-                }
+                _logger.LogDebug("Category 'market': {Pages} pages fetched (budget remaining: {Remaining})",
+                    pagesUsed, remaining);
             }
             catch (Exception ex)
             {
@@ -108,6 +83,70 @@ public class MarketAuxNewsFetchService : IMarketAuxNewsFetchService
         }
 
         return result;
+    }
+
+    private async Task<int> FetchCategoryWithPagination(
+        MarketAuxFetchResult result,
+        string searchQuery,
+        string publishedAfter,
+        string? entityTypes,
+        string category,
+        int maxPages,
+        int cycleBudget,
+        CancellationToken cancellationToken)
+    {
+        var pagesUsed = 0;
+
+        for (var page = 1; page <= maxPages; page++)
+        {
+            if (cancellationToken.IsCancellationRequested || result.RequestsMade >= cycleBudget)
+                break;
+
+            var response = await _apiClient.FetchNewsAsync(
+                searchQuery, publishedAfter, entityTypes, page, cancellationToken);
+            result.RequestsMade++;
+            pagesUsed++;
+
+            if (response?.Data == null || response.Data.Count == 0)
+                break;
+
+            result.ArticlesFetched += response.Data.Count;
+
+            foreach (var article in response.Data)
+            {
+                try
+                {
+                    var entity = MapToEntity(article, category);
+                    await _repository.UpsertAsync(entity);
+                    result.ArticlesStored++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to store article {Uuid}", article.Uuid);
+                    result.Errors.Add($"{article.Uuid}: {ex.Message}");
+                }
+            }
+
+            if (response.Meta.Returned < FreetierPageLimit)
+                break;
+        }
+
+        return pagesUsed;
+    }
+
+    private async Task<string> GetPublishedAfterForCategory(string category, string fallback)
+    {
+        try
+        {
+            var latest = await _repository.GetLatestPublishedAtByCategoryAsync(category);
+            if (latest.HasValue)
+                return latest.Value.ToString("yyyy-MM-ddTHH:mm:ss");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get latest published_at for category '{Category}', using fallback", category);
+        }
+        return fallback;
     }
 
     internal static NewsArticle MapToEntity(MarketAuxArticle article, string category)
