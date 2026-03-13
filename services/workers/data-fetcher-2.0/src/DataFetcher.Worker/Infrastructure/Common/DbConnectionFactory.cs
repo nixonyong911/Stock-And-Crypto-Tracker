@@ -21,7 +21,10 @@ public class DbConnectionFactory : IDbConnectionFactory
             SslMode = SslMode.Require,
             Pooling = true,
             MaxPoolSize = 10,
-            Multiplexing = false // Required for Supavisor
+            Multiplexing = false,
+            KeepAlive = 60,
+            ConnectionIdleLifetime = 300,
+            ConnectionLifetime = 600,
         };
         _connectionString = builder.ConnectionString;
     }

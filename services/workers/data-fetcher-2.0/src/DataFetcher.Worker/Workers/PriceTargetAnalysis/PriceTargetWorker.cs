@@ -94,76 +94,92 @@ public class PriceTargetWorker : BackgroundService
                         new Dictionary<string, string> { ["status"] = "started", ["worker"] = "price-target" });
 
                     var startedAt = DateTime.UtcNow;
-                    try
+                    const int maxRetries = 2;
+                    for (var attempt = 0; attempt <= maxRetries; attempt++)
                     {
-                        using var analysisScope = _serviceProvider.CreateScope();
-                        var stockService = analysisScope.ServiceProvider.GetRequiredService<IPriceTargetService>();
-                        var cryptoService = analysisScope.ServiceProvider.GetRequiredService<ICryptoPriceTargetService>();
-                        var fetchScheduleRepo = analysisScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
-
-                        var analyzeDate = GetAnalyzeDate(config.AnalyzeDate);
-                        var statusParts = new List<string>();
-
-                        var isWeekday = analyzeDate.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
-                        if (isWeekday)
+                        try
                         {
-                            var stockResult = await stockService.CalculateAllStocksAsync(analyzeDate, stoppingToken);
-                            statusParts.Add($"Stocks: {stockResult.SuccessCount}/{stockResult.TotalStocks} ({stockResult.SkippedCount} skipped, {stockResult.DurationSeconds:F1}s)");
-                            if (stockResult.Errors.Count > 0)
-                                statusParts.Add($"Stock errors: {string.Join("; ", stockResult.Errors.Take(3))}");
+                            using var analysisScope = _serviceProvider.CreateScope();
+                            var stockService = analysisScope.ServiceProvider.GetRequiredService<IPriceTargetService>();
+                            var cryptoService = analysisScope.ServiceProvider.GetRequiredService<ICryptoPriceTargetService>();
+                            var fetchScheduleRepo = analysisScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
+
+                            var analyzeDate = GetAnalyzeDate(config.AnalyzeDate);
+                            var statusParts = new List<string>();
+
+                            var isWeekday = analyzeDate.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+                            if (isWeekday)
+                            {
+                                var stockResult = await stockService.CalculateAllStocksAsync(analyzeDate, stoppingToken);
+                                statusParts.Add($"Stocks: {stockResult.SuccessCount}/{stockResult.TotalStocks} ({stockResult.SkippedCount} skipped, {stockResult.DurationSeconds:F1}s)");
+                                if (stockResult.Errors.Count > 0)
+                                    statusParts.Add($"Stock errors: {string.Join("; ", stockResult.Errors.Take(3))}");
+                            }
+                            else
+                            {
+                                statusParts.Add("Stocks: skipped (weekend)");
+                            }
+
+                            var cryptoResult = await cryptoService.CalculateAllCryptoAsync(analyzeDate, stoppingToken);
+                            statusParts.Add($"Crypto: {cryptoResult.SuccessCount}/{cryptoResult.TotalStocks} ({cryptoResult.SkippedCount} skipped, {cryptoResult.DurationSeconds:F1}s)");
+                            if (cryptoResult.Errors.Count > 0)
+                                statusParts.Add($"Crypto errors: {string.Join("; ", cryptoResult.Errors.Take(3))}");
+
+                            var priceTargetRepo = analysisScope.ServiceProvider.GetRequiredService<IPriceTargetRepository>();
+                            var deleted = await priceTargetRepo.DeleteOlderThanAsync(90);
+                            if (deleted > 0)
+                                statusParts.Add($"Cleanup: {deleted} old rows removed");
+
+                            if (attempt > 0)
+                                statusParts.Add($"Succeeded on retry {attempt}");
+
+                            var statusMessage = string.Join(" | ", statusParts);
+                            var overallSuccess = isWeekday
+                                ? cryptoResult.Success
+                                : cryptoResult.Success;
+
+                            await fetchScheduleRepo.UpdateLastRunAsync(
+                                schedule.Id,
+                                overallSuccess ? "success" : "partial",
+                                statusMessage);
+
+                            await fetchScheduleRepo.LogExecutionAsync(
+                                schedule.Id,
+                                overallSuccess ? "success" : "partial",
+                                statusMessage,
+                                (int)(DateTime.UtcNow - startedAt).TotalMilliseconds,
+                                startedAt);
+
+                            await _metrics.IncrementCounterAsync("job_executions_total", 1,
+                                new Dictionary<string, string> { ["status"] = "completed", ["worker"] = "price-target" });
+                            break;
                         }
-                        else
+                        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                         {
-                            statusParts.Add("Stocks: skipped (weekend)");
+                            throw;
                         }
+                        catch (Exception ex) when (attempt < maxRetries && IsTransient(ex))
+                        {
+                            _logger.LogWarning(ex, "Transient error during price target calculation (attempt {Attempt}/{Max}), retrying in 5s",
+                                attempt + 1, maxRetries + 1);
+                            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error during price target calculation (attempt {Attempt}/{Max})",
+                                attempt + 1, maxRetries + 1);
+                            using var errorScope = _serviceProvider.CreateScope();
+                            var fetchScheduleRepo = errorScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
+                            await fetchScheduleRepo.UpdateLastRunAsync(schedule.Id, "failed", ex.Message);
 
-                        var cryptoResult = await cryptoService.CalculateAllCryptoAsync(analyzeDate, stoppingToken);
-                        statusParts.Add($"Crypto: {cryptoResult.SuccessCount}/{cryptoResult.TotalStocks} ({cryptoResult.SkippedCount} skipped, {cryptoResult.DurationSeconds:F1}s)");
-                        if (cryptoResult.Errors.Count > 0)
-                            statusParts.Add($"Crypto errors: {string.Join("; ", cryptoResult.Errors.Take(3))}");
+                            await fetchScheduleRepo.LogExecutionAsync(
+                                schedule.Id, "failed", ex.Message,
+                                (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
 
-                        var priceTargetRepo = analysisScope.ServiceProvider.GetRequiredService<IPriceTargetRepository>();
-                        var deleted = await priceTargetRepo.DeleteOlderThanAsync(90);
-                        if (deleted > 0)
-                            statusParts.Add($"Cleanup: {deleted} old rows removed");
-
-                        var statusMessage = string.Join(" | ", statusParts);
-                        var overallSuccess = isWeekday
-                            ? cryptoResult.Success
-                            : cryptoResult.Success;
-
-                        await fetchScheduleRepo.UpdateLastRunAsync(
-                            schedule.Id,
-                            overallSuccess ? "success" : "partial",
-                            statusMessage);
-
-                        await fetchScheduleRepo.LogExecutionAsync(
-                            schedule.Id,
-                            overallSuccess ? "success" : "partial",
-                            statusMessage,
-                            (int)(DateTime.UtcNow - startedAt).TotalMilliseconds,
-                            startedAt);
-
-                        await _metrics.IncrementCounterAsync("job_executions_total", 1,
-                            new Dictionary<string, string> { ["status"] = "completed", ["worker"] = "price-target" });
-                    }
-                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                    {
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error during price target calculation");
-                        using var errorScope = _serviceProvider.CreateScope();
-                        var fetchScheduleRepo = errorScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
-                        await fetchScheduleRepo.UpdateLastRunAsync(schedule.Id, "failed", ex.Message);
-
-                        await fetchScheduleRepo.LogExecutionAsync(
-                            schedule.Id, "failed", ex.Message,
-                            (int)(DateTime.UtcNow - startedAt).TotalMilliseconds, startedAt);
-
-                        await _metrics.IncrementCounterAsync("job_executions_total", 1,
-                            new Dictionary<string, string> { ["status"] = "failed", ["worker"] = "price-target" });
+                            await _metrics.IncrementCounterAsync("job_executions_total", 1,
+                                new Dictionary<string, string> { ["status"] = "failed", ["worker"] = "price-target" });
+                            break;
+                        }
                     }
 
                     if (!schedule.IntervalMinutes.HasValue)
@@ -212,6 +228,14 @@ public class PriceTargetWorker : BackgroundService
         {
             _logger.LogWarning(ex, "Failed to report worker stop metrics");
         }
+    }
+
+    private static bool IsTransient(Exception ex)
+    {
+        if (ex is TimeoutException) return true;
+        if (ex.InnerException is TimeoutException) return true;
+        var typeName = ex.GetType().FullName ?? "";
+        return typeName.Contains("Npgsql") || typeName.Contains("Socket");
     }
 
     /// <summary>
