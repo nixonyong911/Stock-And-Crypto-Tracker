@@ -49,8 +49,8 @@ BEGIN
     SELECT maux_ds_id,
            (SELECT id FROM worker_registry WHERE name = 'data-fetcher-2.0'),
            'MarketAux News Fetch',
-           'Fetches market-moving news (Fed, geopolitical, policy, indices) from MarketAux API. Runs every 6 hours with priority-based pagination: focused queries (macro/geopolitical/policy) capped at 5 pages each, market/index gets remaining budget. 25 API calls per cycle, 100/day.',
-           '00:15:00'::TIME, 'UTC', true, 360, 15,
+           'Fetches market-moving news every 6 hours at 03:00/09:00/15:00/21:00 UTC. Priority-based pagination: focused queries capped at 5 pages, market/index gets remaining budget. 25 API calls per cycle, 100/day.',
+           '03:00:00'::TIME, 'UTC', true, 360, 180,
            '{"daily_request_budget": 100, "cycle_budget": 25, "requests_today": 0, "counter_date": "2026-01-01", "queries": ["macro", "geopolitical", "policy", "market"]}'::JSONB, NOW(), NOW()
     WHERE NOT EXISTS (SELECT 1 FROM worker_fetch_schedules WHERE name = 'MarketAux News Fetch');
 END $$;
