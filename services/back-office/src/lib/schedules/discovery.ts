@@ -1,3 +1,4 @@
+import http from "node:http";
 import { getWorkers, WorkerRegistry } from "@/lib/db/workers";
 import { getScheduleMetadata } from "./registry";
 
@@ -54,30 +55,43 @@ export interface DiscoveryResult {
 
 const PROBE_TIMEOUT_MS = 5000;
 
+/**
+ * HTTP GET using node:http to avoid WHATWG URL parser rejecting
+ * Docker hostnames with dots (e.g. "data-fetcher-2.0").
+ */
+function httpGet(url: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const match = url.match(/^http:\/\/([^:/]+):?(\d+)?(\/.*)?$/);
+    if (!match) return reject(new Error(`Invalid URL: ${url}`));
+
+    const [, hostname, port, path] = match;
+    const req = http.get(
+      { hostname, port: port ? Number(port) : 80, path: path || "/", timeout: PROBE_TIMEOUT_MS },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk: Buffer) => { data += chunk.toString(); });
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body: data }));
+      }
+    );
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(); reject(new Error("Timeout")); });
+  });
+}
+
 async function probeWorker(
   worker: WorkerRegistry
 ): Promise<WorkerSchedulesResponse | null> {
   if (!worker.schedules_endpoint) return null;
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+    const { status, body } = await httpGet(worker.schedules_endpoint);
 
-    const response = await fetch(worker.schedules_endpoint, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      console.error(
-        `Worker ${worker.name} schedules endpoint returned ${response.status}`
-      );
+    if (status < 200 || status >= 300) {
+      console.error(`Worker ${worker.name} schedules endpoint returned ${status}`);
       return null;
     }
 
-    return (await response.json()) as WorkerSchedulesResponse;
+    return JSON.parse(body) as WorkerSchedulesResponse;
   } catch (error) {
     console.error(`Failed to probe worker ${worker.name}:`, error);
     return null;
