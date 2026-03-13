@@ -25,6 +25,7 @@ export interface GatewayConfig {
   readonly maxMessageLength: number;
   readonly telegramBotToken: string | undefined;
   readonly telegramWebhookURL: string | undefined;
+  readonly telegramErrorChatId: string | undefined;
   readonly dataFetcherInternalUrl: string;
   readonly phoneHashSalt: string;
   readonly frontendUrl: string;
@@ -94,6 +95,7 @@ export function loadConfig(): GatewayConfig {
     maxMessageLength: envInt("GATEWAY_MAX_MESSAGE_LENGTH", 4000),
     telegramBotToken: envOptional("TELEGRAM_BOT_TOKEN"),
     telegramWebhookURL: envOptional("TELEGRAM_WEBHOOK_URL"),
+    telegramErrorChatId: envOptional("TELEGRAM_ERROR_CHAT_ID"),
     dataFetcherInternalUrl: envOptional("DATA_FETCHER_INTERNAL_URL") ?? "http://data-fetcher-2.0:8080",
     phoneHashSalt: envStr("PHONE_HASH_SALT", ""),
     frontendUrl: envStr("FRONTEND_URL", "https://stockandcryptotracker.com"),

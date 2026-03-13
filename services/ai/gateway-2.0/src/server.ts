@@ -35,6 +35,9 @@ import { ExtensionRegistry } from "./extension/registry.js";
 import { createGatewayAPI } from "./extension/api.js";
 import { loadExtensions } from "./extension/loader.js";
 
+// Error notification
+import { ErrorNotifier } from "./core/error-notifier.js";
+
 // Routes
 import { registerHealthRoutes } from "./http/health.js";
 import { registerChatRoutes } from "./http/chat.js";
@@ -71,7 +74,12 @@ export interface ServerDeps {
  *
  * The caller is responsible for calling `fastify.listen()`.
  */
-export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
+export interface ServerResult {
+  app: FastifyInstance;
+  errorNotifier?: ErrorNotifier;
+}
+
+export async function createServer(deps: ServerDeps): Promise<ServerResult> {
   const { config, db, redis } = deps;
 
   // ---- 1. Create Fastify instance ----
@@ -80,6 +88,39 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
     logger: {
       level: process.env["LOG_LEVEL"] ?? "info",
     },
+  });
+
+  // ---- 1b. Error notifier (Telegram group alerts) ----
+
+  let errorNotifier: ErrorNotifier | undefined;
+  if (config.telegramBotToken && config.telegramErrorChatId) {
+    errorNotifier = new ErrorNotifier({
+      botToken: config.telegramBotToken,
+      chatId: config.telegramErrorChatId,
+    });
+    app.log.info("Error notifier enabled (Telegram group)");
+  }
+
+  // ---- 1c. Fastify error handler ----
+
+  app.setErrorHandler(async (error, request, reply) => {
+    app.log.error({ err: error, url: request.url, method: request.method }, "Unhandled route error");
+
+    if (errorNotifier) {
+      const userId = (request as unknown as Record<string, unknown>).userId as string | undefined;
+      const body = request.body as Record<string, unknown> | undefined;
+      const userMessage = typeof body?.message === "string" ? body.message : undefined;
+
+      errorNotifier.notify(error, {
+        type: "UnhandledRouteError",
+        route: request.url,
+        method: request.method,
+        user: userId ?? "N/A",
+        userMessage,
+      }).catch(() => {});
+    }
+
+    return reply.status(500).send({ error: "Internal server error" });
   });
 
   // ---- 2. Plugins ----
@@ -280,6 +321,7 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
     },
     resolveUserTier,
     emit: (event, payload) => wsServer.broadcast(event, payload),
+    errorNotifier,
   });
 
   // ---- 8. Register middleware ----
@@ -355,5 +397,5 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
 
   // ---- 15. Return fully-configured app ----
 
-  return app;
+  return { app, errorNotifier };
 }

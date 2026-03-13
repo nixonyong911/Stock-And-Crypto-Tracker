@@ -10,6 +10,7 @@ import { createPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
 import { createServer } from "./server.js";
 import type { FastifyInstance } from "fastify";
+import type { ErrorNotifier } from "./core/error-notifier.js";
 
 async function main(): Promise<void> {
   // ---- Configuration ----
@@ -53,9 +54,12 @@ async function main(): Promise<void> {
 
   // ---- Server ----
   let app: FastifyInstance | undefined;
+  let errorNotifier: ErrorNotifier | undefined;
 
   try {
-    app = await createServer({ config, db, redis });
+    const result = await createServer({ config, db, redis });
+    app = result.app;
+    errorNotifier = result.errorNotifier;
 
     await app.listen({ port: config.port, host: "0.0.0.0" });
     app.log.info(`Gateway listening on port ${config.port}`);
@@ -64,6 +68,19 @@ async function main(): Promise<void> {
     logger.fatal({ err }, "Failed to start server");
     process.exit(1);
   }
+
+  // ---- Process-level error handlers ----
+
+  process.on("uncaughtException", (err) => {
+    app?.log.fatal({ err }, "Uncaught exception");
+    errorNotifier?.notify(err, { type: "UncaughtException" }).catch(() => {});
+  });
+
+  process.on("unhandledRejection", (reason) => {
+    app?.log.error({ err: reason }, "Unhandled rejection");
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    errorNotifier?.notify(err, { type: "UnhandledRejection" }).catch(() => {});
+  });
 
   // ---- Graceful shutdown ----
   const shutdown = async (signal: string): Promise<void> => {

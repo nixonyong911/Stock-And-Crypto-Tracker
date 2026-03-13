@@ -377,6 +377,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_WEBHOOK_URL=https://nxserver.malaysiawest.cloudapp.azure.com/telegram/webhook
+      - TELEGRAM_ERROR_CHAT_ID=${TELEGRAM_ERROR_CHAT_ID}
       # - TWELVEDATA_INTERNAL_URL=http://twelvedata:8080  # Disabled: Replaced by Alpaca provider in data-fetcher-2.0
       - DATA_FETCHER_INTERNAL_URL=http://data-fetcher:8080
       - PATH=/home/azureuser/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

@@ -9,6 +9,7 @@ import type { FastifyInstance, FastifyBaseLogger } from 'fastify';
 import type { Pool } from 'pg';
 import type { Redis } from 'ioredis';
 import type { GatewayConfig } from '../config.js';
+import type { ErrorNotifier } from '../core/error-notifier.js';
 
 // Re-export Tier from the canonical source so extension authors can import
 // from a single module.
@@ -111,6 +112,9 @@ export interface GatewayAPI {
 
   /** Resolve a user's subscription tier */
   resolveUserTier(platformUserId: string, channelType: string): Promise<Tier>;
+
+  /** Error notifier for critical errors (may be undefined if not configured) */
+  readonly errorNotifier?: ErrorNotifier;
 }
 
 // ---------------------------------------------------------------------------

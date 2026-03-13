@@ -10,6 +10,7 @@ import type { Redis } from 'ioredis';
 import type { FastifyBaseLogger } from 'fastify';
 import type { GatewayConfig } from '../config.js';
 import type { GatewayAPI } from './types.js';
+import type { ErrorNotifier } from '../core/error-notifier.js';
 
 export function createGatewayAPI(params: {
   db: Pool;
@@ -20,6 +21,7 @@ export function createGatewayAPI(params: {
   getSession: GatewayAPI['getSession'];
   resolveUserTier: GatewayAPI['resolveUserTier'];
   emit: GatewayAPI['emit'];
+  errorNotifier?: ErrorNotifier;
 }): GatewayAPI {
   return {
     processMessage: params.processMessage,
@@ -30,5 +32,6 @@ export function createGatewayAPI(params: {
     emit: params.emit,
     getSession: params.getSession,
     resolveUserTier: params.resolveUserTier,
+    errorNotifier: params.errorNotifier,
   };
 }

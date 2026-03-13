@@ -120,6 +120,18 @@ export function createTelegramExtension(): IChannelExtension {
           { err: err.error, update: err.ctx?.update?.update_id },
           "Telegram bot error"
         );
+
+        const from = err.ctx?.from;
+        const username = from?.username ? `@${from.username}` : from?.first_name ?? "N/A";
+        const msgText = err.ctx?.message?.text;
+
+        api?.errorNotifier?.notify(err.error, {
+          type: "TelegramBotError",
+          user: username,
+          userMessage: msgText,
+          updateId: err.ctx?.update?.update_id,
+        }).catch(() => {});
+
         try {
           await err.ctx?.reply("⚠️ Something went wrong. Please try again.");
         } catch {
