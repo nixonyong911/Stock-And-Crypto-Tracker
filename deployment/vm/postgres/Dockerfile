@@ -5,6 +5,7 @@ RUN apt-get update \
     build-essential \
     postgresql-server-dev-17 \
     libcurl4-openssl-dev \
+    libicu-dev \
     git \
     ca-certificates \
   && git clone --branch v0.20.2 --depth 1 https://github.com/supabase/pg_net.git /tmp/pg_net \
