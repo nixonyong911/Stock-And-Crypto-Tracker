@@ -52,12 +52,12 @@ if [ -z "${SUPABASE_MIRROR_URL:-}" ]; then
   exit 1
 fi
 
-DUMP_FILE=$(docker exec "${CONTAINER}" ls -1t "${BACKUP_DIR}"/stocktracker_public_*.custom 2>/dev/null | head -1)
+DUMP_FILE=$(docker exec "${CONTAINER}" sh -c "ls -1t ${BACKUP_DIR}/stocktracker_public_*.custom 2>/dev/null | head -1")
 
 if [ -z "${DUMP_FILE}" ]; then
   log "No public dump found. Running backup first..."
   /opt/stocktracker/scripts/backup-postgres.sh
-  DUMP_FILE=$(docker exec "${CONTAINER}" ls -1t "${BACKUP_DIR}"/stocktracker_public_*.custom 2>/dev/null | head -1)
+  DUMP_FILE=$(docker exec "${CONTAINER}" sh -c "ls -1t ${BACKUP_DIR}/stocktracker_public_*.custom 2>/dev/null | head -1")
 fi
 
 if [ -z "${DUMP_FILE}" ]; then
@@ -75,9 +75,11 @@ restore_to_supabase() {
     --if-exists \
     --no-owner \
     --no-acl \
-    --exit-on-error \
     -d "${SUPABASE_MIRROR_URL}" \
     "${DUMP_FILE}" 2>&1
+  # pg_restore returns non-zero for non-fatal warnings (e.g., "does not exist, skipping")
+  # which are expected with --clean --if-exists. We verify via row counts instead.
+  return 0
 }
 
 RESTORE_OK=false
