@@ -11,7 +11,10 @@ import type { GatewayConfig } from "../../config.js";
 import { Tier, getTierConfig } from "../tier/config.js";
 
 const AI_DISCLAIMER =
-  "\n\n_This is AI generated content and should only be used for educational purposes._";
+  "\n\n_Educational market analysis, not financial advice._";
+
+const DISCLAIMER_TRIGGERS =
+  /\$\d|bullish|bearish|support|resistance|outlook|confidence|risk|rsi|macd|ema|moving average|overbought|oversold/i;
 
 /**
  * Pre-compiled patterns that match lines which should be removed from
@@ -120,7 +123,10 @@ export class OutputFilter {
         "\n\n... (response truncated, upgrade for longer responses)";
     }
 
-    result += AI_DISCLAIMER;
+    if (DISCLAIMER_TRIGGERS.test(result)) {
+      result += AI_DISCLAIMER;
+    }
+
     return result;
   }
 }

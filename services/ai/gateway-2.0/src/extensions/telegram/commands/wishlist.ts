@@ -8,6 +8,7 @@ import {
   type WishlistTickerData,
   type WatchlistRow,
 } from "../../../core/analysis/wishlist-calculator.js";
+import { formatDateWithDayAndTz, tzAbbreviation } from "../../../core/analysis/market-calendar.js";
 
 const FREE_TIER_MAX_TICKERS = 5;
 const TICKER_CACHE_PREFIX = "wishlist:ticker:";
@@ -41,7 +42,7 @@ function formatSignalPart(
   return `${label}: ${cap} ${sign}${pct.toFixed(2)}%`;
 }
 
-function formatTicker(t: WishlistTickerData): string {
+function formatTicker(t: WishlistTickerData, tzLabel = "ET"): string {
   const sym = displaySymbol(t);
 
   if (t.dataPoints === 0) {
@@ -53,7 +54,7 @@ function formatTicker(t: WishlistTickerData): string {
   }
 
   const lines: string[] = [];
-  const badge = t.isEntryZone ? " **⚡ ENTRY ZONE**" : "";
+  const badge = t.isEntryZone ? " **Near support**" : "";
   lines.push(`**${sym}**${badge}`);
 
   const openStr = t.latestOpen != null ? formatPrice(t.latestOpen) : "N/A";
@@ -61,12 +62,12 @@ function formatTicker(t: WishlistTickerData): string {
   lines.push(`  Open: ${openStr} | Close: ${closeStr}`);
 
   if (t.entryRange) {
-    lines.push(`  Entry: ${formatRange(t.entryRange.low, t.entryRange.high)}`);
+    lines.push(`  Support: ${formatRange(t.entryRange.low, t.entryRange.high)}`);
   }
 
   const parts: string[] = [];
-  if (t.targetRange) parts.push(`Target: ${formatRange(t.targetRange.low, t.targetRange.high)}`);
-  if (t.stopLossRange) parts.push(`SL: ${formatRange(t.stopLossRange.low, t.stopLossRange.high)}`);
+  if (t.targetRange) parts.push(`Resistance: ${formatRange(t.targetRange.low, t.targetRange.high)}`);
+  if (t.stopLossRange) parts.push(`Invalidation: ${formatRange(t.stopLossRange.low, t.stopLossRange.high)}`);
   if (parts.length > 0) lines.push(`  ${parts.join(" | ")}`);
 
   const weekPart = formatSignalPart("Week", t.weekSignal, t.weekChangePct);
@@ -74,7 +75,7 @@ function formatTicker(t: WishlistTickerData): string {
   lines.push(`  ${weekPart} | ${monthPart}`);
 
   if (t.analysisDate) {
-    lines.push(`  Updated: ${t.analysisDate}`);
+    lines.push(`  Updated: ${formatDateWithDayAndTz(t.analysisDate, tzLabel)}`);
   }
 
   return lines.join("\n");
@@ -130,6 +131,19 @@ async function handleWishlist(ctx: TelegramBotContext) {
   const tier = ctx.activeSession.tier;
 
   try {
+    // Resolve user timezone for display
+    let userTzLabel = "ET";
+    try {
+      const tzResult = await db.query<{ timezone: string }>(
+        "SELECT timezone FROM users WHERE clerk_user_id = $1",
+        [clerkUserId],
+      );
+      const userTz = tzResult.rows[0]?.timezone;
+      if (userTz && userTz !== "UTC") {
+        userTzLabel = tzAbbreviation(userTz);
+      }
+    } catch { /* fall back to ET */ }
+
     const allRows = await getWatchlist(db, clerkUserId);
 
     if (allRows.length === 0) {
@@ -194,20 +208,23 @@ async function handleWishlist(ctx: TelegramBotContext) {
     const lines: string[] = [];
 
     if (tier === Tier.Free) {
-      lines.push(`**Your Watchlist** (${allRows.length}/${FREE_TIER_MAX_TICKERS} used - Free tier)\n`);
+      lines.push(`**Your Watchlist** (${allRows.length}/${FREE_TIER_MAX_TICKERS} used - Free tier)`);
     } else {
       const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
-      lines.push(`**Your Watchlist** (${tickers.length} tickers - ${tierLabel})\n`);
+      lines.push(`**Your Watchlist** (${tickers.length} tickers - ${tierLabel})`);
     }
+    lines.push(`_Week: Bullish >+1% | Bearish <-1% · Month: Bullish >+3% | Bearish <-3%_\n`);
 
     for (const t of tickers) {
-      lines.push(formatTicker(t));
+      lines.push(formatTicker(t, userTzLabel));
       lines.push("");
     }
 
     if (latestDate) {
-      lines.push(`_Data as of: ${latestDate}_`);
+      lines.push(`_Data as of: ${formatDateWithDayAndTz(latestDate, userTzLabel)}_`);
     }
+
+    lines.push("Manage: `/add <symbol>` · `/remove <symbol>` · `/alert on`");
 
     if (tier === Tier.Free) {
       lines.push("_Upgrade to Pro for unlimited tracking._");

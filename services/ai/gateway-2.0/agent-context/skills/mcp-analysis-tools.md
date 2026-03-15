@@ -10,7 +10,7 @@ You have 10 tools for stock and crypto analysis. This guide tells you **which to
 |------|---------|-----------|
 | `analysis_ticker_overview` | "What about AAPL?" — full snapshot | `symbol`, `sections?` |
 | `analysis_technical_signals` | Multi-day indicator history with signal detection | `symbol`, `start_date`, `end_date` |
-| `analysis_price_targets` | Entry/target/stop-loss levels | `symbol`, `days?` |
+| `analysis_price_targets` | Support, resistance, and invalidation levels | `symbol`, `days?` |
 | `analysis_market_scan` | Market-wide sentiment, movers, patterns | `asset_type?`, `direction?`, `days?`, `pattern_type?` |
 | `analysis_screen` | Find stocks matching filters | `rsi_below?`, `min_roe?`, `max_pe?`, etc. |
 | `analysis_compare` | Rank 2-10 stocks side-by-side | `symbols` |
@@ -69,7 +69,7 @@ Most questions need only **one** tool call:
 | "Find oversold stocks" | `screen` | `rsi_below=30` |
 | "Compare AAPL and MSFT" | `compare` | `symbols=["AAPL","MSFT"]` |
 | "How's the economy?" | `macro` | (no params needed) |
-| "Where should I set stop-loss for TSLA?" | `price_targets` | `symbol="TSLA"` |
+| "What are the key levels for TSLA?" | `price_targets` | `symbol="TSLA"` |
 | "Who's reporting earnings this week?" | `market_earnings` | `days_ahead=7` |
 | "What's AAPL's earnings track record?" | `earnings_history` | `symbol="AAPL"` |
 | "What news is moving NVDA?" | `news_sentiment` | `ticker="NVDA"` |
@@ -173,7 +173,7 @@ Use `sections` to limit data when you know what you need:
 | Just checking price action | `["candlestick"]` |
 | Technical setup only | `["technical", "price_targets"]` |
 | Fundamental check | `["fundamentals", "earnings"]` |
-| Quick trade levels | `["price_targets"]` |
+| Key price levels | `["price_targets"]` |
 
 For **crypto**, only `candlestick`, `technical`, and `price_targets` are available (no fundamentals/earnings).
 
@@ -185,21 +185,21 @@ For **crypto**, only `candlestick`, `technical`, and `price_targets` are availab
 - RSI 30-50 (not overbought) + MACD histogram positive or crossing up
 - Strong fundamentals (ROE > 15%, growing revenue)
 - Candlestick patterns: hammer, bullish engulfing, marubozu_bullish
-- Price near entry_price from price_targets
+- Price near support level from price_targets
 - Macro: risk-on regime
 
 ### Bearish Warning
 - RSI > 70 (overbought) + MACD histogram negative or crossing down
 - Deteriorating fundamentals (margin compression, rising debt)
 - Candlestick patterns: shooting_star, bearish engulfing, gravestone doji
-- Price above target_price from price_targets
+- Price above resistance level from price_targets
 - Macro: risk-off regime, rising rates
 
 ### Neutral / Wait
 - RSI 40-60, MACD near zero
 - Mixed signals across indicators
 - Doji or spinning_top patterns (indecision)
-- Say: "Mixed signals — wait for a clearer setup before entering"
+- Say: "Mixed signals — wait for a clearer setup"
 
 ### News-Driven Analysis
 - **News reinforces technicals** (bullish news + bullish technicals) → stronger conviction
@@ -214,7 +214,7 @@ For **crypto**, only `candlestick`, `technical`, and `price_targets` are availab
 
 1. **Lead with the verdict**, then support with data — "AAPL looks technically strong right now. Here's why..."
 2. **Quote specific numbers** — "RSI at 42 (neutral zone), MACD histogram just crossed positive"
-3. **Always mention risk** — include the stop-loss level from price_targets
+3. **Always mention risk** — include the invalidation level from price_targets
 4. **For crypto**, note 24/7 trading and higher volatility
-5. **Never guarantee outcomes** — "The data suggests..." not "AAPL will go up"
+5. **Never guarantee outcomes** — "The data suggests..." not "AAPL will go up". Frame forward-looking analysis as "scenarios" or "what to watch for", never as predictions.
 6. **If data is missing**, say so — "No fundamental data available for this crypto"

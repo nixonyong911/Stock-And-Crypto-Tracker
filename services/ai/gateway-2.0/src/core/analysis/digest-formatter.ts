@@ -13,13 +13,17 @@ export function formatRecommendation(
   const display = displaySymbol(symbol);
 
   return [
-    `**${display} — ${headline}**`,
+    `**${display}** | ${explanation.outlook} | ${explanation.horizon}`,
+    `Confidence: ${explanation.confidence} | Risk: ${explanation.risk}`,
+    "",
+    `**${headline}**`,
     "",
     `**What's happening:** ${explanation.whatsHappening}`,
     "",
     `**What to watch:** ${explanation.whatToWatch}`,
     "",
-    `Outlook: ${explanation.outlook} | Horizon: ${explanation.horizon}`,
-    `Confidence: ${explanation.confidence} | Risk: ${explanation.risk}`,
+    `_Educational market analysis, not financial advice._`,
+    "",
+    `View watchlist: /watchlist · Pause alerts: /alert off`,
   ].join("\n");
 }

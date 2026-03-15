@@ -95,6 +95,11 @@ composer.command("start", async (ctx) => {
         { parse_mode: "Markdown" }
       );
 
+      await ctx.reply(
+        "Set your timezone for localized market times: /timezone",
+        { parse_mode: "Markdown" }
+      );
+
       // After successful pairing, request phone verification
       await requestPhoneVerification(ctx, userId);
       return;

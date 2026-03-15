@@ -451,7 +451,7 @@ export function detectForTicker(ctx: TickerCtx): TickerSignal[] {
           type: "entry_zone",
           priority: alignment === "full" ? "high" : "medium",
           timeframeAlignment: alignment,
-          headline: `${symbol} is near its entry zone ($${fmtPrice(lo)}–$${fmtPrice(hi)})`,
+          headline: `${symbol} is near a key support level ($${fmtPrice(lo)}–$${fmtPrice(hi)})`,
           rawData: makeRawData(ctx),
         });
       }
@@ -468,7 +468,7 @@ export function detectForTicker(ctx: TickerCtx): TickerSignal[] {
         type: "target_reached",
         priority: "high",
         timeframeAlignment: alignment,
-        headline: `${symbol} reached target price $${fmtPrice(target)}`,
+        headline: `${symbol} approaching resistance at $${fmtPrice(target)}`,
         rawData: makeRawData(ctx),
       });
     }
@@ -484,7 +484,7 @@ export function detectForTicker(ctx: TickerCtx): TickerSignal[] {
         type: "stop_loss_warning",
         priority: "high",
         timeframeAlignment: alignment,
-        headline: `${symbol} breached stop loss at $${fmtPrice(sl)}`,
+        headline: `${symbol} below invalidation level at $${fmtPrice(sl)}`,
         rawData: makeRawData(ctx),
       });
     }

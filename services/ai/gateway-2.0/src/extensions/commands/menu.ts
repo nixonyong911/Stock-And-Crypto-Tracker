@@ -11,6 +11,7 @@ export const COMMAND_MENU = [
   "/wishlist or /watchlist - View your tracked tickers with price targets",
   "/subscribe - Upgrade to Pro or start a free trial",
   "/alert - Toggle Smart Digest on/off",
+  "/timezone - Set your timezone for localized market times",
   "/help - Show available commands",
   "/addhelp - How to use /add",
   "/removehelp - How to use /remove",

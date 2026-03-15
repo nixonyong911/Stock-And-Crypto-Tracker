@@ -49,7 +49,7 @@ Use this guide when interpreting `analysis_news_sentiment` results or when users
 |---|---|---|
 | About a specific event ("How does the war affect oil?") | **High** | Context |
 | Bullish/bearish outlook ("Is AAPL bullish?") | Medium | **Medium** |
-| Entry/exit levels ("Where should I buy TSLA?") | Context only | **Primary** |
+| Key price levels ("What are the key levels for TSLA?") | Context only | **Primary** |
 | "Why is X moving?" | **High** | Supporting |
 | General market direction | Medium | **Medium** |
 

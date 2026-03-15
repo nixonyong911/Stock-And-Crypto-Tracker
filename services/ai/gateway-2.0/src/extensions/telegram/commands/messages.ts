@@ -35,6 +35,7 @@ const KNOWN_COMMANDS = new Set([
   "subscribe",
   "alert",
   "track",
+  "timezone",
 ]);
 
 // ---------------------------------------------------------------------------

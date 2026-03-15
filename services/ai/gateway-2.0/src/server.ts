@@ -264,9 +264,42 @@ export async function createServer(deps: ServerDeps): Promise<ServerResult> {
       // 6. Enter priority queue
       const release = await queue.enqueue(parseTier(tier));
       try {
-        // 7. Execute CLI
+        // 7. Resolve user timezone and prepend context
+        let messageWithContext = params.message;
+        if (sess.clerkUserId) {
+          try {
+            const cacheKey = `user:tz:${sess.clerkUserId}`;
+            let userTz = await redis.redis.get(cacheKey);
+            if (!userTz) {
+              const tzResult = await pool.query<{ timezone: string }>(
+                "SELECT timezone FROM users WHERE clerk_user_id = $1",
+                [sess.clerkUserId],
+              );
+              userTz = tzResult.rows[0]?.timezone ?? "UTC";
+              await redis.redis.set(cacheKey, userTz, "EX", 3600);
+            }
+            if (userTz !== "UTC") {
+              const now = new Date();
+              const localTime = now.toLocaleString("en-US", {
+                timeZone: userTz,
+                weekday: "short",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              });
+              messageWithContext = `[Context: User timezone is ${userTz}. Current local time: ${localTime}]\n\n${params.message}`;
+            }
+          } catch (tzErr) {
+            app.log.warn({ err: tzErr }, "Failed to resolve user timezone");
+          }
+        }
+
+        // 8. Execute CLI
         const cliResult = await cli.execute({
-          message: params.message,
+          message: messageWithContext,
           contextPath: config.contextPath,
           model: config.defaultModel,
           sessionId: sess.cliSessionId,
