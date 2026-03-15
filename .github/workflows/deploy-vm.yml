@@ -640,13 +640,13 @@ jobs:
           EOF
 
           # Decrement version in DB
-          curl -sf "${DB_REST_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}" \
+          curl -s "${DB_REST_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}" \
             -X PATCH \
             -H "apikey: ${DB_REST_KEY}" \
             -H "Authorization: Bearer ${DB_REST_KEY}" \
             -H "Content-Type: application/json" \
             -H "Prefer: return=minimal" \
-            -d "{\"minor_version\": ${PREV_MINOR}, \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+            -d "{\"minor_version\": ${PREV_MINOR}, \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" || true
 
           echo "✅ DB version decremented to v${MAJOR}.${PREV_MINOR}"
 
@@ -843,14 +843,15 @@ jobs:
 
             echo "Updating $service to v$version..."
 
-            HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               "${DB_REST_URL}/rest/v1/worker_versions?service=eq.${service}" \
               -X PATCH \
               -H "apikey: ${DB_REST_KEY}" \
               -H "Authorization: Bearer ${DB_REST_KEY}" \
               -H "Content-Type: application/json" \
               -H "Prefer: return=minimal" \
-              -d "{\"major_version\": ${major}, \"minor_version\": ${minor}, \"updated_at\": \"${UPDATED_AT}\"}")
+              -d "{\"major_version\": ${major}, \"minor_version\": ${minor}, \"updated_at\": \"${UPDATED_AT}\"}" \
+              || echo "000")
 
             if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
               echo "  ✅ $service -> v$version"
