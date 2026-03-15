@@ -1,5 +1,6 @@
 import { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/blog";
+import { getAllCommandSlugs } from "@/data/commands";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://stockandcryptotracker.com";
@@ -18,6 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/contact", changeFrequency: "monthly", priority: 0.7 },
     { path: "/faq", changeFrequency: "weekly", priority: 0.8 },
     { path: "/blog", changeFrequency: "daily", priority: 0.8 },
+    { path: "/commands", changeFrequency: "weekly", priority: 0.8 },
     { path: "/privacy", changeFrequency: "monthly", priority: 0.3 },
     { path: "/terms", changeFrequency: "monthly", priority: 0.3 },
   ];
@@ -43,5 +45,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   );
 
-  return [...staticEntries, ...blogEntries];
+  const commandSlugs = getAllCommandSlugs();
+  const commandEntries: MetadataRoute.Sitemap = commandSlugs.flatMap((slug) =>
+    locales.map((locale) => ({
+      url: `${baseUrl}/${locale}/commands/${slug}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    }))
+  );
+
+  return [...staticEntries, ...blogEntries, ...commandEntries];
 }
