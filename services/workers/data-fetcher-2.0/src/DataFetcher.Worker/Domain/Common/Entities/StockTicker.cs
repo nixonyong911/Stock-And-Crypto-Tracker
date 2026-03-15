@@ -12,6 +12,8 @@ public class StockTicker
     public string? Exchange { get; set; }
     public string Currency { get; set; } = "USD";
     public bool IsActive { get; set; }
+    public int? PreferredDataSourceId { get; set; }
+    public int? EtoroInstrumentId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

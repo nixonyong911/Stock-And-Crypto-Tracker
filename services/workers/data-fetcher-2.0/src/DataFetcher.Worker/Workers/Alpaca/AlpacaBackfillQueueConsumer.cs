@@ -1,9 +1,12 @@
 using System.Text;
 using System.Text.Json;
+using Dapper;
 using DataFetcher.Worker.Application.Providers.Alpaca;
+using DataFetcher.Worker.Application.Providers.Etoro;
 using DataFetcher.Worker.Configuration;
 using DataFetcher.Worker.Domain.Providers.Alpaca.Models;
 using DataFetcher.Worker.Domain.Providers.CandlestickAnalysis.Models;
+using DataFetcher.Worker.Infrastructure.Common;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -111,9 +114,17 @@ public class AlpacaBackfillQueueConsumer : BackgroundService
                 var backfillService = scope.ServiceProvider.GetRequiredService<IAlpacaStockBackfillService>();
                 var result = await backfillService.ExecuteBackfillAsync(request, stoppingToken);
 
-                if (result.Success)
+                if (result.Success && result.TotalRecordsInserted > 0)
                 {
                     PublishAnalysisBackfill(request.Symbol, "stock");
+                    _channel?.BasicAck(ea.DeliveryTag, false);
+                }
+                else if (result.Success && result.TotalRecordsInserted == 0)
+                {
+                    _logger.LogInformation("Alpaca returned 0 records for {Symbol}, attempting eToro failover", request.Symbol);
+                    var etoroSuccess = await TryEtoroBackfillAsync(scope, request.Symbol, request.AssetType, stoppingToken);
+                    if (etoroSuccess)
+                        PublishAnalysisBackfill(request.Symbol, "stock");
                     _channel?.BasicAck(ea.DeliveryTag, false);
                 }
                 else
@@ -133,6 +144,40 @@ public class AlpacaBackfillQueueConsumer : BackgroundService
         };
 
         _channel.BasicConsume(queue: _rabbitSettings.BackfillQueueName, autoAck: false, consumer: consumer);
+    }
+
+    private async Task<bool> TryEtoroBackfillAsync(IServiceScope scope, string symbol, string assetType, CancellationToken ct)
+    {
+        try
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().CreateConnection();
+            var etoroInstrumentId = await db.QueryFirstOrDefaultAsync<int?>(
+                "SELECT etoro_instrument_id FROM stock_tickers WHERE symbol = @Symbol AND etoro_instrument_id IS NOT NULL",
+                new { Symbol = symbol });
+
+            if (etoroInstrumentId == null)
+            {
+                _logger.LogDebug("No eToro instrumentId for {Symbol}, skipping failover", symbol);
+                return false;
+            }
+
+            var etoroBackfill = scope.ServiceProvider.GetRequiredService<IEtoroBackfillService>();
+            var result = await etoroBackfill.ExecuteBackfillAsync(symbol, assetType, etoroInstrumentId.Value, ct);
+
+            if (result.Success && result.TotalRecordsInserted > 0)
+            {
+                _logger.LogInformation("eToro failover backfill succeeded for {Symbol}: {Count} records", symbol, result.TotalRecordsInserted);
+                return true;
+            }
+
+            _logger.LogWarning("eToro failover backfill for {Symbol} returned no data", symbol);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "eToro failover backfill failed for {Symbol} (non-fatal)", symbol);
+            return false;
+        }
     }
 
     private void PublishAnalysisBackfill(string symbol, string assetType)

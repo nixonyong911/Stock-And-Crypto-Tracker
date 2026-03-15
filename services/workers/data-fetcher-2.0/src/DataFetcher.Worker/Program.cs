@@ -23,9 +23,13 @@ using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 using DataFetcher.Worker.Infrastructure.Providers.PriceTargetAnalysis.Repositories;
 using DataFetcher.Worker.Workers.PriceTargetAnalysis;
 using DataFetcher.Worker.Application.Providers.Alpaca;
+using DataFetcher.Worker.Application.Providers.Common;
+using DataFetcher.Worker.Application.Providers.Etoro;
 using DataFetcher.Worker.Infrastructure.Providers.Alpaca;
 using DataFetcher.Worker.Infrastructure.Providers.Alpaca.Repositories;
+using DataFetcher.Worker.Infrastructure.Providers.Etoro;
 using DataFetcher.Worker.Workers.Alpaca;
+using DataFetcher.Worker.Workers.Etoro;
 using DataFetcher.Worker.Application.Providers.LocalIndicators;
 using DataFetcher.Worker.Application.Providers.Fred;
 using DataFetcher.Worker.Application.Providers.MarketAuxNews;
@@ -76,6 +80,8 @@ try
         builder.Configuration.GetSection("RabbitMQ"));
     builder.Services.Configure<AlpacaSettings>(
         builder.Configuration.GetSection("Providers:Alpaca"));
+    builder.Services.Configure<EtoroSettings>(
+        builder.Configuration.GetSection("Providers:Etoro"));
     builder.Services.Configure<GatewaySettings>(
         builder.Configuration.GetSection("Gateway"));
     builder.Services.Configure<MarketAuxSettings>(
@@ -180,6 +186,19 @@ try
     builder.Services.AddScoped<IAlpacaAssetVerificationService, AlpacaAssetVerificationService>();
     builder.Services.AddScoped<IAlpacaTickerManagementService, AlpacaTickerManagementService>();
 
+    // Infrastructure - eToro Provider
+    builder.Services.AddHttpClient<IEtoroMarketDataClient, EtoroMarketDataClient>()
+        .AddPolicyHandler(GetRetryPolicy());
+
+    // Application - eToro Provider
+    builder.Services.AddScoped<EtoroMarketDataProvider>();
+    builder.Services.AddScoped<IEtoroBackfillService, EtoroBackfillService>();
+
+    // Application - Multi-provider abstraction
+    builder.Services.AddScoped<AlpacaMarketDataProvider>();
+    builder.Services.AddScoped<IMarketDataResolver, MarketDataResolver>();
+    builder.Services.AddScoped<ITickerManagementService, TickerManagementService>();
+
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();
 
@@ -221,6 +240,9 @@ try
     builder.Services.AddHostedService<AlpacaCryptoFetchWorker>();
     builder.Services.AddHostedService<AlpacaBackfillQueueConsumer>();
     builder.Services.AddHostedService<AlpacaCryptoBackfillQueueConsumer>();
+
+    // eToro workers
+    builder.Services.AddHostedService<EtoroFetchWorker>();
 
     // Controllers
     builder.Services.AddControllers();
@@ -289,6 +311,14 @@ try
         StatusEndpoint = "/api/alpaca/status",
         SwaggerGroup = "alpaca",
         Capabilities = new List<string> { "ohlcv", "stocks", "crypto", "backfill", "ticker-management", "webhooks" }
+    });
+    registry.Register(new ProviderInfo
+    {
+        Name = "eToro",
+        Description = "Multi-asset market data - stocks (US + non-US), crypto, commodities, indices, ETFs",
+        StatusEndpoint = "/api/etoro/status",
+        SwaggerGroup = "alpaca",
+        Capabilities = new List<string> { "ohlcv", "stocks", "crypto", "commodities", "indices", "etfs", "non-us-stocks", "backfill" }
     });
     registry.Register(new ProviderInfo
     {

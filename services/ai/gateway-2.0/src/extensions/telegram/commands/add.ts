@@ -5,7 +5,7 @@ import { detectSignalsForTicker } from "../../../core/analysis/recommendation-en
 import { generateExplanation } from "../../../core/analysis/explanation-generator.js";
 import { formatRecommendation } from "../../../core/analysis/digest-formatter.js";
 
-const VALID_ASSET_TYPES = new Set(["stock", "etf", "crypto"]);
+const VALID_ASSET_TYPES = new Set(["stock", "etf", "crypto", "commodity", "index"]);
 const SYMBOL_REGEX = /^[A-Za-z0-9/\-.]+$/;
 const FREE_TIER_MAX_TICKERS = 5;
 
@@ -17,8 +17,10 @@ const USAGE_TEXT = [
   "`/add AAPL stock` — add a stock",
   "`/add SPY etf` — add an ETF",
   "`/add BTC crypto` — add a cryptocurrency",
+  "`/add GOLD commodity` — add a commodity",
+  "`/add SPX500 index` — add an index",
   "",
-  "Type must be one of: `stock`, `etf`, `crypto`",
+  "Type must be one of: `stock`, `etf`, `crypto`, `commodity`, `index`",
   "If omitted, defaults to `stock`.",
 ].join("\n");
 
@@ -95,7 +97,7 @@ composer.command("add", async (ctx) => {
   if (rawType) {
     if (!VALID_ASSET_TYPES.has(rawType)) {
       await ctx.reply(
-        `Invalid type '${rawType}'. Use: \`stock\`, \`etf\`, or \`crypto\`.\n\n${USAGE_TEXT}`,
+        `Invalid type '${rawType}'. Use: \`stock\`, \`etf\`, \`crypto\`, \`commodity\`, or \`index\`.\n\n${USAGE_TEXT}`,
         { parse_mode: "Markdown" }
       );
       return;
@@ -163,12 +165,11 @@ composer.command("add", async (ctx) => {
     let isNewTicker = false;
     if (!tickerExists) {
       const dataFetcherUrl = ctx.gatewayAPI.config.dataFetcherInternalUrl;
-      const apiAssetType =
-        assetType === "stock"
-          ? "Stock"
-          : assetType === "etf"
-            ? "Etf"
-            : "Crypto";
+      const assetTypeMap: Record<string, string> = {
+        stock: "Stock", etf: "Etf", crypto: "Crypto",
+        commodity: "Commodity", index: "Index",
+      };
+      const apiAssetType = assetTypeMap[assetType] ?? "Stock";
 
       const response = await fetch(`${dataFetcherUrl}/api/ticker`, {
         method: "POST",

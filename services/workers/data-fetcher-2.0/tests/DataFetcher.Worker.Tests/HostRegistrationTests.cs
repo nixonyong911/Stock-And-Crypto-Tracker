@@ -26,6 +26,7 @@ public class HostRegistrationTests
             "AnalysisBackfillQueueConsumer",
             "CandlestickAnalysisWorker",
             "EarningsSyncWorker",
+            "EtoroFetchWorker",
             "FinnhubFetchWorker",
             "FredCalendarSyncWorker",
             "FredFetchWorker",
