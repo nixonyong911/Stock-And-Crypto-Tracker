@@ -141,7 +141,7 @@ public class EtoroMarketDataProvider : IMarketDataProvider
     private static List<OhlcvBar> MapCandles(List<EtoroCandle> candles) =>
         candles.Select(c => new OhlcvBar
         {
-            Timestamp = DateTime.SpecifyKind(c.DateTime, DateTimeKind.Utc),
+            Timestamp = DateTime.SpecifyKind(c.FromDate, DateTimeKind.Utc),
             Open = (decimal)c.Open,
             High = (decimal)c.High,
             Low = (decimal)c.Low,

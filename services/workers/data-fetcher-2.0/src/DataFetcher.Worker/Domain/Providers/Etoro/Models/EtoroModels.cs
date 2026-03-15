@@ -4,8 +4,11 @@ namespace DataFetcher.Worker.Domain.Providers.Etoro.Models;
 
 public class EtoroSearchResponse
 {
-    [JsonPropertyName("data")]
-    public List<EtoroInstrument> Data { get; set; } = [];
+    [JsonPropertyName("items")]
+    public List<EtoroInstrument> Items { get; set; } = [];
+
+    [JsonPropertyName("totalItems")]
+    public int TotalItems { get; set; }
 }
 
 public class EtoroInstrument
@@ -37,14 +40,26 @@ public class EtoroInstrument
 
 public class EtoroCandlesResponse
 {
+    [JsonPropertyName("interval")]
+    public string? Interval { get; set; }
+
+    [JsonPropertyName("candles")]
+    public List<EtoroCandleGroup> CandleGroups { get; set; } = [];
+}
+
+public class EtoroCandleGroup
+{
+    [JsonPropertyName("instrumentId")]
+    public int InstrumentId { get; set; }
+
     [JsonPropertyName("candles")]
     public List<EtoroCandle> Candles { get; set; } = [];
 }
 
 public class EtoroCandle
 {
-    [JsonPropertyName("dateTime")]
-    public DateTime DateTime { get; set; }
+    [JsonPropertyName("fromDate")]
+    public DateTime FromDate { get; set; }
 
     [JsonPropertyName("open")]
     public double Open { get; set; }

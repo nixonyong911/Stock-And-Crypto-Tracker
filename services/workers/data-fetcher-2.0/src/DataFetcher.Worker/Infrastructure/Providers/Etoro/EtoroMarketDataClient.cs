@@ -39,7 +39,7 @@ public class EtoroMarketDataClient : IEtoroMarketDataClient
         try
         {
             var searchResponse = JsonSerializer.Deserialize<EtoroSearchResponse>(response, JsonOptions);
-            return searchResponse?.Data ?? [];
+            return searchResponse?.Items ?? [];
         }
         catch (JsonException ex)
         {
@@ -63,7 +63,7 @@ public class EtoroMarketDataClient : IEtoroMarketDataClient
         try
         {
             var candlesResponse = JsonSerializer.Deserialize<EtoroCandlesResponse>(response, JsonOptions);
-            return candlesResponse?.Candles ?? [];
+            return candlesResponse?.CandleGroups.FirstOrDefault()?.Candles ?? [];
         }
         catch (JsonException ex)
         {
