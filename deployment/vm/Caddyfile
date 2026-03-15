@@ -65,6 +65,21 @@ nxserver.malaysiawest.cloudapp.azure.com { # ===================================
     }
 
     # ===========================================
+    # PostgREST - REST API for PostgreSQL (Supabase SDK compatibility)
+    # Strips /rest/v1 prefix so PostgREST sees /tablename directly
+    # ===========================================
+    handle_path /rest/v1/* {
+        reverse_proxy postgrest:3000
+    }
+
+    # ===========================================
+    # pgAdmin 4 - Database GUI
+    # ===========================================
+    handle /pgadmin* {
+        reverse_proxy pgadmin:5050
+    }
+
+    # ===========================================
     # Back Office - Admin & Testing UI
     # Uses handle (not handle_path) because Next.js basePath handles the prefix
     # ===========================================

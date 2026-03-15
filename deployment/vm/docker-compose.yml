@@ -250,6 +250,78 @@ services:
       start_period: 30s
 
   # ===========================================
+  # PostgreSQL 17 - Self-hosted Database (migrated from Supabase)
+  # Internal only (not exposed to host)
+  # pg_net extension compiled from source for trigger HTTP calls
+  # ===========================================
+  postgres:
+    build: ./postgres
+    image: stocktracker-postgres:latest
+    container_name: postgres
+    restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_net
+      - -c
+      - pg_net.database_name=stocktracker
+    environment:
+      - POSTGRES_DB=stocktracker
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - postgres-backups:/backups
+    networks:
+      - stocktracker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d stocktracker"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  # ===========================================
+  # PostgREST - REST API for PostgreSQL (Supabase SDK compatibility)
+  # Internal only (exposed via Caddy at /rest/v1/*)
+  # ===========================================
+  postgrest:
+    image: postgrest/postgrest:v14.6
+    container_name: postgrest
+    restart: unless-stopped
+    environment:
+      - PGRST_DB_URI=postgresql://authenticator:${POSTGRES_PASSWORD}@postgres:5432/stocktracker
+      - PGRST_DB_SCHEMAS=public
+      - PGRST_DB_ANON_ROLE=anon
+      - PGRST_JWT_SECRET=${POSTGREST_JWT_SECRET}
+      - PGRST_DB_EXTRA_SEARCH_PATH=extensions
+    networks:
+      - stocktracker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ===========================================
+  # pgAdmin 4 - Database GUI
+  # Access at: /pgadmin
+  # ===========================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+      - SCRIPT_NAME=/pgadmin
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - stocktracker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ===========================================
   # MCP Analysis Server - Read-only DB Queries for AI
   # Port: 8085 (internal, accessed by n8n)
   # ===========================================
@@ -387,3 +459,6 @@ volumes:
   caddy-config:
   redis-data:
   rabbitmq-data:
+  postgres-data:
+  postgres-backups:
+  pgadmin-data:
