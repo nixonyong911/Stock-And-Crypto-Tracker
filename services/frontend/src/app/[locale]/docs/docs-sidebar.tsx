@@ -8,7 +8,7 @@ import {
   COMMAND_CATEGORIES,
   type CommandCategory,
 } from "@/data/commands";
-import { ChevronDown, Menu, X, BookOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, Menu, X, BookOpen, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const categoryOrder: CommandCategory[] = [
@@ -21,6 +21,7 @@ const categoryOrder: CommandCategory[] = [
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const [commandsOpen, setCommandsOpen] = useState(true);
   const [openCategories, setOpenCategories] = useState<Set<CommandCategory>>(
     () => new Set(categoryOrder)
   );
@@ -38,8 +39,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     pathname.endsWith(`/docs/commands/${slug}`);
 
   return (
-    <nav className="space-y-1 py-4">
-      <div className="px-3 pb-3">
+    <nav className="py-4">
+      <div className="px-3 pb-4">
         <Link
           href="/docs"
           className="flex items-center gap-2 text-sm font-semibold"
@@ -50,50 +51,62 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
       </div>
 
-      <div className="px-3 pb-1">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Commands
-        </span>
-      </div>
+      {/* Commands — top-level parent */}
+      <div>
+        <button
+          onClick={() => setCommandsOpen(!commandsOpen)}
+          className="flex w-full items-center gap-2 px-3 py-2 text-sm font-semibold hover:bg-muted/50 transition-colors rounded-md mx-1"
+        >
+          <Terminal className="h-4 w-4 shrink-0" />
+          <span className="flex-1 text-left">Commands</span>
+          <ChevronRight
+            className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${commandsOpen ? "rotate-90" : ""}`}
+          />
+        </button>
 
-      {categoryOrder.map((catKey) => {
-        const cat = COMMAND_CATEGORIES[catKey];
-        const commands = COMMANDS.filter((c) => c.category === catKey);
-        const isOpen = openCategories.has(catKey);
+        {commandsOpen && (
+          <div className="mt-1 ml-3 border-l pl-2 space-y-0.5">
+            {categoryOrder.map((catKey) => {
+              const cat = COMMAND_CATEGORIES[catKey];
+              const commands = COMMANDS.filter((c) => c.category === catKey);
+              const isOpen = openCategories.has(catKey);
 
-        return (
-          <div key={catKey}>
-            <button
-              onClick={() => toggleCategory(catKey)}
-              className="flex w-full items-center justify-between px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {cat.label}
-              <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`}
-              />
-            </button>
-
-            {isOpen && (
-              <div className="pb-1">
-                {commands.map((cmd) => (
-                  <Link
-                    key={cmd.slug}
-                    href={`/docs/commands/${cmd.slug}`}
-                    onClick={onNavigate}
-                    className={`block px-3 py-1.5 pl-6 text-sm transition-colors ${
-                      isActive(cmd.slug)
-                        ? "font-medium text-primary border-l-2 border-primary ml-2 pl-4"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+              return (
+                <div key={catKey}>
+                  <button
+                    onClick={() => toggleCategory(catKey)}
+                    className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <span className="font-mono">{cmd.name}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
+                    {cat.label}
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform ${isOpen ? "" : "-rotate-90"}`}
+                    />
+                  </button>
+
+                  {isOpen && (
+                    <div className="pb-1">
+                      {commands.map((cmd) => (
+                        <Link
+                          key={cmd.slug}
+                          href={`/docs/commands/${cmd.slug}`}
+                          onClick={onNavigate}
+                          className={`block py-1.5 pl-4 text-sm transition-colors ${
+                            isActive(cmd.slug)
+                              ? "font-medium text-primary border-l-2 border-primary pl-3.5"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <span className="font-mono">{cmd.name}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        )}
+      </div>
     </nav>
   );
 }
