@@ -16,13 +16,13 @@ function makeExplanation(overrides: Partial<Explanation> = {}): Explanation {
 
 describe("formatRecommendation", () => {
   it("formats stock symbol without modification", () => {
-    const output = formatRecommendation("AAPL", "Near entry zone", makeExplanation());
-    expect(output).toContain("**AAPL —");
+    const output = formatRecommendation("AAPL", "Near support level", makeExplanation());
+    expect(output).toContain("**AAPL**");
   });
 
   it("strips /USD from crypto symbols", () => {
-    const output = formatRecommendation("BTC/USD", "Near entry zone", makeExplanation());
-    expect(output).toContain("**BTC —");
+    const output = formatRecommendation("BTC/USD", "Near support level", makeExplanation());
+    expect(output).toContain("**BTC**");
     expect(output).not.toContain("BTC/USD");
   });
 
@@ -47,7 +47,7 @@ describe("formatRecommendation", () => {
     });
     const output = formatRecommendation("AAPL", "Headline", explanation);
 
-    expect(output).toContain("Outlook: Bearish | Horizon: Short-term (days)");
+    expect(output).toContain("**AAPL** | Bearish | Short-term (days)");
     expect(output).toContain("Confidence: Low | Risk: Higher");
   });
 
