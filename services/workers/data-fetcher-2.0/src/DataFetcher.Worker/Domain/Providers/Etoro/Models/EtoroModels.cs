@@ -74,5 +74,5 @@ public class EtoroCandle
     public double Close { get; set; }
 
     [JsonPropertyName("volume")]
-    public double Volume { get; set; }
+    public double? Volume { get; set; }
 }

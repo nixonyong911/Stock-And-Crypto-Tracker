@@ -146,6 +146,6 @@ public class EtoroMarketDataProvider : IMarketDataProvider
             High = (decimal)c.High,
             Low = (decimal)c.Low,
             Close = (decimal)c.Close,
-            Volume = (decimal)c.Volume
+            Volume = (decimal)(c.Volume ?? 0)
         }).ToList();
 }
