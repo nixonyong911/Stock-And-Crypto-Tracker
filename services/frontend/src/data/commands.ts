@@ -91,6 +91,7 @@ export const COMMANDS: BotCommand[] = [
     notes: [
       "This command runs automatically when you first open the bot.",
       "Deep links from the web app handle pairing without you needing to type anything.",
+      "After pairing, you'll be prompted to set your timezone with /timezone for localized market times.",
     ],
     requiresPairing: false,
     requiresSession: false,
@@ -212,12 +213,43 @@ export const COMMANDS: BotCommand[] = [
     requiresSession: false,
   },
   {
+    slug: "timezone",
+    name: "/timezone",
+    syntax: "/timezone [timezone]",
+    shortDescription: "Set your timezone for localized market times",
+    description:
+      "View or set your timezone so market hours and timestamps are shown in your local time. Without arguments, shows your current timezone and a selection of common options. With an IANA timezone name, sets it directly.",
+    category: "session",
+    params: [
+      {
+        name: "timezone",
+        description:
+          "An IANA timezone name (e.g. America/New_York, Pacific/Auckland). Omit to view current setting.",
+        required: false,
+      },
+    ],
+    examples: [
+      { input: "/timezone", description: "View your current timezone and pick from common options." },
+      { input: "/timezone America/New_York", description: "Set your timezone to US Eastern." },
+      { input: "/timezone Pacific/Auckland", description: "Set your timezone to New Zealand." },
+      { input: "/timezone Asia/Singapore", description: "Set your timezone to Singapore." },
+    ],
+    notes: [
+      "Defaults to UTC if not set.",
+      "Market hours and data timestamps in bot responses will be converted to your local time.",
+      "You can change your timezone at any time.",
+      "Uses IANA timezone names — common options are shown via the inline keyboard.",
+    ],
+    requiresPairing: true,
+    requiresSession: false,
+  },
+  {
     slug: "add",
     name: "/add",
     syntax: "/add <symbol> [type]",
     shortDescription: "Track a ticker (stock, ETF, crypto)",
     description:
-      "Adds a stock, ETF, or cryptocurrency to your personal watchlist. Once added, you can view price data, signals, and entry/target zones via the /wishlist command. New tickers may take 15 minutes to 1 hour for data to populate.",
+      "Adds a stock, ETF, or cryptocurrency to your personal watchlist. Once added, you can view price data, signals, and key levels via the /wishlist command. New tickers may take 15 minutes to 1 hour for data to populate.",
     category: "watchlist",
     params: [
       {
@@ -286,9 +318,9 @@ export const COMMANDS: BotCommand[] = [
     name: "/wishlist",
     syntax: "/wishlist",
     aliases: ["/watchlist"],
-    shortDescription: "View your tracked tickers with price targets",
+    shortDescription: "View your tracked tickers with key levels",
     description:
-      "Displays your complete watchlist with current prices, entry/target/stop-loss zones, and weekly/monthly signal analysis. Data is cached and refreshes periodically throughout the day.",
+      "Displays your complete watchlist with current prices, support/resistance/invalidation levels, and weekly/monthly signal analysis. Data is cached and refreshes periodically throughout the day.",
     category: "watchlist",
     examples: [
       {
