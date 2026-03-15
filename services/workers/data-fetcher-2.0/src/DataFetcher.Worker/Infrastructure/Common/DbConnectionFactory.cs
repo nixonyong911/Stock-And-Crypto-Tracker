@@ -18,7 +18,6 @@ public class DbConnectionFactory : IDbConnectionFactory
         {
             CommandTimeout = 120,
             Timeout = 30,
-            SslMode = SslMode.Require,
             Pooling = true,
             MaxPoolSize = 10,
             Multiplexing = false,
