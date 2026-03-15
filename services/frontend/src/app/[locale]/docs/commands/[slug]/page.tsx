@@ -1,13 +1,12 @@
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
-import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
 import {
   COMMANDS,
   getCommandBySlug,
   getAllCommandSlugs,
 } from "@/data/commands";
-import { CommandDetail } from "./command-detail";
+import { CommandDoc } from "./command-doc";
 
 const baseUrl = "https://stockandcryptotracker.com";
 
@@ -43,14 +42,14 @@ export async function generateMetadata({
     openGraph: {
       title: `${title} | Stock And Crypto Tracker`,
       description,
-      url: `${baseUrl}/${locale}/commands/${slug}`,
+      url: `${baseUrl}/${locale}/docs/commands/${slug}`,
       type: "article",
     },
     alternates: {
-      canonical: `${baseUrl}/${locale}/commands/${slug}`,
+      canonical: `${baseUrl}/${locale}/docs/commands/${slug}`,
       languages: {
-        en: `${baseUrl}/en/commands/${slug}`,
-        zh: `${baseUrl}/zh/commands/${slug}`,
+        en: `${baseUrl}/en/docs/commands/${slug}`,
+        zh: `${baseUrl}/zh/docs/commands/${slug}`,
       },
     },
   };
@@ -128,49 +127,45 @@ export default async function CommandPage({ params }: Props) {
       {
         "@type": "ListItem",
         position: 2,
-        name: "Commands",
-        item: `${baseUrl}/${locale}/commands`,
+        name: "Documentation",
+        item: `${baseUrl}/${locale}/docs`,
       },
       {
         "@type": "ListItem",
         position: 3,
         name: command.name,
-        item: `${baseUrl}/${locale}/commands/${slug}`,
+        item: `${baseUrl}/${locale}/docs/commands/${slug}`,
       },
     ],
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <main className="flex-1">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(howToSchema),
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(breadcrumbSchema),
-          }}
-        />
-        <CommandDetail
-          command={command}
-          prevCommand={
-            prevCommand
-              ? { slug: prevCommand.slug, name: prevCommand.name }
-              : null
-          }
-          nextCommand={
-            nextCommand
-              ? { slug: nextCommand.slug, name: nextCommand.name }
-              : null
-          }
-        />
-      </main>
-      <Footer />
-    </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(howToSchema),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbSchema),
+        }}
+      />
+      <CommandDoc
+        command={command}
+        prevCommand={
+          prevCommand
+            ? { slug: prevCommand.slug, name: prevCommand.name }
+            : null
+        }
+        nextCommand={
+          nextCommand
+            ? { slug: nextCommand.slug, name: nextCommand.name }
+            : null
+        }
+      />
+    </>
   );
 }

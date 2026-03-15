@@ -47,8 +47,8 @@ export function Footer() {
               <Link href="/faq" className="hover:text-foreground transition-colors">
                 {t("faq")}
               </Link>
-              <Link href="/commands" className="hover:text-foreground transition-colors">
-                {t("commands")}
+              <Link href="/docs" className="hover:text-foreground transition-colors">
+                {t("docs")}
               </Link>
               <a
                 href={TELEGRAM_BOT_URL}

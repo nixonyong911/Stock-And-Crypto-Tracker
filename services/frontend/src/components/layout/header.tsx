@@ -39,7 +39,7 @@ export function Header() {
     { href: "/about", label: t("about") },
     { href: "/indicators", label: t("indicators") },
     { href: "/affiliate", label: t("affiliate") },
-    { href: "/commands", label: t("commands") },
+    { href: "/docs", label: t("docs") },
     { href: "/blog", label: t("blog") },
   ];
 
