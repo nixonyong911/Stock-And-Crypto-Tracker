@@ -27,9 +27,6 @@
     
     <!-- Resilience -->
     <PackageReference Include="Polly" Version="8.2.1" />
-    
-    <!-- Supabase -->
-    <PackageReference Include="supabase-csharp" Version="0.16.2" />
   </ItemGroup>
 
 </Project>
