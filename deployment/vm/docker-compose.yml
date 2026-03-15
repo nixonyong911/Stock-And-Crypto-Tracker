@@ -116,8 +116,8 @@ services:
       - Providers__Alpaca__RateLimitThreshold=10
       # eToro Provider (multi-asset market data: non-US stocks, commodities, indices, wider crypto)
       - Providers__Etoro__BaseUrl=https://public-api.etoro.com
-      - Providers__Etoro__ApiKey=${ETORO_USER_KEY}
-      - Providers__Etoro__UserKey=${ETORO_API_KEY}
+      - Providers__Etoro__ApiKey=${ETORO_API_KEY}
+      - Providers__Etoro__UserKey=${ETORO_USER_KEY}
       - Providers__Etoro__ConservativeRateLimitPerMinute=60
       - Providers__Etoro__MaxCandlesPerRequest=1000
       - Providers__Etoro__DefaultCandleInterval=FifteenMinutes

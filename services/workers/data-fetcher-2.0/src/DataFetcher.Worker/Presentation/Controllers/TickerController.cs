@@ -18,7 +18,10 @@ public class TickerController : ControllerBase
     private static readonly HashSet<string> ValidAssetTypes = new(StringComparer.OrdinalIgnoreCase)
         { "Stock", "Etf", "Crypto", "Commodity", "Index" };
 
-    private static readonly Regex SymbolPattern = new(@"^[A-Za-z0-9/\-.]{1,20}$", RegexOptions.Compiled);
+    private static readonly Regex SymbolPattern = new(@"^[A-Za-z0-9/\-.&]{1,20}$", RegexOptions.Compiled);
+
+    private static readonly HashSet<string> SqlKeywords = new(StringComparer.OrdinalIgnoreCase)
+        { "SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "UNION", "EXEC", "TRUNCATE", "CREATE", "TABLE", "FROM", "WHERE", "GRANT", "REVOKE" };
 
     public TickerController(IServiceProvider serviceProvider, ILogger<TickerController> logger)
     {
@@ -34,6 +37,9 @@ public class TickerController : ControllerBase
 
         if (!SymbolPattern.IsMatch(request.Symbol))
             return BadRequest(new { errorCode = "VALIDATION_ERROR", message = "Invalid symbol format" });
+
+        if (SqlKeywords.Contains(request.Symbol))
+            return BadRequest(new { errorCode = "VALIDATION_ERROR", message = "Invalid symbol" });
 
         if (!ValidAssetTypes.Contains(request.AssetType))
             return BadRequest(new { errorCode = "VALIDATION_ERROR", message = $"Invalid asset type '{request.AssetType}'. Valid types: {string.Join(", ", ValidAssetTypes)}" });

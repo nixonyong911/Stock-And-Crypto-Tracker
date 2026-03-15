@@ -107,6 +107,47 @@ public class TickerControllerTests
         Assert.IsType<OkObjectResult>(result);
     }
 
+    [Theory]
+    [InlineData("DROP")]
+    [InlineData("SELECT")]
+    [InlineData("UNION")]
+    [InlineData("delete")]
+    public async Task AddTicker_WithSqlKeyword_ReturnsBadRequest(string symbol)
+    {
+        var request = new AddTickerRequest { Symbol = symbol };
+
+        var result = await _controller.AddTicker(request, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Theory]
+    [InlineData("AAPL")]
+    [InlineData("BTC/USD")]
+    [InlineData("SHEL.L")]
+    [InlineData("BRK-B")]
+    [InlineData("S&P500")]
+    public async Task AddTicker_WithValidSymbolFormats_PassesValidation(string symbol)
+    {
+        var request = new AddTickerRequest { Symbol = symbol };
+        _mockService.Setup(s => s.AddTickerAsync(It.IsAny<AddTickerRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AddTickerResult { ResultCode = "OK", Message = "OK" });
+
+        var result = await _controller.AddTicker(request, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task AddTicker_WithTooLongSymbol_ReturnsBadRequest()
+    {
+        var request = new AddTickerRequest { Symbol = new string('A', 21) };
+
+        var result = await _controller.AddTicker(request, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
     [Fact]
     public async Task ToggleTicker_WhenNotFound_ReturnsNotFound()
     {

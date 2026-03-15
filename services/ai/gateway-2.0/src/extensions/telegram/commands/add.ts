@@ -4,9 +4,13 @@ import { Tier } from "../../../extension/types.js";
 import { detectSignalsForTicker } from "../../../core/analysis/recommendation-engine.js";
 import { generateExplanation } from "../../../core/analysis/explanation-generator.js";
 import { formatRecommendation } from "../../../core/analysis/digest-formatter.js";
+import {
+  parseAddArgs,
+  buildSuggestion,
+  getDisplayName,
+  VALID_ASSET_TYPES,
+} from "./add-utils.js";
 
-const VALID_ASSET_TYPES = new Set(["stock", "etf", "crypto", "commodity", "index"]);
-const SYMBOL_REGEX = /^[A-Za-z0-9/\-.]+$/;
 const FREE_TIER_MAX_TICKERS = 5;
 
 const USAGE_TEXT = [
@@ -14,23 +18,15 @@ const USAGE_TEXT = [
   "",
   "**Examples:**",
   "`/add AAPL` — add a stock (default)",
-  "`/add AAPL stock` — add a stock",
+  "`/add BTC` — add a cryptocurrency (auto-detected)",
   "`/add SPY etf` — add an ETF",
-  "`/add BTC crypto` — add a cryptocurrency",
-  "`/add GOLD commodity` — add a commodity",
-  "`/add SPX500 index` — add an index",
+  "`/add GOLD` — add a commodity (auto-detected)",
+  "`/add SPX500` — add an index (auto-detected)",
   "",
-  "Type must be one of: `stock`, `etf`, `crypto`, `commodity`, `index`",
-  "If omitted, defaults to `stock`.",
+  "**Supported types:** `stock`, `etf`, `crypto`, `commodity`, `index`",
+  "**Aliases:** `stocks`, `coin`, `token`, `equity`, `commodities`, `indices`",
+  "If omitted, the system auto-detects known cryptos, commodities, and indices.",
 ].join("\n");
-
-function normalizeCryptoSymbol(symbol: string): string {
-  symbol = symbol.toUpperCase().trim();
-  if (!symbol.includes("/")) {
-    symbol = `${symbol}/USD`;
-  }
-  return symbol;
-}
 
 const composer = new Composer<TelegramBotContext>();
 
@@ -41,7 +37,6 @@ composer.command("add", async (ctx) => {
     return;
   }
 
-  // Auth guard: require paired + logged-in session
   const accountResult = await ctx.gatewayAPI.db.query(
     "SELECT clerk_user_id FROM channel_accounts WHERE platform_user_id = $1 AND channel_type = $2",
     [String(userId), "telegram"]
@@ -73,53 +68,26 @@ composer.command("add", async (ctx) => {
     return;
   }
 
-  // Parse arguments: /add <symbol> [type]
   const rawArgs = (ctx.match?.toString() ?? "").trim();
   if (!rawArgs) {
     await ctx.reply(USAGE_TEXT, { parse_mode: "Markdown" });
     return;
   }
 
-  const parts = rawArgs.split(/\s+/);
-  const rawSymbol = parts[0]!;
-  const rawType = parts[1]?.toLowerCase();
+  const parsed = parseAddArgs(rawArgs);
 
-  if (!SYMBOL_REGEX.test(rawSymbol)) {
-    await ctx.reply(
-      `Invalid symbol format.\n\n${USAGE_TEXT}`,
-      { parse_mode: "Markdown" }
-    );
+  if (!parsed.ok) {
+    await ctx.reply(`${parsed.error}\n\n${USAGE_TEXT}`, { parse_mode: "Markdown" });
     return;
   }
 
-  // Determine asset type
-  let assetType = "stock";
-  if (rawType) {
-    if (!VALID_ASSET_TYPES.has(rawType)) {
-      await ctx.reply(
-        `Invalid type '${rawType}'. Use: \`stock\`, \`etf\`, \`crypto\`, \`commodity\`, or \`index\`.\n\n${USAGE_TEXT}`,
-        { parse_mode: "Markdown" }
-      );
-      return;
-    }
-    assetType = rawType;
-  }
-
-  // Normalize symbol
-  let symbol = rawSymbol.toUpperCase().trim();
-  const displaySymbol = assetType === "crypto"
-    ? normalizeCryptoSymbol(symbol).split("/")[0]!
-    : symbol;
-
-  if (assetType === "crypto") {
-    symbol = normalizeCryptoSymbol(symbol);
-  }
+  const { symbol, assetType } = parsed;
+  const displaySymbol = getDisplayName(symbol, assetType);
 
   const db = ctx.gatewayAPI.db;
   const logger = ctx.gatewayAPI.logger;
 
   try {
-    // Check if already in user's watchlist
     const existingWatch = await db.query(
       "SELECT id FROM user_watchlist WHERE clerk_user_id = $1 AND ticker_symbol = $2",
       [clerkUserId, symbol]
@@ -129,7 +97,6 @@ composer.command("add", async (ctx) => {
       return;
     }
 
-    // Tier limit check (free tier = 5 max)
     const tier = ctx.activeSession.tier;
     if (tier === Tier.Free) {
       const countResult = await db.query(
@@ -145,7 +112,6 @@ composer.command("add", async (ctx) => {
       }
     }
 
-    // Check if ticker already exists in the database
     let tickerExists = false;
     if (assetType === "crypto") {
       const result = await db.query(
@@ -161,7 +127,6 @@ composer.command("add", async (ctx) => {
       tickerExists = result.rows.length > 0;
     }
 
-    // If ticker is new, create it via the data-fetcher-2.0 API
     let isNewTicker = false;
     if (!tickerExists) {
       const dataFetcherUrl = ctx.gatewayAPI.config.dataFetcherInternalUrl;
@@ -184,8 +149,10 @@ composer.command("add", async (ctx) => {
         const msg = String(body.message ?? "");
 
         if (errorCode === "NOT_FOUND" || msg.includes("not found")) {
+          const suggestion = buildSuggestion(symbol.split("/")[0] ?? symbol, assetType);
+          const extra = suggestion ? `\n${suggestion}` : "";
           await ctx.reply(
-            `Symbol '${displaySymbol}' not found. Check spelling and try again.\n\n${USAGE_TEXT}`,
+            `Symbol '${displaySymbol}' not found as ${assetType}.${extra}\n\n${USAGE_TEXT}`,
             { parse_mode: "Markdown" }
           );
           return;
@@ -212,7 +179,6 @@ composer.command("add", async (ctx) => {
         responseMsg !== "Ticker re-enabled successfully";
     }
 
-    // Bind user to ticker
     await db.query(
       `INSERT INTO user_watchlist (clerk_user_id, asset_type, ticker_symbol)
        VALUES ($1, $2, $3)
@@ -231,7 +197,6 @@ composer.command("add", async (ctx) => {
     } else {
       await ctx.reply(`${displaySymbol} has been added to your watchlist.`);
 
-      // Send welcome insight if an active signal exists for this ticker
       try {
         const signalAssetType = assetType === "crypto" ? "crypto" as const : "stock" as const;
         const signals = await detectSignalsForTicker(db, symbol, signalAssetType);
