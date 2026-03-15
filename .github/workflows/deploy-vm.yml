@@ -119,14 +119,14 @@ jobs:
           echo "| Gateway 2.0 | ${{ steps.filter.outputs.gateway2 }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Config | ${{ steps.filter.outputs.config }} |" >> $GITHUB_STEP_SUMMARY
 
-      # Query current versions from Supabase (increment minor for new deploys)
-      - name: Get versions from Supabase
+      # Query current versions from DB (increment minor for new deploys)
+      - name: Get versions from DB
         id: versions
         env:
-          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DB_REST_URL: ${{ secrets.DATABASE_URL_JS }}
+          DB_REST_KEY: ${{ secrets.DATABASE_SERVICE_ROLE_KEY }}
         run: |
-          echo "Querying current versions from Supabase..."
+          echo "Querying current versions from DB..."
 
           # Service name mapping (workflow name -> DB service name)
           declare -A SERVICE_MAP=(
@@ -137,13 +137,13 @@ jobs:
             ["gateway2"]="gateway-2.0"
           )
 
-          # Query all versions from Supabase
-          RESPONSE=$(curl -sf "${SUPABASE_URL}/rest/v1/worker_versions?select=service,major_version,minor_version" \
-            -H "apikey: ${SUPABASE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_KEY}")
+          # Query all versions via PostgREST
+          RESPONSE=$(curl -sf "${DB_REST_URL}/rest/v1/worker_versions?select=service,major_version,minor_version" \
+            -H "apikey: ${DB_REST_KEY}" \
+            -H "Authorization: Bearer ${DB_REST_KEY}")
 
           if [ -z "$RESPONSE" ]; then
-            echo "::warning::Failed to query Supabase, using default versions"
+            echo "::warning::Failed to query DB, using default versions"
             # Default to v1.0 for all services
             for key in "${!SERVICE_MAP[@]}"; do
               echo "${key}=1.0" >> $GITHUB_OUTPUT
@@ -248,9 +248,6 @@ jobs:
           context: services/back-office/
           file: services/back-office/Dockerfile
           tags: stocktracker-back-office:v${{ needs.detect-changes.outputs.backoffice_version }}
-          build-args: |
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
           cache-from: type=gha,scope=backoffice
           cache-to: type=gha,mode=max,scope=backoffice
           outputs: type=docker,dest=/tmp/back-office.tar
@@ -567,17 +564,17 @@ jobs:
         if: github.event.inputs.rollback_service != ''
         env:
           ROLLBACK_SERVICE: ${{ github.event.inputs.rollback_service }}
-          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DB_REST_URL: ${{ secrets.DATABASE_URL_JS }}
+          DB_REST_KEY: ${{ secrets.DATABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "=========================================="
           echo "=== ROLLBACK: $ROLLBACK_SERVICE ==="
           echo "=========================================="
 
-          # Get current version from Supabase
-          RESPONSE=$(curl -sf "${SUPABASE_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}&select=major_version,minor_version" \
-            -H "apikey: ${SUPABASE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_KEY}")
+          # Get current version from DB
+          RESPONSE=$(curl -sf "${DB_REST_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}&select=major_version,minor_version" \
+            -H "apikey: ${DB_REST_KEY}" \
+            -H "Authorization: Bearer ${DB_REST_KEY}")
 
           MAJOR=$(echo "$RESPONSE" | jq -r '.[0].major_version // 1')
           MINOR=$(echo "$RESPONSE" | jq -r '.[0].minor_version // 0')
@@ -642,16 +639,16 @@ jobs:
           echo "✅ Rollback complete: ${ROLLBACK_SERVICE} -> ${PREV_VERSION}"
           EOF
 
-          # Decrement version in Supabase
-          curl -sf "${SUPABASE_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}" \
+          # Decrement version in DB
+          curl -sf "${DB_REST_URL}/rest/v1/worker_versions?service=eq.${ROLLBACK_SERVICE}" \
             -X PATCH \
-            -H "apikey: ${SUPABASE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "apikey: ${DB_REST_KEY}" \
+            -H "Authorization: Bearer ${DB_REST_KEY}" \
             -H "Content-Type: application/json" \
             -H "Prefer: return=minimal" \
             -d "{\"minor_version\": ${PREV_MINOR}, \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
 
-          echo "✅ Supabase version decremented to v${MAJOR}.${PREV_MINOR}"
+          echo "✅ DB version decremented to v${MAJOR}.${PREV_MINOR}"
 
       # ===========================================
       # Sync config and start services
@@ -802,13 +799,13 @@ jobs:
           echo "=========================================="
 
       # ===========================================
-      # Update versions in Supabase after successful deploy
+      # Update versions in DB after successful deploy
       # ===========================================
-      - name: Update versions in Supabase
+      - name: Update versions in DB
         if: success() && github.event.inputs.rollback_service == ''
         env:
-          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DB_REST_URL: ${{ secrets.DATABASE_URL_JS }}
+          DB_REST_KEY: ${{ secrets.DATABASE_SERVICE_ROLE_KEY }}
           DATA_FETCHER_2_CHANGED: ${{ needs.detect-changes.outputs.datafetcher2 }}
           METRICS_CHANGED: ${{ needs.detect-changes.outputs.metrics }}
           BACKOFFICE_CHANGED: ${{ needs.detect-changes.outputs.backoffice }}
@@ -822,10 +819,9 @@ jobs:
           FORCE_BUILD: ${{ github.event.inputs.force_build }}
         run: |
           echo "=========================================="
-          echo "=== Updating versions in Supabase ==="
+          echo "=== Updating versions in DB ==="
           echo "=========================================="
 
-          # Log which services will be updated (helps debug spurious version increments)
           echo ""
           echo "=== Version Update Summary ==="
           echo "Services marked 'true' OR force_build='true' will have versions updated:"
@@ -847,12 +843,11 @@ jobs:
 
             echo "Updating $service to v$version..."
 
-            # Upsert using PATCH with conflict handling
             HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
-              "${SUPABASE_URL}/rest/v1/worker_versions?service=eq.${service}" \
+              "${DB_REST_URL}/rest/v1/worker_versions?service=eq.${service}" \
               -X PATCH \
-              -H "apikey: ${SUPABASE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_KEY}" \
+              -H "apikey: ${DB_REST_KEY}" \
+              -H "Authorization: Bearer ${DB_REST_KEY}" \
               -H "Content-Type: application/json" \
               -H "Prefer: return=minimal" \
               -d "{\"major_version\": ${major}, \"minor_version\": ${minor}, \"updated_at\": \"${UPDATED_AT}\"}")

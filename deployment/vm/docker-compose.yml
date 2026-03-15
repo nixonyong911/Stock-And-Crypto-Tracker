@@ -75,7 +75,7 @@ services:
       # Path base for reverse proxy
       - PATH_BASE=/api/data-fetcher-2.0
       # Database connection (direct, bypasses pooler for best performance)
-      - ConnectionStrings__DefaultConnection=${DATABASE_URL_NET_DIRECT}
+      - ConnectionStrings__DefaultConnection=${DATABASE_URL_DOTNET}
       # Finnhub Provider (stock fundamentals)
       - Providers__Finnhub__ApiKey=${FINNHUB_API_KEY}
       - Providers__Finnhub__BaseUrl=https://finnhub.io/api/v1
@@ -422,9 +422,9 @@ services:
       # Gateway 2.0 (TypeScript) access (Docker internal)
       - AI_HUB_URL=http://gateway-2.0:8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
-      # Supabase (server-side, service role key)
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      # Database REST API (PostgREST, service role key)
+      - DATABASE_URL_JS=${DATABASE_URL_JS}
+      - DATABASE_SERVICE_ROLE_KEY=${DATABASE_SERVICE_ROLE_KEY}
       # Redis (VM local)
       - REDIS_URL=redis://redis:6379
       # RabbitMQ Management API (for monitoring)

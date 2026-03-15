@@ -76,7 +76,7 @@ nxserver.malaysiawest.cloudapp.azure.com { # ===================================
     # pgAdmin 4 - Database GUI
     # ===========================================
     handle /pgadmin* {
-        reverse_proxy pgadmin:5050
+        reverse_proxy pgadmin:80
     }
 
     # ===========================================
