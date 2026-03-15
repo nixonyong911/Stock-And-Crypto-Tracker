@@ -213,7 +213,8 @@ async function handleWishlist(ctx: TelegramBotContext) {
       const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
       lines.push(`**Your Watchlist** (${tickers.length} tickers - ${tierLabel})`);
     }
-    lines.push(`_Week: Bullish >+1% | Bearish <-1% · Month: Bullish >+3% | Bearish <-3%_\n`);
+    lines.push(`_Week: Bullish >+1% | Bearish <-1%_`);
+    lines.push(`_Month: Bullish >+3% | Bearish <-3%_\n`);
 
     for (const t of tickers) {
       lines.push(formatTicker(t, userTzLabel));

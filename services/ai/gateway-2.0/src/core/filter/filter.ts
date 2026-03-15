@@ -14,7 +14,7 @@ const AI_DISCLAIMER =
   "\n\n_Educational market analysis, not financial advice._";
 
 const DISCLAIMER_TRIGGERS =
-  /\$\d|bullish|bearish|support|resistance|outlook|confidence|risk|rsi|macd|ema|moving average|overbought|oversold/i;
+  /\$\d|bullish|bearish|support zone|resistance|invalidation|outlook|confidence|scenario/i;
 
 /**
  * Pre-compiled patterns that match lines which should be removed from
@@ -113,6 +113,9 @@ export class OutputFilter {
     }
 
     let result = filtered.join("\n").trim();
+
+    // Convert Markdown headings to bold (## / ### don't render in Telegram)
+    result = result.replace(/^#{1,3}\s+(.+)$/gm, "**$1**");
 
     if (
       tierCfg.maxMessageLength > 0 &&
