@@ -40,6 +40,8 @@ const isPublicRoute = createRouteMatcher([
   "/:locale/pair(.*)",
   "/:locale/get-started(.*)",
   "/:locale/docs(.*)",
+  "/:locale/smart-digest(.*)",
+  "/:locale/affiliate(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request: NextRequest) => {
