@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Link } from "@/lib/i18n/routing";
 import { useTranslations } from "next-intl";
+import { useCanHover } from "@/hooks/use-can-hover";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,10 +30,32 @@ const featureItems = [
   },
 ] as const;
 
+const CLOSE_DELAY_MS = 150;
+
 export function Header() {
   const t = useTranslations("nav");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFeaturesOpen, setMobileFeaturesOpen] = useState(false);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
+  const canHover = useCanHover();
+  const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimeout.current) {
+      clearTimeout(closeTimeout.current);
+      closeTimeout.current = null;
+    }
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    cancelClose();
+    setFeaturesOpen(true);
+  }, [cancelClose]);
+
+  const handleMouseLeave = useCallback(() => {
+    cancelClose();
+    closeTimeout.current = setTimeout(() => setFeaturesOpen(false), CLOSE_DELAY_MS);
+  }, [cancelClose]);
 
   const navLinks = [
     { href: "/pricing", label: t("pricing") },
@@ -61,34 +84,44 @@ export function Header() {
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground outline-none">
-                {t("features")}
-                <ChevronDown className="h-3.5 w-3.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                {featureItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <DropdownMenuItem key={item.href} asChild>
-                      <Link
-                        href={item.href}
-                        className="flex items-start gap-3 p-3 cursor-pointer"
-                      >
-                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        <div>
-                          <div className="text-sm font-medium">
-                            {t(item.labelKey)}
+            <DropdownMenu open={featuresOpen} onOpenChange={setFeaturesOpen}>
+              <div
+                onMouseEnter={canHover ? handleMouseEnter : undefined}
+                onMouseLeave={canHover ? handleMouseLeave : undefined}
+              >
+                <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground outline-none">
+                  {t("features")}
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="w-64"
+                  onMouseEnter={canHover ? handleMouseEnter : undefined}
+                  onMouseLeave={canHover ? handleMouseLeave : undefined}
+                >
+                  {featureItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.href} asChild>
+                        <Link
+                          href={item.href}
+                          className="flex items-start gap-3 p-3 cursor-pointer"
+                        >
+                          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          <div>
+                            <div className="text-sm font-medium">
+                              {t(item.labelKey)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {t(item.descKey)}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {t(item.descKey)}
-                          </div>
-                        </div>
-                      </Link>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </div>
             </DropdownMenu>
 
             {navLinks.map((link) => (
