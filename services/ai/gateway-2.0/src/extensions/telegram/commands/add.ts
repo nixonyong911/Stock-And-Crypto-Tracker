@@ -8,7 +8,6 @@ import {
   parseAddArgs,
   buildSuggestion,
   getDisplayName,
-  VALID_ASSET_TYPES,
 } from "./add-utils.js";
 
 const FREE_TIER_MAX_TICKERS = 5;

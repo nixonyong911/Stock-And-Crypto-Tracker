@@ -187,7 +187,7 @@ export function parseAddArgs(rawArgs: string): ParseResult {
     assetType = inferAssetType(rawSymbol);
   }
 
-  const { symbol, displayName } = normalizeSymbol(rawSymbol, assetType);
+  const { symbol } = normalizeSymbol(rawSymbol, assetType);
 
   return { ok: true, symbol, assetType };
 }

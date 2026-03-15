@@ -7,7 +7,6 @@ import {
   normalizeSymbol,
   buildSuggestion,
   parseAddArgs,
-  VALID_ASSET_TYPES,
   getCatalogEntry,
   getDisplayName,
 } from "../add-utils.js";
