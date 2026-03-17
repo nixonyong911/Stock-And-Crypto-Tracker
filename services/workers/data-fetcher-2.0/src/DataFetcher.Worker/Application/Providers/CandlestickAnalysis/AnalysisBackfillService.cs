@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DataFetcher.Worker.Application.Providers.LocalIndicators;
 using DataFetcher.Worker.Application.Providers.Massive;
 using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 using DataFetcher.Worker.Configuration.Providers;
@@ -19,6 +20,7 @@ public class AnalysisBackfillService : IAnalysisBackfillService
     private readonly IMetricsClient _metrics;
     private readonly IPriceTargetBackfillService _priceTargetBackfillService;
     private readonly IMassiveIndicatorQueuePublisher _indicatorPublisher;
+    private readonly IAdvancedIndicatorCalculatorService _advancedIndicatorService;
 
     public AnalysisBackfillService(
         IStockPriceRepository stockPriceRepository,
@@ -28,7 +30,8 @@ public class AnalysisBackfillService : IAnalysisBackfillService
         ILogger<AnalysisBackfillService> logger,
         IMetricsClient metrics,
         IPriceTargetBackfillService priceTargetBackfillService,
-        IMassiveIndicatorQueuePublisher indicatorPublisher)
+        IMassiveIndicatorQueuePublisher indicatorPublisher,
+        IAdvancedIndicatorCalculatorService advancedIndicatorService)
     {
         _stockPriceRepository = stockPriceRepository;
         _analysisRepository = analysisRepository;
@@ -38,6 +41,7 @@ public class AnalysisBackfillService : IAnalysisBackfillService
         _metrics = metrics;
         _priceTargetBackfillService = priceTargetBackfillService;
         _indicatorPublisher = indicatorPublisher;
+        _advancedIndicatorService = advancedIndicatorService;
     }
 
     public async Task<AnalysisBackfillResult> ExecuteBackfillAsync(AnalysisBackfillRequest request, CancellationToken cancellationToken = default)
@@ -199,6 +203,20 @@ public class AnalysisBackfillService : IAnalysisBackfillService
             }
 
             _indicatorPublisher.PublishBackfill(request.Symbol, ticker.Id, "stock", daysToBackfill);
+
+            try
+            {
+                var advResult = await _advancedIndicatorService.BackfillStockAdvancedIndicatorsAsync(
+                    ticker.Id, request.Symbol, cancellationToken);
+
+                _logger.LogInformation(
+                    "Advanced indicator backfill for {Symbol}: {Computed} days computed, {Skipped} skipped",
+                    request.Symbol, advResult.DaysComputed, advResult.DaysSkipped);
+            }
+            catch (Exception advEx)
+            {
+                _logger.LogError(advEx, "Advanced indicator backfill failed for {Symbol} (non-fatal)", request.Symbol);
+            }
         }
         catch (Exception ex)
         {

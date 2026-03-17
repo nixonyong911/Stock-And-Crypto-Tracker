@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DataFetcher.Worker.Application.Providers.LocalIndicators;
 using DataFetcher.Worker.Application.Providers.Massive;
 using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 using DataFetcher.Worker.Configuration.Providers;
@@ -19,6 +20,7 @@ public class CryptoAnalysisBackfillService : ICryptoAnalysisBackfillService
     private readonly IMetricsClient _metrics;
     private readonly ICryptoPriceTargetBackfillService _priceTargetBackfillService;
     private readonly IMassiveIndicatorQueuePublisher _indicatorPublisher;
+    private readonly IAdvancedIndicatorCalculatorService _advancedIndicatorService;
 
     public CryptoAnalysisBackfillService(
         ICryptoPriceRepository cryptoPriceRepository,
@@ -28,7 +30,8 @@ public class CryptoAnalysisBackfillService : ICryptoAnalysisBackfillService
         ILogger<CryptoAnalysisBackfillService> logger,
         IMetricsClient metrics,
         ICryptoPriceTargetBackfillService priceTargetBackfillService,
-        IMassiveIndicatorQueuePublisher indicatorPublisher)
+        IMassiveIndicatorQueuePublisher indicatorPublisher,
+        IAdvancedIndicatorCalculatorService advancedIndicatorService)
     {
         _cryptoPriceRepository = cryptoPriceRepository;
         _cryptoAnalysisRepository = cryptoAnalysisRepository;
@@ -38,6 +41,7 @@ public class CryptoAnalysisBackfillService : ICryptoAnalysisBackfillService
         _metrics = metrics;
         _priceTargetBackfillService = priceTargetBackfillService;
         _indicatorPublisher = indicatorPublisher;
+        _advancedIndicatorService = advancedIndicatorService;
     }
 
     public async Task<AnalysisBackfillResult> ExecuteBackfillAsync(AnalysisBackfillRequest request, CancellationToken cancellationToken = default)
@@ -147,6 +151,20 @@ public class CryptoAnalysisBackfillService : ICryptoAnalysisBackfillService
             }
 
             _indicatorPublisher.PublishBackfill(request.Symbol, ticker.Id, "crypto", daysToBackfill);
+
+            try
+            {
+                var advResult = await _advancedIndicatorService.BackfillCryptoAdvancedIndicatorsAsync(
+                    ticker.Id, request.Symbol, cancellationToken);
+
+                _logger.LogInformation(
+                    "Advanced indicator backfill for crypto {Symbol}: {Computed} days computed, {Skipped} skipped",
+                    request.Symbol, advResult.DaysComputed, advResult.DaysSkipped);
+            }
+            catch (Exception advEx)
+            {
+                _logger.LogError(advEx, "Advanced indicator backfill failed for crypto {Symbol} (non-fatal)", request.Symbol);
+            }
         }
         catch (Exception ex)
         {

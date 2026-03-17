@@ -334,6 +334,99 @@ public class AdvancedIndicatorCalculatorTests
     }
 
     // ================================================================
+    // Backfill (Sliding Window) Tests
+    // ================================================================
+
+    [Fact]
+    public void ComputeBackfillIndicators_EmptyList_ReturnsEmpty()
+    {
+        var result = AdvancedIndicatorCalculatorService.ComputeBackfillIndicators(new List<OhlcvBar>());
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void ComputeBackfillIndicators_InsufficientData_ReturnsEmpty()
+    {
+        var bars = GenerateOhlcvBars(13, 100m, 0.02m);
+        var result = AdvancedIndicatorCalculatorService.ComputeBackfillIndicators(bars);
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void ComputeBackfillIndicators_60Bars_ReturnsOnePerDay()
+    {
+        var bars = GenerateOhlcvBars(60, 150m, 0.02m);
+        var result = AdvancedIndicatorCalculatorService.ComputeBackfillIndicators(bars);
+
+        // Should produce one result per day from index 13 (MinDataPoints-1) to 59
+        Assert.Equal(60 - 14 + 1, result.Count);
+
+        // Each result should have a date
+        foreach (var (date, set) in result)
+        {
+            Assert.NotEqual(default, date);
+        }
+    }
+
+    [Fact]
+    public void ComputeBackfillIndicators_EarlyDays_HavePartialIndicators()
+    {
+        var bars = GenerateOhlcvBars(60, 150m, 0.02m);
+        var result = AdvancedIndicatorCalculatorService.ComputeBackfillIndicators(bars);
+
+        // First result (day 14, only 14 data points) should NOT have Bollinger (needs 20)
+        var firstDay = result[0];
+        Assert.Null(firstDay.Set.BollingerUpper);
+        // ATR needs 15 bars; first day has exactly 14, so ATR may also be null.
+        // But OBV only needs 2 bars, so it should be present.
+        Assert.NotNull(firstDay.Set.Obv);
+    }
+
+    [Fact]
+    public void ComputeBackfillIndicators_LaterDays_HaveAllIndicators()
+    {
+        var bars = GenerateOhlcvBars(60, 150m, 0.02m);
+        var result = AdvancedIndicatorCalculatorService.ComputeBackfillIndicators(bars);
+
+        // Last day should have all indicators (60 data points)
+        var lastDay = result[^1];
+        Assert.NotNull(lastDay.Set.BollingerUpper);
+        Assert.NotNull(lastDay.Set.Atr);
+        Assert.NotNull(lastDay.Set.StochK);
+        Assert.NotNull(lastDay.Set.Adx);
+        Assert.NotNull(lastDay.Set.Obv);
+        Assert.NotNull(lastDay.Set.FibonacciLevels);
+        Assert.NotNull(lastDay.Set.PivotLevels);
+        Assert.NotNull(lastDay.Set.IchimokuTenkan);
+    }
+
+    [Fact]
+    public void ComputeBackfillIndicators_DatesAreChronological()
+    {
+        var bars = GenerateOhlcvBars(30, 100m, 0.02m);
+        var result = AdvancedIndicatorCalculatorService.ComputeBackfillIndicators(bars);
+
+        for (int i = 1; i < result.Count; i++)
+        {
+            Assert.True(result[i].Date > result[i - 1].Date,
+                $"Date at index {i} ({result[i].Date}) should be after index {i - 1} ({result[i - 1].Date})");
+        }
+    }
+
+    [Fact]
+    public void ComputeBackfillIndicators_DatesMatchBarDates()
+    {
+        var bars = GenerateOhlcvBars(30, 100m, 0.02m);
+        var result = AdvancedIndicatorCalculatorService.ComputeBackfillIndicators(bars);
+
+        // Each result date should correspond to a bar's date
+        foreach (var (date, _) in result)
+        {
+            Assert.Contains(bars, b => b.Date == date);
+        }
+    }
+
+    // ================================================================
     // Helpers
     // ================================================================
 

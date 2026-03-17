@@ -186,6 +186,151 @@ public class AdvancedIndicatorCalculatorService : IAdvancedIndicatorCalculatorSe
     }
 
     // ================================================================
+    // Single-Ticker Backfill (called by AnalysisBackfillService)
+    // ================================================================
+
+    public async Task<BackfillAdvancedResult> BackfillStockAdvancedIndicatorsAsync(
+        int stockTickerId, string symbol, CancellationToken cancellationToken = default)
+    {
+        var result = new BackfillAdvancedResult();
+
+        try
+        {
+            var allBars = await GetStockDailyOhlcvAsync(stockTickerId, 365);
+            if (allBars.Count < MinDataPoints)
+            {
+                result.Success = true;
+                result.DaysSkipped = allBars.Count;
+                _logger.LogInformation("Skipping advanced backfill for {Symbol}: only {Count} data points", symbol, allBars.Count);
+                return result;
+            }
+
+            var dataSourceId = await GetDataSourceIdAsync();
+            var indicators = ComputeBackfillIndicators(allBars);
+
+            var entities = indicators.Select(pair => new StockIndicatorAdvanced
+            {
+                StockTickerId = stockTickerId,
+                DataSourceId = dataSourceId,
+                IndicatorTime = pair.Date,
+                BollingerUpper = pair.Set.BollingerUpper,
+                BollingerLower = pair.Set.BollingerLower,
+                BollingerMiddle = pair.Set.BollingerMiddle,
+                BollingerBandwidth = pair.Set.BollingerBandwidth,
+                Atr = pair.Set.Atr,
+                StochK = pair.Set.StochK,
+                StochD = pair.Set.StochD,
+                Adx = pair.Set.Adx,
+                Obv = pair.Set.Obv,
+                FibonacciLevels = pair.Set.FibonacciLevels,
+                PivotLevels = pair.Set.PivotLevels,
+                IchimokuTenkan = pair.Set.IchimokuTenkan,
+                IchimokuKijun = pair.Set.IchimokuKijun,
+                IchimokuSenkouA = pair.Set.IchimokuSenkouA,
+                IchimokuSenkouB = pair.Set.IchimokuSenkouB,
+                IchimokuChikou = pair.Set.IchimokuChikou
+            }).ToList();
+
+            if (entities.Count > 0)
+                await _stockAdvancedRepo.BulkUpsertAsync(entities);
+
+            result.Success = true;
+            result.DaysComputed = entities.Count;
+            _logger.LogInformation("Advanced backfill for stock {Symbol}: {Count} days computed from {Total} bars",
+                symbol, entities.Count, allBars.Count);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Error = ex.Message;
+            _logger.LogError(ex, "Advanced indicator backfill failed for stock {Symbol}", symbol);
+        }
+
+        return result;
+    }
+
+    public async Task<BackfillAdvancedResult> BackfillCryptoAdvancedIndicatorsAsync(
+        int cryptoTickerId, string symbol, CancellationToken cancellationToken = default)
+    {
+        var result = new BackfillAdvancedResult();
+
+        try
+        {
+            var allBars = await GetCryptoDailyOhlcvAsync(cryptoTickerId, 365);
+            if (allBars.Count < MinDataPoints)
+            {
+                result.Success = true;
+                result.DaysSkipped = allBars.Count;
+                _logger.LogInformation("Skipping advanced backfill for crypto {Symbol}: only {Count} data points", symbol, allBars.Count);
+                return result;
+            }
+
+            var dataSourceId = await GetDataSourceIdAsync();
+            var indicators = ComputeBackfillIndicators(allBars);
+
+            var entities = indicators.Select(pair => new CryptoIndicatorAdvanced
+            {
+                CryptoTickerId = cryptoTickerId,
+                DataSourceId = dataSourceId,
+                IndicatorTime = pair.Date,
+                BollingerUpper = pair.Set.BollingerUpper,
+                BollingerLower = pair.Set.BollingerLower,
+                BollingerMiddle = pair.Set.BollingerMiddle,
+                BollingerBandwidth = pair.Set.BollingerBandwidth,
+                Atr = pair.Set.Atr,
+                StochK = pair.Set.StochK,
+                StochD = pair.Set.StochD,
+                Adx = pair.Set.Adx,
+                Obv = pair.Set.Obv,
+                FibonacciLevels = pair.Set.FibonacciLevels,
+                PivotLevels = pair.Set.PivotLevels,
+                IchimokuTenkan = pair.Set.IchimokuTenkan,
+                IchimokuKijun = pair.Set.IchimokuKijun,
+                IchimokuSenkouA = pair.Set.IchimokuSenkouA,
+                IchimokuSenkouB = pair.Set.IchimokuSenkouB,
+                IchimokuChikou = pair.Set.IchimokuChikou
+            }).ToList();
+
+            if (entities.Count > 0)
+                await _cryptoAdvancedRepo.BulkUpsertAsync(entities);
+
+            result.Success = true;
+            result.DaysComputed = entities.Count;
+            _logger.LogInformation("Advanced backfill for crypto {Symbol}: {Count} days computed from {Total} bars",
+                symbol, entities.Count, allBars.Count);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Error = ex.Message;
+            _logger.LogError(ex, "Advanced indicator backfill failed for crypto {Symbol}", symbol);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Sliding-window computation over historical bars.
+    /// For each day from MinDataPoints onward, computes advanced indicators
+    /// using all bars up to that day (rolling window).
+    /// </summary>
+    internal static List<(DateTime Date, AdvancedIndicatorSet Set)> ComputeBackfillIndicators(List<OhlcvBar> allBars)
+    {
+        var results = new List<(DateTime Date, AdvancedIndicatorSet Set)>();
+        var windowSize = 60;
+
+        for (int i = MinDataPoints - 1; i < allBars.Count; i++)
+        {
+            var startIdx = Math.Max(0, i - windowSize + 1);
+            var window = allBars.GetRange(startIdx, i - startIdx + 1);
+            var computed = ComputeAdvancedIndicators(window);
+            results.Add((allBars[i].Date, computed));
+        }
+
+        return results;
+    }
+
+    // ================================================================
     // Computation
     // ================================================================
 
