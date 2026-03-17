@@ -21,6 +21,10 @@ The Next.js frontend is hosted on Vercel with automatic Git-based deployment. Wh
 │         ├─► Deploy to Edge network                                   │
 │         └─► Available at production URL                              │
 │                                                                      │
+│   Database: VM PostgREST (via Supabase JS client library)            │
+│         │                                                            │
+│         └─► DATABASE_URL_JS → https://nxserver.../rest/v1            │
+│                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -41,53 +45,22 @@ Configure in: **Vercel Dashboard → Project → Settings → Environment Variab
 
 | Variable | Description | Environments |
 |----------|-------------|--------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Production, Preview, Development |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Supabase anon key | Production, Preview, Development |
+| `DATABASE_URL_JS` | VM PostgREST base URL | Production, Preview, Development |
+| `DATABASE_SERVICE_ROLE_KEY` | JWT for PostgREST service role auth | Production, Preview, Development |
 
-**Note**: `NEXT_PUBLIC_` prefix makes variables available in browser (client-side).
+These are managed via Infisical and synced to Vercel. The frontend uses the Supabase JS client library (`@supabase/supabase-js`) as the HTTP client, but it connects to the self-hosted PostgREST on the VM -- not to Supabase cloud.
 
-## Migration from Docker to Vercel
+## Database Access Pattern
 
-### Changes Made
-
-1. **Removed `output: 'standalone'`** from `next.config.js`
-   - Standalone output is for Docker/self-hosting
-   - Vercel handles output automatically
-
-2. **Removed `pg` package** from `package.json`
-   - Direct PostgreSQL connections don't work in serverless
-   - Migrated to Supabase client
-
-3. **Updated components** to use Supabase client
-   - `StockList.tsx` - Uses `createServerSupabaseClient()`
-   - `CryptoList.tsx` - Uses `createServerSupabaseClient()`
-   - `FetchStatus.tsx` - Uses `createServerSupabaseClient()`
-
-4. **Removed frontend from `docker-compose.yml`**
-   - Frontend now handled by Vercel
-
-### Files Modified
-
-| File | Change |
-|------|--------|
-| `services/frontend/next.config.js` | Removed `output: 'standalone'` |
-| `services/frontend/package.json` | Removed `pg`, `@types/pg` |
-| `services/frontend/src/lib/db.ts` | Deleted (was direct PostgreSQL) |
-| `services/frontend/src/lib/supabase/server.ts` | Added `createServerSupabaseClient()` |
-| `services/frontend/src/components/StockList.tsx` | Migrated to Supabase |
-| `services/frontend/src/components/CryptoList.tsx` | Migrated to Supabase |
-| `services/frontend/src/components/FetchStatus.tsx` | Migrated to Supabase |
-| `docker-compose.yml` | Removed frontend service |
-
-## Supabase Client Usage
+The frontend uses `@supabase/supabase-js` as a PostgREST client. The actual database is self-hosted PostgreSQL on the VM, exposed via PostgREST with Supabase-compatible JWT auth.
 
 ### Server Components (Data Fetching)
 
 ```typescript
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/db/supabase';
 
 async function getData() {
-  const supabase = createServerSupabaseClient();
+  const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('table_name')
     .select('*');
@@ -95,16 +68,7 @@ async function getData() {
 }
 ```
 
-### Client Components (Browser)
-
-```typescript
-import { createClient } from '@/lib/supabase/client';
-
-const supabase = createClient();
-const { data, error } = await supabase
-  .from('table_name')
-  .select('*');
-```
+The client is initialized in `services/frontend/src/lib/db/supabase.ts` using `DATABASE_URL_JS` and `DATABASE_SERVICE_ROLE_KEY`.
 
 ## Deployment Process
 
@@ -116,10 +80,6 @@ const { data, error } = await supabase
 
 ### Manual Deployment (Vercel CLI)
 ```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy from frontend directory
 cd services/frontend
 vercel --prod
 ```
@@ -131,21 +91,16 @@ vercel --prod
 2. View deployment logs
 3. Check production URL
 
-### Test Application
-```powershell
-# Test production URL
-Invoke-WebRequest -Uri "https://your-app.vercel.app" -UseBasicParsing
-```
-
 ## Troubleshooting
 
 ### Build Fails - Missing Environment Variables
-- Ensure all `NEXT_PUBLIC_*` variables are set in Vercel Dashboard
+- Ensure `DATABASE_URL_JS` and `DATABASE_SERVICE_ROLE_KEY` are set in Vercel Dashboard
 - Check that variables are enabled for the correct environment
 
 ### Database Connection Errors
-- Verify Supabase URL and keys are correct
-- Check RLS policies allow access from frontend
+- Verify VM PostgREST is running: `docker ps | grep postgrest`
+- Check that the JWT secret matches between PostgREST and the service role key
+- Confirm the VM is reachable from Vercel's edge network
 
 ### Deployment Not Triggering
 - Verify root directory is set to `services/frontend`
@@ -158,40 +113,4 @@ Invoke-WebRequest -Uri "https://your-app.vercel.app" -UseBasicParsing
 |------|---------|
 | `services/frontend/next.config.js` | Next.js configuration |
 | `services/frontend/package.json` | Dependencies |
-| `services/frontend/src/lib/supabase/client.ts` | Browser Supabase client |
-| `services/frontend/src/lib/supabase/server.ts` | Server Supabase client |
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+| `services/frontend/src/lib/db/supabase.ts` | PostgREST client (uses Supabase JS SDK) |

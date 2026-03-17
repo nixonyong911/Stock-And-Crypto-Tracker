@@ -1,4 +1,4 @@
-"""MCP Analysis Tools Package (Consolidated - 9 tools)."""
+"""MCP Analysis Tools Package (10 analysis + 5 DB admin tools)."""
 
 from .ticker_overview import get_ticker_overview
 from .indicators import get_technical_signals
@@ -9,6 +9,13 @@ from .fundamentals import compare_stocks
 from .economic import get_macro_environment
 from .earnings import get_earnings_history, get_market_earnings
 from .analysis import _safe_fetch, QUERY_TIMEOUT
+from .db_admin import (
+    execute_sql,
+    list_tables,
+    list_extensions,
+    apply_migration,
+    list_migrations,
+)
 
 __all__ = [
     "get_ticker_overview",
@@ -22,4 +29,9 @@ __all__ = [
     "get_market_earnings",
     "_safe_fetch",
     "QUERY_TIMEOUT",
+    "execute_sql",
+    "list_tables",
+    "list_extensions",
+    "apply_migration",
+    "list_migrations",
 ]

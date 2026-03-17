@@ -9,16 +9,24 @@ Per-tier endpoints with cumulative tool access (free < pro < max < dev):
   /mcp/dev  -> all tools
   /mcp      -> all tools (backward compat, to be removed)
 
-9 consolidated tools (down from 19):
-  1. analysis_ticker_overview   - Full single-ticker analysis (candlestick + indicators + fundamentals + earnings + price targets)
-  2. analysis_technical_signals - Detailed indicator time series with signal detection
-  3. analysis_price_targets     - Price target history (entry/target/stop-loss)
-  4. analysis_market_scan       - Market-wide sentiment, movers, and patterns
-  5. analysis_screen            - Multi-filter stock screener
-  6. analysis_compare           - Peer comparison (2-10 stocks)
-  7. analysis_macro             - Macro-economic environment
-  8. analysis_market_earnings   - Upcoming + recent earnings market-wide
-  9. analysis_earnings_history  - Per-ticker earnings track record
+15 tools (10 analysis + 5 DB admin):
+  Analysis (free tier):
+   1. analysis_ticker_overview   - Full single-ticker analysis
+   2. analysis_technical_signals - Indicator time series with signal detection
+   3. analysis_price_targets     - Price target history (entry/target/stop-loss)
+   4. analysis_market_scan       - Market-wide sentiment, movers, and patterns
+   5. analysis_screen            - Multi-filter stock screener
+   6. analysis_compare           - Peer comparison (2-10 stocks)
+   7. analysis_macro             - Macro-economic environment
+   8. analysis_market_earnings   - Upcoming + recent earnings market-wide
+   9. analysis_earnings_history  - Per-ticker earnings track record
+  10. analysis_news_sentiment    - News sentiment analysis
+  DB Admin (dev tier only):
+  11. analysis_execute_sql       - Raw SQL execution
+  12. analysis_list_tables       - List tables with optional column details
+  13. analysis_list_extensions   - List PostgreSQL extensions
+  14. analysis_apply_migration   - Apply tracked schema migration
+  15. analysis_list_migrations   - List applied migrations
 
 Features:
 - Redis caching with 24-hour TTL (daily data)
@@ -60,6 +68,13 @@ from tools.fundamentals import compare_stocks
 from tools.economic import get_macro_environment
 from tools.earnings import get_earnings_history, get_market_earnings
 from tools.news import get_news_sentiment
+from tools.db_admin import (
+    execute_sql,
+    list_tables,
+    list_extensions,
+    apply_migration,
+    list_migrations,
+)
 
 
 # ===========================================
@@ -252,6 +267,37 @@ class EarningsHistoryInput(BaseModel):
     """Input for per-ticker earnings history."""
     symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
     quarters: int = Field(default=4, description="Number of past quarters to show", ge=1, le=12)
+
+
+# ===========================================
+# DB Admin Input Models (dev tier)
+# ===========================================
+
+class ExecuteSqlInput(BaseModel):
+    """Input for raw SQL execution."""
+    query: str = Field(..., description="The SQL query to execute")
+
+
+class ListTablesInput(BaseModel):
+    """Input for listing database tables."""
+    schemas: list[str] = Field(default=["public"], description="Schemas to list tables from")
+    verbose: bool = Field(default=False, description="Include column details, primary keys, and foreign keys")
+
+
+class ListExtensionsInput(BaseModel):
+    """Input for listing PostgreSQL extensions."""
+    pass
+
+
+class ApplyMigrationInput(BaseModel):
+    """Input for applying a database migration."""
+    name: str = Field(..., description="Migration name in snake_case (e.g., 'add_users_email_index')")
+    query: str = Field(..., description="The SQL DDL to apply")
+
+
+class ListMigrationsInput(BaseModel):
+    """Input for listing applied migrations."""
+    pass
 
 
 # ===========================================
@@ -469,10 +515,93 @@ def _register_earnings_history(app: FastMCP) -> None:
 
 
 # ===========================================
-# Tool Registry (10 tools, all free tier)
+# DB Admin Tool Registration (dev tier)
+# ===========================================
+
+_RW_ANNOTATIONS = {
+    "readOnlyHint": False,
+    "destructiveHint": True,
+    "idempotentHint": False,
+    "openWorldHint": False,
+}
+
+
+def _register_execute_sql(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_execute_sql",
+        annotations={"title": "Execute SQL", **_RW_ANNOTATIONS},
+    )
+    async def analysis_execute_sql(params: ExecuteSqlInput, conn=Depends(get_db)) -> str:
+        """
+        Execute raw SQL against the VM PostgreSQL database.
+
+        Supports SELECT, INSERT, UPDATE, DELETE, and DDL statements.
+        For DDL operations (CREATE, ALTER, DROP), prefer apply_migration
+        to keep a tracked migration history.
+        """
+        return await execute_sql(conn=conn, query=params.query)
+
+
+def _register_list_tables(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_list_tables",
+        annotations={"title": "List Tables", **_RO_ANNOTATIONS},
+    )
+    async def analysis_list_tables(params: ListTablesInput, conn=Depends(get_db)) -> str:
+        """
+        List all tables in the specified schemas.
+
+        By default returns a compact summary (schema, table name, row estimate).
+        Set verbose=true to include column details, primary keys, and foreign keys.
+        """
+        return await list_tables(
+            conn=conn, schemas=params.schemas, verbose=params.verbose,
+        )
+
+
+def _register_list_extensions(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_list_extensions",
+        annotations={"title": "List Extensions", **_RO_ANNOTATIONS},
+    )
+    async def analysis_list_extensions(params: ListExtensionsInput, conn=Depends(get_db)) -> str:
+        """List all installed PostgreSQL extensions with version and schema."""
+        return await list_extensions(conn=conn)
+
+
+def _register_apply_migration(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_apply_migration",
+        annotations={"title": "Apply Migration", **_RW_ANNOTATIONS},
+    )
+    async def analysis_apply_migration(params: ApplyMigrationInput, conn=Depends(get_db)) -> str:
+        """
+        Apply a named SQL migration to the database.
+
+        Executes the DDL inside a transaction and records it in the
+        schema_migrations table. Skips if a migration with the same
+        name was already applied. Use this instead of execute_sql for
+        schema changes to maintain migration history.
+        """
+        return await apply_migration(conn=conn, name=params.name, query=params.query)
+
+
+def _register_list_migrations(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_list_migrations",
+        annotations={"title": "List Migrations", **_RO_ANNOTATIONS},
+    )
+    async def analysis_list_migrations(params: ListMigrationsInput, conn=Depends(get_db)) -> str:
+        """List all applied schema migrations with timestamps."""
+        return await list_migrations(conn=conn)
+
+
+# ===========================================
+# Tool Registry (10 analysis + 5 DB admin)
 # ===========================================
 
 _TOOL_REGISTRY: dict[str, ToolEntry] = {
+    # Analysis tools (free tier)
     "analysis_ticker_overview":   ToolEntry(fn=_register_ticker_overview,   min_tier="free"),
     "analysis_technical_signals": ToolEntry(fn=_register_technical_signals, min_tier="free"),
     "analysis_price_targets":     ToolEntry(fn=_register_price_targets,     min_tier="free"),
@@ -482,7 +611,13 @@ _TOOL_REGISTRY: dict[str, ToolEntry] = {
     "analysis_macro":             ToolEntry(fn=_register_macro,             min_tier="free"),
     "analysis_market_earnings":   ToolEntry(fn=_register_market_earnings,   min_tier="free"),
     "analysis_earnings_history":  ToolEntry(fn=_register_earnings_history,  min_tier="free"),
-    "analysis_news_sentiment":   ToolEntry(fn=_register_news_sentiment,   min_tier="free"),
+    "analysis_news_sentiment":    ToolEntry(fn=_register_news_sentiment,    min_tier="free"),
+    # DB admin tools (dev tier only)
+    "analysis_execute_sql":       ToolEntry(fn=_register_execute_sql,       min_tier="dev"),
+    "analysis_list_tables":       ToolEntry(fn=_register_list_tables,       min_tier="dev"),
+    "analysis_list_extensions":   ToolEntry(fn=_register_list_extensions,   min_tier="dev"),
+    "analysis_apply_migration":   ToolEntry(fn=_register_apply_migration,   min_tier="dev"),
+    "analysis_list_migrations":   ToolEntry(fn=_register_list_migrations,   min_tier="dev"),
 }
 
 

@@ -9,9 +9,9 @@ description: Use when adding new MCP tools to the analysis server, creating new 
 
 MCP tools use a `min_tier` annotation pattern for tier-based access control. Each tool in `_TOOL_REGISTRY` declares the lowest tier that can access it. Tiers are cumulative: `free < pro < max < dev` -- a higher tier always includes all lower-tier tools.
 
-## Current Tool Registry (9 Tools)
+## Current Tool Registry (15 Tools)
 
-All tools are currently at `free` tier:
+### Analysis Tools (free tier)
 
 | Tool | Module | Purpose |
 |------|--------|---------|
@@ -24,6 +24,21 @@ All tools are currently at `free` tier:
 | `analysis_macro` | `economic.py` | Macro-economic environment |
 | `analysis_market_earnings` | `earnings.py` | Market-wide earnings dashboard |
 | `analysis_earnings_history` | `earnings.py` | Per-ticker earnings track record |
+| `analysis_news_sentiment` | `news.py` | News sentiment analysis |
+
+### DB Admin Tools (dev tier only)
+
+These replaced the Supabase MCP and run against the VM PostgreSQL. Only available on `/mcp/dev` and stdio mode (Cursor IDE).
+
+| Tool | Module | Purpose |
+|------|--------|---------|
+| `analysis_execute_sql` | `db_admin.py` | Raw SQL execution (SELECT/INSERT/UPDATE/DELETE/DDL) |
+| `analysis_list_tables` | `db_admin.py` | List tables with optional column details, PKs, FKs |
+| `analysis_list_extensions` | `db_admin.py` | List installed PostgreSQL extensions |
+| `analysis_apply_migration` | `db_admin.py` | Apply tracked DDL migration (records in `schema_migrations`) |
+| `analysis_list_migrations` | `db_admin.py` | List applied schema migrations |
+
+> **Supabase policy:** The mirror script (`deployment/vm/scripts/mirror-to-supabase.sh`) is the sole authorized Supabase connection. All services and MCP tools must use VM PostgreSQL.
 
 ## Quick Reference
 
@@ -73,7 +88,7 @@ def _register_get_momentum(app: FastMCP) -> None:
 
 ```python
 _TOOL_REGISTRY: dict[str, ToolEntry] = {
-    # ... existing 9 tools ...
+    # ... existing 15 tools ...
     "analysis_get_momentum": ToolEntry(fn=_register_get_momentum, min_tier="free"),
 }
 ```
@@ -106,7 +121,7 @@ Only the MCP server needs rebuilding. The gateway does NOT need rebuilding -- `c
 - **Missing `__init__.py` export** -- tool function won't be importable
 - **Wrong `min_tier` value** -- `ToolEntry` validates at import time; typos crash the server with a clear error
 - **Missing `analysis_` prefix** -- all tools in the analysis server use this naming convention
-- **Missing `_RO_ANNOTATIONS`** -- read-only tools must declare `readOnlyHint=True`
+- **Missing `_RO_ANNOTATIONS`** -- read-only tools must declare `readOnlyHint=True`. Use `_RW_ANNOTATIONS` for write-capable tools (e.g., `execute_sql`, `apply_migration`)
 - **No Pydantic model** -- all tool inputs must use a Pydantic `BaseModel` with `Field` descriptions
 - **Forgetting security filters** -- new tool names must be added to both `filter.ts` and `keyword-filter.ts`
 - **Forgetting agent-context** -- LLM won't know when/how to use the tool without updating the skill file

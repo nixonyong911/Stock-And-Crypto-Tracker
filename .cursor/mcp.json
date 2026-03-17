@@ -9,10 +9,6 @@
     "context7": {
       "url": "https://mcp.context7.com/mcp"
     },
-    "supabase_stocktracker": {
-      "url": "https://mcp.supabase.com/mcp",
-      "headers": {}
-    },
     "n8n-mcp": {
       "command": "npx",
       "args": ["n8n-mcp"],
