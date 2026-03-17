@@ -35,6 +35,21 @@ public interface IFinnhubApiClient
     /// Uses /stock/earnings endpoint which provides past earnings with actuals.
     /// </summary>
     Task<List<StockEarning>?> GetStockEarningsAsync(string symbol, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets insider transactions for a symbol.
+    /// </summary>
+    Task<InsiderTransactionsResponse?> GetInsiderTransactionsAsync(string symbol, CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets insider sentiment (MSPR) for a symbol over a date range.
+    /// </summary>
+    Task<InsiderSentimentResponse?> GetInsiderSentimentAsync(string symbol, string from, string to, CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets analyst recommendation trends for a symbol.
+    /// </summary>
+    Task<List<RecommendationTrend>?> GetRecommendationTrendsAsync(string symbol, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -157,4 +172,54 @@ public class StockEarning
     // Convenience properties that map to standard names
     public decimal? EpsActual => Actual;
     public decimal? EpsEstimate => Estimate;
+}
+
+// ── Insider Transactions (from /stock/insider-transactions) ──
+public class InsiderTransactionsResponse
+{
+    public List<InsiderTransaction>? Data { get; set; }
+    public string? Symbol { get; set; }
+}
+
+public class InsiderTransaction
+{
+    public string? Name { get; set; }
+    public long Share { get; set; }
+    public decimal Change { get; set; }
+    public string? Currency { get; set; }
+    public string? FilingDate { get; set; }
+    public string? TransactionDate { get; set; }
+    public string? TransactionCode { get; set; }
+    public decimal TransactionPrice { get; set; }
+    public bool IsDerivative { get; set; }
+    public string? Source { get; set; }
+    public string? Id { get; set; }
+}
+
+// ── Insider Sentiment (from /stock/insider-sentiment) ──
+public class InsiderSentimentResponse
+{
+    public List<InsiderSentimentData>? Data { get; set; }
+    public string? Symbol { get; set; }
+}
+
+public class InsiderSentimentData
+{
+    public string? Symbol { get; set; }
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public long Change { get; set; }
+    public decimal Mspr { get; set; }
+}
+
+// ── Recommendation Trends (from /stock/recommendation) ──
+public class RecommendationTrend
+{
+    public int StrongBuy { get; set; }
+    public int Buy { get; set; }
+    public int Hold { get; set; }
+    public int Sell { get; set; }
+    public int StrongSell { get; set; }
+    public string? Period { get; set; }
+    public string? Symbol { get; set; }
 }

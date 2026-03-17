@@ -40,5 +40,19 @@ public class StockIndicatorAdvanced
     public decimal? IchimokuSenkouB { get; set; }
     public decimal? IchimokuChikou { get; set; }
 
+    // External Indicators (Finnhub — daily)
+    public int? InsiderBuyCount { get; set; }
+    public int? InsiderSellCount { get; set; }
+    public long? InsiderNetShares { get; set; }
+    public decimal? InsiderNetValue { get; set; }
+    public decimal? InsiderMspr { get; set; }
+    public long? InsiderMsprChange { get; set; }
+    public int? AnalystStrongBuy { get; set; }
+    public int? AnalystBuy { get; set; }
+    public int? AnalystHold { get; set; }
+    public int? AnalystSell { get; set; }
+    public int? AnalystStrongSell { get; set; }
+    public string? AnalystConsensus { get; set; }
+
     public DateTime CreatedAt { get; set; }
 }

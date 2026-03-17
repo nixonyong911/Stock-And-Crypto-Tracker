@@ -40,4 +40,50 @@ public class HostRegistrationTests
 
         Assert.Equal(expectedWorkers, backgroundServiceTypes);
     }
+
+    [Fact]
+    public void AllBackgroundServiceTypes_Count_Matches()
+    {
+        var assembly = typeof(Program).Assembly;
+
+        var count = assembly.GetTypes()
+            .Count(t => t.IsClass && !t.IsAbstract && t.IsSubclassOf(typeof(BackgroundService)));
+
+        Assert.Equal(17, count);
+    }
+
+    [Theory]
+    [InlineData("IAnalysisBackfillService")]
+    [InlineData("ICryptoAnalysisBackfillService")]
+    [InlineData("IAdvancedIndicatorCalculatorService")]
+    [InlineData("ILocalIndicatorCalculatorService")]
+    [InlineData("ITickerManagementService")]
+    public void CoreServiceInterfaces_AreDefinedInAssembly(string interfaceName)
+    {
+        var assembly = typeof(Program).Assembly;
+
+        var matchingType = assembly.GetTypes()
+            .FirstOrDefault(t => t.IsInterface && t.Name == interfaceName);
+
+        Assert.NotNull(matchingType);
+    }
+
+    [Theory]
+    [InlineData("ComputeAllStockAdvancedIndicatorsAsync")]
+    [InlineData("ComputeAllCryptoAdvancedIndicatorsAsync")]
+    [InlineData("BackfillStockAdvancedIndicatorsAsync")]
+    [InlineData("BackfillCryptoAdvancedIndicatorsAsync")]
+    public void IndicatorCalculatorServices_HaveExpectedMethods(string methodName)
+    {
+        var assembly = typeof(Program).Assembly;
+
+        var serviceType = assembly.GetTypes()
+            .FirstOrDefault(t => t.IsInterface && t.Name == "IAdvancedIndicatorCalculatorService");
+
+        Assert.NotNull(serviceType);
+
+        var method = serviceType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(method);
+    }
 }

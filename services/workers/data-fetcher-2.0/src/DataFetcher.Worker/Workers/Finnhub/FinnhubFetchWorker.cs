@@ -88,6 +88,14 @@ public class FinnhubFetchWorker : BackgroundService
 
                     message = $"Fetched {fundamentalsCount} fundamentals for tickers with recent earnings";
 
+                    var externalService = scope.ServiceProvider.GetRequiredService<IFinnhubExternalIndicatorService>();
+                    _logger.LogInformation("Starting Finnhub external indicator fetch for all active tickers");
+                    var externalResult = await externalService.FetchAllStockExternalIndicatorsAsync(stoppingToken);
+
+                    message += $" | External: {externalResult.SuccessCount}/{externalResult.TotalTickers} ({externalResult.DurationSeconds:F1}s)";
+                    if (externalResult.Errors.Count > 0)
+                        message += $" | ExtErrors: {string.Join("; ", externalResult.Errors.Take(3))}";
+
                     await _metrics.IncrementCounterAsync($"{MetricsPrefix}_job_executions_total", 1,
                         new Dictionary<string, string> { ["status"] = "completed" });
 

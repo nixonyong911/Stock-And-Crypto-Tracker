@@ -705,7 +705,7 @@ public class AdvancedIndicatorCalculatorService : IAdvancedIndicatorCalculatorSe
     // Internal Types
     // ================================================================
 
-    internal record OhlcvBar
+    public record OhlcvBar
     {
         public decimal Open { get; init; }
         public decimal High { get; init; }

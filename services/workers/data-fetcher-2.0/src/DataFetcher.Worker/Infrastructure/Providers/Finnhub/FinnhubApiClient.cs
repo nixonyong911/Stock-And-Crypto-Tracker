@@ -220,4 +220,91 @@ public class FinnhubApiClient : IFinnhubApiClient
             throw;
         }
     }
+
+    /// <inheritdoc />
+    public async Task<InsiderTransactionsResponse?> GetInsiderTransactionsAsync(string symbol, CancellationToken ct = default)
+    {
+        await RateLimitAsync(ct);
+
+        try
+        {
+            var url = $"stock/insider-transactions?symbol={symbol}&token={_settings.ApiKey}";
+            _logger.LogDebug("Fetching insider transactions for {Symbol}", symbol);
+
+            var response = await _httpClient.GetAsync(url, ct);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync(ct);
+            if (string.IsNullOrWhiteSpace(content) || content == "{}")
+            {
+                _logger.LogWarning("Empty response for insider transactions {Symbol}", symbol);
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<InsiderTransactionsResponse>(content, _jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching insider transactions for {Symbol}", symbol);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<InsiderSentimentResponse?> GetInsiderSentimentAsync(string symbol, string from, string to, CancellationToken ct = default)
+    {
+        await RateLimitAsync(ct);
+
+        try
+        {
+            var url = $"stock/insider-sentiment?symbol={symbol}&from={from}&to={to}&token={_settings.ApiKey}";
+            _logger.LogDebug("Fetching insider sentiment for {Symbol}", symbol);
+
+            var response = await _httpClient.GetAsync(url, ct);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync(ct);
+            if (string.IsNullOrWhiteSpace(content) || content == "{}")
+            {
+                _logger.LogWarning("Empty response for insider sentiment {Symbol}", symbol);
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<InsiderSentimentResponse>(content, _jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching insider sentiment for {Symbol}", symbol);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<List<RecommendationTrend>?> GetRecommendationTrendsAsync(string symbol, CancellationToken ct = default)
+    {
+        await RateLimitAsync(ct);
+
+        try
+        {
+            var url = $"stock/recommendation?symbol={symbol}&token={_settings.ApiKey}";
+            _logger.LogDebug("Fetching recommendation trends for {Symbol}", symbol);
+
+            var response = await _httpClient.GetAsync(url, ct);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync(ct);
+            if (string.IsNullOrWhiteSpace(content) || content == "[]")
+            {
+                _logger.LogWarning("Empty response for recommendation trends {Symbol}", symbol);
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<List<RecommendationTrend>>(content, _jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching recommendation trends for {Symbol}", symbol);
+            throw;
+        }
+    }
 }

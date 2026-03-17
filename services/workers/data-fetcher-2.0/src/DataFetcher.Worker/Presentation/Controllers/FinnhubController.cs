@@ -147,6 +147,63 @@ public class FinnhubController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Manually triggers external indicator fetch for all active tickers.
+    /// </summary>
+    [HttpPost("external-indicators/trigger/all")]
+    [ProducesResponseType(typeof(TriggerResponse), 200)]
+    public async Task<IActionResult> TriggerExternalIndicators(CancellationToken ct)
+    {
+        _logger.LogInformation("Manual trigger for external indicators (all tickers)");
+        try
+        {
+            var service = HttpContext.RequestServices.GetRequiredService<IFinnhubExternalIndicatorService>();
+            var result = await service.FetchAllStockExternalIndicatorsAsync(ct);
+            return Ok(new TriggerResponse
+            {
+                Success = true,
+                Message = $"Stocks: {result.SuccessCount}/{result.TotalTickers} ({result.DurationSeconds:F1}s)",
+                RecordsProcessed = result.SuccessCount
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during manual external indicator trigger");
+            return Ok(new TriggerResponse { Success = false, Message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Manually triggers external indicator fetch for a single ticker.
+    /// </summary>
+    [HttpPost("external-indicators/trigger/{tickerId:int}")]
+    [ProducesResponseType(typeof(TriggerResponse), 200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> TriggerExternalIndicatorsSingle(int tickerId, CancellationToken ct)
+    {
+        var ticker = await _tickerRepo.GetByIdAsync(tickerId);
+        if (ticker == null)
+            return NotFound(new { message = $"Ticker with ID {tickerId} not found" });
+
+        _logger.LogInformation("Manual trigger for external indicators: {Symbol} ({Id})", ticker.Symbol, tickerId);
+        try
+        {
+            var service = HttpContext.RequestServices.GetRequiredService<IFinnhubExternalIndicatorService>();
+            var success = await service.FetchStockExternalIndicatorsAsync(tickerId, ticker.Symbol, ct);
+            return Ok(new TriggerResponse
+            {
+                Success = success,
+                Message = success ? $"External indicators fetched for {ticker.Symbol}" : $"Failed for {ticker.Symbol}",
+                RecordsProcessed = success ? 1 : 0
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during manual external indicator trigger for {Symbol}", ticker.Symbol);
+            return Ok(new TriggerResponse { Success = false, Message = ex.Message });
+        }
+    }
+
 }
 
 /// <summary>

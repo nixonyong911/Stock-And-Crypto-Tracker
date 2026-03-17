@@ -211,7 +211,7 @@ public class LocalIndicatorCalculatorService : ILocalIndicatorCalculatorService
         return set;
     }
 
-    private static decimal? ComputeEma(List<decimal> values, int period)
+    internal static decimal? ComputeEma(List<decimal> values, int period)
     {
         if (values.Count < period) return null;
         var series = ComputeEmaSeries(values, period);
@@ -222,7 +222,7 @@ public class LocalIndicatorCalculatorService : ILocalIndicatorCalculatorService
     /// Returns the full EMA series starting from the first period's SMA bootstrap.
     /// Input must be in chronological order (oldest first).
     /// </summary>
-    private static List<decimal> ComputeEmaSeries(List<decimal> values, int period)
+    internal static List<decimal> ComputeEmaSeries(List<decimal> values, int period)
     {
         if (values.Count < period) return new List<decimal>();
 
@@ -244,7 +244,7 @@ public class LocalIndicatorCalculatorService : ILocalIndicatorCalculatorService
     /// <summary>
     /// RSI using Wilder's smoothing method. Returns 0-100 scale.
     /// </summary>
-    private static decimal ComputeRsi(List<decimal> closes, int period)
+    internal static decimal ComputeRsi(List<decimal> closes, int period)
     {
         var gains = new List<decimal>();
         var losses = new List<decimal>();

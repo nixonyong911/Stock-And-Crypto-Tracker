@@ -30,7 +30,10 @@ using DataFetcher.Worker.Infrastructure.Providers.Alpaca.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.Etoro;
 using DataFetcher.Worker.Workers.Alpaca;
 using DataFetcher.Worker.Workers.Etoro;
+using DataFetcher.Worker.Application.Providers.Indicators;
 using DataFetcher.Worker.Application.Providers.LocalIndicators;
+using DataFetcher.Worker.Application.Providers.Pipeline;
+using DataFetcher.Worker.Application.Providers.Pipeline.Steps;
 using DataFetcher.Worker.Application.Providers.Fred;
 using DataFetcher.Worker.Application.Providers.MarketAuxNews;
 using DataFetcher.Worker.Infrastructure.Providers.Fred;
@@ -103,6 +106,7 @@ try
     // Application - Finnhub Provider
     builder.Services.AddSingleton<MetricsCalculationService>();
     builder.Services.AddScoped<IFundamentalsFetchService, FundamentalsFetchService>();
+    builder.Services.AddScoped<IFinnhubExternalIndicatorService, FinnhubExternalIndicatorService>();
     // Note: IEarningsFetchService removed - earnings calendar now handled by AlphaVantage provider
 
     // HTTP Client with Polly retry policy for Finnhub
@@ -136,6 +140,13 @@ try
     builder.Services.AddScoped<IAnalysisRepository, AnalysisRepository>();
     builder.Services.AddScoped<ICryptoPriceRepository, CryptoPriceRepository>();
     builder.Services.AddScoped<ICryptoAnalysisRepository, CryptoAnalysisRepository>();
+
+    // Pipeline
+    builder.Services.AddScoped<IBackfillPipelineExecutor, BackfillPipelineExecutor>();
+    builder.Services.AddScoped<IBackfillStep, CandlestickBackfillStep>();
+    builder.Services.AddScoped<IBackfillStep, PriceTargetBackfillStep>();
+    builder.Services.AddScoped<IBackfillStep, MassiveIndicatorBackfillStep>();
+    builder.Services.AddScoped<IBackfillStep, AdvancedIndicatorBackfillStep>();
 
     // Application - CandlestickAnalysis Provider (Stock + Crypto)
     builder.Services.AddScoped<IDailyAggregationService, DailyAggregationService>();
@@ -203,6 +214,7 @@ try
 
     // Application - Scheduling (orchestrated multi-provider services)
     builder.Services.AddScoped<IEarningsSyncService, EarningsSyncService>();
+    builder.Services.AddSingleton<IJobDependencyResolver, JobDependencyResolver>();
 
     // Gateway alert notifier
     builder.Services.AddHttpClient<IGatewayAlertNotifier, GatewayAlertNotifier>();
@@ -230,6 +242,26 @@ try
     // Advanced indicator computation (Bollinger, ATR, Stochastic, ADX, OBV, Fibonacci, Pivot, Ichimoku)
     builder.Services.AddScoped<IAdvancedIndicatorCalculatorService, AdvancedIndicatorCalculatorService>();
     builder.Services.AddHostedService<AdvancedIndicatorWorker>();
+
+    // Indicator calculators (individual strategy classes for pipeline use)
+    builder.Services.AddSingleton<IIndicatorCalculator, BollingerBandsCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, AtrCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, StochasticCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, AdxCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, ObvCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, FibonacciCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, PivotPointCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, IchimokuCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, SmaCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, EmaCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, MacdCalculator>();
+    builder.Services.AddSingleton<IIndicatorCalculator, RsiCalculator>();
+    builder.Services.AddSingleton<IIndicatorRegistry, IndicatorRegistry>();
+
+    // Asset contexts
+    builder.Services.AddSingleton<IAssetContext, StockAssetContext>();
+    builder.Services.AddSingleton<IAssetContext, CryptoAssetContext>();
+    builder.Services.AddSingleton<IAssetContextFactory, AssetContextFactory>();
 
     // PriceTargetAnalysis worker
     builder.Services.AddHostedService<PriceTargetWorker>();
