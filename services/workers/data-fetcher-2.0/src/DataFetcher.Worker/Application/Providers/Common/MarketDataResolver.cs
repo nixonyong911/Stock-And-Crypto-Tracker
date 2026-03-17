@@ -26,6 +26,63 @@ public class MarketDataResolver : IMarketDataResolver
 
     public async Task<ResolveResult> VerifyAndResolveAsync(string symbol, string assetType, CancellationToken ct = default)
     {
+        if (assetType.Equals("commodity", StringComparison.OrdinalIgnoreCase) ||
+            assetType.Equals("index", StringComparison.OrdinalIgnoreCase))
+        {
+            var catalogResult = TryResolveFromCatalog(symbol, assetType);
+            if (catalogResult != null)
+                return await FinalizeCatalogResult(catalogResult, symbol);
+
+            _logger.LogInformation(
+                "Symbol {Symbol} ({AssetType}) not found in hardcoded catalog — skipping API call",
+                symbol, assetType);
+            return ResolveResult.NotFound(symbol);
+        }
+
+        return await ResolveViaProviders(symbol, assetType, ct);
+    }
+
+    private ResolveResult? TryResolveFromCatalog(string symbol, string assetType)
+    {
+        if (EtoroAssetCatalog.TryLookup(symbol, assetType, out var entry) && entry != null)
+        {
+            _logger.LogInformation(
+                "Resolved {Symbol} ({AssetType}) from catalog: {DisplayName} (instrumentId={InstrumentId})",
+                symbol, assetType, entry.DisplayName, entry.InstrumentId);
+
+            return ResolveResult.Success(
+                entry.EtoroSymbol, "eToro", dataSourceId: 0,
+                entry.DisplayName, entry.Exchange, entry.InstrumentId);
+        }
+
+        if (EtoroAssetCatalog.TryLookupByAlias(symbol, out var aliasEntry) && aliasEntry != null &&
+            aliasEntry.AssetType.Equals(assetType, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation(
+                "Resolved alias '{Alias}' → {Symbol} ({AssetType}) from catalog: {DisplayName} (instrumentId={InstrumentId})",
+                symbol, aliasEntry.EtoroSymbol, assetType, aliasEntry.DisplayName, aliasEntry.InstrumentId);
+
+            return ResolveResult.Success(
+                aliasEntry.EtoroSymbol, "eToro", dataSourceId: 0,
+                aliasEntry.DisplayName, aliasEntry.Exchange, aliasEntry.InstrumentId);
+        }
+
+        return null;
+    }
+
+    private async Task<ResolveResult> FinalizeCatalogResult(ResolveResult catalogResult, string originalSymbol)
+    {
+        var dataSourceId = await GetDataSourceIdAsync("eToro");
+        if (dataSourceId == 0)
+            return ResolveResult.Failed(originalSymbol, "Data source 'eToro' not found in database");
+
+        return ResolveResult.Success(
+            catalogResult.Symbol, catalogResult.PrimaryProvider!, dataSourceId,
+            catalogResult.Name, catalogResult.Exchange, catalogResult.EtoroInstrumentId);
+    }
+
+    private async Task<ResolveResult> ResolveViaProviders(string symbol, string assetType, CancellationToken ct)
+    {
         var providers = GetProviderOrder(assetType);
         _logger.LogInformation("Resolving {Symbol} ({AssetType}) — provider order: {Order}",
             symbol, assetType, string.Join(" → ", providers.Select(p => p.ProviderName)));
@@ -90,7 +147,6 @@ public class MarketDataResolver : IMarketDataResolver
     private List<IMarketDataProvider> GetProviderOrder(string assetType) =>
         assetType.ToLowerInvariant() switch
         {
-            "commodity" or "index" => [_etoro],
             "crypto" => [_etoro, _alpaca],
             _ => [_alpaca, _etoro]
         };
