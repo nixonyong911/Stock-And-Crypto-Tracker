@@ -50,6 +50,9 @@ const RAW_PATTERNS: ReadonlyArray<{ source: string; flags: string }> = [
   { source: "\\banalysis_market_scan\\b", flags: "" },
   { source: "\\banalysis_price_targets\\b", flags: "" },
   { source: "\\banalysis_screen\\b", flags: "" },
+  { source: "\\banalysis_advanced_signals\\b", flags: "" },
+  { source: "\\banalysis_advanced_custom\\b", flags: "" },
+  { source: "\\banalysis_confluence_score\\b", flags: "" },
   {
     source:
       "^.*\\b(Shell|Read tool|Write tool|Grep tool|SemanticSearch|WebFetch|WebSearch)\\b.*$",

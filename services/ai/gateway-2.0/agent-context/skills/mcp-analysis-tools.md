@@ -1,10 +1,12 @@
 # Analysis MCP Tools — Expert Analyst Guide
 
-You have 10 tools for stock and crypto analysis. This guide tells you **which tool to use**, **when**, and **how to combine them** for complex questions.
+You have tools for stock and crypto analysis. Free users get 10 tools. Pro users get 13 (10 free + 3 advanced). This guide tells you **which tool to use**, **when**, and **how to combine them**.
 
 ---
 
 ## Tool Quick Reference
+
+### Free Tier (all users)
 
 | Tool | Use For | Key Input |
 |------|---------|-----------|
@@ -19,6 +21,14 @@ You have 10 tools for stock and crypto analysis. This guide tells you **which to
 | `analysis_earnings_history` | Ticker's quarterly EPS track record | `symbol`, `quarters?` |
 | `analysis_news_sentiment` | Recent market-moving news with sentiment | `ticker?`, `days_back?`, `category?`, `sentiment?`, `limit?` |
 
+### Pro Tier (pro users only)
+
+| Tool | Use For | Key Input |
+|------|---------|-----------|
+| `analysis_advanced_signals` | Advanced indicator time series: Bollinger, ATR, Stochastic, ADX, OBV, Fibonacci, Pivot, Ichimoku | `symbol`, `start_date`, `end_date` |
+| `analysis_advanced_custom` | Custom parameters: alt Fibonacci lookback, alt pivot types, VWAP | `symbol`, `indicators?`, `fib_lookback_days?`, `pivot_type?` |
+| `analysis_confluence_score` | Composite signal scoring from all indicators (basic + advanced) | `symbol` |
+
 ---
 
 ## Decision: Which Tool First?
@@ -31,6 +41,11 @@ Question about ONE specific ticker?
   → Need detailed technical history? Add analysis_technical_signals
   → Need full earnings record? Add analysis_earnings_history
   → "What news is affecting AAPL?" → Add analysis_news_sentiment(ticker="AAPL")
+
+  PRO USER — deeper technical analysis?
+  → "Bollinger/Stochastic/ADX/Ichimoku?" → analysis_advanced_signals
+  → "Custom Fibonacci/Pivot/VWAP?" → analysis_advanced_custom
+  → "Overall signal strength?" → analysis_confluence_score
 
 Question about THE MARKET overall?
   → "Is the market bullish?" → analysis_market_scan
@@ -218,3 +233,57 @@ For **crypto**, only `candlestick`, `technical`, and `price_targets` are availab
 4. **For crypto**, note 24/7 trading and higher volatility
 5. **Never guarantee outcomes** — "The data suggests..." not "AAPL will go up". Frame forward-looking analysis as "scenarios" or "what to watch for", never as predictions.
 6. **If data is missing**, say so — "No fundamental data available for this crypto"
+
+---
+
+## Pro-Tier Tools — Advanced Indicator Guide
+
+### When to use `analysis_advanced_signals`
+
+Use when the user asks for:
+- Bollinger Band squeezes/breakouts, ATR for position sizing
+- Stochastic Oscillator overbought/oversold, crossovers
+- ADX trend strength (trending vs ranging)
+- Ichimoku Cloud analysis (TK cross, cloud position)
+- Fibonacci retracement levels, pivot points
+- OBV (On-Balance Volume) for volume confirmation
+
+Returns daily time series with automated signal detection.
+
+### When to use `analysis_advanced_custom`
+
+Use when the user wants:
+- Alternative Fibonacci lookback (14-180 days, default is 50)
+- Alternative Pivot Point types (fibonacci, camarilla, woodie)
+- VWAP (Volume-Weighted Average Price) — computed from intraday data
+- Ichimoku with pre-computed values
+
+### When to use `analysis_confluence_score`
+
+Use when the user wants:
+- "What's the overall signal for AAPL?" — single composite score
+- To combine basic (SMA/EMA/MACD/RSI) and advanced (Bollinger/Stochastic/ADX/Ichimoku/Fib/Pivot) signals
+- Divergence detection between indicator groups
+- Quick buy/sell signal strength assessment
+
+### Pro-Tier Multi-Tool Strategies
+
+**"Deep technical analysis of AAPL"** (pro user):
+1. `analysis_ticker_overview(symbol="AAPL")` — basic snapshot
+2. `analysis_advanced_signals(symbol="AAPL", start_date, end_date)` — advanced indicator history
+3. `analysis_confluence_score(symbol="AAPL")` — composite score
+
+**"Is AAPL in a squeeze?"** (pro user):
+1. `analysis_advanced_signals(symbol="AAPL", start_date, end_date)` — check Bollinger bandwidth
+
+**"What are the Fibonacci levels for AAPL with 100-day lookback?"** (pro user):
+1. `analysis_advanced_custom(symbol="AAPL", indicators=["fibonacci"], fib_lookback_days=100)`
+
+### Interpreting Advanced Indicators
+
+- **Bollinger squeeze** (bandwidth < 4%): Volatility contraction — breakout imminent. Direction TBD.
+- **Stochastic %K > 80**: Overbought. Not a sell signal alone — check ADX for trend strength.
+- **ADX > 25**: Trending market. ADX < 20: Ranging. ADX direction matters more than level.
+- **Ichimoku above cloud**: Bullish. Below cloud: Bearish. Inside cloud: Indecisive.
+- **OBV rising + price rising**: Confirmed uptrend. OBV falling + price rising: Divergence warning.
+- **Confluence score > 75**: Strong bullish. 60-75: Bullish. 40-60: Neutral. 25-40: Bearish. < 25: Strong bearish.

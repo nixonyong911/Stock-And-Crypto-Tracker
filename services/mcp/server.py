@@ -9,7 +9,7 @@ Per-tier endpoints with cumulative tool access (free < pro < max < dev):
   /mcp/dev  -> all tools
   /mcp      -> all tools (backward compat, to be removed)
 
-15 tools (10 analysis + 5 DB admin):
+18 tools (10 free analysis + 3 pro analysis + 5 DB admin):
   Analysis (free tier):
    1. analysis_ticker_overview   - Full single-ticker analysis
    2. analysis_technical_signals - Indicator time series with signal detection
@@ -21,12 +21,16 @@ Per-tier endpoints with cumulative tool access (free < pro < max < dev):
    8. analysis_market_earnings   - Upcoming + recent earnings market-wide
    9. analysis_earnings_history  - Per-ticker earnings track record
   10. analysis_news_sentiment    - News sentiment analysis
+  Advanced Analysis (pro tier):
+  11. analysis_advanced_signals  - Advanced indicator time series (Bollinger/ATR/Stochastic/ADX/OBV/Fib/Pivot/Ichimoku)
+  12. analysis_advanced_custom   - Custom-parameter indicators (alt Fib lookback, pivot types, VWAP)
+  13. analysis_confluence_score  - Composite signal scoring from basic + advanced
   DB Admin (dev tier only):
-  11. analysis_execute_sql       - Raw SQL execution
-  12. analysis_list_tables       - List tables with optional column details
-  13. analysis_list_extensions   - List PostgreSQL extensions
-  14. analysis_apply_migration   - Apply tracked schema migration
-  15. analysis_list_migrations   - List applied migrations
+  14. analysis_execute_sql       - Raw SQL execution
+  15. analysis_list_tables       - List tables with optional column details
+  16. analysis_list_extensions   - List PostgreSQL extensions
+  17. analysis_apply_migration   - Apply tracked schema migration
+  18. analysis_list_migrations   - List applied migrations
 
 Features:
 - Redis caching with 24-hour TTL (daily data)
@@ -68,6 +72,8 @@ from tools.fundamentals import compare_stocks
 from tools.economic import get_macro_environment
 from tools.earnings import get_earnings_history, get_market_earnings
 from tools.news import get_news_sentiment
+from tools.advanced_indicators import get_advanced_signals, get_advanced_custom
+from tools.confluence import get_confluence_score
 from tools.db_admin import (
     execute_sql,
     list_tables,
@@ -267,6 +273,58 @@ class EarningsHistoryInput(BaseModel):
     """Input for per-ticker earnings history."""
     symbol: str = Field(..., description="Stock ticker symbol (e.g., 'AAPL')", min_length=1, max_length=10)
     quarters: int = Field(default=4, description="Number of past quarters to show", ge=1, le=12)
+
+
+# ===========================================
+# Advanced Indicator Input Models (pro tier)
+# ===========================================
+
+class AdvancedSignalsInput(BaseModel):
+    """Input for advanced indicator time series (pro tier)."""
+    symbol: str = Field(..., description="Ticker symbol (e.g., 'AAPL' or 'BTC/USD')", min_length=1, max_length=20)
+    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
+    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+
+    @field_validator('start_date', 'end_date')
+    @classmethod
+    def validate_date_format(cls, v: str) -> str:
+        try:
+            date.fromisoformat(v)
+            return v
+        except ValueError:
+            raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD")
+
+
+class AdvancedCustomInput(BaseModel):
+    """Input for custom-parameter advanced indicators (pro tier)."""
+    symbol: str = Field(..., description="Ticker symbol (e.g., 'AAPL' or 'BTC/USD')", min_length=1, max_length=20)
+    indicators: list[str] = Field(
+        default=["fibonacci", "pivot_points", "ichimoku"],
+        description="Which indicators to return: fibonacci, pivot_points, ichimoku, vwap",
+    )
+    fib_lookback_days: int = Field(default=50, description="Fibonacci lookback period in days", ge=14, le=180)
+    pivot_type: str = Field(default="standard", description="Pivot point type: standard, fibonacci, camarilla, woodie")
+
+    @field_validator('indicators')
+    @classmethod
+    def validate_indicators(cls, v: list[str]) -> list[str]:
+        valid = {"fibonacci", "pivot_points", "ichimoku", "vwap"}
+        for ind in v:
+            if ind not in valid:
+                raise ValueError(f"Invalid indicator '{ind}'. Valid: {sorted(valid)}")
+        return v
+
+    @field_validator('pivot_type')
+    @classmethod
+    def validate_pivot_type(cls, v: str) -> str:
+        if v not in ("standard", "fibonacci", "camarilla", "woodie"):
+            raise ValueError(f"pivot_type must be standard, fibonacci, camarilla, or woodie, got '{v}'")
+        return v
+
+
+class ConfluenceScoreInput(BaseModel):
+    """Input for signal confluence scoring (pro tier)."""
+    symbol: str = Field(..., description="Ticker symbol (e.g., 'AAPL' or 'BTC/USD')", min_length=1, max_length=20)
 
 
 # ===========================================
@@ -515,6 +573,71 @@ def _register_earnings_history(app: FastMCP) -> None:
 
 
 # ===========================================
+# Advanced Indicator Tool Registration (pro tier)
+# ===========================================
+
+def _register_advanced_signals(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_advanced_signals",
+        annotations={"title": "Advanced Technical Signals", **_RO_ANNOTATIONS},
+    )
+    async def analysis_advanced_signals(params: AdvancedSignalsInput, conn=Depends(get_db)) -> str:
+        """
+        Advanced technical indicator time series with signal detection (pro tier).
+
+        Returns daily Bollinger Bands, ATR, Stochastic Oscillator, ADX, OBV,
+        Fibonacci Retracement, Pivot Points, and Ichimoku Cloud values.
+        Detects: Bollinger squeeze/breakout, Stochastic crossovers, ADX trend
+        signals, Ichimoku TK cross and cloud breakouts, key level proximity.
+        """
+        return await get_advanced_signals(
+            conn=conn, symbol=params.symbol,
+            start_date=params.start_date, end_date=params.end_date,
+        )
+
+
+def _register_advanced_custom(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_advanced_custom",
+        annotations={"title": "Custom Advanced Indicators", **_RO_ANNOTATIONS},
+    )
+    async def analysis_advanced_custom(params: AdvancedCustomInput, conn=Depends(get_db)) -> str:
+        """
+        Advanced indicators with custom parameters (pro tier).
+
+        Supports non-default Fibonacci lookback periods (14-180 days),
+        alternative Pivot Point types (standard, fibonacci, camarilla, woodie),
+        Ichimoku Cloud, and session VWAP from intraday 15-min candles.
+        Uses pre-computed defaults when standard params are requested,
+        computes on-the-fly only for custom parameters.
+        """
+        return await get_advanced_custom(
+            conn=conn, symbol=params.symbol,
+            indicators=params.indicators,
+            fib_lookback_days=params.fib_lookback_days,
+            pivot_type=params.pivot_type,
+        )
+
+
+def _register_confluence(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_confluence_score",
+        annotations={"title": "Signal Confluence Score", **_RO_ANNOTATIONS},
+    )
+    async def analysis_confluence_score(params: ConfluenceScoreInput, conn=Depends(get_db)) -> str:
+        """
+        Composite signal confluence scoring from basic and advanced indicators (pro tier).
+
+        Reads from both basic indicators (SMA/EMA/MACD/RSI) and advanced indicators
+        (Bollinger/ATR/Stochastic/ADX/OBV/Fibonacci/Pivot/Ichimoku). Scores 5
+        categories (trend, momentum, volatility, volume, key_levels) 0-100 each
+        with weighted overall score. Returns signal strength (strong_bullish to
+        strong_bearish) and detects divergences between indicator groups.
+        """
+        return await get_confluence_score(conn=conn, symbol=params.symbol)
+
+
+# ===========================================
 # DB Admin Tool Registration (dev tier)
 # ===========================================
 
@@ -612,6 +735,10 @@ _TOOL_REGISTRY: dict[str, ToolEntry] = {
     "analysis_market_earnings":   ToolEntry(fn=_register_market_earnings,   min_tier="free"),
     "analysis_earnings_history":  ToolEntry(fn=_register_earnings_history,  min_tier="free"),
     "analysis_news_sentiment":    ToolEntry(fn=_register_news_sentiment,    min_tier="free"),
+    # Advanced analysis tools (pro tier)
+    "analysis_advanced_signals":  ToolEntry(fn=_register_advanced_signals,  min_tier="pro"),
+    "analysis_advanced_custom":   ToolEntry(fn=_register_advanced_custom,   min_tier="pro"),
+    "analysis_confluence_score":  ToolEntry(fn=_register_confluence,        min_tier="pro"),
     # DB admin tools (dev tier only)
     "analysis_execute_sql":       ToolEntry(fn=_register_execute_sql,       min_tier="dev"),
     "analysis_list_tables":       ToolEntry(fn=_register_list_tables,       min_tier="dev"),

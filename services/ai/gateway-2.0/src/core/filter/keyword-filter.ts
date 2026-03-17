@@ -40,6 +40,7 @@ const RAW_PATTERNS: ReadonlyArray<{ label: string; source: string; flags: string
   { label: "analysis_mcp", source: "\\banalysis_mcp\\b", flags: "i" },
   { label: "analysis_tool", source: "\\banalysis_(?:ticker_overview|technical_signals|market_scan|price_targets)\\b", flags: "i" },
   { label: "analysis_internal", source: "\\banalysis_(?:screen|compare|macro|market_earnings|earnings_history)\\b", flags: "i" },
+  { label: "analysis_advanced", source: "\\banalysis_(?:advanced_signals|advanced_custom|confluence_score)\\b", flags: "i" },
   { label: "infra_tool", source: "\\b(?:Read\\s+tool|Write\\s+tool|Grep\\s+tool|SemanticSearch|WebFetch|WebSearch)\\b", flags: "i" },
   { label: "tool_listing", source: "\\b(?:Available\\s+tools|My\\s+tools\\s+include)\\b", flags: "i" },
   { label: "tool_access", source: "\\bI\\s+have\\s+access\\s+to\\b", flags: "i" },

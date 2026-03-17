@@ -116,6 +116,8 @@ try
     // Infrastructure - Massive Provider (Stock + Crypto)
     builder.Services.AddScoped<IStockIndicatorRepository, StockIndicatorRepository>();
     builder.Services.AddScoped<ICryptoIndicatorRepository, CryptoIndicatorRepository>();
+    builder.Services.AddScoped<IStockIndicatorAdvancedRepository, StockIndicatorAdvancedRepository>();
+    builder.Services.AddScoped<ICryptoIndicatorAdvancedRepository, CryptoIndicatorAdvancedRepository>();
     builder.Services.AddHttpClient<IMassiveApiClient, MassiveApiClient>()
         .AddPolicyHandler(GetRetryPolicy());
 
@@ -224,6 +226,10 @@ try
     // Local indicator computation (replaces Massive API for scheduled runs)
     builder.Services.AddScoped<ILocalIndicatorCalculatorService, LocalIndicatorCalculatorService>();
     builder.Services.AddHostedService<LocalIndicatorWorker>();
+
+    // Advanced indicator computation (Bollinger, ATR, Stochastic, ADX, OBV, Fibonacci, Pivot, Ichimoku)
+    builder.Services.AddScoped<IAdvancedIndicatorCalculatorService, AdvancedIndicatorCalculatorService>();
+    builder.Services.AddHostedService<AdvancedIndicatorWorker>();
 
     // PriceTargetAnalysis worker
     builder.Services.AddHostedService<PriceTargetWorker>();

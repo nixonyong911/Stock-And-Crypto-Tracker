@@ -1,0 +1,69 @@
+using Dapper;
+using DataFetcher.Worker.Domain.Providers.Massive.Entities;
+using DataFetcher.Worker.Infrastructure.Common;
+
+namespace DataFetcher.Worker.Infrastructure.Providers.Massive.Repositories;
+
+public class StockIndicatorAdvancedRepository : IStockIndicatorAdvancedRepository
+{
+    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ILogger<StockIndicatorAdvancedRepository> _logger;
+
+    public StockIndicatorAdvancedRepository(IDbConnectionFactory connectionFactory, ILogger<StockIndicatorAdvancedRepository> logger)
+    {
+        _connectionFactory = connectionFactory;
+        _logger = logger;
+    }
+
+    public async Task BulkUpsertAsync(IEnumerable<StockIndicatorAdvanced> indicators)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            INSERT INTO analysis_stock_indicator_advanced
+                (stock_ticker_id, data_source_id, indicator_time,
+                 bollinger_upper, bollinger_lower, bollinger_middle, bollinger_bandwidth, atr,
+                 stoch_k, stoch_d, adx, obv,
+                 fibonacci_levels, pivot_levels,
+                 ichimoku_tenkan, ichimoku_kijun, ichimoku_senkou_a, ichimoku_senkou_b, ichimoku_chikou)
+            VALUES
+                (@StockTickerId, @DataSourceId, @IndicatorTime,
+                 @BollingerUpper, @BollingerLower, @BollingerMiddle, @BollingerBandwidth, @Atr,
+                 @StochK, @StochD, @Adx, @Obv,
+                 @FibonacciLevels::jsonb, @PivotLevels::jsonb,
+                 @IchimokuTenkan, @IchimokuKijun, @IchimokuSenkouA, @IchimokuSenkouB, @IchimokuChikou)
+            ON CONFLICT (stock_ticker_id, data_source_id, indicator_time) DO UPDATE SET
+                bollinger_upper = COALESCE(EXCLUDED.bollinger_upper, analysis_stock_indicator_advanced.bollinger_upper),
+                bollinger_lower = COALESCE(EXCLUDED.bollinger_lower, analysis_stock_indicator_advanced.bollinger_lower),
+                bollinger_middle = COALESCE(EXCLUDED.bollinger_middle, analysis_stock_indicator_advanced.bollinger_middle),
+                bollinger_bandwidth = COALESCE(EXCLUDED.bollinger_bandwidth, analysis_stock_indicator_advanced.bollinger_bandwidth),
+                atr = COALESCE(EXCLUDED.atr, analysis_stock_indicator_advanced.atr),
+                stoch_k = COALESCE(EXCLUDED.stoch_k, analysis_stock_indicator_advanced.stoch_k),
+                stoch_d = COALESCE(EXCLUDED.stoch_d, analysis_stock_indicator_advanced.stoch_d),
+                adx = COALESCE(EXCLUDED.adx, analysis_stock_indicator_advanced.adx),
+                obv = COALESCE(EXCLUDED.obv, analysis_stock_indicator_advanced.obv),
+                fibonacci_levels = COALESCE(EXCLUDED.fibonacci_levels, analysis_stock_indicator_advanced.fibonacci_levels),
+                pivot_levels = COALESCE(EXCLUDED.pivot_levels, analysis_stock_indicator_advanced.pivot_levels),
+                ichimoku_tenkan = COALESCE(EXCLUDED.ichimoku_tenkan, analysis_stock_indicator_advanced.ichimoku_tenkan),
+                ichimoku_kijun = COALESCE(EXCLUDED.ichimoku_kijun, analysis_stock_indicator_advanced.ichimoku_kijun),
+                ichimoku_senkou_a = COALESCE(EXCLUDED.ichimoku_senkou_a, analysis_stock_indicator_advanced.ichimoku_senkou_a),
+                ichimoku_senkou_b = COALESCE(EXCLUDED.ichimoku_senkou_b, analysis_stock_indicator_advanced.ichimoku_senkou_b),
+                ichimoku_chikou = COALESCE(EXCLUDED.ichimoku_chikou, analysis_stock_indicator_advanced.ichimoku_chikou)";
+
+        await connection.ExecuteAsync(sql, indicators);
+        _logger.LogDebug("Bulk upserted {Count} advanced stock indicator records", indicators.Count());
+    }
+
+    public async Task DeleteOldRecordsAsync(int stockTickerId, int retentionDays = 90)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = "DELETE FROM analysis_stock_indicator_advanced WHERE stock_ticker_id = @StockTickerId AND indicator_time < NOW() - make_interval(days => @RetentionDays)";
+
+        var deleted = await connection.ExecuteAsync(sql, new { StockTickerId = stockTickerId, RetentionDays = retentionDays });
+        if (deleted > 0)
+        {
+            _logger.LogInformation("Deleted {Count} old advanced indicator records for stock ticker {TickerId}", deleted, stockTickerId);
+        }
+    }
+}

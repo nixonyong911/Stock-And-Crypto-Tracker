@@ -19,6 +19,7 @@ public class HostRegistrationTests
 
         var expectedWorkers = new[]
         {
+            "AdvancedIndicatorWorker",
             "AlpacaBackfillQueueConsumer",
             "AlpacaCryptoBackfillQueueConsumer",
             "AlpacaCryptoFetchWorker",

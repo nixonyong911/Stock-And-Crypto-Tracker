@@ -1,4 +1,4 @@
-"""MCP Analysis Tools Package (10 analysis + 5 DB admin tools)."""
+"""MCP Analysis Tools Package (10 free + 3 pro analysis + 5 DB admin tools)."""
 
 from .ticker_overview import get_ticker_overview
 from .indicators import get_technical_signals
@@ -8,6 +8,8 @@ from .screener import screen_stocks
 from .fundamentals import compare_stocks
 from .economic import get_macro_environment
 from .earnings import get_earnings_history, get_market_earnings
+from .advanced_indicators import get_advanced_signals, get_advanced_custom
+from .confluence import get_confluence_score
 from .analysis import _safe_fetch, QUERY_TIMEOUT
 from .db_admin import (
     execute_sql,
@@ -27,6 +29,9 @@ __all__ = [
     "get_macro_environment",
     "get_earnings_history",
     "get_market_earnings",
+    "get_advanced_signals",
+    "get_advanced_custom",
+    "get_confluence_score",
     "_safe_fetch",
     "QUERY_TIMEOUT",
     "execute_sql",
