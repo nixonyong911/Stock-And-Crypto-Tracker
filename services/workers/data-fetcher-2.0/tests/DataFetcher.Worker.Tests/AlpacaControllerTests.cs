@@ -59,4 +59,42 @@ public class AlpacaControllerTests
 
         Assert.IsType<BadRequestObjectResult>(result);
     }
+
+    [Fact]
+    public void QueueStockBackfill_NoRabbitMQ_Returns500()
+    {
+        var result = _controller.QueueStockBackfill("AAPL");
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public void QueueCryptoBackfill_NoRabbitMQ_Returns500()
+    {
+        var result = _controller.QueueCryptoBackfill("BTC");
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public void HandleNewTickerWebhook_ValidSymbol_NoRabbitMQ_ReturnsBadRequest()
+    {
+        var json = JsonDocument.Parse("""{"record": {"symbol": "AAPL", "exchange": "NASDAQ"}}""").RootElement;
+
+        var result = _controller.HandleNewTickerWebhook(json);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public void HandleNewCryptoTickerWebhook_ValidSymbol_NoRabbitMQ_ReturnsBadRequest()
+    {
+        var json = JsonDocument.Parse("""{"record": {"symbol": "BTC/USD"}}""").RootElement;
+
+        var result = _controller.HandleNewCryptoTickerWebhook(json);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
 }
