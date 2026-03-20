@@ -382,7 +382,7 @@ services:
     environment:
       - PORT=8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}
-      - GATEWAY_DEFAULT_MODEL=sonnet-4.5
+      - GATEWAY_DEFAULT_MODEL=claude-4.5-sonnet
       - GATEWAY_CONTEXT_PATH=/app/agent-context
       - GATEWAY_TIER_HOMES_PATH=/app/tier-homes
       - DATABASE_URL=${DATABASE_URL_GO}

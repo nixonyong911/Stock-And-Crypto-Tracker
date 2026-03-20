@@ -84,7 +84,7 @@ export function loadConfig(): GatewayConfig {
     contextPath: envStr("GATEWAY_CONTEXT_PATH", "/app/agent-context"),
     tierHomesPath: envStr("GATEWAY_TIER_HOMES_PATH", "/app/tier-homes"),
     maxConcurrent: envInt("GATEWAY_MAX_CONCURRENT", 3),
-    defaultModel: envStr("GATEWAY_DEFAULT_MODEL", "sonnet-4.5"),
+    defaultModel: envStr("GATEWAY_DEFAULT_MODEL", "claude-4.5-sonnet"),
     freeMaxMessages: envInt("GATEWAY_FREE_MAX_MESSAGES", 5),
     freeRechargeHours: envInt("GATEWAY_FREE_RECHARGE_HOURS", 5),
     sessionExpiryDays: envInt("GATEWAY_SESSION_EXPIRY_DAYS", 7),

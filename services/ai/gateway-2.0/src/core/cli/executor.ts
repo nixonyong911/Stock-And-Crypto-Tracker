@@ -147,10 +147,19 @@ export class CLIExecutor {
         const output = CLIExecutor.cleanOutput(rawStdout);
         const errorOutput = CLIExecutor.cleanStderr(rawStderr);
 
-        this.logger.info(
-          { exitCode, executionTimeMs: Date.now() - startTime },
-          "CLI process finished"
-        );
+        const executionTimeMs = Date.now() - startTime;
+
+        if (exitCode !== 0 && errorOutput) {
+          this.logger.error(
+            { exitCode, executionTimeMs, stderr: errorOutput.slice(0, 500) },
+            "CLI process failed"
+          );
+        } else {
+          this.logger.info(
+            { exitCode, executionTimeMs },
+            "CLI process finished"
+          );
+        }
 
         resolve({
           success: exitCode === 0,
