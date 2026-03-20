@@ -92,6 +92,14 @@ public class CandlestickAnalysisWorker : BackgroundService
                         break;
                     }
 
+                    var pipelineSchedule = await scheduleRepository.GetScheduleByNameAsync("pipeline-orchestrator-stock");
+                    if (pipelineSchedule?.LastRunAt != null &&
+                        DateTime.UtcNow - pipelineSchedule.LastRunAt.Value < TimeSpan.FromMinutes(schedule.IntervalMinutes ?? 30))
+                    {
+                        _logger.LogInformation("Skipping timer-triggered candlestick analysis — pipeline orchestrator already ran at {LastRun}", pipelineSchedule.LastRunAt);
+                        continue;
+                    }
+
                     _logger.LogInformation("Starting scheduled analysis for '{ScheduleName}' at {Time} UTC",
                         schedule.Name, DateTime.UtcNow);
 
@@ -108,23 +116,51 @@ public class CandlestickAnalysisWorker : BackgroundService
                             var analysisService = analysisScope.ServiceProvider.GetRequiredService<ICandlestickAnalysisService>();
                             var fetchScheduleRepo = analysisScope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
 
-                            var analyzeDate = GetAnalyzeDate(config.AnalyzeDate);
+                            var yesterday = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz).AddDays(-1));
+                            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz));
 
-                            _logger.LogInformation("Analyzing candlestick patterns for {Date}", analyzeDate);
+                            _logger.LogInformation("Analyzing candlestick patterns: confirmed={Yesterday}, developing={Today}", yesterday, today);
 
-                            var result = await analysisService.AnalyzeAllStocksAsync(analyzeDate, stoppingToken);
+                            var result = await analysisService.AnalyzeAllStocksAsync(yesterday, stoppingToken);
 
-                            var statusMessage = $"Stock: {result.SuccessCount}/{result.TotalStocks} analyzed, " +
+                            var statusMessage = $"Stock confirmed: {result.SuccessCount}/{result.TotalStocks}, " +
                                               $"{result.PatternsDetected} patterns, {result.DurationSeconds:F1}s";
 
-                            _logger.LogInformation("Stock analysis complete. Starting crypto candlestick analysis for {Date}", analyzeDate);
+                            var developingResult = await analysisService.AnalyzeDevelopingStocksAsync(today, stoppingToken);
+                            statusMessage += $" | Stock developing: {developingResult.SuccessCount}/{developingResult.TotalStocks}, " +
+                                           $"{developingResult.PatternsDetected} patterns";
+
+                            var weeklyResult = await analysisService.AnalyzeWeeklyStocksAsync(today, stoppingToken);
+                            if (weeklyResult.TotalStocks > 0)
+                            {
+                                statusMessage += $" | Stock weekly: {weeklyResult.SuccessCount}/{weeklyResult.TotalStocks}, " +
+                                               $"{weeklyResult.PatternsDetected} patterns";
+                            }
+
                             var cryptoAnalysisService = analysisScope.ServiceProvider.GetRequiredService<ICryptoCandlestickAnalysisService>();
-                            var cryptoResult = await cryptoAnalysisService.AnalyzeAllCryptoAsync(analyzeDate, stoppingToken);
 
-                            statusMessage += $" | Crypto: {cryptoResult.SuccessCount}/{cryptoResult.TotalCrypto} analyzed, " +
-                                           $"{cryptoResult.PatternsDetected} patterns, {cryptoResult.DurationSeconds:F1}s";
+                            var cryptoResult = await cryptoAnalysisService.AnalyzeAllCryptoAsync(yesterday, stoppingToken);
+                            statusMessage += $" | Crypto confirmed: {cryptoResult.SuccessCount}/{cryptoResult.TotalCrypto}, " +
+                                           $"{cryptoResult.PatternsDetected} patterns";
 
-                            var allErrors = result.Errors.Concat(cryptoResult.Errors).ToList();
+                            var cryptoDevelopingResult = await cryptoAnalysisService.AnalyzeDevelopingCryptoAsync(today, stoppingToken);
+                            statusMessage += $" | Crypto developing: {cryptoDevelopingResult.SuccessCount}/{cryptoDevelopingResult.TotalCrypto}, " +
+                                           $"{cryptoDevelopingResult.PatternsDetected} patterns";
+
+                            var cryptoWeeklyResult = await cryptoAnalysisService.AnalyzeWeeklyCryptoAsync(today, stoppingToken);
+                            if (cryptoWeeklyResult.TotalCrypto > 0)
+                            {
+                                statusMessage += $" | Crypto weekly: {cryptoWeeklyResult.SuccessCount}/{cryptoWeeklyResult.TotalCrypto}, " +
+                                               $"{cryptoWeeklyResult.PatternsDetected} patterns";
+                            }
+
+                            var allErrors = result.Errors
+                                .Concat(developingResult.Errors)
+                                .Concat(weeklyResult.Errors)
+                                .Concat(cryptoResult.Errors)
+                                .Concat(cryptoDevelopingResult.Errors)
+                                .Concat(cryptoWeeklyResult.Errors)
+                                .ToList();
                             if (allErrors.Count > 0)
                             {
                                 statusMessage += $". Errors: {string.Join("; ", allErrors.Take(3))}";
@@ -133,7 +169,9 @@ public class CandlestickAnalysisWorker : BackgroundService
                             if (attempt > 0)
                                 statusMessage += $" | Succeeded on retry {attempt}";
 
-                            var overallSuccess = result.Success && cryptoResult.Success;
+                            var overallSuccess = result.Success && developingResult.Success
+                                && weeklyResult.Success && cryptoResult.Success
+                                && cryptoDevelopingResult.Success && cryptoWeeklyResult.Success;
 
                             await fetchScheduleRepo.UpdateLastRunAsync(
                                 schedule.Id,

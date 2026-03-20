@@ -27,4 +27,9 @@ public class DailyCandle : IDailyCandle
     /// Number of 15-minute candles aggregated.
     /// </summary>
     public int CandlesAggregated { get; set; }
+
+    // Multi-timeframe fields
+    public string Timeframe { get; set; } = "daily";
+    public bool IsConfirmed { get; set; } = true;
+    public decimal Confidence { get; set; } = 1.00m;
 }

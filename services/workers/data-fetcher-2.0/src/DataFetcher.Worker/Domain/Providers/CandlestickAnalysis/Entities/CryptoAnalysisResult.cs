@@ -26,6 +26,11 @@ public class CryptoAnalysisResult
     public int CandlesAggregated { get; set; }
     public string AnalysisVersion { get; set; } = "1.0.0";
 
+    // Multi-timeframe fields
+    public string Timeframe { get; set; } = "daily";
+    public bool IsConfirmed { get; set; } = true;
+    public decimal Confidence { get; set; } = 1.00m;
+
     public static CryptoAnalysisResult FromCandle(CryptoDailyCandle candle, List<CandlestickPattern> patterns)
     {
         return new CryptoAnalysisResult
@@ -44,7 +49,10 @@ public class CryptoAnalysisResult
             LowerWick = candle.LowerWick,
             IsBullish = candle.IsBullish,
             DetectedPatterns = patterns,
-            CandlesAggregated = candle.CandlesAggregated
+            CandlesAggregated = candle.CandlesAggregated,
+            Timeframe = candle.Timeframe,
+            IsConfirmed = candle.IsConfirmed,
+            Confidence = candle.Confidence
         };
     }
 }

@@ -37,6 +37,7 @@ public class HostRegistrationTests
             "MarketAuxNewsWorker",
             "MassiveFetchWorker",
             "MassiveQueueConsumer",
+            "PipelineOrchestratorConsumer",
             "PriceTargetWorker",
         }.OrderBy(n => n).ToList();
 
@@ -51,7 +52,7 @@ public class HostRegistrationTests
         var count = assembly.GetTypes()
             .Count(t => t.IsClass && !t.IsAbstract && t.IsSubclassOf(typeof(BackgroundService)));
 
-        Assert.Equal(19, count);
+        Assert.Equal(20, count);
     }
 
     [Theory]

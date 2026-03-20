@@ -89,6 +89,21 @@ public class PriceTargetWorker : BackgroundService
                         break;
                     }
 
+                    var stockPipelineSchedule = await scheduleRepository.GetScheduleByNameAsync("pipeline-orchestrator-stock");
+                    var cryptoPipelineSchedule = await scheduleRepository.GetScheduleByNameAsync("pipeline-orchestrator-crypto");
+                    var intervalMinutes = schedule.IntervalMinutes ?? 30;
+                    var threshold = TimeSpan.FromMinutes(intervalMinutes);
+
+                    var pipelineRanRecently =
+                        (stockPipelineSchedule?.LastRunAt != null && DateTime.UtcNow - stockPipelineSchedule.LastRunAt.Value < threshold) ||
+                        (cryptoPipelineSchedule?.LastRunAt != null && DateTime.UtcNow - cryptoPipelineSchedule.LastRunAt.Value < threshold);
+
+                    if (pipelineRanRecently)
+                    {
+                        _logger.LogInformation("Skipping timer-triggered price target calculation — pipeline orchestrator already ran this cycle");
+                        continue;
+                    }
+
                     _logger.LogInformation("Starting scheduled price target calculation at {Time} UTC", DateTime.UtcNow);
                     await _metrics.IncrementCounterAsync("job_executions_total", 1,
                         new Dictionary<string, string> { ["status"] = "started", ["worker"] = "price-target" });

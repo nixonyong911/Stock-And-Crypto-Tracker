@@ -30,6 +30,7 @@ using DataFetcher.Worker.Infrastructure.Providers.Alpaca.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.Etoro;
 using DataFetcher.Worker.Workers.Alpaca;
 using DataFetcher.Worker.Workers.Etoro;
+using DataFetcher.Worker.Workers.Pipeline;
 using DataFetcher.Worker.Application.Providers.Indicators;
 using DataFetcher.Worker.Application.Providers.Indicators.Definitions;
 using DataFetcher.Worker.Application.Providers.LocalIndicators;
@@ -225,6 +226,7 @@ try
 
     // Gateway alert notifier
     builder.Services.AddHttpClient<IGatewayAlertNotifier, GatewayAlertNotifier>();
+    builder.Services.AddSingleton<IPipelineEventPublisher, PipelineEventPublisher>();
 
     // Metrics client
     builder.Services.AddMetricsClient(builder.Configuration);
@@ -267,6 +269,10 @@ try
     builder.Services.AddScoped<IIndicatorDefinition, ExternalFinnhubIndicatorsDefinition>();
     builder.Services.AddScoped<IIndicatorRegistry, IndicatorRegistry>();
 
+    // Analysis definitions (for startup table validation)
+    builder.Services.AddScoped<IAnalysisDefinition, PriceTargetAnalysisDefinition>();
+    builder.Services.AddScoped<IAnalysisDefinition, CandlestickAnalysisDefinition>();
+
     // Asset contexts
     builder.Services.AddSingleton<IAssetContext, StockAssetContext>();
     builder.Services.AddSingleton<IAssetContext, CryptoAssetContext>();
@@ -296,6 +302,9 @@ try
 
     // eToro workers
     builder.Services.AddHostedService<EtoroFetchWorker>();
+
+    // Pipeline orchestration (event-driven)
+    builder.Services.AddHostedService<PipelineOrchestratorConsumer>();
 
     // Controllers
     builder.Services.AddControllers();
@@ -526,7 +535,11 @@ try
         var schedules = await scheduleRepo.GetAllSchedulesAsync();
 
         var indicatorValidator = new IndicatorComplianceValidator();
-        var indicatorResult = indicatorValidator.Validate(indicatorRegistry, schedules);
+        var dbFactory = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
+        using var validationConn = dbFactory.CreateConnection();
+        var analysisDefinitions = scope.ServiceProvider.GetServices<IAnalysisDefinition>();
+        var indicatorResult = await indicatorValidator.ValidateAsync(
+            indicatorRegistry, schedules, validationConn, analysisDefinitions);
 
         if (!indicatorResult.IsValid)
         {

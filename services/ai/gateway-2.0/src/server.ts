@@ -77,6 +77,8 @@ export interface ServerDeps {
 export interface ServerResult {
   app: FastifyInstance;
   errorNotifier?: ErrorNotifier;
+  extensions: ExtensionRegistry;
+  pool: import("pg").Pool;
 }
 
 export async function createServer(deps: ServerDeps): Promise<ServerResult> {
@@ -430,5 +432,5 @@ export async function createServer(deps: ServerDeps): Promise<ServerResult> {
 
   // ---- 15. Return fully-configured app ----
 
-  return { app, errorNotifier };
+  return { app, errorNotifier, extensions, pool };
 }

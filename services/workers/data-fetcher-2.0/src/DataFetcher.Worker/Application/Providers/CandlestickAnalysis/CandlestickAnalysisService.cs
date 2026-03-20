@@ -10,6 +10,8 @@ namespace DataFetcher.Worker.Application.Providers.CandlestickAnalysis;
 /// </summary>
 public class CandlestickAnalysisService : ICandlestickAnalysisService
 {
+    private static readonly TimeZoneInfo EasternTz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+
     private readonly IStockPriceRepository _stockPriceRepository;
     private readonly IAnalysisRepository _analysisRepository;
     private readonly IDailyAggregationService _aggregationService;
@@ -171,6 +173,167 @@ public class CandlestickAnalysisService : ICandlestickAnalysisService
             result.Errors.Add($"Batch analysis failed: {ex.Message}");
 
             _logger.LogError(ex, "Batch analysis failed for {Date}", date);
+            throw;
+        }
+    }
+
+    public async Task<BatchAnalysisResult> AnalyzeDevelopingStocksAsync(DateOnly today, CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = new BatchAnalysisResult { AnalysisDate = today };
+
+        var nowEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTz);
+        var marketOpenMinutes = (nowEt.Hour * 60 + nowEt.Minute) - (9 * 60 + 30);
+        var confidence = Math.Clamp(marketOpenMinutes / 390.0m, 0m, 1m);
+
+        if (confidence <= 0.5m)
+        {
+            _logger.LogInformation("Skipping developing analysis — confidence {Confidence:F2} <= 0.50 (market time insufficient)", confidence);
+            result.Success = true;
+            return result;
+        }
+
+        _logger.LogInformation("Running developing stock analysis for {Date} with confidence {Confidence:F2}", today, confidence);
+
+        try
+        {
+            var tickers = await _stockPriceRepository.GetActiveTickersAsync();
+            var tickerList = tickers.ToList();
+            result.TotalStocks = tickerList.Count;
+
+            foreach (var ticker in tickerList)
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+
+                try
+                {
+                    var prices = await _stockPriceRepository.GetPricesForDateAsync(ticker.Id, today);
+                    var priceList = prices.ToList();
+                    if (priceList.Count == 0) { result.SuccessCount++; continue; }
+
+                    var dailyCandle = _aggregationService.AggregateToDailyCandle(priceList, ticker.Id, ticker.Symbol, today);
+                    if (dailyCandle == null) { result.SuccessCount++; continue; }
+
+                    dailyCandle.Timeframe = "daily";
+                    dailyCandle.IsConfirmed = false;
+                    dailyCandle.Confidence = confidence;
+
+                    var patterns = _patternDetectionService.DetectPatterns(dailyCandle);
+                    var analysisResult = AnalysisResult.FromCandle(dailyCandle, patterns);
+
+                    await _analysisRepository.UpsertAnalysisAsync(analysisResult);
+                    result.Results.Add(analysisResult);
+                    result.SuccessCount++;
+                    result.PatternsDetected += patterns.Count;
+                }
+                catch (Exception ex)
+                {
+                    result.FailedCount++;
+                    result.Errors.Add($"{ticker.Symbol}: {ex.Message}");
+                    _logger.LogError(ex, "Failed developing analysis for {Symbol}", ticker.Symbol);
+                }
+            }
+
+            stopwatch.Stop();
+            result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
+            result.Success = result.FailedCount == 0;
+
+            _logger.LogInformation(
+                "Developing stock analysis completed for {Date}: {Success}/{Total}, {Patterns} patterns, confidence={Confidence:F2}, {Duration:F2}s",
+                today, result.SuccessCount, result.TotalStocks, result.PatternsDetected, confidence, result.DurationSeconds);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
+            result.Success = false;
+            result.Errors.Add($"Developing batch failed: {ex.Message}");
+            _logger.LogError(ex, "Developing stock analysis failed for {Date}", today);
+            throw;
+        }
+    }
+
+    public async Task<BatchAnalysisResult> AnalyzeWeeklyStocksAsync(DateOnly weekEndDate, CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = new BatchAnalysisResult { AnalysisDate = weekEndDate };
+
+        var dayOfWeek = weekEndDate.DayOfWeek;
+        if (dayOfWeek != DayOfWeek.Friday && dayOfWeek != DayOfWeek.Saturday)
+        {
+            _logger.LogInformation("Skipping weekly stock analysis — today is {Day}, not Friday/Saturday", dayOfWeek);
+            result.Success = true;
+            return result;
+        }
+
+        var friday = dayOfWeek == DayOfWeek.Friday ? weekEndDate : weekEndDate.AddDays(-1);
+        var monday = friday.AddDays(-4);
+
+        _logger.LogInformation("Running weekly stock analysis for week {Monday} to {Friday}", monday, friday);
+
+        try
+        {
+            var tickers = await _stockPriceRepository.GetActiveTickersAsync();
+            var tickerList = tickers.ToList();
+            result.TotalStocks = tickerList.Count;
+
+            foreach (var ticker in tickerList)
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+
+                try
+                {
+                    var allPrices = new List<StockPrice>();
+                    for (var d = monday; d <= friday; d = d.AddDays(1))
+                    {
+                        var dayPrices = await _stockPriceRepository.GetPricesForDateAsync(ticker.Id, d);
+                        allPrices.AddRange(dayPrices);
+                    }
+
+                    if (allPrices.Count == 0) { result.SuccessCount++; continue; }
+
+                    var weeklyCandle = _aggregationService.AggregateToDailyCandle(allPrices, ticker.Id, ticker.Symbol, friday);
+                    if (weeklyCandle == null) { result.SuccessCount++; continue; }
+
+                    weeklyCandle.Timeframe = "weekly";
+                    weeklyCandle.IsConfirmed = true;
+                    weeklyCandle.Confidence = 1.0m;
+
+                    var patterns = _patternDetectionService.DetectPatterns(weeklyCandle);
+                    var analysisResult = AnalysisResult.FromCandle(weeklyCandle, patterns);
+
+                    await _analysisRepository.UpsertAnalysisAsync(analysisResult);
+                    result.Results.Add(analysisResult);
+                    result.SuccessCount++;
+                    result.PatternsDetected += patterns.Count;
+                }
+                catch (Exception ex)
+                {
+                    result.FailedCount++;
+                    result.Errors.Add($"{ticker.Symbol}: {ex.Message}");
+                    _logger.LogError(ex, "Failed weekly analysis for {Symbol}", ticker.Symbol);
+                }
+            }
+
+            stopwatch.Stop();
+            result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
+            result.Success = result.FailedCount == 0;
+
+            _logger.LogInformation(
+                "Weekly stock analysis completed for {Date}: {Success}/{Total}, {Patterns} patterns, {Duration:F2}s",
+                friday, result.SuccessCount, result.TotalStocks, result.PatternsDetected, result.DurationSeconds);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
+            result.Success = false;
+            result.Errors.Add($"Weekly batch failed: {ex.Message}");
+            _logger.LogError(ex, "Weekly stock analysis failed for {Date}", weekEndDate);
             throw;
         }
     }

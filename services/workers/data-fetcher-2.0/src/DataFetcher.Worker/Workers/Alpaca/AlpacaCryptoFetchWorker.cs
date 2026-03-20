@@ -18,6 +18,7 @@ public class AlpacaCryptoFetchWorker : BackgroundService
     private readonly ILogger<AlpacaCryptoFetchWorker> _logger;
     private readonly IMetricsClient _metrics;
     private readonly IGatewayAlertNotifier _alertNotifier;
+    private readonly IPipelineEventPublisher _pipelinePublisher;
     private DateTime? _lastFetchTime;
 
     private static readonly TimeZoneInfo EasternTz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
@@ -27,13 +28,15 @@ public class AlpacaCryptoFetchWorker : BackgroundService
         IOptions<AlpacaSettings> settings,
         ILogger<AlpacaCryptoFetchWorker> logger,
         IMetricsClient metrics,
-        IGatewayAlertNotifier alertNotifier)
+        IGatewayAlertNotifier alertNotifier,
+        IPipelineEventPublisher pipelinePublisher)
     {
         _serviceProvider = serviceProvider;
         _settings = settings.Value;
         _logger = logger;
         _metrics = metrics;
         _alertNotifier = alertNotifier;
+        _pipelinePublisher = pipelinePublisher;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -84,7 +87,7 @@ public class AlpacaCryptoFetchWorker : BackgroundService
                     await _metrics.IncrementCounterAsync("alpaca_crypto_fetch_total", 1,
                         new Dictionary<string, string> { ["status"] = "success" });
 
-                    _ = _alertNotifier.NotifyAsync("crypto", stoppingToken);
+                    _pipelinePublisher.PublishOhlcvComplete("crypto", records + etoroRecords, records + etoroRecords);
                 }
                 catch (Exception ex)
                 {

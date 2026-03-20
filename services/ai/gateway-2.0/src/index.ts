@@ -9,6 +9,7 @@ import { loadConfig } from "./config.js";
 import { createPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
 import { createServer } from "./server.js";
+import { startPipelineConsumer } from "./core/pipeline-consumer.js";
 import type { FastifyInstance } from "fastify";
 import type { ErrorNotifier } from "./core/error-notifier.js";
 
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
   // ---- Server ----
   let app: FastifyInstance | undefined;
   let errorNotifier: ErrorNotifier | undefined;
+  let closePipelineConsumer: (() => Promise<void>) | undefined;
 
   try {
     const result = await createServer({ config, db, redis });
@@ -63,6 +65,14 @@ async function main(): Promise<void> {
 
     await app.listen({ port: config.port, host: "0.0.0.0" });
     app.log.info(`Gateway listening on port ${config.port}`);
+
+    const consumer = await startPipelineConsumer({
+      db: result.pool,
+      redis: redis.redis,
+      extensions: result.extensions,
+      log: app.log,
+    });
+    closePipelineConsumer = consumer.close;
   } catch (err) {
     const logger = app?.log ?? bootstrapLogger;
     logger.fatal({ err }, "Failed to start server");
@@ -85,6 +95,12 @@ async function main(): Promise<void> {
   // ---- Graceful shutdown ----
   const shutdown = async (signal: string): Promise<void> => {
     app!.log.info({ signal }, "Received shutdown signal");
+
+    try {
+      await closePipelineConsumer?.();
+    } catch (err) {
+      app!.log.error({ err }, "Error closing pipeline consumer");
+    }
 
     try {
       await app!.close();

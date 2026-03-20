@@ -18,6 +18,7 @@ public class AlpacaStockFetchWorker : BackgroundService
     private readonly ILogger<AlpacaStockFetchWorker> _logger;
     private readonly IMetricsClient _metrics;
     private readonly IGatewayAlertNotifier _alertNotifier;
+    private readonly IPipelineEventPublisher _pipelinePublisher;
     private DateTime? _lastFetchTime;
 
     public AlpacaStockFetchWorker(
@@ -25,13 +26,15 @@ public class AlpacaStockFetchWorker : BackgroundService
         IOptions<AlpacaSettings> settings,
         ILogger<AlpacaStockFetchWorker> logger,
         IMetricsClient metrics,
-        IGatewayAlertNotifier alertNotifier)
+        IGatewayAlertNotifier alertNotifier,
+        IPipelineEventPublisher pipelinePublisher)
     {
         _serviceProvider = serviceProvider;
         _settings = settings.Value;
         _logger = logger;
         _metrics = metrics;
         _alertNotifier = alertNotifier;
+        _pipelinePublisher = pipelinePublisher;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -67,7 +70,7 @@ public class AlpacaStockFetchWorker : BackgroundService
                     await _metrics.IncrementCounterAsync("alpaca_stock_fetch_total", 1,
                         new Dictionary<string, string> { ["status"] = "success" });
 
-                    _ = _alertNotifier.NotifyAsync("stock", stoppingToken);
+                    _pipelinePublisher.PublishOhlcvComplete("stock", records + etoroRecords, records + etoroRecords);
                 }
                 catch (Exception ex)
                 {

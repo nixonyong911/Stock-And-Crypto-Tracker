@@ -208,11 +208,11 @@ public class AdvancedIndicatorCalculatorService : IAdvancedIndicatorCalculatorSe
             var dataSourceId = await GetDataSourceIdAsync();
             var indicators = ComputeBackfillIndicators(allBars);
 
-            var entities = indicators.Select(pair => new StockIndicatorAdvanced
+            var entities = indicators.Select((pair, idx) => new StockIndicatorAdvanced
             {
                 StockTickerId = stockTickerId,
                 DataSourceId = dataSourceId,
-                IndicatorTime = pair.Date,
+                IndicatorTime = idx == indicators.Count - 1 ? DateTime.UtcNow : pair.Date,
                 BollingerUpper = pair.Set.BollingerUpper,
                 BollingerLower = pair.Set.BollingerLower,
                 BollingerMiddle = pair.Set.BollingerMiddle,
@@ -268,11 +268,11 @@ public class AdvancedIndicatorCalculatorService : IAdvancedIndicatorCalculatorSe
             var dataSourceId = await GetDataSourceIdAsync();
             var indicators = ComputeBackfillIndicators(allBars);
 
-            var entities = indicators.Select(pair => new CryptoIndicatorAdvanced
+            var entities = indicators.Select((pair, idx) => new CryptoIndicatorAdvanced
             {
                 CryptoTickerId = cryptoTickerId,
                 DataSourceId = dataSourceId,
-                IndicatorTime = pair.Date,
+                IndicatorTime = idx == indicators.Count - 1 ? DateTime.UtcNow : pair.Date,
                 BollingerUpper = pair.Set.BollingerUpper,
                 BollingerLower = pair.Set.BollingerLower,
                 BollingerMiddle = pair.Set.BollingerMiddle,

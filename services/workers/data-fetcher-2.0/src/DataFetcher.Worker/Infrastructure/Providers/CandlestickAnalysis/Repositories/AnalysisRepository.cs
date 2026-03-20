@@ -28,21 +28,23 @@ public class AnalysisRepository : IAnalysisRepository
 
         const string sql = @"
             INSERT INTO analysis_stock_candlestick_pattern (
-                stock_ticker_id, analysis_date,
+                stock_ticker_id, analysis_date, timeframe, is_confirmed, confidence,
                 daily_open, daily_high, daily_low, daily_close, daily_volume,
                 body_size, range_size, upper_wick, lower_wick, is_bullish,
                 detected_patterns, candles_aggregated, analysis_version,
                 created_at, updated_at
             )
             VALUES (
-                @StockTickerId, @AnalysisDate,
+                @StockTickerId, @AnalysisDate, @Timeframe, @IsConfirmed, @Confidence,
                 @DailyOpen, @DailyHigh, @DailyLow, @DailyClose, @DailyVolume,
                 @BodySize, @RangeSize, @UpperWick, @LowerWick, @IsBullish,
                 @DetectedPatterns::jsonb, @CandlesAggregated, @AnalysisVersion,
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
-            ON CONFLICT (stock_ticker_id, analysis_date)
+            ON CONFLICT (stock_ticker_id, analysis_date, timeframe)
             DO UPDATE SET
+                is_confirmed = EXCLUDED.is_confirmed,
+                confidence = EXCLUDED.confidence,
                 daily_open = EXCLUDED.daily_open,
                 daily_high = EXCLUDED.daily_high,
                 daily_low = EXCLUDED.daily_low,
@@ -63,6 +65,9 @@ public class AnalysisRepository : IAnalysisRepository
         {
             result.StockTickerId,
             AnalysisDate = result.AnalysisDate,
+            result.Timeframe,
+            result.IsConfirmed,
+            result.Confidence,
             result.DailyOpen,
             result.DailyHigh,
             result.DailyLow,
@@ -101,7 +106,10 @@ public class AnalysisRepository : IAnalysisRepository
                 a.is_bullish AS IsBullish,
                 a.detected_patterns::text AS DetectedPatternsJson,
                 a.candles_aggregated AS CandlesAggregated,
-                a.analysis_version AS AnalysisVersion
+                a.analysis_version AS AnalysisVersion,
+                a.timeframe AS Timeframe,
+                a.is_confirmed AS IsConfirmed,
+                a.confidence AS Confidence
             FROM analysis_stock_candlestick_pattern a
             JOIN stock_tickers st ON a.stock_ticker_id = st.id
             WHERE st.symbol = @Symbol";
@@ -143,7 +151,10 @@ public class AnalysisRepository : IAnalysisRepository
                 ? new List<CandlestickPattern>()
                 : JsonSerializer.Deserialize<List<CandlestickPattern>>(row.DetectedPatternsJson) ?? new(),
             CandlesAggregated = row.CandlesAggregated,
-            AnalysisVersion = row.AnalysisVersion
+            AnalysisVersion = row.AnalysisVersion,
+            Timeframe = row.Timeframe,
+            IsConfirmed = row.IsConfirmed,
+            Confidence = row.Confidence
         });
     }
 

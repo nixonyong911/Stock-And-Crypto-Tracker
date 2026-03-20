@@ -107,6 +107,24 @@ public class DynamicIndicatorScheduler : BackgroundService
                         break;
                     }
 
+                    var stockPipelineSchedule = await scheduleRepo.GetScheduleByNameAsync("pipeline-orchestrator-stock");
+                    var cryptoPipelineSchedule = await scheduleRepo.GetScheduleByNameAsync("pipeline-orchestrator-crypto");
+                    var intervalMinutes = schedule.IntervalMinutes ?? 30;
+                    var threshold = TimeSpan.FromMinutes(intervalMinutes);
+
+                    var stockRanRecently = stockPipelineSchedule?.LastRunAt != null &&
+                        DateTime.UtcNow - stockPipelineSchedule.LastRunAt.Value < threshold;
+                    var cryptoRanRecently = cryptoPipelineSchedule?.LastRunAt != null &&
+                        DateTime.UtcNow - cryptoPipelineSchedule.LastRunAt.Value < threshold;
+
+                    if (stockRanRecently || cryptoRanRecently)
+                    {
+                        _logger.LogInformation(
+                            "Skipping timer-triggered indicator schedule '{Name}' — pipeline orchestrator already ran this cycle",
+                            scheduleName);
+                        continue;
+                    }
+
                     var sw = Stopwatch.StartNew();
                     var startedAt = DateTime.UtcNow;
                     var status = "unknown";

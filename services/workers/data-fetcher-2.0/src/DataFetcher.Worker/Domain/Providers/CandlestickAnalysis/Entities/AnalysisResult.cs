@@ -30,6 +30,11 @@ public class AnalysisResult
     public int CandlesAggregated { get; set; }
     public string AnalysisVersion { get; set; } = "1.0.0";
 
+    // Multi-timeframe fields
+    public string Timeframe { get; set; } = "daily";
+    public bool IsConfirmed { get; set; } = true;
+    public decimal Confidence { get; set; } = 1.00m;
+
     /// <summary>
     /// Create from daily candle and detected patterns.
     /// </summary>
@@ -51,7 +56,10 @@ public class AnalysisResult
             LowerWick = candle.LowerWick,
             IsBullish = candle.IsBullish,
             DetectedPatterns = patterns,
-            CandlesAggregated = candle.CandlesAggregated
+            CandlesAggregated = candle.CandlesAggregated,
+            Timeframe = candle.Timeframe,
+            IsConfirmed = candle.IsConfirmed,
+            Confidence = candle.Confidence
         };
     }
 }

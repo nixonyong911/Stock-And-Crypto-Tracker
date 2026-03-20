@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyBaseLogger } from "fastify";
 import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import type { GatewayConfig } from "../config.js";
@@ -13,6 +13,72 @@ interface CheckRecommendationsBody {
 }
 
 const MAX_DAILY_SENDS = 6;
+
+// ---------------------------------------------------------------------------
+// Shared logic: signal detection → dedup → fan-out
+// ---------------------------------------------------------------------------
+
+export interface ProcessRecommendationsDeps {
+  db: Pool;
+  redis: Redis;
+  extensions: ExtensionRegistry;
+  log: FastifyBaseLogger;
+}
+
+export async function processRecommendations(
+  deps: ProcessRecommendationsDeps,
+  assetType?: "stock" | "crypto",
+): Promise<{ signals: number; sent: number }> {
+  const { db, redis, extensions, log } = deps;
+  const types: Array<"stock" | "crypto"> =
+    assetType ? [assetType] : ["stock", "crypto"];
+
+  let totalSignals = 0;
+  let totalSent = 0;
+
+  for (const type of types) {
+    const signals = await detectSignals(db, type);
+    if (signals.length === 0) continue;
+
+    log.info(
+      { assetType: type, signalCount: signals.length },
+      "Signals detected",
+    );
+
+    const newSignals = await filterDedupSignals(redis, signals);
+    if (newSignals.length === 0) continue;
+
+    totalSignals += newSignals.length;
+
+    const bySymbol = new Map<string, TickerSignal[]>();
+    for (const s of newSignals) {
+      let arr = bySymbol.get(s.symbol);
+      if (!arr) {
+        arr = [];
+        bySymbol.set(s.symbol, arr);
+      }
+      arr.push(s);
+    }
+
+    for (const [symbol, tickerSignals] of bySymbol) {
+      const sent = await fanOutToWatchers(
+        db,
+        redis,
+        log,
+        extensions,
+        symbol,
+        tickerSignals,
+      );
+      totalSent += sent;
+    }
+  }
+
+  return { signals: totalSignals, sent: totalSent };
+}
+
+// ---------------------------------------------------------------------------
+// HTTP route
+// ---------------------------------------------------------------------------
 
 export function registerRecommendationRoutes(
   app: FastifyInstance,
@@ -37,60 +103,14 @@ export function registerRecommendationRoutes(
         return reply.status(401).send({ error: "Unauthorized" });
       }
 
-      const assetType = request.body?.assetType;
-      const log = app.log;
-
       try {
-        const types: Array<"stock" | "crypto"> =
-          assetType ? [assetType] : ["stock", "crypto"];
-
-        let totalSignals = 0;
-        let totalSent = 0;
-
-        for (const type of types) {
-          const signals = await detectSignals(db, type);
-          if (signals.length === 0) continue;
-
-          log.info(
-            { assetType: type, signalCount: signals.length },
-            "Signals detected",
-          );
-
-          const newSignals = await filterDedupSignals(redis, signals);
-          if (newSignals.length === 0) continue;
-
-          totalSignals += newSignals.length;
-
-          const bySymbol = new Map<string, TickerSignal[]>();
-          for (const s of newSignals) {
-            let arr = bySymbol.get(s.symbol);
-            if (!arr) {
-              arr = [];
-              bySymbol.set(s.symbol, arr);
-            }
-            arr.push(s);
-          }
-
-          for (const [symbol, tickerSignals] of bySymbol) {
-            const sent = await fanOutToWatchers(
-              db,
-              redis,
-              log,
-              extensions,
-              symbol,
-              tickerSignals,
-            );
-            totalSent += sent;
-          }
-        }
-
-        return reply.send({
-          ok: true,
-          signals: totalSignals,
-          sent: totalSent,
-        });
+        const result = await processRecommendations(
+          { db, redis, extensions, log: app.log },
+          request.body?.assetType,
+        );
+        return reply.send({ ok: true, ...result });
       } catch (err) {
-        log.error({ err }, "Error checking recommendations");
+        app.log.error({ err }, "Error checking recommendations");
         return reply.status(500).send({ error: "Internal server error" });
       }
     },

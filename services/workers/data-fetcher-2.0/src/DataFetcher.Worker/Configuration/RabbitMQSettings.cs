@@ -44,4 +44,19 @@ public class RabbitMQSettings
     /// Queue name for crypto backfill processing messages.
     /// </summary>
     public string CryptoBackfillQueueName { get; set; } = "crypto-backfill-queue";
+
+    /// <summary>
+    /// Queue name for pipeline OHLCV complete events.
+    /// </summary>
+    public string PipelineOhlcvCompleteQueue { get; set; } = "pipeline-ohlcv-complete";
+
+    /// <summary>
+    /// Queue name for pipeline compute complete events.
+    /// </summary>
+    public string PipelineComputeCompleteQueue { get; set; } = "pipeline-compute-complete";
+
+    /// <summary>
+    /// Queue name for pipeline analysis complete events.
+    /// </summary>
+    public string PipelineAnalysisCompleteQueue { get; set; } = "pipeline-analysis-complete";
 }

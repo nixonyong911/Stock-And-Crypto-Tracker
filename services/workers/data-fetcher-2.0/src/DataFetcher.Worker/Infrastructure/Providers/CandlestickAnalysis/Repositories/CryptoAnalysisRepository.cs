@@ -24,15 +24,19 @@ public class CryptoAnalysisRepository : ICryptoAnalysisRepository
 
         const string sql = @"
             INSERT INTO analysis_crypto_candlestick_pattern
-                (crypto_ticker_id, analysis_date, daily_open, daily_high, daily_low, daily_close, daily_volume,
+                (crypto_ticker_id, analysis_date, timeframe, is_confirmed, confidence,
+                 daily_open, daily_high, daily_low, daily_close, daily_volume,
                  body_size, range_size, upper_wick, lower_wick, is_bullish, detected_patterns,
                  candles_aggregated, analysis_version, updated_at)
             VALUES
-                (@CryptoTickerId, @AnalysisDate, @DailyOpen, @DailyHigh, @DailyLow, @DailyClose, @DailyVolume,
+                (@CryptoTickerId, @AnalysisDate, @Timeframe, @IsConfirmed, @Confidence,
+                 @DailyOpen, @DailyHigh, @DailyLow, @DailyClose, @DailyVolume,
                  @BodySize, @RangeSize, @UpperWick, @LowerWick, @IsBullish, @DetectedPatterns::jsonb,
                  @CandlesAggregated, @AnalysisVersion, CURRENT_TIMESTAMP)
-            ON CONFLICT (crypto_ticker_id, analysis_date)
+            ON CONFLICT (crypto_ticker_id, analysis_date, timeframe)
             DO UPDATE SET
+                is_confirmed = EXCLUDED.is_confirmed,
+                confidence = EXCLUDED.confidence,
                 daily_open = EXCLUDED.daily_open,
                 daily_high = EXCLUDED.daily_high,
                 daily_low = EXCLUDED.daily_low,
@@ -52,6 +56,9 @@ public class CryptoAnalysisRepository : ICryptoAnalysisRepository
         {
             result.CryptoTickerId,
             AnalysisDate = result.AnalysisDate,
+            result.Timeframe,
+            result.IsConfirmed,
+            result.Confidence,
             result.DailyOpen,
             result.DailyHigh,
             result.DailyLow,
@@ -89,7 +96,10 @@ public class CryptoAnalysisRepository : ICryptoAnalysisRepository
                 a.is_bullish as IsBullish,
                 a.detected_patterns::text as DetectedPatternsJson,
                 a.candles_aggregated as CandlesAggregated,
-                a.analysis_version as AnalysisVersion
+                a.analysis_version as AnalysisVersion,
+                a.timeframe as Timeframe,
+                a.is_confirmed as IsConfirmed,
+                a.confidence as Confidence
             FROM analysis_crypto_candlestick_pattern a
             JOIN crypto_tickers t ON t.id = a.crypto_ticker_id
             WHERE t.symbol = @Symbol
@@ -122,7 +132,10 @@ public class CryptoAnalysisRepository : ICryptoAnalysisRepository
                 LowerWick = row.LowerWick,
                 IsBullish = row.IsBullish,
                 CandlesAggregated = row.CandlesAggregated,
-                AnalysisVersion = row.AnalysisVersion
+                AnalysisVersion = row.AnalysisVersion,
+                Timeframe = row.Timeframe,
+                IsConfirmed = row.IsConfirmed,
+                Confidence = row.Confidence
             };
 
             if (!string.IsNullOrEmpty(row.DetectedPatternsJson))

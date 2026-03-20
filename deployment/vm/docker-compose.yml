@@ -396,6 +396,7 @@ services:
       - PHONE_HASH_SALT=${PHONE_HASH_SALT}
       - FRONTEND_URL=${FRONTEND_URL:-https://stockandcryptotracker.com}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+      - RABBITMQ_URL=amqp://stocktracker:${RABBITMQ_PASSWORD}@rabbitmq:5672
     volumes:
       # cursor-agent CLI: mount the entire versions dir (contains node binary + JS chunks)
       # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing
@@ -407,6 +408,7 @@ services:
       - stocktracker
     depends_on:
       - redis
+      - rabbitmq
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8080/health/live"]
       interval: 30s

@@ -20,6 +20,7 @@ public class AlpacaStockFetchWorkerTests
     private readonly Mock<IFetchScheduleRepository> _scheduleRepoMock;
     private readonly Mock<IMetricsClient> _metricsMock;
     private readonly Mock<IGatewayAlertNotifier> _alertNotifierMock;
+    private readonly Mock<IPipelineEventPublisher> _pipelinePublisherMock;
     private readonly Mock<ILogger<AlpacaStockFetchWorker>> _loggerMock;
     private readonly AlpacaSettings _settings;
 
@@ -31,6 +32,7 @@ public class AlpacaStockFetchWorkerTests
         _scheduleRepoMock = new Mock<IFetchScheduleRepository>();
         _metricsMock = new Mock<IMetricsClient>();
         _alertNotifierMock = new Mock<IGatewayAlertNotifier>();
+        _pipelinePublisherMock = new Mock<IPipelineEventPublisher>();
         _loggerMock = new Mock<ILogger<AlpacaStockFetchWorker>>();
         _settings = new AlpacaSettings { FetchIntervalMinutes = 30 };
 
@@ -56,7 +58,7 @@ public class AlpacaStockFetchWorkerTests
 
     private AlpacaStockFetchWorker CreateWorker() =>
         new(_serviceProviderMock.Object, Options.Create(_settings),
-            _loggerMock.Object, _metricsMock.Object, _alertNotifierMock.Object);
+            _loggerMock.Object, _metricsMock.Object, _alertNotifierMock.Object, _pipelinePublisherMock.Object);
 
     [Fact]
     public async Task ExecuteAsync_FetchesOnFirstLoop_DoesNotCrash()

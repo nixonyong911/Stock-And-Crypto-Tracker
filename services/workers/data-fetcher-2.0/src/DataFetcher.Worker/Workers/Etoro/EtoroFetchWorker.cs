@@ -17,19 +17,22 @@ public class EtoroFetchWorker : BackgroundService
     private readonly ILogger<EtoroFetchWorker> _logger;
     private readonly IMetricsClient _metrics;
     private readonly IGatewayAlertNotifier _alertNotifier;
+    private readonly IPipelineEventPublisher _pipelinePublisher;
 
     public EtoroFetchWorker(
         IServiceProvider serviceProvider,
         IOptions<EtoroSettings> settings,
         ILogger<EtoroFetchWorker> logger,
         IMetricsClient metrics,
-        IGatewayAlertNotifier alertNotifier)
+        IGatewayAlertNotifier alertNotifier,
+        IPipelineEventPublisher pipelinePublisher)
     {
         _serviceProvider = serviceProvider;
         _settings = settings.Value;
         _logger = logger;
         _metrics = metrics;
         _alertNotifier = alertNotifier;
+        _pipelinePublisher = pipelinePublisher;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -56,8 +59,8 @@ public class EtoroFetchWorker : BackgroundService
 
                     if (records > 0)
                     {
-                        _ = _alertNotifier.NotifyAsync("stock", stoppingToken);
-                        _ = _alertNotifier.NotifyAsync("crypto", stoppingToken);
+                        _pipelinePublisher.PublishOhlcvComplete("stock", records, records);
+                        _pipelinePublisher.PublishOhlcvComplete("crypto", records, records);
                     }
                 }
                 catch (Exception ex)

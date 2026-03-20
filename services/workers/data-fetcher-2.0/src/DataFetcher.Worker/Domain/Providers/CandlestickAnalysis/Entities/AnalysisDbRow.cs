@@ -22,4 +22,7 @@ public class AnalysisDbRow
     public string? DetectedPatternsJson { get; set; }
     public int CandlesAggregated { get; set; }
     public string AnalysisVersion { get; set; } = "1.0.0";
+    public string Timeframe { get; set; } = "daily";
+    public bool IsConfirmed { get; set; } = true;
+    public decimal Confidence { get; set; } = 1.00m;
 }

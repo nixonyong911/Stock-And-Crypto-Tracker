@@ -137,4 +137,164 @@ public class CryptoCandlestickAnalysisService : ICryptoCandlestickAnalysisServic
             throw;
         }
     }
+
+    public async Task<CryptoBatchAnalysisResult> AnalyzeDevelopingCryptoAsync(DateOnly today, CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = new CryptoBatchAnalysisResult { AnalysisDate = today };
+
+        var hoursElapsed = DateTime.UtcNow.Hour + (DateTime.UtcNow.Minute / 60.0m);
+        var confidence = Math.Clamp(hoursElapsed / 24.0m, 0m, 1m);
+
+        if (confidence <= 0.5m)
+        {
+            _logger.LogInformation("Skipping developing crypto analysis — confidence {Confidence:F2} <= 0.50", confidence);
+            result.Success = true;
+            return result;
+        }
+
+        _logger.LogInformation("Running developing crypto analysis for {Date} with confidence {Confidence:F2}", today, confidence);
+
+        try
+        {
+            var tickers = await _cryptoPriceRepository.GetActiveTickersAsync();
+            var tickerList = tickers.ToList();
+            result.TotalCrypto = tickerList.Count;
+
+            foreach (var ticker in tickerList)
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+
+                try
+                {
+                    var prices = await _cryptoPriceRepository.GetPricesForDateAsync(ticker.Id, today);
+                    var priceList = prices.ToList();
+                    if (priceList.Count == 0) { result.SuccessCount++; continue; }
+
+                    var dailyCandle = _aggregationService.AggregateToDailyCandle(priceList, ticker.Id, ticker.Symbol, today);
+                    if (dailyCandle == null) { result.SuccessCount++; continue; }
+
+                    dailyCandle.Timeframe = "daily";
+                    dailyCandle.IsConfirmed = false;
+                    dailyCandle.Confidence = confidence;
+
+                    var patterns = _patternDetectionService.DetectPatterns(dailyCandle);
+                    var analysisResult = CryptoAnalysisResult.FromCandle(dailyCandle, patterns);
+
+                    await _cryptoAnalysisRepository.UpsertAnalysisAsync(analysisResult);
+                    result.Results.Add(analysisResult);
+                    result.SuccessCount++;
+                    result.PatternsDetected += patterns.Count;
+                }
+                catch (Exception ex)
+                {
+                    result.FailedCount++;
+                    result.Errors.Add($"{ticker.Symbol}: {ex.Message}");
+                    _logger.LogError(ex, "Failed developing crypto analysis for {Symbol}", ticker.Symbol);
+                }
+            }
+
+            stopwatch.Stop();
+            result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
+            result.Success = result.FailedCount == 0;
+
+            _logger.LogInformation(
+                "Developing crypto analysis completed for {Date}: {Success}/{Total}, {Patterns} patterns, confidence={Confidence:F2}, {Duration:F2}s",
+                today, result.SuccessCount, result.TotalCrypto, result.PatternsDetected, confidence, result.DurationSeconds);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
+            result.Success = false;
+            result.Errors.Add($"Developing crypto batch failed: {ex.Message}");
+            _logger.LogError(ex, "Developing crypto analysis failed for {Date}", today);
+            throw;
+        }
+    }
+
+    public async Task<CryptoBatchAnalysisResult> AnalyzeWeeklyCryptoAsync(DateOnly weekEndDate, CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = new CryptoBatchAnalysisResult { AnalysisDate = weekEndDate };
+
+        var dayOfWeek = weekEndDate.DayOfWeek;
+        if (dayOfWeek != DayOfWeek.Sunday && dayOfWeek != DayOfWeek.Friday)
+        {
+            _logger.LogInformation("Skipping weekly crypto analysis — today is {Day}, not Friday/Sunday", dayOfWeek);
+            result.Success = true;
+            return result;
+        }
+
+        var sunday = dayOfWeek == DayOfWeek.Sunday ? weekEndDate : weekEndDate.AddDays(2);
+        var monday = sunday.AddDays(-6);
+
+        _logger.LogInformation("Running weekly crypto analysis for week {Monday} to {Sunday}", monday, sunday);
+
+        try
+        {
+            var tickers = await _cryptoPriceRepository.GetActiveTickersAsync();
+            var tickerList = tickers.ToList();
+            result.TotalCrypto = tickerList.Count;
+
+            foreach (var ticker in tickerList)
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+
+                try
+                {
+                    var allPrices = new List<CryptoPrice>();
+                    for (var d = monday; d <= sunday; d = d.AddDays(1))
+                    {
+                        var dayPrices = await _cryptoPriceRepository.GetPricesForDateAsync(ticker.Id, d);
+                        allPrices.AddRange(dayPrices);
+                    }
+
+                    if (allPrices.Count == 0) { result.SuccessCount++; continue; }
+
+                    var weeklyCandle = _aggregationService.AggregateToDailyCandle(allPrices, ticker.Id, ticker.Symbol, sunday);
+                    if (weeklyCandle == null) { result.SuccessCount++; continue; }
+
+                    weeklyCandle.Timeframe = "weekly";
+                    weeklyCandle.IsConfirmed = true;
+                    weeklyCandle.Confidence = 1.0m;
+
+                    var patterns = _patternDetectionService.DetectPatterns(weeklyCandle);
+                    var analysisResult = CryptoAnalysisResult.FromCandle(weeklyCandle, patterns);
+
+                    await _cryptoAnalysisRepository.UpsertAnalysisAsync(analysisResult);
+                    result.Results.Add(analysisResult);
+                    result.SuccessCount++;
+                    result.PatternsDetected += patterns.Count;
+                }
+                catch (Exception ex)
+                {
+                    result.FailedCount++;
+                    result.Errors.Add($"{ticker.Symbol}: {ex.Message}");
+                    _logger.LogError(ex, "Failed weekly crypto analysis for {Symbol}", ticker.Symbol);
+                }
+            }
+
+            stopwatch.Stop();
+            result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
+            result.Success = result.FailedCount == 0;
+
+            _logger.LogInformation(
+                "Weekly crypto analysis completed for {Date}: {Success}/{Total}, {Patterns} patterns, {Duration:F2}s",
+                sunday, result.SuccessCount, result.TotalCrypto, result.PatternsDetected, result.DurationSeconds);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            result.DurationSeconds = stopwatch.Elapsed.TotalSeconds;
+            result.Success = false;
+            result.Errors.Add($"Weekly crypto batch failed: {ex.Message}");
+            _logger.LogError(ex, "Weekly crypto analysis failed for {Date}", weekEndDate);
+            throw;
+        }
+    }
 }
