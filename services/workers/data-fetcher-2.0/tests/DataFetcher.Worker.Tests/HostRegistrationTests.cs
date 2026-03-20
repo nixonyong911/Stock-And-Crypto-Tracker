@@ -26,6 +26,8 @@ public class HostRegistrationTests
             "AlpacaStockFetchWorker",
             "AnalysisBackfillQueueConsumer",
             "CandlestickAnalysisWorker",
+            "DataCompletenessWorker",
+            "DynamicIndicatorScheduler",
             "EarningsSyncWorker",
             "EtoroFetchWorker",
             "FinnhubFetchWorker",
@@ -49,7 +51,7 @@ public class HostRegistrationTests
         var count = assembly.GetTypes()
             .Count(t => t.IsClass && !t.IsAbstract && t.IsSubclassOf(typeof(BackgroundService)));
 
-        Assert.Equal(17, count);
+        Assert.Equal(19, count);
     }
 
     [Theory]

@@ -4,16 +4,16 @@ using Microsoft.Extensions.Options;
 
 namespace DataFetcher.Worker.Application.Providers.Alpaca;
 
-public class AlpacaMarketDataProvider : IMarketDataProvider
+public class AlpacaMarketDataProvider : DataProviderBase, IMarketDataProvider
 {
     private readonly IAlpacaMarketDataClient _apiClient;
     private readonly IAlpacaAssetVerificationService _verificationService;
     private readonly AlpacaSettings _settings;
     private readonly ILogger<AlpacaMarketDataProvider> _logger;
 
-    public string ProviderName => "Alpaca";
+    public override string ProviderName => "Alpaca";
 
-    public ProviderCapabilities Capabilities => new()
+    public override ProviderCapabilities Capabilities => new()
     {
         Stocks = true,
         Crypto = true,
@@ -22,6 +22,28 @@ public class AlpacaMarketDataProvider : IMarketDataProvider
         Indices = false,
         SupportsBatchFetch = true
     };
+
+    public override ResilienceConfig GetResilienceConfig() => new(
+        MaxRetries: 3,
+        InitialRetryDelay: TimeSpan.FromSeconds(2),
+        RequestTimeout: TimeSpan.FromSeconds(30),
+        CircuitBreakerThreshold: 5,
+        CircuitBreakerDuration: TimeSpan.FromMinutes(1)
+    );
+
+    public override async Task<HealthCheckResult> HealthCheckAsync(CancellationToken ct)
+    {
+        try
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var asset = await _apiClient.GetAssetAsync("AAPL", ct);
+            return new HealthCheckResult(asset != null, Latency: sw.Elapsed);
+        }
+        catch (Exception ex)
+        {
+            return new HealthCheckResult(false, ex.Message);
+        }
+    }
 
     public AlpacaMarketDataProvider(
         IAlpacaMarketDataClient apiClient,

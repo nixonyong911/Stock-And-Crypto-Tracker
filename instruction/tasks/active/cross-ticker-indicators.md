@@ -68,7 +68,7 @@ The 30-min scheduler currently iterates tickers sequentially. For cross-ticker i
 
 ### Storage
 
-Cross-ticker indicator values are stored in the same `analysis_stock_indicator_advanced` / `analysis_crypto_indicator_advanced` tables as regular indicators. They just have additional columns.
+Cross-ticker indicator values are stored in the same `analysis_indicators_stock_pro` / `analysis_indicators_crypto_pro` tables as regular indicators. They just have additional columns.
 
 ### Example Indicators
 

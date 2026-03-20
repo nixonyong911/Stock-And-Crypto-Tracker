@@ -27,7 +27,7 @@ public class CryptoIndicatorAdvancedRepository : ICryptoIndicatorAdvancedReposit
         foreach (var batch in list.Chunk(BatchSize))
         {
             var sb = new StringBuilder();
-            sb.Append(@"INSERT INTO analysis_crypto_indicator_advanced
+            sb.Append(@"INSERT INTO analysis_indicators_crypto_pro
                 (crypto_ticker_id, data_source_id, indicator_time,
                  bollinger_upper, bollinger_lower, bollinger_middle, bollinger_bandwidth, atr,
                  stoch_k, stoch_d, adx, obv,
@@ -62,22 +62,22 @@ public class CryptoIndicatorAdvancedRepository : ICryptoIndicatorAdvancedReposit
             }
 
             sb.Append(@" ON CONFLICT (crypto_ticker_id, data_source_id, indicator_time) DO UPDATE SET
-                bollinger_upper = COALESCE(EXCLUDED.bollinger_upper, analysis_crypto_indicator_advanced.bollinger_upper),
-                bollinger_lower = COALESCE(EXCLUDED.bollinger_lower, analysis_crypto_indicator_advanced.bollinger_lower),
-                bollinger_middle = COALESCE(EXCLUDED.bollinger_middle, analysis_crypto_indicator_advanced.bollinger_middle),
-                bollinger_bandwidth = COALESCE(EXCLUDED.bollinger_bandwidth, analysis_crypto_indicator_advanced.bollinger_bandwidth),
-                atr = COALESCE(EXCLUDED.atr, analysis_crypto_indicator_advanced.atr),
-                stoch_k = COALESCE(EXCLUDED.stoch_k, analysis_crypto_indicator_advanced.stoch_k),
-                stoch_d = COALESCE(EXCLUDED.stoch_d, analysis_crypto_indicator_advanced.stoch_d),
-                adx = COALESCE(EXCLUDED.adx, analysis_crypto_indicator_advanced.adx),
-                obv = COALESCE(EXCLUDED.obv, analysis_crypto_indicator_advanced.obv),
-                fibonacci_levels = COALESCE(EXCLUDED.fibonacci_levels, analysis_crypto_indicator_advanced.fibonacci_levels),
-                pivot_levels = COALESCE(EXCLUDED.pivot_levels, analysis_crypto_indicator_advanced.pivot_levels),
-                ichimoku_tenkan = COALESCE(EXCLUDED.ichimoku_tenkan, analysis_crypto_indicator_advanced.ichimoku_tenkan),
-                ichimoku_kijun = COALESCE(EXCLUDED.ichimoku_kijun, analysis_crypto_indicator_advanced.ichimoku_kijun),
-                ichimoku_senkou_a = COALESCE(EXCLUDED.ichimoku_senkou_a, analysis_crypto_indicator_advanced.ichimoku_senkou_a),
-                ichimoku_senkou_b = COALESCE(EXCLUDED.ichimoku_senkou_b, analysis_crypto_indicator_advanced.ichimoku_senkou_b),
-                ichimoku_chikou = COALESCE(EXCLUDED.ichimoku_chikou, analysis_crypto_indicator_advanced.ichimoku_chikou)");
+                bollinger_upper = COALESCE(EXCLUDED.bollinger_upper, analysis_indicators_crypto_pro.bollinger_upper),
+                bollinger_lower = COALESCE(EXCLUDED.bollinger_lower, analysis_indicators_crypto_pro.bollinger_lower),
+                bollinger_middle = COALESCE(EXCLUDED.bollinger_middle, analysis_indicators_crypto_pro.bollinger_middle),
+                bollinger_bandwidth = COALESCE(EXCLUDED.bollinger_bandwidth, analysis_indicators_crypto_pro.bollinger_bandwidth),
+                atr = COALESCE(EXCLUDED.atr, analysis_indicators_crypto_pro.atr),
+                stoch_k = COALESCE(EXCLUDED.stoch_k, analysis_indicators_crypto_pro.stoch_k),
+                stoch_d = COALESCE(EXCLUDED.stoch_d, analysis_indicators_crypto_pro.stoch_d),
+                adx = COALESCE(EXCLUDED.adx, analysis_indicators_crypto_pro.adx),
+                obv = COALESCE(EXCLUDED.obv, analysis_indicators_crypto_pro.obv),
+                fibonacci_levels = COALESCE(EXCLUDED.fibonacci_levels, analysis_indicators_crypto_pro.fibonacci_levels),
+                pivot_levels = COALESCE(EXCLUDED.pivot_levels, analysis_indicators_crypto_pro.pivot_levels),
+                ichimoku_tenkan = COALESCE(EXCLUDED.ichimoku_tenkan, analysis_indicators_crypto_pro.ichimoku_tenkan),
+                ichimoku_kijun = COALESCE(EXCLUDED.ichimoku_kijun, analysis_indicators_crypto_pro.ichimoku_kijun),
+                ichimoku_senkou_a = COALESCE(EXCLUDED.ichimoku_senkou_a, analysis_indicators_crypto_pro.ichimoku_senkou_a),
+                ichimoku_senkou_b = COALESCE(EXCLUDED.ichimoku_senkou_b, analysis_indicators_crypto_pro.ichimoku_senkou_b),
+                ichimoku_chikou = COALESCE(EXCLUDED.ichimoku_chikou, analysis_indicators_crypto_pro.ichimoku_chikou)");
 
             await connection.ExecuteAsync(sb.ToString(), parameters);
         }
@@ -89,7 +89,7 @@ public class CryptoIndicatorAdvancedRepository : ICryptoIndicatorAdvancedReposit
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        const string sql = "DELETE FROM analysis_crypto_indicator_advanced WHERE crypto_ticker_id = @CryptoTickerId AND indicator_time < NOW() - make_interval(days => @RetentionDays)";
+        const string sql = "DELETE FROM analysis_indicators_crypto_pro WHERE crypto_ticker_id = @CryptoTickerId AND indicator_time < NOW() - make_interval(days => @RetentionDays)";
 
         var deleted = await connection.ExecuteAsync(sql, new { CryptoTickerId = cryptoTickerId, RetentionDays = retentionDays });
         if (deleted > 0)

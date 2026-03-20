@@ -2,7 +2,7 @@ namespace DataFetcher.Worker.Domain.Providers.Massive.Entities;
 
 /// <summary>
 /// Technical indicator data for a crypto ticker.
-/// Maps to analysis_crypto_indicator table.
+/// Maps to analysis_indicators_crypto_free table.
 /// </summary>
 public class CryptoIndicator
 {

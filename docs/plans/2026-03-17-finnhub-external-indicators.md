@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add non-computable external indicators from Finnhub's free API (insider transactions, insider sentiment MSPR, analyst recommendations) into the existing `analysis_stock_indicator_advanced` table, with robust fault tolerance and retry logic.
+**Goal:** Add non-computable external indicators from Finnhub's free API (insider transactions, insider sentiment MSPR, analyst recommendations) into the existing `analysis_indicators_stock_pro` table, with robust fault tolerance and retry logic.
 
 **Architecture:** Extend the existing Finnhub API client with 3 new endpoints (verified working on free tier). A new `FinnhubExternalIndicatorService` with Polly-based retry/circuit-breaker policies aggregates API responses into summary columns and writes to the advanced tables via the existing COALESCE upsert pattern. Runs daily via the existing `FinnhubFetchWorker` schedule. Single-ticker backfill supported for new ticker onboarding.
 
@@ -55,32 +55,32 @@ Wall Street consensus:
 
 ## Scope: Stocks Only
 
-All 3 Finnhub endpoints are stock-specific. Crypto tickers have no insider filings, no analyst coverage, no MSPR data. No changes to `analysis_crypto_indicator_advanced`.
+All 3 Finnhub endpoints are stock-specific. Crypto tickers have no insider filings, no analyst coverage, no MSPR data. No changes to `analysis_indicators_crypto_pro`.
 
 ---
 
 ## Database Changes — New Columns
 
-### `analysis_stock_indicator_advanced` — ADD 12 columns
+### `analysis_indicators_stock_pro` — ADD 12 columns
 
 ```sql
 -- Insider Transactions (aggregated last 90 days from /stock/insider-transactions)
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_buy_count integer;
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_sell_count integer;
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_net_shares bigint;
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_net_value numeric;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_buy_count integer;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_sell_count integer;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_net_shares bigint;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_net_value numeric;
 
 -- Insider Sentiment (from /stock/insider-sentiment)
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_mspr numeric;
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_mspr_change bigint;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_mspr numeric;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_mspr_change bigint;
 
 -- Analyst Recommendations (latest period from /stock/recommendation)
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_strong_buy integer;
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_buy integer;
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_hold integer;
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_sell integer;
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_strong_sell integer;
-ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_consensus varchar(20);
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_strong_buy integer;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_buy integer;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_hold integer;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_sell integer;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_strong_sell integer;
+ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_consensus varchar(20);
 ```
 
 The `analyst_consensus` column stores a derived signal: `"strong_buy"`, `"buy"`, `"hold"`, `"sell"`, `"strong_sell"` based on the weighted distribution.
@@ -184,18 +184,18 @@ All paths relative to `services/workers/data-fetcher-2.0/`.
 ```bash
 ssh -F /dev/null -o StrictHostKeyChecking=no -i /tmp/vm_key.pem azureuser@20.17.176.1 \
   "docker exec postgres psql -U postgres -d stocktracker -c \"
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_buy_count integer;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_sell_count integer;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_net_shares bigint;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_net_value numeric;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_mspr numeric;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS insider_mspr_change bigint;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_strong_buy integer;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_buy integer;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_hold integer;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_sell integer;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_strong_sell integer;
-    ALTER TABLE analysis_stock_indicator_advanced ADD COLUMN IF NOT EXISTS analyst_consensus varchar(20);
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_buy_count integer;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_sell_count integer;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_net_shares bigint;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_net_value numeric;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_mspr numeric;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS insider_mspr_change bigint;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_strong_buy integer;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_buy integer;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_hold integer;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_sell integer;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_strong_sell integer;
+    ALTER TABLE analysis_indicators_stock_pro ADD COLUMN IF NOT EXISTS analyst_consensus varchar(20);
   \""
 ```
 
@@ -204,7 +204,7 @@ ssh -F /dev/null -o StrictHostKeyChecking=no -i /tmp/vm_key.pem azureuser@20.17.
 ```bash
 ssh ... "docker exec postgres psql -U postgres -d stocktracker -c \"
   SELECT column_name, data_type FROM information_schema.columns
-  WHERE table_name = 'analysis_stock_indicator_advanced'
+  WHERE table_name = 'analysis_indicators_stock_pro'
   AND column_name IN ('insider_buy_count','insider_mspr','analyst_strong_buy','analyst_consensus')
   ORDER BY column_name;\""
 ```
@@ -411,18 +411,18 @@ analyst_strong_buy, analyst_buy, analyst_hold, analyst_sell, analyst_strong_sell
 
 **ON CONFLICT DO UPDATE** — append COALESCE lines:
 ```sql
-insider_buy_count = COALESCE(EXCLUDED.insider_buy_count, analysis_stock_indicator_advanced.insider_buy_count),
-insider_sell_count = COALESCE(EXCLUDED.insider_sell_count, analysis_stock_indicator_advanced.insider_sell_count),
-insider_net_shares = COALESCE(EXCLUDED.insider_net_shares, analysis_stock_indicator_advanced.insider_net_shares),
-insider_net_value = COALESCE(EXCLUDED.insider_net_value, analysis_stock_indicator_advanced.insider_net_value),
-insider_mspr = COALESCE(EXCLUDED.insider_mspr, analysis_stock_indicator_advanced.insider_mspr),
-insider_mspr_change = COALESCE(EXCLUDED.insider_mspr_change, analysis_stock_indicator_advanced.insider_mspr_change),
-analyst_strong_buy = COALESCE(EXCLUDED.analyst_strong_buy, analysis_stock_indicator_advanced.analyst_strong_buy),
-analyst_buy = COALESCE(EXCLUDED.analyst_buy, analysis_stock_indicator_advanced.analyst_buy),
-analyst_hold = COALESCE(EXCLUDED.analyst_hold, analysis_stock_indicator_advanced.analyst_hold),
-analyst_sell = COALESCE(EXCLUDED.analyst_sell, analysis_stock_indicator_advanced.analyst_sell),
-analyst_strong_sell = COALESCE(EXCLUDED.analyst_strong_sell, analysis_stock_indicator_advanced.analyst_strong_sell),
-analyst_consensus = COALESCE(EXCLUDED.analyst_consensus, analysis_stock_indicator_advanced.analyst_consensus)
+insider_buy_count = COALESCE(EXCLUDED.insider_buy_count, analysis_indicators_stock_pro.insider_buy_count),
+insider_sell_count = COALESCE(EXCLUDED.insider_sell_count, analysis_indicators_stock_pro.insider_sell_count),
+insider_net_shares = COALESCE(EXCLUDED.insider_net_shares, analysis_indicators_stock_pro.insider_net_shares),
+insider_net_value = COALESCE(EXCLUDED.insider_net_value, analysis_indicators_stock_pro.insider_net_value),
+insider_mspr = COALESCE(EXCLUDED.insider_mspr, analysis_indicators_stock_pro.insider_mspr),
+insider_mspr_change = COALESCE(EXCLUDED.insider_mspr_change, analysis_indicators_stock_pro.insider_mspr_change),
+analyst_strong_buy = COALESCE(EXCLUDED.analyst_strong_buy, analysis_indicators_stock_pro.analyst_strong_buy),
+analyst_buy = COALESCE(EXCLUDED.analyst_buy, analysis_indicators_stock_pro.analyst_buy),
+analyst_hold = COALESCE(EXCLUDED.analyst_hold, analysis_indicators_stock_pro.analyst_hold),
+analyst_sell = COALESCE(EXCLUDED.analyst_sell, analysis_indicators_stock_pro.analyst_sell),
+analyst_strong_sell = COALESCE(EXCLUDED.analyst_strong_sell, analysis_indicators_stock_pro.analyst_strong_sell),
+analyst_consensus = COALESCE(EXCLUDED.analyst_consensus, analysis_indicators_stock_pro.analyst_consensus)
 ```
 
 ### Step 3: Commit
@@ -1479,7 +1479,7 @@ dotnet test -v normal --logger "console;verbosity=detailed"
    ```sql
    SELECT s.symbol, a.insider_buy_count, a.insider_sell_count, a.insider_mspr,
           a.analyst_strong_buy, a.analyst_buy, a.analyst_hold, a.analyst_consensus
-   FROM analysis_stock_indicator_advanced a
+   FROM analysis_indicators_stock_pro a
    JOIN stock_tickers s ON s.id = a.stock_ticker_id
    WHERE a.insider_buy_count IS NOT NULL
    ORDER BY a.indicator_time DESC LIMIT 10;

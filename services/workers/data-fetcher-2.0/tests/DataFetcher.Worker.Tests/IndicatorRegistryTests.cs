@@ -25,7 +25,8 @@ public class IndicatorRegistryTests
         new RsiCalculator()
     ];
 
-    private static IndicatorRegistry CreateRegistry() => new(AllCalculatorInstances);
+    private static IndicatorRegistry CreateRegistry() =>
+        new(AllCalculatorInstances, Array.Empty<IIndicatorDefinition>());
 
     private static IIndicatorCalculator GetCalculator(string name) =>
         AllCalculatorInstances.First(c => c.Name == name);

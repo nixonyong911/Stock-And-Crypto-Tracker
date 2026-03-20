@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DataFetcher.Worker.Application.Providers.Common;
 using DataFetcher.Worker.Configuration.Providers;
 using Microsoft.Extensions.Options;
 
@@ -7,13 +8,47 @@ namespace DataFetcher.Worker.Infrastructure.Providers.Finnhub;
 /// <summary>
 /// Client implementation for interacting with the Finnhub API.
 /// </summary>
-public class FinnhubApiClient : IFinnhubApiClient
+public class FinnhubApiClient : IFinnhubApiClient, IDataProviderContract
 {
     private readonly HttpClient _httpClient;
     private readonly FinnhubSettings _settings;
     private readonly ILogger<FinnhubApiClient> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
     private DateTime _lastCallTime = DateTime.MinValue;
+
+    public string ProviderName => "Finnhub";
+
+    public ProviderCapabilities Capabilities => new()
+    {
+        Stocks = true,
+        Crypto = false,
+        Etfs = false,
+        Commodities = false,
+        Indices = false,
+        SupportsBatchFetch = false
+    };
+
+    public ResilienceConfig GetResilienceConfig() => new(
+        MaxRetries: 2,
+        InitialRetryDelay: TimeSpan.FromSeconds(2),
+        RequestTimeout: TimeSpan.FromSeconds(30),
+        CircuitBreakerThreshold: 5,
+        CircuitBreakerDuration: TimeSpan.FromMinutes(2)
+    );
+
+    public async Task<HealthCheckResult> HealthCheckAsync(CancellationToken ct)
+    {
+        try
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var profile = await GetCompanyProfileAsync("AAPL", ct);
+            return new HealthCheckResult(profile != null, Latency: sw.Elapsed);
+        }
+        catch (Exception ex)
+        {
+            return new HealthCheckResult(false, ex.Message);
+        }
+    }
 
     public FinnhubApiClient(
         HttpClient httpClient,

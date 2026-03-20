@@ -81,7 +81,7 @@ async def screen_stocks(
         from_parts.append("""
             LATERAL (
                 SELECT i.rsi, i.macd_histogram
-                FROM analysis_stock_indicator i
+                FROM analysis_indicators_stock_free i
                 WHERE i.stock_ticker_id = st.id
                 ORDER BY i.indicator_time DESC
                 LIMIT 1

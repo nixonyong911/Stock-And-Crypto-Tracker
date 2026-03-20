@@ -21,7 +21,7 @@ flowchart TD
     end
 
     subgraph External APIs
-        F[Massive API] --> G[analysis_stock_indicator]
+        F[Massive API] --> G[analysis_indicators_stock_free]
         H[Finnhub API] --> I[analysis_stock_fundamentals]
     end
 
@@ -112,9 +112,9 @@ Converts 10-minute candles into daily OHLCV:
 | Aspect | Detail |
 |--------|--------|
 | **Source** | Local computation from `analysis_stock_candlestick_pattern` daily closes (Massive API available for backfill) |
-| **Flow** | LocalIndicatorWorker → LocalIndicatorCalculatorService → analysis_stock_indicator |
+| **Flow** | LocalIndicatorWorker → LocalIndicatorCalculatorService → analysis_indicators_stock_free |
 | **Schedule** | Every 30 min at :10/:40 |
-| **Table** | `analysis_stock_indicator` |
+| **Table** | `analysis_indicators_stock_free` |
 
 **Indicators:**
 
@@ -160,7 +160,7 @@ Converts 10-minute candles into daily OHLCV:
 **Data sources:**
 
 - Daily closes: `analysis_stock_candlestick_pattern` (daily_close)
-- Indicators: `analysis_stock_indicator` (EMA-20, SMA as proxy for EMA-50, RSI)
+- Indicators: `analysis_indicators_stock_free` (EMA-20, SMA as proxy for EMA-50, RSI)
 - Signals: recent `detected_patterns` from candlestick table
 
 ### Gateway Wishlist
@@ -180,12 +180,12 @@ Converts 10-minute candles into daily OHLCV:
 erDiagram
     stock_tickers ||--o{ stock_prices : "raw candles"
     stock_tickers ||--o{ analysis_stock_candlestick_pattern : "daily patterns"
-    stock_tickers ||--o{ analysis_stock_indicator : "indicators"
+    stock_tickers ||--o{ analysis_indicators_stock_free : "indicators"
     stock_tickers ||--o{ analysis_stock_fundamentals : "fundamentals"
     stock_tickers ||--o{ analysis_ticker_price_targets : "price targets"
 
     analysis_stock_candlestick_pattern ||--o{ analysis_ticker_price_targets : "source for daily closes"
-    analysis_stock_indicator ||--o{ analysis_ticker_price_targets : "source for indicators"
+    analysis_indicators_stock_free ||--o{ analysis_ticker_price_targets : "source for indicators"
 
     user_watchlist }o--|| stock_tickers : "tracked tickers"
     user_watchlist }o--o{ analysis_ticker_price_targets : "wishlist join"
@@ -196,7 +196,7 @@ erDiagram
 | `stock_tickers` | id, symbol | Master ticker list; referenced by all analysis tables via stock_ticker_id |
 | `stock_prices` | stock_ticker_id, price_time, OHLCV | Raw 10-min candles; source for aggregation |
 | `analysis_stock_candlestick_pattern` | stock_ticker_id, analysis_date, daily_*, detected_patterns | Daily OHLCV + patterns; source for price target calc |
-| `analysis_stock_indicator` | stock_ticker_id, indicator_time, sma, ema, macd_*, rsi | Technical indicators |
+| `analysis_indicators_stock_free` | stock_ticker_id, indicator_time, sma, ema, macd_*, rsi | Technical indicators |
 | `analysis_stock_fundamentals` | stock_ticker_id, fiscal_year/quarter, metrics | Quarterly fundamentals |
 | `analysis_ticker_price_targets` | ticker_symbol, asset_type, analysis_date, entry/target/stop_loss | Daily computed targets |
 | `user_watchlist` | ticker_symbol, asset_type, clerk_user_id | User tracked tickers; joined with targets for /wishlist |
@@ -237,7 +237,7 @@ Every 30 minutes, the pipeline runs in sequence with 5-minute stagger offsets:
 |-------|-----|----------|--------|--------|
 | 1 | Alpaca OHLCV | Every 30 min | :00 / :30 | stock_prices, crypto_prices |
 | 2 | CandlestickAnalysis | Every 30 min | :05 / :35 | analysis_stock_candlestick_pattern |
-| 3 | LocalIndicatorComputation | Every 30 min | :10 / :40 | analysis_stock_indicator |
+| 3 | LocalIndicatorComputation | Every 30 min | :10 / :40 | analysis_indicators_stock_free |
 | 4 | PriceTargetAnalysis | Every 30 min | :15 / :45 | analysis_ticker_price_targets |
 
 ```mermaid
@@ -266,6 +266,6 @@ sequenceDiagram
 | Order | Job | Time (UTC) | Output |
 |-------|-----|------------|--------|
 | 1 | TwelveData | 22:00 | stock_prices |
-| 2 | Massive | Variable | analysis_stock_indicator |
+| 2 | Massive | Variable | analysis_indicators_stock_free |
 | 3 | CandlestickAnalysis | 01:00 | analysis_stock_candlestick_pattern |
 | 4 | PriceTargetAnalysis | 01:30 | analysis_ticker_price_targets |

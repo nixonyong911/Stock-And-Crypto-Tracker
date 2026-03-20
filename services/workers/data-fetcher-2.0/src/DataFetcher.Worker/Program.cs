@@ -31,7 +31,9 @@ using DataFetcher.Worker.Infrastructure.Providers.Etoro;
 using DataFetcher.Worker.Workers.Alpaca;
 using DataFetcher.Worker.Workers.Etoro;
 using DataFetcher.Worker.Application.Providers.Indicators;
+using DataFetcher.Worker.Application.Providers.Indicators.Definitions;
 using DataFetcher.Worker.Application.Providers.LocalIndicators;
+using DataFetcher.Worker.Application.Validation;
 using DataFetcher.Worker.Application.Providers.Pipeline;
 using DataFetcher.Worker.Application.Providers.Pipeline.Steps;
 using DataFetcher.Worker.Application.Providers.Fred;
@@ -43,6 +45,7 @@ using DataFetcher.Worker.Infrastructure.Providers.MarketAuxNews.Repositories;
 using DataFetcher.Worker.Workers.Fred;
 using DataFetcher.Worker.Workers.LocalIndicators;
 using DataFetcher.Worker.Workers.MarketAuxNews;
+using DataFetcher.Worker.Workers.DataCompleteness;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using Polly;
@@ -112,6 +115,8 @@ try
     // HTTP Client with Polly retry policy for Finnhub
     builder.Services.AddHttpClient<IFinnhubApiClient, FinnhubApiClient>()
         .AddPolicyHandler(GetRetryPolicy());
+    builder.Services.AddScoped<IDataProviderContract>(sp => sp.GetRequiredService<IFinnhubApiClient>() as FinnhubApiClient
+        ?? throw new InvalidOperationException("FinnhubApiClient must implement IDataProviderContract"));
 
     // Infrastructure - AlphaVantage Provider
     builder.Services.AddHttpClient<IAlphaVantageApiClient, AlphaVantageApiClient>()
@@ -146,7 +151,7 @@ try
     builder.Services.AddScoped<IBackfillStep, CandlestickBackfillStep>();
     builder.Services.AddScoped<IBackfillStep, PriceTargetBackfillStep>();
     builder.Services.AddScoped<IBackfillStep, MassiveIndicatorBackfillStep>();
-    builder.Services.AddScoped<IBackfillStep, AdvancedIndicatorBackfillStep>();
+    builder.Services.AddScoped<IBackfillStep, IndicatorBackfillStep>();
 
     // Application - CandlestickAnalysis Provider (Stock + Crypto)
     builder.Services.AddScoped<IDailyAggregationService, DailyAggregationService>();
@@ -205,10 +210,12 @@ try
 
     // Application - eToro Provider
     builder.Services.AddScoped<EtoroMarketDataProvider>();
+    builder.Services.AddScoped<IDataProviderContract>(sp => sp.GetRequiredService<EtoroMarketDataProvider>());
     builder.Services.AddScoped<IEtoroBackfillService, EtoroBackfillService>();
 
     // Application - Multi-provider abstraction
     builder.Services.AddScoped<AlpacaMarketDataProvider>();
+    builder.Services.AddScoped<IDataProviderContract>(sp => sp.GetRequiredService<AlpacaMarketDataProvider>());
     builder.Services.AddScoped<IMarketDataResolver, MarketDataResolver>();
     builder.Services.AddScoped<ITickerManagementService, TickerManagementService>();
 
@@ -237,11 +244,9 @@ try
 
     // Local indicator computation (replaces Massive API for scheduled runs)
     builder.Services.AddScoped<ILocalIndicatorCalculatorService, LocalIndicatorCalculatorService>();
-    builder.Services.AddHostedService<LocalIndicatorWorker>();
 
     // Advanced indicator computation (Bollinger, ATR, Stochastic, ADX, OBV, Fibonacci, Pivot, Ichimoku)
     builder.Services.AddScoped<IAdvancedIndicatorCalculatorService, AdvancedIndicatorCalculatorService>();
-    builder.Services.AddHostedService<AdvancedIndicatorWorker>();
 
     // Indicator calculators (individual strategy classes for pipeline use)
     builder.Services.AddSingleton<IIndicatorCalculator, BollingerBandsCalculator>();
@@ -256,7 +261,11 @@ try
     builder.Services.AddSingleton<IIndicatorCalculator, EmaCalculator>();
     builder.Services.AddSingleton<IIndicatorCalculator, MacdCalculator>();
     builder.Services.AddSingleton<IIndicatorCalculator, RsiCalculator>();
-    builder.Services.AddSingleton<IIndicatorRegistry, IndicatorRegistry>();
+    builder.Services.AddScoped<ProviderComplianceValidator>();
+    builder.Services.AddScoped<IIndicatorDefinition, BasicIndicatorsDefinition>();
+    builder.Services.AddScoped<IIndicatorDefinition, AdvancedLocalIndicatorsDefinition>();
+    builder.Services.AddScoped<IIndicatorDefinition, ExternalFinnhubIndicatorsDefinition>();
+    builder.Services.AddScoped<IIndicatorRegistry, IndicatorRegistry>();
 
     // Asset contexts
     builder.Services.AddSingleton<IAssetContext, StockAssetContext>();
@@ -272,6 +281,12 @@ try
 
     // MarketAux workers
     builder.Services.AddHostedService<MarketAuxNewsWorker>();
+
+    // Dynamic indicator scheduling
+    builder.Services.AddHostedService<DynamicIndicatorScheduler>();
+
+    // Data completeness monitoring
+    builder.Services.AddHostedService<DataCompletenessWorker>();
 
     // Alpaca workers
     builder.Services.AddHostedService<AlpacaStockFetchWorker>();
@@ -502,6 +517,45 @@ try
 
     // Controllers
     app.MapControllers();
+
+    // Startup Validation (Phase 3)
+    using (var scope = app.Services.CreateScope())
+    {
+        var indicatorRegistry = scope.ServiceProvider.GetRequiredService<IIndicatorRegistry>();
+        var scheduleRepo = scope.ServiceProvider.GetRequiredService<IFetchScheduleRepository>();
+        var schedules = await scheduleRepo.GetAllSchedulesAsync();
+
+        var indicatorValidator = new IndicatorComplianceValidator();
+        var indicatorResult = indicatorValidator.Validate(indicatorRegistry, schedules);
+
+        if (!indicatorResult.IsValid)
+        {
+            foreach (var error in indicatorResult.Errors)
+                Log.Error("Indicator compliance: {Error}", error);
+
+            throw new InvalidOperationException(
+                $"Indicator compliance failed:\n{string.Join("\n", indicatorResult.Errors)}");
+        }
+
+        Log.Information("Indicator compliance validation passed ({Count} definitions verified)",
+            indicatorRegistry.GetAllDefinitions().Count);
+
+        var providers = scope.ServiceProvider.GetServices<IDataProviderContract>();
+        var providerValidator = scope.ServiceProvider.GetRequiredService<ProviderComplianceValidator>();
+        var providerResult = await providerValidator.ValidateAsync(providers, CancellationToken.None);
+
+        if (!providerResult.IsValid)
+        {
+            foreach (var error in providerResult.Errors)
+                Log.Error("Provider compliance: {Error}", error);
+
+            throw new InvalidOperationException(
+                $"Provider compliance failed:\n{string.Join("\n", providerResult.Errors)}");
+        }
+
+        Log.Information("Provider compliance validation passed ({Count} providers verified)",
+            providers.Count());
+    }
 
     Log.Information("Data Fetcher 2.0 starting on port 8080");
     app.Run();

@@ -57,6 +57,7 @@ from config import (
     init_pool,
     close_pool,
     get_db,
+    get_pool,
     setup_signal_handlers,
     get_shutdown_event,
     MCP_PORT,
@@ -880,6 +881,19 @@ def build_asgi_app():
         print("Initializing database connection pool...")
         await init_pool()
         print("Database pool initialized successfully")
+
+        print("Validating indicator column contracts...")
+        try:
+            from validation import validate_indicator_columns
+            pool = await get_pool()
+            col_results = await validate_indicator_columns(pool)
+            failed_tables = [t for t, r in col_results.items() if r["status"] != "ok"]
+            if failed_tables:
+                print(f"WARNING: Column validation issues in {len(failed_tables)} tables: {failed_tables}")
+            else:
+                print(f"Column validation passed for {len(col_results)} tables")
+        except Exception as e:
+            print(f"WARNING: Column validation skipped due to error: {e}")
 
         try:
             async with AsyncExitStack() as stack:

@@ -5,15 +5,15 @@ using Microsoft.Extensions.Options;
 
 namespace DataFetcher.Worker.Application.Providers.Etoro;
 
-public class EtoroMarketDataProvider : IMarketDataProvider
+public class EtoroMarketDataProvider : DataProviderBase, IMarketDataProvider
 {
     private readonly IEtoroMarketDataClient _apiClient;
     private readonly EtoroSettings _settings;
     private readonly ILogger<EtoroMarketDataProvider> _logger;
 
-    public string ProviderName => "eToro";
+    public override string ProviderName => "eToro";
 
-    public ProviderCapabilities Capabilities => new()
+    public override ProviderCapabilities Capabilities => new()
     {
         Stocks = true,
         Crypto = true,
@@ -22,6 +22,28 @@ public class EtoroMarketDataProvider : IMarketDataProvider
         Indices = true,
         SupportsBatchFetch = false
     };
+
+    public override ResilienceConfig GetResilienceConfig() => new(
+        MaxRetries: 2,
+        InitialRetryDelay: TimeSpan.FromSeconds(3),
+        RequestTimeout: TimeSpan.FromSeconds(45),
+        CircuitBreakerThreshold: 3,
+        CircuitBreakerDuration: TimeSpan.FromMinutes(2)
+    );
+
+    public override async Task<HealthCheckResult> HealthCheckAsync(CancellationToken ct)
+    {
+        try
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var results = await _apiClient.SearchInstrumentAsync("AAPL", "internalSymbolFull", ct);
+            return new HealthCheckResult(results.Count > 0, Latency: sw.Elapsed);
+        }
+        catch (Exception ex)
+        {
+            return new HealthCheckResult(false, ex.Message);
+        }
+    }
 
     private static readonly Dictionary<string, HashSet<string>> AssetClassMap = new(StringComparer.OrdinalIgnoreCase)
     {

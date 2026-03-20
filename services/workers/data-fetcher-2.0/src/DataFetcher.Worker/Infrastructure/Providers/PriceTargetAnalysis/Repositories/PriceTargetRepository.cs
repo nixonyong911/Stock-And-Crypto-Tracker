@@ -98,7 +98,7 @@ public class PriceTargetRepository : IPriceTargetRepository
     {
         const string sql = @"
             SELECT ema AS Ema, sma AS Sma, rsi AS Rsi
-            FROM analysis_stock_indicator
+            FROM analysis_indicators_stock_free
             WHERE stock_ticker_id = @StockTickerId
               AND indicator_time <= @AsOfDate::date + interval '1 day'
             ORDER BY indicator_time DESC

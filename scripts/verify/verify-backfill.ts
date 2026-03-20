@@ -67,8 +67,8 @@ async function main() {
   check(`Has rows in ${candleTable}`, (candleCount ?? 0) > 0, `${candleCount} rows`);
 
   const indicatorTable = isStock
-    ? "analysis_stock_indicator"
-    : "analysis_crypto_indicator";
+    ? "analysis_indicators_stock_free"
+    : "analysis_indicators_crypto_free";
   const { count: indicatorCount } = await supabase
     .from(indicatorTable)
     .select("*", { count: "exact", head: true })

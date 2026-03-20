@@ -54,7 +54,7 @@ SELECT st.symbol,
        MAX(sp.price_time) - MAX(si.indicator_time) AS indicator_lag
 FROM stock_tickers st
 JOIN stock_prices sp ON sp.stock_ticker_id = st.id
-LEFT JOIN analysis_stock_indicator si ON si.stock_ticker_id = st.id
+LEFT JOIN analysis_indicators_stock_free si ON si.stock_ticker_id = st.id
 WHERE st.symbol = 'AAPL'
 GROUP BY st.symbol;
 ```
@@ -101,7 +101,7 @@ SELECT
   st.id, st.symbol, st.name, st.is_active, st.created_at,
   (SELECT COUNT(*) FROM stock_prices sp WHERE sp.stock_ticker_id = st.id) AS price_count,
   (SELECT COUNT(*) FROM analysis_stock_candlestick_pattern cp WHERE cp.stock_ticker_id = st.id) AS pattern_count,
-  (SELECT COUNT(*) FROM analysis_stock_indicator si WHERE si.stock_ticker_id = st.id) AS indicator_count,
+  (SELECT COUNT(*) FROM analysis_indicators_stock_free si WHERE si.stock_ticker_id = st.id) AS indicator_count,
   (SELECT COUNT(*) FROM analysis_ticker_price_targets pt WHERE pt.ticker_symbol = st.symbol) AS price_target_count
 FROM stock_tickers st
 WHERE st.symbol = 'AAPL';
@@ -114,7 +114,7 @@ SELECT
   ct.id, ct.symbol, ct.name, ct.is_active, ct.created_at,
   (SELECT COUNT(*) FROM crypto_prices cp WHERE cp.crypto_ticker_id = ct.id) AS price_count,
   (SELECT COUNT(*) FROM analysis_crypto_candlestick_pattern ap WHERE ap.crypto_ticker_id = ct.id) AS pattern_count,
-  (SELECT COUNT(*) FROM analysis_crypto_indicator ci WHERE ci.crypto_ticker_id = ct.id) AS indicator_count,
+  (SELECT COUNT(*) FROM analysis_indicators_crypto_free ci WHERE ci.crypto_ticker_id = ct.id) AS indicator_count,
   (SELECT COUNT(*) FROM analysis_ticker_price_targets pt WHERE pt.ticker_symbol = ct.symbol) AS price_target_count
 FROM crypto_tickers ct
 WHERE ct.symbol = 'BTC';

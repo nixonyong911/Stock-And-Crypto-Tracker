@@ -2,7 +2,7 @@ namespace DataFetcher.Worker.Domain.Providers.Massive.Entities;
 
 /// <summary>
 /// Technical indicator data for a stock ticker.
-/// Maps to analysis_stock_indicator table.
+/// Maps to analysis_indicators_stock_free table.
 /// </summary>
 public class StockIndicator
 {

@@ -2,7 +2,7 @@ namespace DataFetcher.Worker.Domain.Providers.Massive.Entities;
 
 /// <summary>
 /// Advanced technical indicator data for a stock ticker.
-/// Maps to analysis_stock_indicator_advanced table.
+/// Maps to analysis_indicators_stock_pro table.
 /// Includes Bollinger Bands, ATR, Stochastic, ADX, OBV, Fibonacci, Pivot Points, and Ichimoku Cloud.
 /// </summary>
 public class StockIndicatorAdvanced

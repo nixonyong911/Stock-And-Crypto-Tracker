@@ -27,7 +27,7 @@ public class CryptoIndicatorRepository : ICryptoIndicatorRepository
         foreach (var batch in list.Chunk(BatchSize))
         {
             var sb = new StringBuilder();
-            sb.Append(@"INSERT INTO analysis_crypto_indicator
+            sb.Append(@"INSERT INTO analysis_indicators_crypto_free
                 (crypto_ticker_id, data_source_id, indicator_time, sma, ema, macd_value, macd_signal, macd_histogram, rsi)
                 VALUES ");
 
@@ -48,12 +48,12 @@ public class CryptoIndicatorRepository : ICryptoIndicatorRepository
             }
 
             sb.Append(@" ON CONFLICT (crypto_ticker_id, data_source_id, indicator_time) DO UPDATE SET
-                sma = COALESCE(EXCLUDED.sma, analysis_crypto_indicator.sma),
-                ema = COALESCE(EXCLUDED.ema, analysis_crypto_indicator.ema),
-                macd_value = COALESCE(EXCLUDED.macd_value, analysis_crypto_indicator.macd_value),
-                macd_signal = COALESCE(EXCLUDED.macd_signal, analysis_crypto_indicator.macd_signal),
-                macd_histogram = COALESCE(EXCLUDED.macd_histogram, analysis_crypto_indicator.macd_histogram),
-                rsi = COALESCE(EXCLUDED.rsi, analysis_crypto_indicator.rsi)");
+                sma = COALESCE(EXCLUDED.sma, analysis_indicators_crypto_free.sma),
+                ema = COALESCE(EXCLUDED.ema, analysis_indicators_crypto_free.ema),
+                macd_value = COALESCE(EXCLUDED.macd_value, analysis_indicators_crypto_free.macd_value),
+                macd_signal = COALESCE(EXCLUDED.macd_signal, analysis_indicators_crypto_free.macd_signal),
+                macd_histogram = COALESCE(EXCLUDED.macd_histogram, analysis_indicators_crypto_free.macd_histogram),
+                rsi = COALESCE(EXCLUDED.rsi, analysis_indicators_crypto_free.rsi)");
 
             await connection.ExecuteAsync(sb.ToString(), parameters);
         }
@@ -65,7 +65,7 @@ public class CryptoIndicatorRepository : ICryptoIndicatorRepository
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        const string sql = "DELETE FROM analysis_crypto_indicator WHERE crypto_ticker_id = @CryptoTickerId AND indicator_time < NOW() - make_interval(days => @RetentionDays)";
+        const string sql = "DELETE FROM analysis_indicators_crypto_free WHERE crypto_ticker_id = @CryptoTickerId AND indicator_time < NOW() - make_interval(days => @RetentionDays)";
 
         var deleted = await connection.ExecuteAsync(sql, new { CryptoTickerId = cryptoTickerId, RetentionDays = retentionDays });
         if (deleted > 0)
@@ -91,7 +91,7 @@ public class CryptoIndicatorRepository : ICryptoIndicatorRepository
                 macd_histogram as MacdHistogram,
                 rsi as Rsi,
                 created_at as CreatedAt
-            FROM analysis_crypto_indicator
+            FROM analysis_indicators_crypto_free
             WHERE crypto_ticker_id = @CryptoTickerId
               AND indicator_time::date = @Date
             ORDER BY indicator_time";

@@ -147,7 +147,7 @@ async def _fetch_technical(conn, symbol: str, is_crypto: bool) -> dict:
         query = """
             SELECT i.sma, i.ema, i.macd_value, i.macd_signal, i.macd_histogram, i.rsi,
                    i.indicator_time
-            FROM analysis_crypto_indicator i
+            FROM analysis_indicators_crypto_free i
             JOIN crypto_tickers ct ON i.crypto_ticker_id = ct.id
             WHERE UPPER(ct.symbol) = UPPER($1)
             ORDER BY i.indicator_time DESC
@@ -157,7 +157,7 @@ async def _fetch_technical(conn, symbol: str, is_crypto: bool) -> dict:
         query = """
             SELECT i.sma, i.ema, i.macd_value, i.macd_signal, i.macd_histogram, i.rsi,
                    i.indicator_time
-            FROM analysis_stock_indicator i
+            FROM analysis_indicators_stock_free i
             JOIN stock_tickers st ON i.stock_ticker_id = st.id
             WHERE UPPER(st.symbol) = UPPER($1)
             ORDER BY i.indicator_time DESC

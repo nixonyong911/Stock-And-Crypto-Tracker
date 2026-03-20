@@ -2,7 +2,7 @@ namespace DataFetcher.Worker.Domain.Providers.Massive.Entities;
 
 /// <summary>
 /// Advanced technical indicator data for a crypto ticker.
-/// Maps to analysis_crypto_indicator_advanced table.
+/// Maps to analysis_indicators_crypto_pro table.
 /// </summary>
 public class CryptoIndicatorAdvanced
 {

@@ -29,17 +29,17 @@ public class StockIndicatorRepository : IStockIndicatorRepository
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
-            INSERT INTO analysis_stock_indicator
+            INSERT INTO analysis_indicators_stock_free
                 (stock_ticker_id, data_source_id, indicator_time, sma, ema, macd_value, macd_signal, macd_histogram, rsi)
             VALUES
                 (@StockTickerId, @DataSourceId, @IndicatorTime, @Sma, @Ema, @MacdValue, @MacdSignal, @MacdHistogram, @Rsi)
             ON CONFLICT (stock_ticker_id, data_source_id, indicator_time) DO UPDATE SET
-                sma = COALESCE(EXCLUDED.sma, analysis_stock_indicator.sma),
-                ema = COALESCE(EXCLUDED.ema, analysis_stock_indicator.ema),
-                macd_value = COALESCE(EXCLUDED.macd_value, analysis_stock_indicator.macd_value),
-                macd_signal = COALESCE(EXCLUDED.macd_signal, analysis_stock_indicator.macd_signal),
-                macd_histogram = COALESCE(EXCLUDED.macd_histogram, analysis_stock_indicator.macd_histogram),
-                rsi = COALESCE(EXCLUDED.rsi, analysis_stock_indicator.rsi)";
+                sma = COALESCE(EXCLUDED.sma, analysis_indicators_stock_free.sma),
+                ema = COALESCE(EXCLUDED.ema, analysis_indicators_stock_free.ema),
+                macd_value = COALESCE(EXCLUDED.macd_value, analysis_indicators_stock_free.macd_value),
+                macd_signal = COALESCE(EXCLUDED.macd_signal, analysis_indicators_stock_free.macd_signal),
+                macd_histogram = COALESCE(EXCLUDED.macd_histogram, analysis_indicators_stock_free.macd_histogram),
+                rsi = COALESCE(EXCLUDED.rsi, analysis_indicators_stock_free.rsi)";
 
         await connection.ExecuteAsync(sql, indicators);
         _logger.LogDebug("Bulk upserted {Count} indicator records", indicators.Count());
@@ -50,7 +50,7 @@ public class StockIndicatorRepository : IStockIndicatorRepository
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        const string sql = "DELETE FROM analysis_stock_indicator WHERE stock_ticker_id = @StockTickerId AND indicator_time < NOW() - make_interval(days => @RetentionDays)";
+        const string sql = "DELETE FROM analysis_indicators_stock_free WHERE stock_ticker_id = @StockTickerId AND indicator_time < NOW() - make_interval(days => @RetentionDays)";
 
         var deleted = await connection.ExecuteAsync(sql, new { StockTickerId = stockTickerId, RetentionDays = retentionDays });
         if (deleted > 0)
@@ -77,7 +77,7 @@ public class StockIndicatorRepository : IStockIndicatorRepository
                 macd_histogram as MacdHistogram,
                 rsi as Rsi,
                 created_at as CreatedAt
-            FROM analysis_stock_indicator
+            FROM analysis_indicators_stock_free
             WHERE stock_ticker_id = @StockTickerId
               AND indicator_time::date = @Date
             ORDER BY indicator_time";

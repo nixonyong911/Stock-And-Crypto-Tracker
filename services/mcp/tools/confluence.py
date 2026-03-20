@@ -32,14 +32,14 @@ async def get_confluence_score(conn, symbol: str) -> str:
     is_crypto = _is_crypto(symbol)
 
     if is_crypto:
-        basic_table = "analysis_crypto_indicator"
-        adv_table = "analysis_crypto_indicator_advanced"
+        basic_table = "analysis_indicators_crypto_free"
+        adv_table = "analysis_indicators_crypto_pro"
         candle_table = "analysis_crypto_candlestick_pattern"
         ticker_table = "crypto_tickers"
         fk_col = "crypto_ticker_id"
     else:
-        basic_table = "analysis_stock_indicator"
-        adv_table = "analysis_stock_indicator_advanced"
+        basic_table = "analysis_indicators_stock_free"
+        adv_table = "analysis_indicators_stock_pro"
         candle_table = "analysis_stock_candlestick_pattern"
         ticker_table = "stock_tickers"
         fk_col = "stock_ticker_id"

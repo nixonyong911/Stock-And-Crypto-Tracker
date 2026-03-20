@@ -2,7 +2,7 @@ using static DataFetcher.Worker.Application.Providers.LocalIndicators.AdvancedIn
 
 namespace DataFetcher.Worker.Application.Providers.Indicators;
 
-public enum IndicatorCategory { Basic, Advanced }
+public enum IndicatorCategory { Basic, Advanced, External }
 
 public interface IIndicatorCalculator
 {

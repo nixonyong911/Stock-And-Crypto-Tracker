@@ -164,7 +164,7 @@ async function fetchIndicators(
   symbolFilter?: string,
 ): Promise<IndicatorRow[]> {
   const isStock = assetType === "stock";
-  const table = isStock ? "analysis_stock_indicator" : "analysis_crypto_indicator";
+  const table = isStock ? "analysis_indicators_stock_free" : "analysis_indicators_crypto_free";
   const tickerTable = isStock ? "stock_tickers" : "crypto_tickers";
   const fk = isStock ? "stock_ticker_id" : "crypto_ticker_id";
 

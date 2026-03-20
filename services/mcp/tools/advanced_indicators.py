@@ -26,7 +26,7 @@ async def get_advanced_signals(
     """
     Get daily advanced technical indicators with signal detection.
 
-    Queries analysis_stock_indicator_advanced / analysis_crypto_indicator_advanced.
+    Queries analysis_indicators_stock_pro / analysis_indicators_crypto_pro.
     Detects Bollinger squeeze/breakout, Stochastic crossovers, ADX trend signals,
     Ichimoku TK cross and cloud breakouts, Fibonacci level proximity.
     """
@@ -46,12 +46,12 @@ async def get_advanced_signals(
 
     if is_crypto:
         tz_expr = "AT TIME ZONE 'UTC'"
-        indicator_table = "analysis_crypto_indicator_advanced"
+        indicator_table = "analysis_indicators_crypto_pro"
         ticker_table = "crypto_tickers"
         fk_col = "crypto_ticker_id"
     else:
         tz_expr = "AT TIME ZONE 'America/New_York'"
-        indicator_table = "analysis_stock_indicator_advanced"
+        indicator_table = "analysis_indicators_stock_pro"
         ticker_table = "stock_tickers"
         fk_col = "stock_ticker_id"
 
@@ -292,14 +292,14 @@ async def get_advanced_custom(
         candle_table = "analysis_crypto_candlestick_pattern"
         ticker_table = "crypto_tickers"
         fk_col = "crypto_ticker_id"
-        adv_table = "analysis_crypto_indicator_advanced"
+        adv_table = "analysis_indicators_crypto_pro"
         price_table = "crypto_prices"
         price_fk = "crypto_ticker_id"
     else:
         candle_table = "analysis_stock_candlestick_pattern"
         ticker_table = "stock_tickers"
         fk_col = "stock_ticker_id"
-        adv_table = "analysis_stock_indicator_advanced"
+        adv_table = "analysis_indicators_stock_pro"
         price_table = "stock_prices"
         price_fk = "stock_ticker_id"
 

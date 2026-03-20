@@ -57,12 +57,12 @@ async def get_technical_signals(
 
     if is_crypto:
         tz_expr = "AT TIME ZONE 'UTC'"
-        indicator_table = "analysis_crypto_indicator"
+        indicator_table = "analysis_indicators_crypto_free"
         ticker_table = "crypto_tickers"
         fk_col = "crypto_ticker_id"
     else:
         tz_expr = "AT TIME ZONE 'America/New_York'"
-        indicator_table = "analysis_stock_indicator"
+        indicator_table = "analysis_indicators_stock_free"
         ticker_table = "stock_tickers"
         fk_col = "stock_ticker_id"
 

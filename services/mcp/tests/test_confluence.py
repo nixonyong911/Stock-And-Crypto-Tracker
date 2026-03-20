@@ -34,9 +34,9 @@ class FakeConn:
 
     async def fetch(self, query, *args, timeout=None):
         q = query.lower()
-        if "analysis_stock_indicator_advanced" in q or "analysis_crypto_indicator_advanced" in q:
+        if "analysis_indicators_stock_pro" in q or "analysis_indicators_crypto_pro" in q:
             return self._advanced
-        elif "analysis_stock_indicator" in q or "analysis_crypto_indicator" in q:
+        elif "analysis_indicators_stock_free" in q or "analysis_indicators_crypto_free" in q:
             return self._basic
         elif "candlestick_pattern" in q:
             return self._candles

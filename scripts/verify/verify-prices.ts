@@ -77,7 +77,7 @@ async function verifyStockPrices() {
 
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000).toISOString();
   const { count: indicatorCount } = await supabase
-    .from("analysis_stock_indicator")
+    .from("analysis_indicators_stock_free")
     .select("*", { count: "exact", head: true })
     .eq("ticker_id", ticker.id)
     .gte("created_at", twoHoursAgo);
@@ -131,7 +131,7 @@ async function verifyCryptoPrices() {
 
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000).toISOString();
   const { count: indicatorCount } = await supabase
-    .from("analysis_crypto_indicator")
+    .from("analysis_indicators_crypto_free")
     .select("*", { count: "exact", head: true })
     .eq("ticker_id", ticker.id)
     .gte("created_at", twoHoursAgo);

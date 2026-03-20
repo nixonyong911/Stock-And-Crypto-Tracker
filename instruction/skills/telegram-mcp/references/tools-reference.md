@@ -213,8 +213,8 @@ Earnings track record for a single stock with beat streak analysis.
 |-------|---------|
 | analysis_stock_candlestick_pattern | ticker_overview, market_scan, screen |
 | analysis_crypto_candlestick_pattern | ticker_overview, market_scan |
-| analysis_stock_indicator | ticker_overview, technical_signals, screen, compare |
-| analysis_crypto_indicator | ticker_overview, technical_signals |
+| analysis_indicators_stock_free | ticker_overview, technical_signals, screen, compare |
+| analysis_indicators_crypto_free | ticker_overview, technical_signals |
 | analysis_stock_fundamentals | ticker_overview, screen, compare |
 | analysis_earnings_release_schedule | ticker_overview, screen, market_earnings, earnings_history |
 | analysis_economic_indicators | macro |

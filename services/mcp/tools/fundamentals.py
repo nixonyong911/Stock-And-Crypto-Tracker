@@ -45,7 +45,7 @@ async def compare_stocks(
         SELECT DISTINCT ON (st.symbol)
             st.symbol,
             i.rsi, i.macd_histogram
-        FROM analysis_stock_indicator i
+        FROM analysis_indicators_stock_free i
         JOIN stock_tickers st ON i.stock_ticker_id = st.id
         WHERE UPPER(st.symbol) IN ({placeholders})
         ORDER BY st.symbol, i.indicator_time DESC
