@@ -221,14 +221,14 @@ public class CryptoCandlestickAnalysisService : ICryptoCandlestickAnalysisServic
         var result = new CryptoBatchAnalysisResult { AnalysisDate = weekEndDate };
 
         var dayOfWeek = weekEndDate.DayOfWeek;
-        if (dayOfWeek != DayOfWeek.Sunday && dayOfWeek != DayOfWeek.Friday)
+        if (dayOfWeek != DayOfWeek.Sunday)
         {
-            _logger.LogInformation("Skipping weekly crypto analysis — today is {Day}, not Friday/Sunday", dayOfWeek);
+            _logger.LogInformation("Skipping weekly crypto analysis — today is {Day}, not Sunday", dayOfWeek);
             result.Success = true;
             return result;
         }
 
-        var sunday = dayOfWeek == DayOfWeek.Sunday ? weekEndDate : weekEndDate.AddDays(2);
+        var sunday = weekEndDate;
         var monday = sunday.AddDays(-6);
 
         _logger.LogInformation("Running weekly crypto analysis for week {Monday} to {Sunday}", monday, sunday);

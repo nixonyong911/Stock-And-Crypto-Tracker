@@ -8,6 +8,7 @@ namespace DataFetcher.Worker.Tests;
 public class BackfillPipelineExecutorTests
 {
     private readonly Mock<ILogger<BackfillPipelineExecutor>> _loggerMock = new();
+    private readonly Mock<IComputeStepRegistry> _registryMock = new();
 
     private static BackfillContext CreateContext(string assetType = "stock") => new()
     {
@@ -34,8 +35,12 @@ public class BackfillPipelineExecutorTests
         return mock;
     }
 
-    private BackfillPipelineExecutor CreateExecutor(params Mock<IBackfillStep>[] steps) =>
-        new(steps.Select(s => s.Object), _loggerMock.Object);
+    private BackfillPipelineExecutor CreateExecutor(params Mock<IBackfillStep>[] steps)
+    {
+        _registryMock.Setup(r => r.GetForAssetType(It.IsAny<string>()))
+            .Returns(Array.Empty<IComputeStep>().ToList().AsReadOnly());
+        return new(steps.Select(s => s.Object), _registryMock.Object, _loggerMock.Object);
+    }
 
     [Fact]
     public async Task AllSteps_ExecuteInDeclaredOrder()

@@ -37,19 +37,6 @@ public class PipelineEventPublisher : IPipelineEventPublisher, IDisposable
         Publish(_rabbitSettings.PipelineOhlcvCompleteQueue, payload);
     }
 
-    public void PublishComputeComplete(string assetType, string[] completedSteps)
-    {
-        var payload = new
-        {
-            eventType = "pipeline.compute.complete",
-            assetType,
-            timestamp = DateTime.UtcNow.ToString("o"),
-            completedSteps
-        };
-
-        Publish(_rabbitSettings.PipelineComputeCompleteQueue, payload);
-    }
-
     public void PublishAnalysisComplete(string assetType, int priceTargetsComputed)
     {
         var payload = new

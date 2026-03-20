@@ -147,12 +147,19 @@ try
     builder.Services.AddScoped<ICryptoPriceRepository, CryptoPriceRepository>();
     builder.Services.AddScoped<ICryptoAnalysisRepository, CryptoAnalysisRepository>();
 
-    // Pipeline
+    // Pipeline (legacy backfill steps — kept for backward compatibility)
     builder.Services.AddScoped<IBackfillPipelineExecutor, BackfillPipelineExecutor>();
     builder.Services.AddScoped<IBackfillStep, CandlestickBackfillStep>();
     builder.Services.AddScoped<IBackfillStep, PriceTargetBackfillStep>();
     builder.Services.AddScoped<IBackfillStep, MassiveIndicatorBackfillStep>();
     builder.Services.AddScoped<IBackfillStep, IndicatorBackfillStep>();
+
+    // Compute step registry (dynamic indicator discovery)
+    builder.Services.AddScoped<IComputeStep, CandlestickComputeStep>();
+    builder.Services.AddScoped<IComputeStep, BasicIndicatorsComputeStep>();
+    builder.Services.AddScoped<IComputeStep, AdvancedIndicatorsComputeStep>();
+    builder.Services.AddScoped<IComputeStep, PriceTargetComputeStep>();
+    builder.Services.AddScoped<IComputeStepRegistry, ComputeStepRegistry>();
 
     // Application - CandlestickAnalysis Provider (Stock + Crypto)
     builder.Services.AddScoped<IDailyAggregationService, DailyAggregationService>();

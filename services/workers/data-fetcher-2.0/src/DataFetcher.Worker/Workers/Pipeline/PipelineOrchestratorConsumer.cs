@@ -1,9 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using DataFetcher.Worker.Application.Providers.CandlestickAnalysis;
-using DataFetcher.Worker.Application.Providers.LocalIndicators;
-using DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
+using DataFetcher.Worker.Application.Providers.Pipeline;
 using DataFetcher.Worker.Configuration;
 using DataFetcher.Worker.Infrastructure.Common;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
@@ -197,30 +195,47 @@ public class PipelineOrchestratorConsumer : BackgroundService
 
         try
         {
-            // Phase 1: CandlestickAnalysis + BasicIndicators (concurrent)
-            await RunPhase1Async(assetType, analyzeDate, ct);
-            completedSteps.AddRange(new[] { "CandlestickAnalysis", "BasicIndicators" });
+            using var scope = _serviceProvider.CreateScope();
+            var registry = scope.ServiceProvider.GetRequiredService<IComputeStepRegistry>();
+            var phases = registry.GetExecutionPhases(assetType);
 
-            // Phase 2: AdvancedIndicators (depends on Phase 1)
-            await RunPhase2Async(assetType, ct);
-            completedSteps.Add("AdvancedIndicators");
+            var ctx = new PipelineContext(assetType, analyzeDate);
 
-            // Publish compute complete event
-            using (var scope = _serviceProvider.CreateScope())
+            _logger.LogInformation(
+                "Pipeline has {PhaseCount} phases with {StepCount} total steps for {AssetType}",
+                phases.Count,
+                phases.Sum(p => p.Count),
+                assetType);
+
+            var totalProcessed = 0;
+
+            for (var i = 0; i < phases.Count; i++)
             {
-                var publisher = scope.ServiceProvider.GetRequiredService<IPipelineEventPublisher>();
-                publisher.PublishComputeComplete(assetType, completedSteps.ToArray());
+                var phase = phases[i];
+                var phaseStepNames = string.Join(", ", phase.Select(s => s.StepName));
+                _logger.LogInformation("Phase {Phase}: {Steps} for {AssetType}", i, phaseStepNames, assetType);
+
+                var results = await Task.WhenAll(
+                    phase.Select(async step =>
+                    {
+                        var result = await step.ExecuteAsync(ctx, ct);
+                        return (step.StepName, result);
+                    }));
+
+                foreach (var (stepName, result) in results)
+                {
+                    completedSteps.Add(stepName);
+                    totalProcessed += result.Processed;
+
+                    if (result.Error != null)
+                        _logger.LogWarning("Step {Step} completed with error: {Error}", stepName, result.Error);
+                }
             }
 
-            // Phase 3: PriceTargets (depends on Phase 2)
-            var priceTargetsComputed = await RunPhase3Async(assetType, analyzeDate, ct);
-            completedSteps.Add("PriceTargets");
-
-            // Publish analysis complete event
-            using (var scope = _serviceProvider.CreateScope())
+            using (var pubScope = _serviceProvider.CreateScope())
             {
-                var publisher = scope.ServiceProvider.GetRequiredService<IPipelineEventPublisher>();
-                publisher.PublishAnalysisComplete(assetType, priceTargetsComputed);
+                var publisher = pubScope.ServiceProvider.GetRequiredService<IPipelineEventPublisher>();
+                publisher.PublishAnalysisComplete(assetType, totalProcessed);
             }
 
             status = "completed";
@@ -242,166 +257,6 @@ public class PipelineOrchestratorConsumer : BackgroundService
         {
             sw.Stop();
             await LogPipelineExecutionAsync(assetType, status, errorMessage, (int)sw.ElapsedMilliseconds, startedAt);
-        }
-    }
-
-    private async Task RunPhase1Async(string assetType, DateOnly analyzeDate, CancellationToken ct)
-    {
-        _logger.LogInformation("Phase 1: CandlestickAnalysis + BasicIndicators for {AssetType}", assetType);
-
-        var candlestickTask = Task.Run(async () =>
-        {
-            try
-            {
-                using var scope = _serviceProvider.CreateScope();
-
-                if (assetType == "crypto")
-                {
-                    var svc = scope.ServiceProvider.GetRequiredService<ICryptoCandlestickAnalysisService>();
-                    var result = await svc.AnalyzeAllCryptoAsync(analyzeDate, ct);
-                    _logger.LogInformation(
-                        "Crypto candlestick analysis complete for {Date}", analyzeDate);
-                }
-                else
-                {
-                    var svc = scope.ServiceProvider.GetRequiredService<ICandlestickAnalysisService>();
-                    var result = await svc.AnalyzeAllStocksAsync(analyzeDate, ct);
-                    _logger.LogInformation(
-                        "Stock candlestick analysis complete for {Date}", analyzeDate);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "CandlestickAnalysis failed for {AssetType} on {Date}", assetType, analyzeDate);
-                throw;
-            }
-        }, ct);
-
-        var indicatorsTask = Task.Run(async () =>
-        {
-            try
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var svc = scope.ServiceProvider.GetRequiredService<ILocalIndicatorCalculatorService>();
-
-                if (assetType == "crypto")
-                {
-                    var result = await svc.ComputeAllCryptoIndicatorsAsync(ct);
-                    _logger.LogInformation(
-                        "Crypto basic indicators complete: {Success}/{Total} tickers",
-                        result.SuccessCount, result.TotalTickers);
-                }
-                else
-                {
-                    var result = await svc.ComputeAllStockIndicatorsAsync(ct);
-                    _logger.LogInformation(
-                        "Stock basic indicators complete: {Success}/{Total} tickers",
-                        result.SuccessCount, result.TotalTickers);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "BasicIndicators failed for {AssetType}", assetType);
-                throw;
-            }
-        }, ct);
-
-        await Task.WhenAll(candlestickTask, indicatorsTask);
-    }
-
-    private async Task RunPhase2Async(string assetType, CancellationToken ct)
-    {
-        _logger.LogInformation("Phase 2: AdvancedIndicators for {AssetType}", assetType);
-
-        try
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var advancedSvc = scope.ServiceProvider.GetRequiredService<IAdvancedIndicatorCalculatorService>();
-            var stockRepo = scope.ServiceProvider.GetRequiredService<IStockTickerRepository>();
-            var cryptoRepo = scope.ServiceProvider.GetRequiredService<ICryptoTickerRepository>();
-
-            if (assetType == "crypto")
-            {
-                var tickers = (await cryptoRepo.GetActiveTickersAsync()).ToList();
-                _logger.LogInformation("Computing advanced indicators for {Count} crypto tickers", tickers.Count);
-
-                foreach (var ticker in tickers)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    try
-                    {
-                        await advancedSvc.BackfillCryptoAdvancedIndicatorsAsync(ticker.Id, ticker.Symbol, ct);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex,
-                            "Advanced indicators failed for crypto {Symbol} (continuing)", ticker.Symbol);
-                    }
-                }
-            }
-            else
-            {
-                var tickers = (await stockRepo.GetActiveTickersAsync()).ToList();
-                _logger.LogInformation("Computing advanced indicators for {Count} stock tickers", tickers.Count);
-
-                foreach (var ticker in tickers)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    try
-                    {
-                        await advancedSvc.BackfillStockAdvancedIndicatorsAsync(ticker.Id, ticker.Symbol, ct);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex,
-                            "Advanced indicators failed for stock {Symbol} (continuing)", ticker.Symbol);
-                    }
-                }
-            }
-
-            _logger.LogInformation("Advanced indicators complete for {AssetType}", assetType);
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Phase 2 AdvancedIndicators failed for {AssetType}", assetType);
-            throw;
-        }
-    }
-
-    private async Task<int> RunPhase3Async(string assetType, DateOnly analyzeDate, CancellationToken ct)
-    {
-        _logger.LogInformation("Phase 3: PriceTargets for {AssetType}", assetType);
-
-        try
-        {
-            using var scope = _serviceProvider.CreateScope();
-
-            if (assetType == "crypto")
-            {
-                var svc = scope.ServiceProvider.GetRequiredService<ICryptoPriceTargetService>();
-                var result = await svc.CalculateAllCryptoAsync(analyzeDate, ct);
-                _logger.LogInformation(
-                    "Crypto price targets complete: {Success}/{Total} in {Duration:F1}s",
-                    result.SuccessCount, result.TotalStocks, result.DurationSeconds);
-                return result.SuccessCount;
-            }
-            else
-            {
-                var svc = scope.ServiceProvider.GetRequiredService<IPriceTargetService>();
-                var result = await svc.CalculateAllStocksAsync(analyzeDate, ct);
-                _logger.LogInformation(
-                    "Stock price targets complete: {Success}/{Total} in {Duration:F1}s",
-                    result.SuccessCount, result.TotalStocks, result.DurationSeconds);
-                return result.SuccessCount;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Phase 3 PriceTargets failed for {AssetType}", assetType);
-            throw;
         }
     }
 

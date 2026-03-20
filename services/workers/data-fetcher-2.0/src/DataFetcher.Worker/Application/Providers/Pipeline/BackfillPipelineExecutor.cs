@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DataFetcher.Worker.Application.Providers.Pipeline.Steps;
 
 namespace DataFetcher.Worker.Application.Providers.Pipeline;
 
@@ -27,13 +28,16 @@ public class BackfillPipelineExecutor : IBackfillPipelineExecutor
     private static readonly TimeSpan StepTimeout = TimeSpan.FromMinutes(5);
 
     private readonly IEnumerable<IBackfillStep> _steps;
+    private readonly IComputeStepRegistry _registry;
     private readonly ILogger<BackfillPipelineExecutor> _logger;
 
     public BackfillPipelineExecutor(
         IEnumerable<IBackfillStep> steps,
+        IComputeStepRegistry registry,
         ILogger<BackfillPipelineExecutor> logger)
     {
         _steps = steps;
+        _registry = registry;
         _logger = logger;
     }
 
@@ -42,8 +46,17 @@ public class BackfillPipelineExecutor : IBackfillPipelineExecutor
         var pipelineStopwatch = Stopwatch.StartNew();
         var result = new PipelineResult();
 
-        var applicableSteps = _steps
+        var legacySteps = _steps.ToList();
+        var legacyNames = new HashSet<string>(legacySteps.Select(s => s.Name), StringComparer.OrdinalIgnoreCase);
+
+        var computeAdapters = _registry.GetForAssetType(context.AssetType)
+            .Where(cs => !legacyNames.Contains(cs.StepName))
+            .Select(cs => (IBackfillStep)new ComputeStepBackfillAdapter(cs))
+            .ToList();
+
+        var applicableSteps = legacySteps
             .Where(s => s.AppliesTo(context.AssetType))
+            .Concat(computeAdapters)
             .OrderBy(s => s.Order)
             .ToList();
 
