@@ -1,5 +1,6 @@
 import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
+import { notifyError } from "../utils.js";
 
 const composer = new Composer<TelegramBotContext>();
 
@@ -28,7 +29,10 @@ composer.command(["alert", "track"], async (ctx) => {
 
   if (!ctx.activeSession) {
     if (ctx.sessionLoadFailed) {
-      await ctx.reply(
+      await notifyError(
+        ctx,
+        new Error("Session middleware failed to load session"),
+        "/alert — Session load failed",
         "Something went wrong checking your session. Please try again.",
       );
     } else {
@@ -97,7 +101,7 @@ composer.command(["alert", "track"], async (ctx) => {
     await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
   } catch (err) {
     logger.error({ err, userId }, "Error in /alert command");
-    await ctx.reply("Something went wrong. Please try again later.");
+    await notifyError(ctx, err, "/alert — Command failed", "Something went wrong. Please try again later.");
   }
 });
 

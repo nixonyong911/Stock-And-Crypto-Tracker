@@ -1,3 +1,5 @@
+import type { TelegramBotContext } from "./bot.js";
+
 const MAX_MESSAGE_LENGTH = 4000;
 
 export function splitMessage(text: string): string[] {
@@ -17,4 +19,38 @@ export function splitMessage(text: string): string[] {
     remaining = remaining.substring(splitIndex).trim();
   }
   return chunks;
+}
+
+/**
+ * Notify the admin group about an error AND reply to the user.
+ *
+ * @param hint  Human-readable trigger context, e.g. "/add — Ticker API error"
+ */
+export async function notifyError(
+  ctx: TelegramBotContext,
+  error: unknown,
+  hint: string,
+  userReply = "⚠️ Something went wrong. Please try again.",
+): Promise<void> {
+  const from = ctx.from;
+  const username = from?.username
+    ? `@${from.username}`
+    : from?.first_name ?? "N/A";
+  const userMessage =
+    ctx.message?.text ?? ctx.callbackQuery?.data ?? "N/A";
+
+  ctx.gatewayAPI.errorNotifier
+    ?.notify(error instanceof Error ? error : new Error(String(error ?? hint)), {
+      type: `TelegramBotError: ${hint}`,
+      user: username,
+      userMessage,
+      updateId: ctx.update?.update_id,
+    })
+    .catch(() => {});
+
+  try {
+    await ctx.reply(userReply);
+  } catch {
+    // Reply itself may fail (e.g. chat deleted)
+  }
 }

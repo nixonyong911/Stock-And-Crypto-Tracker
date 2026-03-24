@@ -1,5 +1,6 @@
 import { Composer, InlineKeyboard } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
+import { notifyError } from "../utils.js";
 
 const COMMON_TIMEZONES: ReadonlyArray<{ label: string; tz: string }> = [
   { label: "US Eastern", tz: "America/New_York" },
@@ -108,7 +109,7 @@ composer.command("timezone", async (ctx) => {
     );
   } catch (err) {
     logger.error({ err, userId }, "Error in /timezone command");
-    await ctx.reply("Something went wrong. Please try again later.");
+    await notifyError(ctx, err, "/timezone — Command failed", "Something went wrong. Please try again later.");
   }
 });
 
@@ -159,6 +160,18 @@ composer.callbackQuery(/^tz:(.+)$/, async (ctx) => {
     );
   } catch (err) {
     logger.error({ err, userId }, "Error setting timezone via callback");
+
+    const from = ctx.from;
+    const username = from?.username ? `@${from.username}` : from?.first_name ?? "N/A";
+    ctx.gatewayAPI.errorNotifier
+      ?.notify(err instanceof Error ? err : new Error(String(err)), {
+        type: "TelegramBotError: /timezone — Callback query failed",
+        user: username,
+        userMessage: ctx.callbackQuery?.data ?? "N/A",
+        updateId: ctx.update?.update_id,
+      })
+      .catch(() => {});
+
     await ctx.answerCallbackQuery({ text: "Something went wrong." });
   }
 });

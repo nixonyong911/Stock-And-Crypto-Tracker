@@ -9,6 +9,7 @@ import {
   type WatchlistRow,
 } from "../../../core/analysis/wishlist-calculator.js";
 import { formatDateWithDayAndTz, tzAbbreviation } from "../../../core/analysis/market-calendar.js";
+import { notifyError } from "../utils.js";
 
 const FREE_TIER_MAX_TICKERS = 5;
 const TICKER_CACHE_PREFIX = "wishlist:ticker:";
@@ -112,7 +113,12 @@ async function handleWishlist(ctx: TelegramBotContext) {
 
   if (!ctx.activeSession) {
     if (ctx.sessionLoadFailed) {
-      await ctx.reply("Something went wrong checking your session. Please try again.");
+      await notifyError(
+        ctx,
+        new Error("Session middleware failed to load session"),
+        "/wishlist — Session load failed",
+        "Something went wrong checking your session. Please try again.",
+      );
     } else {
       await ctx.reply("Please login first with /login.", { parse_mode: "Markdown" });
     }
@@ -235,7 +241,7 @@ async function handleWishlist(ctx: TelegramBotContext) {
     await ctx.reply(message, { parse_mode: "Markdown" });
   } catch (err) {
     logger.error({ err, userId }, "Error in /wishlist command");
-    await ctx.reply("Something went wrong. Please try again later.");
+    await notifyError(ctx, err, "/wishlist — Command failed", "Something went wrong. Please try again later.");
   }
 }
 

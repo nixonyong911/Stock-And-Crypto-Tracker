@@ -3,6 +3,7 @@ import type { TelegramBotContext } from "../bot.js";
 import { PairingService } from "../../../core/pairing/service.js";
 import { hashPhone } from "../../../core/phone/hash.js";
 import { COMMAND_MENU } from "../../commands/menu.js";
+import { notifyError } from "../utils.js";
 
 const PAIR_PAGE_URL = "https://stockandcryptotracker.com/pair";
 const PRICING_URL = "https://stockandcryptotracker.com/pricing";
@@ -239,7 +240,7 @@ composer.on("message:contact", async (ctx) => {
     }
   } catch (err) {
     ctx.gatewayAPI.logger.error({ err, userId }, "Phone verification failed");
-    await ctx.reply("Something went wrong verifying your phone. Please try again.");
+    await notifyError(ctx, err, "/start — Phone verification failed", "Something went wrong verifying your phone. Please try again.");
   }
 });
 

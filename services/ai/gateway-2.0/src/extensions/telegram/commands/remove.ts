@@ -1,5 +1,6 @@
 import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
+import { notifyError } from "../utils.js";
 
 const SYMBOL_REGEX = /^[A-Za-z0-9/\-.]+$/;
 
@@ -45,7 +46,12 @@ composer.command("remove", async (ctx) => {
 
   if (!ctx.activeSession) {
     if (ctx.sessionLoadFailed) {
-      await ctx.reply("Something went wrong checking your session. Please try again.");
+      await notifyError(
+        ctx,
+        new Error("Session middleware failed to load session"),
+        "/remove — Session load failed",
+        "Something went wrong checking your session. Please try again.",
+      );
     } else {
       await ctx.reply("Please login first with /login.", { parse_mode: "Markdown" });
     }
@@ -111,7 +117,7 @@ composer.command("remove", async (ctx) => {
     }
   } catch (err) {
     logger.error({ err, symbol: upperSymbol, userId }, "Error in /remove command");
-    await ctx.reply("Something went wrong. Please try again later.");
+    await notifyError(ctx, err, `/remove — Command failed (${upperSymbol})`, "Something went wrong. Please try again later.");
   }
 });
 

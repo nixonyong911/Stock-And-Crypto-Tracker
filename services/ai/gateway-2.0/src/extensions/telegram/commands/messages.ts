@@ -1,6 +1,6 @@
 import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
-import { splitMessage } from "../utils.js";
+import { splitMessage, notifyError } from "../utils.js";
 import { Tier } from "../../../extension/types.js";
 import type { Redis } from "ioredis";
 import type { Pool } from "pg";
@@ -221,7 +221,7 @@ composer.on("message:text", async (ctx) => {
       { err, userId },
       "Failed to check account pairing"
     );
-    await ctx.reply("⚠️ Something went wrong. Please try again.");
+    await notifyError(ctx, err, "Message — Account pairing check failed");
     return;
   }
 
@@ -235,7 +235,12 @@ composer.on("message:text", async (ctx) => {
 
   if (!ctx.activeSession) {
     if (ctx.sessionLoadFailed) {
-      await ctx.reply("Something went wrong checking your session. Please try again.");
+      await notifyError(
+        ctx,
+        new Error("Session middleware failed to load session"),
+        "Message — Session load failed",
+        "Something went wrong checking your session. Please try again.",
+      );
     } else {
       await ctx.reply(
         "🔒 **Please login first**\n\nUse /login to start a session.",
@@ -396,7 +401,7 @@ composer.on("message:text", async (ctx) => {
         await ctx.reply(reply);
       }
     } else {
-      await ctx.reply("⚠️ Something went wrong. Please try again.");
+      await notifyError(ctx, err, "Message — Processing failed");
     }
   }
 });

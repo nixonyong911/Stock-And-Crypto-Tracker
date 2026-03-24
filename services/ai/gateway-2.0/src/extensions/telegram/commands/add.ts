@@ -9,6 +9,7 @@ import {
   buildSuggestion,
   getDisplayName,
 } from "./add-utils.js";
+import { notifyError } from "../utils.js";
 
 const FREE_TIER_MAX_TICKERS = 5;
 
@@ -52,7 +53,12 @@ composer.command("add", async (ctx) => {
 
   if (!ctx.activeSession) {
     if (ctx.sessionLoadFailed) {
-      await ctx.reply("Something went wrong checking your session. Please try again.");
+      await notifyError(
+        ctx,
+        new Error("Session middleware failed to load session"),
+        "/add — Session load failed",
+        "Something went wrong checking your session. Please try again.",
+      );
     } else {
       await ctx.reply("Please login first with /login.", { parse_mode: "Markdown" });
     }
@@ -169,7 +175,7 @@ composer.command("add", async (ctx) => {
           { status: response.status, body, symbol },
           "Ticker creation API error"
         );
-        await ctx.reply("Something went wrong. Please try again later.");
+        await notifyError(ctx, new Error(`Ticker API ${response.status}: ${JSON.stringify(body)}`), `/add — Ticker creation API error (${symbol})`, "Something went wrong. Please try again later.");
         return;
       }
 
@@ -219,7 +225,7 @@ composer.command("add", async (ctx) => {
     }
   } catch (err) {
     logger.error({ err, symbol, userId }, "Error in /add command");
-    await ctx.reply("Something went wrong. Please try again later.");
+    await notifyError(ctx, err, `/add — Command failed (${symbol})`, "Something went wrong. Please try again later.");
   }
 });
 
