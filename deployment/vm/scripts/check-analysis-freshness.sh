@@ -22,7 +22,6 @@ IMAGE_NAME="stocktracker-freshness-check:latest"
 NETWORK="stocktracker_stocktracker"
 PG_CONTAINER="postgres"
 FETCHER_CONTAINER="data-fetcher-2.0"
-GATEWAY_CONTAINER="gateway-2.0"
 MIRROR_ENV="/opt/stocktracker/.env.mirror"
 
 log() { echo "[$(date)] $1"; }
@@ -50,6 +49,8 @@ done
 
 log "Starting freshness check..."
 
+# Exit code 1 = stale tables (expected), don't let set -e kill the script
+set +e
 docker run --rm \
   --network "${NETWORK}" \
   -e DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD:-}@${PG_CONTAINER}:5432/stocktracker" \
@@ -58,8 +59,9 @@ docker run --rm \
   -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}" \
   -e TELEGRAM_ERROR_CHAT_ID="${TELEGRAM_ERROR_CHAT_ID:-}" \
   "${IMAGE_NAME}"
-
 EXIT_CODE=$?
+set -e
+
 if [ "$EXIT_CODE" -eq 0 ]; then
   log "Freshness check complete — all tables OK"
 elif [ "$EXIT_CODE" -eq 1 ]; then
@@ -68,4 +70,4 @@ else
   log "ERROR: Freshness check failed with exit code ${EXIT_CODE}"
 fi
 
-exit $EXIT_CODE
+exit 0
