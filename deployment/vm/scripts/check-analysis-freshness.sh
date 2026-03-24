@@ -18,19 +18,29 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="/opt/stocktracker/.env"
 IMAGE_NAME="stocktracker-freshness-check:latest"
 NETWORK="stocktracker_stocktracker"
-CONTAINER="postgres"
+PG_CONTAINER="postgres"
+FETCHER_CONTAINER="data-fetcher-2.0"
+GATEWAY_CONTAINER="gateway-2.0"
+MIRROR_ENV="/opt/stocktracker/.env.mirror"
 
 log() { echo "[$(date)] $1"; }
 
-if [ -f "$ENV_FILE" ]; then
-  set -a
-  source "$ENV_FILE"
-  set +a
+# Telegram creds from .env.mirror (same as mirror-to-supabase.sh)
+if [ -f "$MIRROR_ENV" ]; then
+  source "$MIRROR_ENV"
 fi
+
+# Postgres password from the running postgres container
+POSTGRES_PASSWORD=$(docker inspect "${PG_CONTAINER}" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+  | grep '^POSTGRES_PASSWORD=' | head -1 | cut -d= -f2-)
+
+# Alpaca keys from the running data-fetcher container
+ALPACA_API_KEY_ID=$(docker inspect "${FETCHER_CONTAINER}" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+  | grep '^Providers__Alpaca__ApiKeyId=' | head -1 | cut -d= -f2-)
+ALPACA_API_SECRET_KEY=$(docker inspect "${FETCHER_CONTAINER}" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+  | grep '^Providers__Alpaca__ApiSecretKey=' | head -1 | cut -d= -f2-)
 
 for var in POSTGRES_PASSWORD TELEGRAM_BOT_TOKEN TELEGRAM_ERROR_CHAT_ID; do
   if [ -z "${!var:-}" ]; then
@@ -42,7 +52,7 @@ log "Starting freshness check..."
 
 docker run --rm \
   --network "${NETWORK}" \
-  -e DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD:-}@${CONTAINER}:5432/stocktracker" \
+  -e DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD:-}@${PG_CONTAINER}:5432/stocktracker" \
   -e ALPACA_API_KEY_ID="${ALPACA_API_KEY_ID:-}" \
   -e ALPACA_API_SECRET_KEY="${ALPACA_API_SECRET_KEY:-}" \
   -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}" \
