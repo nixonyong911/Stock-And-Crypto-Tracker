@@ -78,6 +78,21 @@ public static class EtoroAssetCatalog
         Add("Commodity", "OATS", 324, "Oats");
         Add("Commodity", "STEEL", 380, "Steel");
         Add("Commodity", "COAL", 379, "Coal");
+        Add("Commodity", "CARBON", 333, "Carbon Emissions");
+        Add("Commodity", "EUROOIL", 341, "Brent Crude Oil");
+        Add("Commodity", "EURNATGAS", 319, "European Natural Gas");
+        Add("Commodity", "UKNATGAS", 389, "UK Natural Gas");
+        Add("Commodity", "GASOLINE", 335, "Gasoline");
+        Add("Commodity", "HEATINGOIL", 336, "Heating Oil");
+        Add("Commodity", "GASOIL", 387, "Gas Oil");
+        Add("Commodity", "LEANHOGS", 338, "Lean Hogs");
+        Add("Commodity", "LIVECATTLE", 337, "Live Cattle");
+        Add("Commodity", "MILK", 381, "Milk");
+        Add("Commodity", "CANOLA", 422, "Canola");
+        Add("Commodity", "OJ", 311, "Orange Juice");
+        Add("Commodity", "SOYMEAL", 318, "Soybean Meal");
+        Add("Commodity", "SOYOIL", 317, "Soybean Oil");
+        Add("Commodity", "POWER", 388, "Electric Power");
 
         // ── Indices (spot instruments) ──
         Add("Index", "SPX500", 27, "S&P 500", "CME");
@@ -97,6 +112,17 @@ public static class EtoroAssetCatalog
         Add("Index", "NL25", 353, "AEX 25", "EURONEXT");
         Add("Index", "ITALY40", 321, "FTSE MIB 40", "BIT");
         Add("Index", "SWITZERLAND20", 322, "Swiss Market Index", "SIX");
+        Add("Index", "RTY", 310, "Russell 2000", "CME");
+        Add("Index", "SGX", 301, "Singapore Index", "SGX");
+        Add("Index", "SWEDEN30", 626, "OMX Stockholm 30", "OMX");
+        Add("Index", "NORWAY25", 627, "OBX 25", "OSE");
+        Add("Index", "CANADA60", 625, "S&P/TSX 60", "TSX");
+        Add("Index", "AILEADERS", 561, "AI Leaders");
+        Add("Index", "SEMIS", 560, "Semiconductors");
+        Add("Index", "CYBER", 562, "Cybersecurity");
+        Add("Index", "GOLDMINERS", 564, "Gold Miners");
+        Add("Index", "CRYPTO10", 624, "Crypto 10");
+        Add("Index", "QUANTUM", 563, "Quantum Computing");
 
         return catalog;
     }
@@ -121,6 +147,15 @@ public static class EtoroAssetCatalog
         Alias("ALUMINIUM", "Commodity", "ALUMINUM");
         Alias("WOOD", "Commodity", "LUMBER");
         Alias("IRON", "Commodity", "IRONORE");
+        Alias("BRENTOIL", "Commodity", "EUROOIL");
+        Alias("BRENT", "Commodity", "EUROOIL");
+        Alias("EUROGAS", "Commodity", "EURNATGAS");
+        Alias("UKGAS", "Commodity", "UKNATGAS");
+        Alias("RBOB", "Commodity", "GASOLINE");
+        Alias("HOGS", "Commodity", "LEANHOGS");
+        Alias("CATTLE", "Commodity", "LIVECATTLE");
+        Alias("ORANGEJUICE", "Commodity", "OJ");
+        Alias("EMISSIONS", "Commodity", "CARBON");
 
         // Index aliases
         Alias("SP500", "Index", "SPX500");
@@ -155,6 +190,18 @@ public static class EtoroAssetCatalog
         Alias("AEX", "Index", "NL25");
         Alias("MIB", "Index", "ITALY40");
         Alias("SMI", "Index", "SWITZERLAND20");
+        Alias("RUSSELL", "Index", "RTY");
+        Alias("RUSSELL2000", "Index", "RTY");
+        Alias("RUT", "Index", "RTY");
+        Alias("SINGAPORE", "Index", "SGX");
+        Alias("OMX", "Index", "SWEDEN30");
+        Alias("STOCKHOLM", "Index", "SWEDEN30");
+        Alias("OBX", "Index", "NORWAY25");
+        Alias("TSX", "Index", "CANADA60");
+        Alias("TSX60", "Index", "CANADA60");
+        Alias("SEMICONDUCTORS", "Index", "SEMIS");
+        Alias("CHIPS", "Index", "SEMIS");
+        Alias("CYBERSECURITY", "Index", "CYBER");
 
         return map;
     }

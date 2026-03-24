@@ -112,7 +112,15 @@ describe("inferAssetType", () => {
     expect(inferAssetType("Eth")).toBe("crypto");
   });
 
-  it.each(["GOLD", "SILVER", "OIL", "NATGAS", "COPPER", "WHEAT", "CORN"])(
+  it.each([
+    "GOLD", "SILVER", "OIL", "NATGAS", "COPPER", "WHEAT", "CORN",
+    "PLATINUM", "PALLADIUM", "ALUMINUM", "NICKEL", "ZINC", "LEAD",
+    "SUGAR", "COTTON", "COFFEE", "COCOA", "SOYBEANS", "IRONORE",
+    "RUBBER", "LUMBER", "RICE", "OATS", "STEEL", "COAL",
+    "CARBON", "EUROOIL", "EURNATGAS", "UKNATGAS", "GASOLINE",
+    "HEATINGOIL", "GASOIL", "LEANHOGS", "LIVECATTLE", "MILK",
+    "CANOLA", "OJ", "SOYMEAL", "SOYOIL", "POWER",
+  ])(
     "detects %s as commodity",
     (sym) => {
       expect(inferAssetType(sym)).toBe("commodity");
@@ -123,9 +131,23 @@ describe("inferAssetType", () => {
     expect(inferAssetType("XAUUSD")).toBe("commodity");
     expect(inferAssetType("CRUDE")).toBe("commodity");
     expect(inferAssetType("NATURALGAS")).toBe("commodity");
+    expect(inferAssetType("BRENT")).toBe("commodity");
+    expect(inferAssetType("HOGS")).toBe("commodity");
+    expect(inferAssetType("CATTLE")).toBe("commodity");
+    expect(inferAssetType("ORANGEJUICE")).toBe("commodity");
+    expect(inferAssetType("EMISSIONS")).toBe("commodity");
+    expect(inferAssetType("RBOB")).toBe("commodity");
+    expect(inferAssetType("IRON")).toBe("commodity");
+    expect(inferAssetType("WOOD")).toBe("commodity");
   });
 
-  it.each(["SPX500", "NSDQ100", "DJ30", "DAX", "FTSE", "NIKKEI", "NASDAQ"])(
+  it.each([
+    "SPX500", "NSDQ100", "DJ30", "DAX", "FTSE", "NIKKEI", "NASDAQ",
+    "UK100", "GER40", "FRA40", "JPN225", "AUS200", "ESP35", "HKG50",
+    "CHINA50", "EUSTX50", "NIFTY50", "USDOLLAR", "NL25", "ITALY40",
+    "SWITZERLAND20", "RTY", "SGX", "SWEDEN30", "NORWAY25", "CANADA60",
+    "AILEADERS", "SEMIS", "CYBER", "GOLDMINERS", "CRYPTO10", "QUANTUM",
+  ])(
     "detects %s as index",
     (sym) => {
       expect(inferAssetType(sym)).toBe("index");
@@ -136,6 +158,12 @@ describe("inferAssetType", () => {
     expect(inferAssetType("DOW")).toBe("index");
     expect(inferAssetType("S&P500")).toBe("index");
     expect(inferAssetType("HANGSENG")).toBe("index");
+    expect(inferAssetType("RUSSELL")).toBe("index");
+    expect(inferAssetType("DXY")).toBe("index");
+    expect(inferAssetType("TSX")).toBe("index");
+    expect(inferAssetType("SEMICONDUCTORS")).toBe("index");
+    expect(inferAssetType("IBEX")).toBe("index");
+    expect(inferAssetType("MIB")).toBe("index");
   });
 
   it("defaults to stock for unknown symbols", () => {
@@ -438,6 +466,88 @@ describe("parseAddArgs", () => {
   it("index with indices alias type", () => {
     const r = parseAddArgs("SPX500 indices");
     expect(r).toEqual({ ok: true, symbol: "SPX500", assetType: "index" });
+  });
+
+  // ── New commodities ────────────────────────────────────────────────
+  it("CARBON auto-detects as commodity", () => {
+    const r = parseAddArgs("CARBON");
+    expect(r).toEqual({ ok: true, symbol: "CARBON", assetType: "commodity" });
+  });
+
+  it("BRENT auto-detects as commodity (Brent oil)", () => {
+    const r = parseAddArgs("BRENT");
+    expect(r).toEqual({ ok: true, symbol: "EUROOIL", assetType: "commodity" });
+  });
+
+  it("HOGS alias maps to LEANHOGS commodity", () => {
+    const r = parseAddArgs("HOGS");
+    expect(r).toEqual({ ok: true, symbol: "LEANHOGS", assetType: "commodity" });
+  });
+
+  it("ORANGEJUICE alias maps to OJ commodity", () => {
+    const r = parseAddArgs("ORANGEJUICE");
+    expect(r).toEqual({ ok: true, symbol: "OJ", assetType: "commodity" });
+  });
+
+  it("NICKEL explicit commodity", () => {
+    const r = parseAddArgs("NICKEL commodity");
+    expect(r).toEqual({ ok: true, symbol: "NICKEL", assetType: "commodity" });
+  });
+
+  it("SOYBEANS auto-detects as commodity", () => {
+    const r = parseAddArgs("SOYBEANS");
+    expect(r).toEqual({ ok: true, symbol: "SOYBEANS", assetType: "commodity" });
+  });
+
+  it("IRON alias maps to IRONORE commodity", () => {
+    const r = parseAddArgs("IRON");
+    expect(r).toEqual({ ok: true, symbol: "IRONORE", assetType: "commodity" });
+  });
+
+  it("WOOD alias maps to LUMBER commodity", () => {
+    const r = parseAddArgs("WOOD");
+    expect(r).toEqual({ ok: true, symbol: "LUMBER", assetType: "commodity" });
+  });
+
+  // ── New indices ────────────────────────────────────────────────────
+  it("RUSSELL alias maps to RTY index", () => {
+    const r = parseAddArgs("RUSSELL");
+    expect(r).toEqual({ ok: true, symbol: "RTY", assetType: "index" });
+  });
+
+  it("RTY auto-detects as index", () => {
+    const r = parseAddArgs("RTY");
+    expect(r).toEqual({ ok: true, symbol: "RTY", assetType: "index" });
+  });
+
+  it("DXY alias maps to USDOLLAR index", () => {
+    const r = parseAddArgs("DXY");
+    expect(r).toEqual({ ok: true, symbol: "USDOLLAR", assetType: "index" });
+  });
+
+  it("TSX alias maps to CANADA60 index", () => {
+    const r = parseAddArgs("TSX");
+    expect(r).toEqual({ ok: true, symbol: "CANADA60", assetType: "index" });
+  });
+
+  it("SEMICONDUCTORS alias maps to SEMIS index", () => {
+    const r = parseAddArgs("SEMICONDUCTORS");
+    expect(r).toEqual({ ok: true, symbol: "SEMIS", assetType: "index" });
+  });
+
+  it("IBEX alias maps to ESP35 index", () => {
+    const r = parseAddArgs("IBEX");
+    expect(r).toEqual({ ok: true, symbol: "ESP35", assetType: "index" });
+  });
+
+  it("SWEDEN30 auto-detects as index", () => {
+    const r = parseAddArgs("SWEDEN30");
+    expect(r).toEqual({ ok: true, symbol: "SWEDEN30", assetType: "index" });
+  });
+
+  it("CRYPTO10 auto-detects as index", () => {
+    const r = parseAddArgs("CRYPTO10");
+    expect(r).toEqual({ ok: true, symbol: "CRYPTO10", assetType: "index" });
   });
 });
 
