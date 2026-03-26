@@ -4,6 +4,7 @@ import type { Redis } from "ioredis";
 import type { GatewayConfig } from "../config.js";
 import type { ExtensionRegistry } from "../extension/registry.js";
 import { detectSignals, type TickerSignal, type MacroContext } from "../core/analysis/recommendation-engine.js";
+import { broadcastDailyOverview } from "../core/analysis/daily-overview-broadcaster.js";
 import { generateExplanation } from "../core/analysis/explanation-generator.js";
 import { formatRecommendation } from "../core/analysis/digest-formatter.js";
 import { secondsUntilMidnightUTC } from "../core/analysis/wishlist-calculator.js";
@@ -112,6 +113,32 @@ export function registerRecommendationRoutes(
         return reply.send({ ok: true, ...result });
       } catch (err) {
         app.log.error({ err }, "Error checking recommendations");
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    },
+  );
+
+  app.post<{ Body: { sessionType?: "pre_market" | "post_close" } }>(
+    "/internal/trigger-overview",
+    async (request, reply) => {
+      const serviceKey = request.headers["x-service-key"] as string | undefined;
+      if (
+        !config.internalServiceKey ||
+        !serviceKey ||
+        serviceKey !== config.internalServiceKey
+      ) {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+
+      try {
+        const sessionType = request.body?.sessionType ?? "post_close";
+        const result = await broadcastDailyOverview(
+          { db, redis, extensions, log: app.log },
+          sessionType,
+        );
+        return reply.send({ ok: true, ...result });
+      } catch (err) {
+        app.log.error({ err }, "Error triggering daily overview");
         return reply.status(500).send({ error: "Internal server error" });
       }
     },
