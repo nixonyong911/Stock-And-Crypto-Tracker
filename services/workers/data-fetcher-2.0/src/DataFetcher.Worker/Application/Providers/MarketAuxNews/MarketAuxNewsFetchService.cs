@@ -11,13 +11,13 @@ public class MarketAuxNewsFetchService : IMarketAuxNewsFetchService
 
     private static readonly Dictionary<string, string> SearchQueries = new()
     {
-        ["macro"] = "fed rate OR fomc OR inflation OR cpi OR gdp OR unemployment",
-        ["geopolitical"] = "tariff OR trade war OR sanctions OR war OR conflict",
-        ["policy"] = "trump OR executive order OR regulation OR legislation",
+        ["macro"] = "fed rate OR fomc OR inflation OR cpi OR gdp OR unemployment OR interest rate OR treasury yield OR jobs report OR nonfarm OR consumer confidence OR retail sales OR housing starts",
+        ["geopolitical"] = "tariff OR trade war OR sanctions OR war OR conflict OR oil supply OR energy crisis OR commodity shock",
+        ["policy"] = "trump OR executive order OR regulation OR legislation OR sec OR antitrust OR tax reform",
     };
 
     private const string MarketEntityType = "index";
-    private const int FocusedQueryMaxPages = 5;
+    private const int FocusedQueryMaxPages = 8;
     private const int FreetierPageLimit = 3;
 
     public MarketAuxNewsFetchService(

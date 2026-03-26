@@ -10,6 +10,7 @@ import { createPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
 import { createServer } from "./server.js";
 import { startPipelineConsumer } from "./core/pipeline-consumer.js";
+import { startDigestScheduler } from "./core/analysis/digest-scheduler.js";
 import type { FastifyInstance } from "fastify";
 import type { ErrorNotifier } from "./core/error-notifier.js";
 
@@ -57,6 +58,7 @@ async function main(): Promise<void> {
   let app: FastifyInstance | undefined;
   let errorNotifier: ErrorNotifier | undefined;
   let closePipelineConsumer: (() => Promise<void>) | undefined;
+  let stopDigestScheduler: (() => void) | undefined;
 
   try {
     const result = await createServer({ config, db, redis });
@@ -73,6 +75,14 @@ async function main(): Promise<void> {
       log: app.log,
     });
     closePipelineConsumer = consumer.close;
+
+    const digestScheduler = startDigestScheduler({
+      db: result.pool,
+      redis: redis.redis,
+      extensions: result.extensions,
+      log: app.log,
+    });
+    stopDigestScheduler = digestScheduler.stop;
   } catch (err) {
     const logger = app?.log ?? bootstrapLogger;
     logger.fatal({ err }, "Failed to start server");
@@ -95,6 +105,12 @@ async function main(): Promise<void> {
   // ---- Graceful shutdown ----
   const shutdown = async (signal: string): Promise<void> => {
     app!.log.info({ signal }, "Received shutdown signal");
+
+    try {
+      stopDigestScheduler?.();
+    } catch (err) {
+      app!.log.error({ err }, "Error stopping digest scheduler");
+    }
 
     try {
       await closePipelineConsumer?.();

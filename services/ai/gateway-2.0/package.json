@@ -19,6 +19,7 @@
     "grammy": "^1",
     "heap-js": "^2",
     "ioredis": "^5",
+    "node-cron": "^4.2.1",
     "p-limit": "^6",
     "pg": "^8",
     "uuid": "^11"
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
     "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
     "@types/pg": "^8",
     "@types/uuid": "^10",
     "@types/ws": "^8.18.1",

@@ -26,6 +26,7 @@ import wishlistComposer from "./commands/wishlist.js";
 import subscribeComposer from "./commands/subscribe.js";
 import alertComposer from "./commands/alert.js";
 import timezoneComposer from "./commands/timezone.js";
+import digestComposer from "./commands/digest.js";
 import messagesComposer from "./commands/messages.js";
 
 export function createTelegramExtension(): IChannelExtension {
@@ -114,6 +115,7 @@ export function createTelegramExtension(): IChannelExtension {
       bot.use(subscribeComposer);
       bot.use(alertComposer);
       bot.use(timezoneComposer);
+      bot.use(digestComposer);
       bot.use(messagesComposer);
 
       // Error handler — always attempt to notify the user

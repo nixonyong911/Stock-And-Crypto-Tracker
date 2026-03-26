@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import type { GatewayConfig } from "../config.js";
 import type { ExtensionRegistry } from "../extension/registry.js";
-import { detectSignals, type TickerSignal } from "../core/analysis/recommendation-engine.js";
+import { detectSignals, type TickerSignal, type MacroContext } from "../core/analysis/recommendation-engine.js";
 import { generateExplanation } from "../core/analysis/explanation-generator.js";
 import { formatRecommendation } from "../core/analysis/digest-formatter.js";
 import { secondsUntilMidnightUTC } from "../core/analysis/wishlist-calculator.js";
@@ -37,7 +37,7 @@ export async function processRecommendations(
   let totalSent = 0;
 
   for (const type of types) {
-    const signals = await detectSignals(db, type);
+    const { signals, macroContext } = await detectSignals(db, type);
     if (signals.length === 0) continue;
 
     log.info(
@@ -68,6 +68,7 @@ export async function processRecommendations(
         extensions,
         symbol,
         tickerSignals,
+        macroContext,
       );
       totalSent += sent;
     }
@@ -143,6 +144,7 @@ async function fanOutToWatchers(
   extensions: ExtensionRegistry,
   symbol: string,
   signals: TickerSignal[],
+  macroContext: MacroContext,
 ): Promise<number> {
   const watchers = await db.query<{
     clerk_user_id: string;
@@ -163,7 +165,7 @@ async function fanOutToWatchers(
   const telegram = extensions.get("telegram");
   if (!telegram) return 0;
 
-  const explanation = await generateExplanation(signals, log, redis);
+  const explanation = await generateExplanation(signals, log, redis, macroContext);
   const primary = signals[0]!;
   const message = formatRecommendation(
     primary.symbol,

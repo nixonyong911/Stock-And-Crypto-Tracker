@@ -204,12 +204,13 @@ composer.command("add", async (ctx) => {
 
       try {
         const signalAssetType = assetType === "crypto" ? "crypto" as const : "stock" as const;
-        const signals = await detectSignalsForTicker(db, symbol, signalAssetType);
+        const { signals, macroContext } = await detectSignalsForTicker(db, symbol, signalAssetType);
         if (signals.length > 0) {
           const explanation = await generateExplanation(
             signals,
             logger,
             ctx.gatewayAPI.redis,
+            macroContext,
           );
           const primary = signals[0]!;
           const message = formatRecommendation(

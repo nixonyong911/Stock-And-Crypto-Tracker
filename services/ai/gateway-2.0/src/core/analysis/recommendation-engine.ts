@@ -293,6 +293,63 @@ async function fetchNewsHeadlines(
   return headlineMap;
 }
 
+// ── Macro context ────────────────────────────────────────────────────
+
+export interface MacroContext {
+  headlines: string[];
+  dominantTheme: string | null;
+  overallSentiment: number;
+}
+
+export async function fetchMacroContext(db: Pool): Promise<MacroContext> {
+  const { rows } = await db.query<{
+    title: string;
+    search_category: string;
+    avg_sentiment_score: string | null;
+  }>(
+    `SELECT title, search_category, avg_sentiment_score::text
+     FROM analysis_news_marketaux
+     WHERE published_at >= NOW() - INTERVAL '24 hours'
+       AND search_category IN ('macro', 'geopolitical', 'policy')
+     ORDER BY published_at DESC
+     LIMIT 10`,
+  );
+
+  if (rows.length === 0) {
+    return { headlines: [], dominantTheme: null, overallSentiment: 0 };
+  }
+
+  const headlines = rows.map((r) => r.title);
+
+  const categoryCounts = new Map<string, number>();
+  let sentimentSum = 0;
+  let sentimentCount = 0;
+
+  for (const r of rows) {
+    categoryCounts.set(r.search_category, (categoryCounts.get(r.search_category) ?? 0) + 1);
+    const s = toNum(r.avg_sentiment_score);
+    if (s != null) {
+      sentimentSum += s;
+      sentimentCount++;
+    }
+  }
+
+  let dominantTheme: string | null = null;
+  let maxCount = 0;
+  for (const [cat, count] of categoryCounts) {
+    if (count > maxCount) {
+      maxCount = count;
+      dominantTheme = cat;
+    }
+  }
+
+  return {
+    headlines,
+    dominantTheme,
+    overallSentiment: sentimentCount > 0 ? sentimentSum / sentimentCount : 0,
+  };
+}
+
 // ── Context assembly ────────────────────────────────────────────────────
 
 export interface TickerCtx {
@@ -590,14 +647,20 @@ function detectNewsSentimentSignals(
   return signals;
 }
 
+export interface DetectSignalsResult {
+  signals: TickerSignal[];
+  macroContext: MacroContext;
+}
+
 export async function detectSignals(
   db: Pool,
   assetType: "stock" | "crypto",
-): Promise<TickerSignal[]> {
-  const [targets, indicators, candles] = await Promise.all([
+): Promise<DetectSignalsResult> {
+  const [targets, indicators, candles, macroContext] = await Promise.all([
     fetchPriceTargets(db, assetType),
     fetchIndicators(db, assetType),
     fetchCandlesticks(db, assetType),
+    fetchMacroContext(db).catch(() => ({ headlines: [], dominantTheme: null, overallSentiment: 0 }) as MacroContext),
   ]);
 
   let newsRows: NewsSentimentRow[] = [];
@@ -615,18 +678,19 @@ export async function detectSignals(
 
   const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap);
 
-  return [...technicalSignals, ...newsSignals];
+  return { signals: [...technicalSignals, ...newsSignals], macroContext };
 }
 
 export async function detectSignalsForTicker(
   db: Pool,
   symbol: string,
   assetType: "stock" | "crypto",
-): Promise<TickerSignal[]> {
-  const [targets, indicators, candles] = await Promise.all([
+): Promise<DetectSignalsResult> {
+  const [targets, indicators, candles, macroContext] = await Promise.all([
     fetchPriceTargets(db, assetType, symbol),
     fetchIndicators(db, assetType, symbol),
     fetchCandlesticks(db, assetType, symbol),
+    fetchMacroContext(db).catch(() => ({ headlines: [], dominantTheme: null, overallSentiment: 0 }) as MacroContext),
   ]);
 
   let newsRows: NewsSentimentRow[] = [];
@@ -644,5 +708,5 @@ export async function detectSignalsForTicker(
 
   const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap);
 
-  return [...technicalSignals, ...newsSignals];
+  return { signals: [...technicalSignals, ...newsSignals], macroContext };
 }

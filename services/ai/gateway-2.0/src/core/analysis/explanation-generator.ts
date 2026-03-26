@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import type { FastifyBaseLogger } from "fastify";
 import type { Redis } from "ioredis";
-import type { TickerSignal } from "./recommendation-engine.js";
+import type { TickerSignal, MacroContext } from "./recommendation-engine.js";
 
 export interface Explanation {
   whatsHappening: string;
@@ -249,10 +249,16 @@ export function templateForSignal(s: TickerSignal): Explanation {
   };
 }
 
-export function stackTemplates(signals: TickerSignal[]): Explanation {
+export function stackTemplates(signals: TickerSignal[], macroContext?: MacroContext): Explanation {
   const whats = signals.map(buildWhatsHappening);
   const watches = signals.map(buildWhatToWatch);
   const first = signals[0]!;
+
+  if (macroContext && macroContext.headlines.length > 0) {
+    const theme = macroContext.dominantTheme ?? "mixed";
+    const sentiment = macroContext.overallSentiment >= 0.2 ? "positive" : macroContext.overallSentiment <= -0.2 ? "negative" : "cautious";
+    whats.push(`Broader macro backdrop is ${sentiment}, dominated by ${theme} developments.`);
+  }
 
   return {
     whatsHappening: whats.join(" "),
@@ -270,6 +276,7 @@ async function tryLlmSynthesis(
   signals: TickerSignal[],
   logger: FastifyBaseLogger,
   redis: Redis,
+  macroContext?: MacroContext,
 ): Promise<Explanation | null> {
   const key = todayKey();
   const count = await redis.incr(key);
@@ -297,12 +304,18 @@ async function tryLlmSynthesis(
     newsContext = `\n\nRecent news headlines for ${sym}:\n${unique.map((h) => `- ${h}`).join("\n")}\nConsider how this news may impact the technical setup described above.`;
   }
 
+  let macroSection = "";
+  if (macroContext && macroContext.headlines.length > 0) {
+    const macroHeadlines = macroContext.headlines.slice(0, 5);
+    macroSection = `\n\nBroader market context (macro/geopolitical/policy news from the last 24h):\n${macroHeadlines.map((h) => `- ${h}`).join("\n")}\nOverall macro sentiment: ${macroContext.overallSentiment.toFixed(2)} (${macroContext.dominantTheme ?? "mixed"} theme)\nConsider how these macro factors may affect ${sym}'s outlook.`;
+  }
+
   const prompt = `You are a stock analyst writing a brief for a retail investor.
 Given this data for ${sym}, write two short paragraphs:
 1. "What's happening" -- plain English, reference the data
 2. "What to watch" -- what confirms and what invalidates
 
-Data: ${JSON.stringify(signalData)}${newsContext}
+Data: ${JSON.stringify(signalData)}${newsContext}${macroSection}
 
 Tone: cautious, data-driven. Use "appears to", "suggests", "historically". Never say BUY or SELL.
 Return ONLY the two paragraphs, no headers.`;
@@ -380,6 +393,7 @@ export async function generateExplanation(
   signals: TickerSignal[],
   logger: FastifyBaseLogger,
   redis: Redis,
+  macroContext?: MacroContext,
 ): Promise<Explanation> {
   if (signals.length === 0) {
     return {
@@ -396,8 +410,8 @@ export async function generateExplanation(
     return templateForSignal(signals[0]!);
   }
 
-  const llmResult = await tryLlmSynthesis(signals, logger, redis);
+  const llmResult = await tryLlmSynthesis(signals, logger, redis, macroContext);
   if (llmResult) return llmResult;
 
-  return stackTemplates(signals);
+  return stackTemplates(signals, macroContext);
 }
