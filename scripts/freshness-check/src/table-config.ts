@@ -97,4 +97,13 @@ export const TABLE_CHECKS: readonly TableCheck[] = [
     skipRule: "never",
     label: "news_marketaux",
   },
+
+  // 8-hour cycle — GNews headlines (always-on, 12h delay on free tier)
+  {
+    table: "analysis_news_gnews",
+    column: "created_at",
+    thresholdHours: 18,
+    skipRule: "never",
+    label: "news_gnews",
+  },
 ] as const;
