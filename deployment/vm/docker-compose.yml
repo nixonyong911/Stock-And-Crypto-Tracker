@@ -401,6 +401,7 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-https://stockandcryptotracker.com}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
       - RABBITMQ_URL=amqp://stocktracker:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      - OVERVIEW_ALLOWED_USERS=${OVERVIEW_ALLOWED_USERS:-}
     volumes:
       # cursor-agent CLI: mount the entire versions dir (contains node binary + JS chunks)
       # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing

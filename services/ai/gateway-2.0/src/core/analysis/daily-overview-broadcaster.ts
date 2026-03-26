@@ -10,6 +10,10 @@ import {
 } from "./market-overview.js";
 
 const SEND_DELAY_MS = 50;
+const ALLOWED_USERS = (process.env["OVERVIEW_ALLOWED_USERS"] ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 export interface BroadcastDeps {
   db: Pool;
@@ -53,11 +57,15 @@ export async function broadcastDailyOverview(
     return { sent: 0, skipped: 0, errors: 0 };
   }
 
-  const synthesis = await synthesizeOverview(snapshot, redis, log);
+  const synthesis = await synthesizeOverview(snapshot, db, redis, log);
 
   const message = sessionType === "pre_market"
     ? formatMorningBrief(snapshot, synthesis)
     : formatEveningRecap(snapshot, synthesis);
+
+  const allowlistClause = ALLOWED_USERS.length > 0
+    ? `AND ca.clerk_user_id IN (${ALLOWED_USERS.map((_, i) => `$${i + 1}`).join(", ")})`
+    : "";
 
   const recipients = await db.query<{
     clerk_user_id: string;
@@ -72,7 +80,9 @@ export async function broadcastDailyOverview(
      LEFT JOIN user_digest_preferences dp
        ON dp.clerk_user_id = ca.clerk_user_id
      WHERE ca.channel_type = 'telegram'
-       AND COALESCE(dp.daily_overview_enabled, true) = true`,
+       AND COALESCE(dp.daily_overview_enabled, true) = true
+       ${allowlistClause}`,
+    ALLOWED_USERS.length > 0 ? ALLOWED_USERS : undefined,
   );
 
   log.info(

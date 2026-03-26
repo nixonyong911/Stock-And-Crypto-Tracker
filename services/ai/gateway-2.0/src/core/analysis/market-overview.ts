@@ -28,6 +28,19 @@ export interface NewsItem {
   category: string;
 }
 
+interface PriorOverview {
+  date: string;
+  sessionType: string;
+  narrative: string;
+}
+
+interface PricePoint {
+  symbol: string;
+  name: string;
+  date: string;
+  close: number;
+}
+
 export interface MarketSnapshot {
   timestamp: Date;
   sessionType: "pre_market" | "post_close";
@@ -67,8 +80,20 @@ const YIELD_SERIES = [
   { seriesId: "DGS2", displayName: "2Y" },
 ];
 
-const LLM_TIMEOUT_MS = 45_000;
+const TRAJECTORY_SYMBOLS = ["SPX500", "OIL"];
+const TRAJECTORY_CRYPTO = ["BTC/USD", "ETH/USD"];
+const TRAJECTORY_NAMES: Record<string, string> = {
+  SPX500: "S&P 500",
+  OIL: "Oil (WTI)",
+  "BTC/USD": "BTC",
+  "ETH/USD": "ETH",
+};
+
+const LLM_TIMEOUT_MS = 60_000;
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]/g;
+const MAX_PRIOR_NARRATIVE_CHARS = 300;
+const MAX_HISTORY_TOTAL_CHARS = 2000;
+const HISTORY_DAYS = 7;
 
 // ── Data fetching ─────────────────────────────────────────────────────
 
@@ -237,6 +262,169 @@ async function fetchTopNews(db: Pool, limit = 15): Promise<NewsItem[]> {
   }));
 }
 
+// ── Memory: prior overviews ──────────────────────────────────────────
+
+async function fetchPriorOverviews(db: Pool, days: number = HISTORY_DAYS): Promise<PriorOverview[]> {
+  const { rows } = await db.query<{
+    sent_date: string;
+    headline: string;
+    message_body: string;
+  }>(
+    `SELECT DISTINCT ON (sent_at::date, headline)
+       sent_at::date::text AS sent_date,
+       headline,
+       message_body
+     FROM user_recommendation_log
+     WHERE recommendation_type = 'daily_overview'
+       AND sent_at >= NOW() - make_interval(days => $1)
+     ORDER BY sent_at::date DESC, headline, sent_at DESC`,
+    [days],
+  );
+
+  return rows.map((r) => ({
+    date: r.sent_date,
+    sessionType: r.headline.includes("Morning") ? "pre_market" : "post_close",
+    narrative: truncateToSentence(extractNarrative(r.message_body), MAX_PRIOR_NARRATIVE_CHARS),
+  }));
+}
+
+function extractNarrative(messageBody: string): string {
+  const lines = messageBody.split("\n");
+  const narrativeLines: string[] = [];
+  let collecting = false;
+
+  for (const line of lines) {
+    if (line.startsWith("*") && (line.includes("Brief") || line.includes("Recap"))) {
+      collecting = true;
+      continue;
+    }
+    if (collecting && line.startsWith("*") && line.endsWith("*")) break;
+    if (collecting && line.trim()) narrativeLines.push(line.trim());
+  }
+
+  return narrativeLines.join(" ") || messageBody.slice(0, MAX_PRIOR_NARRATIVE_CHARS);
+}
+
+function truncateToSentence(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  const truncated = text.slice(0, maxLen);
+  const lastPeriod = truncated.lastIndexOf(".");
+  if (lastPeriod > maxLen * 0.5) return truncated.slice(0, lastPeriod + 1);
+  return truncated + "...";
+}
+
+// ── Memory: price trajectory ─────────────────────────────────────────
+
+async function fetchStockPriceTrajectory(db: Pool, symbols: string[], days: number): Promise<PricePoint[]> {
+  if (symbols.length === 0) return [];
+  const placeholders = symbols.map((_, i) => `$${i + 1}`).join(", ");
+  const { rows } = await db.query<{
+    symbol: string;
+    price_date: string;
+    close_price: string;
+  }>(
+    `WITH ranked AS (
+       SELECT t.symbol,
+              sp.close_price,
+              sp.price_time::date AS price_date,
+              ROW_NUMBER() OVER (PARTITION BY t.symbol, sp.price_time::date ORDER BY sp.price_time DESC) AS rn
+       FROM stock_tickers t
+       JOIN stock_prices sp ON sp.stock_ticker_id = t.id
+       WHERE UPPER(t.symbol) IN (${placeholders})
+         AND sp.price_time >= NOW() - make_interval(days => $${symbols.length + 1})
+     )
+     SELECT symbol, price_date::text, close_price::text
+     FROM ranked WHERE rn = 1
+     ORDER BY symbol, price_date`,
+    [...symbols.map((s) => s.toUpperCase()), days],
+  );
+
+  return rows.map((r) => ({
+    symbol: r.symbol,
+    name: TRAJECTORY_NAMES[r.symbol] ?? r.symbol,
+    date: r.price_date,
+    close: Number(r.close_price),
+  }));
+}
+
+async function fetchCryptoPriceTrajectory(db: Pool, symbols: string[], days: number): Promise<PricePoint[]> {
+  if (symbols.length === 0) return [];
+  const placeholders = symbols.map((_, i) => `$${i + 1}`).join(", ");
+  const { rows } = await db.query<{
+    symbol: string;
+    price_date: string;
+    close_price: string;
+  }>(
+    `WITH ranked AS (
+       SELECT t.symbol,
+              cp.close_price,
+              cp.price_time::date AS price_date,
+              ROW_NUMBER() OVER (PARTITION BY t.symbol, cp.price_time::date ORDER BY cp.price_time DESC) AS rn
+       FROM crypto_tickers t
+       JOIN crypto_prices cp ON cp.crypto_ticker_id = t.id
+       WHERE UPPER(t.symbol) IN (${placeholders})
+         AND cp.price_time >= NOW() - make_interval(days => $${symbols.length + 1})
+     )
+     SELECT symbol, price_date::text, close_price::text
+     FROM ranked WHERE rn = 1
+     ORDER BY symbol, price_date`,
+    [...symbols.map((s) => s.toUpperCase()), days],
+  );
+
+  return rows.map((r) => ({
+    symbol: r.symbol,
+    name: TRAJECTORY_NAMES[r.symbol] ?? r.symbol,
+    date: r.price_date,
+    close: Number(r.close_price),
+  }));
+}
+
+function buildPriceTrajectoryText(stockPoints: PricePoint[], cryptoPoints: PricePoint[]): string {
+  const allPoints = [...stockPoints, ...cryptoPoints];
+  const bySymbol = new Map<string, PricePoint[]>();
+  for (const p of allPoints) {
+    const arr = bySymbol.get(p.symbol) ?? [];
+    arr.push(p);
+    bySymbol.set(p.symbol, arr);
+  }
+
+  const lines: string[] = [];
+  for (const [, points] of bySymbol) {
+    if (points.length === 0) continue;
+    const name = points[0]!.name;
+    const trajectory = points
+      .map((p) => {
+        const d = new Date(p.date);
+        const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return `${label}: $${fmtPrice(p.close)}`;
+      })
+      .join(" -> ");
+    lines.push(`${name}: ${trajectory}`);
+  }
+
+  return lines.join("\n");
+}
+
+function buildMemoryContext(priorOverviews: PriorOverview[]): string {
+  if (priorOverviews.length === 0) return "";
+
+  let totalChars = 0;
+  const entries: string[] = [];
+
+  for (const po of priorOverviews) {
+    const d = new Date(po.date);
+    const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    const sessionLabel = po.sessionType === "pre_market" ? "morning" : "evening";
+    const entry = `[${label} ${sessionLabel}]: ${po.narrative}`;
+
+    if (totalChars + entry.length > MAX_HISTORY_TOTAL_CHARS) break;
+    entries.push(entry);
+    totalChars += entry.length;
+  }
+
+  return entries.join("\n");
+}
+
 // ── Snapshot builder ──────────────────────────────────────────────────
 
 export async function buildMarketSnapshot(
@@ -309,6 +497,7 @@ function buildSnapshotSummary(snapshot: MarketSnapshot): string {
 
 export async function synthesizeOverview(
   snapshot: MarketSnapshot,
+  db: Pool,
   redis: Redis,
   log: FastifyBaseLogger,
 ): Promise<{ narrative: string; topStories: string[] } | null> {
@@ -324,32 +513,64 @@ export async function synthesizeOverview(
   const dataSummary = buildSnapshotSummary(snapshot);
   if (!dataSummary) return null;
 
-  const sessionLabel = snapshot.sessionType === "pre_market"
-    ? "pre-market morning brief"
-    : "post-close evening recap";
+  const [priorOverviews, stockTrajectory, cryptoTrajectory] = await Promise.all([
+    fetchPriorOverviews(db).catch(() => [] as PriorOverview[]),
+    fetchStockPriceTrajectory(db, TRAJECTORY_SYMBOLS, HISTORY_DAYS).catch(() => [] as PricePoint[]),
+    fetchCryptoPriceTrajectory(db, TRAJECTORY_CRYPTO, HISTORY_DAYS).catch(() => [] as PricePoint[]),
+  ]);
 
-  const sessionInstruction = snapshot.sessionType === "pre_market"
-    ? "Summarize overnight developments and what US stock traders should watch today. Focus on how macro and geopolitical events may impact US equities."
-    : "Summarize today's US market session. Explain what drove the key moves and what it means for tomorrow's session.";
+  const memoryContext = buildMemoryContext(priorOverviews);
+  const trajectoryText = buildPriceTrajectoryText(stockTrajectory, cryptoTrajectory);
 
-  const prompt = `You are a market analyst writing a concise daily ${sessionLabel} for retail investors focused on US stocks.
+  const memorySection = memoryContext
+    ? `
+YOUR PRIOR OVERVIEWS (last 7 days):
+${memoryContext}
 
-${sessionInstruction}
+ACTUAL PRICE TRAJECTORY THIS WEEK (ground truth — use to verify your prior claims):
+${trajectoryText || "No trajectory data available."}
 
-Market data:
+RULES FOR REFERENCING PRIOR OVERVIEWS:
+- ONLY reference a prior claim if the ACTUAL PRICE TRAJECTORY above confirms it played out.
+  Example: You said "oil expected to rise" and oil DID rise -> OK to say "As noted on Tuesday, oil has continued its climb..."
+- NEVER reference a prior claim that the price data contradicts.
+  Example: You said "BTC appears poised to recover" but BTC fell further -> Do NOT mention it.
+- Use natural phrasing: "As noted earlier this week...", "Following up on Tuesday's observation..."
+- Do NOT fabricate memory. If the prior overviews don't contain a relevant claim, don't invent one.
+- Keep references brief (1 sentence max per reference). The focus should be on TODAY's data.
+`
+    : "";
+
+  const prompt = `You are a professional market analyst writing a concise daily market overview for retail investors focused on US stocks. Write in the style of Bloomberg or Reuters — professional, data-driven, authoritative — but use plain language that retail investors can easily understand. Avoid jargon and overly theoretical terminology.
+
+TODAY'S MARKET DATA:
 ${dataSummary}
+${memorySection}
+FORMAT YOUR RESPONSE EXACTLY AS:
 
-Format your response as:
 NARRATIVE:
-[2-3 paragraphs of market narrative, plain English, data-driven]
+[2-3 paragraphs covering:
+- What happened in the market today and why (reference specific numbers)
+- Which sectors outperformed or underperformed and the likely drivers
+- Bond/yield moves explained in plain terms (e.g. "10-year Treasury yield fell 5 basis points to 4.34%, suggesting investors moved toward safety")
+- Brief mention of crypto only if move is significant (>3%), otherwise just note it in the data
+- A sentence on overall market sentiment (risk-on/risk-off, fear/caution/optimism)]
+
+OUTLOOK:
+[1 paragraph: state likely scenarios for the next session with caveats. Moderate boldness — not hedged into meaninglessness, but not reckless. Use "likely", "appears set to", "the key risk is".]
+
 TOP_STORIES:
-- [story 1]
+- [story 1 — mix of macro/geo and stock-specific, whatever is most market-moving]
 - [story 2]
 - [story 3]
 - [story 4]
 - [story 5]
 
-Tone: professional, concise, data-driven. Reference specific numbers. Never say BUY or SELL. Use "suggests", "indicates", "appears to".`;
+RULES:
+- Never say BUY or SELL. Use "suggests", "indicates", "appears to".
+- Reference specific numbers (prices, percentages, basis points).
+- No emojis. Minimal formatting. Clean prose.
+- Keep total response under 350 words.`;
 
   const args = ["cursor-agent", "-p", prompt, "--model", "claude-4.6-sonnet-medium", "--trust"];
   const apiKey = process.env["CURSOR_API_KEY"];
@@ -395,10 +616,15 @@ Tone: professional, concise, data-driven. Reference specific numbers. Never say 
       });
     });
 
-    const narrativeMatch = output.match(/NARRATIVE:\s*([\s\S]*?)(?=TOP_STORIES:|$)/i);
+    const narrativeMatch = output.match(/NARRATIVE:\s*([\s\S]*?)(?=OUTLOOK:|TOP_STORIES:|$)/i);
+    const outlookMatch = output.match(/OUTLOOK:\s*([\s\S]*?)(?=TOP_STORIES:|$)/i);
     const storiesMatch = output.match(/TOP_STORIES:\s*([\s\S]*)/i);
 
-    const narrative = narrativeMatch?.[1]?.trim() ?? output;
+    const narrative = [
+      narrativeMatch?.[1]?.trim() ?? output,
+      outlookMatch?.[1]?.trim(),
+    ].filter(Boolean).join("\n\n");
+
     const topStories = storiesMatch?.[1]
       ?.split("\n")
       .map((l) => l.replace(/^-\s*/, "").trim())
