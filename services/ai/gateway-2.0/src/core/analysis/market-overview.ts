@@ -49,17 +49,15 @@ const INDEX_NAMES: Record<string, string> = {
   RTY: "Russell 2000",
 };
 
-const COMMODITY_SYMBOLS = ["GOLD", "SILVER", "OIL"];
+const COMMODITY_SYMBOLS = ["OIL"];
 const COMMODITY_NAMES: Record<string, string> = {
-  GOLD: "Gold",
-  SILVER: "Silver",
   OIL: "Oil (WTI)",
 };
 
-const CRYPTO_SYMBOLS = ["BTC", "ETH"];
+const CRYPTO_SYMBOLS = ["BTC/USD", "ETH/USD"];
 const CRYPTO_NAMES: Record<string, string> = {
-  BTC: "Bitcoin",
-  ETH: "Ethereum",
+  "BTC/USD": "BTC",
+  "ETH/USD": "ETH",
 };
 
 const DXY_SYMBOL = "USDOLLAR";
