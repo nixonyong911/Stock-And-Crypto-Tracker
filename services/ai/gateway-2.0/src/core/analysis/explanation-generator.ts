@@ -320,7 +320,7 @@ Data: ${JSON.stringify(signalData)}${newsContext}${macroSection}
 Tone: cautious, data-driven. Use "appears to", "suggests", "historically". Never say BUY or SELL.
 Return ONLY the two paragraphs, no headers.`;
 
-  const args = ["cursor-agent", "-p", prompt, "--model", "sonnet-4.6"];
+  const args = ["cursor-agent", "-p", prompt, "--model", "claude-4.6-sonnet-medium", "--trust"];
   const apiKey = process.env["CURSOR_API_KEY"];
   if (apiKey) args.push("--api-key", apiKey);
 

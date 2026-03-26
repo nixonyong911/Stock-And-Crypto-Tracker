@@ -351,7 +351,7 @@ TOP_STORIES:
 
 Tone: professional, concise, data-driven. Reference specific numbers. Never say BUY or SELL. Use "suggests", "indicates", "appears to".`;
 
-  const args = ["cursor-agent", "-p", prompt, "--model", "sonnet-4.6"];
+  const args = ["cursor-agent", "-p", prompt, "--model", "claude-4.6-sonnet-medium", "--trust"];
   const apiKey = process.env["CURSOR_API_KEY"];
   if (apiKey) args.push("--api-key", apiKey);
 
