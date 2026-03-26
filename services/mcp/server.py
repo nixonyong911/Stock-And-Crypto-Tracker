@@ -72,7 +72,7 @@ from tools.screener import screen_stocks
 from tools.fundamentals import compare_stocks
 from tools.economic import get_macro_environment
 from tools.earnings import get_earnings_history, get_market_earnings
-from tools.news import get_news_sentiment
+from tools.news import get_news_sentiment, get_news_headlines
 from tools.advanced_indicators import get_advanced_signals, get_advanced_custom
 from tools.confluence import get_confluence_score
 from tools.db_admin import (
@@ -267,6 +267,21 @@ class NewsSentimentInput(BaseModel):
     def validate_sentiment(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in ("positive", "negative", "neutral"):
             raise ValueError(f"sentiment must be 'positive', 'negative', or 'neutral', got '{v}'")
+        return v
+
+
+class NewsHeadlinesInput(BaseModel):
+    """Input for combined news headlines (MarketAux + GNews)."""
+    days_back: int = Field(default=3, description="Number of days to look back", ge=1, le=30)
+    category: Optional[str] = Field(None, description="Category filter: 'general', 'world', 'business', 'macro', 'geopolitical', 'policy', 'market'")
+    source: Optional[str] = Field(None, description="Source API filter: 'marketaux', 'gnews'. Omit for both.")
+    limit: int = Field(default=20, description="Maximum articles to return", ge=1, le=50)
+
+    @field_validator('source')
+    @classmethod
+    def validate_source(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ("marketaux", "gnews"):
+            raise ValueError(f"source must be 'marketaux' or 'gnews', got '{v}'")
         return v
 
 
@@ -558,6 +573,26 @@ def _register_news_sentiment(app: FastMCP) -> None:
         )
 
 
+def _register_news_headlines(app: FastMCP) -> None:
+    @app.tool(
+        name="analysis_news_headlines",
+        annotations={"title": "News Headlines", **_RO_ANNOTATIONS},
+    )
+    async def analysis_news_headlines(params: NewsHeadlinesInput, conn=Depends(get_db)) -> str:
+        """
+        Combined news headlines from MarketAux and GNews.
+
+        Returns recent headlines across all sources: global/world/business news from
+        GNews and market-moving financial news from MarketAux. Use the source filter
+        to narrow to one provider, or category to focus on a topic.
+        """
+        return await get_news_headlines(
+            conn=conn, days_back=params.days_back,
+            category=params.category, source=params.source,
+            limit=params.limit,
+        )
+
+
 def _register_earnings_history(app: FastMCP) -> None:
     @app.tool(
         name="analysis_earnings_history",
@@ -736,6 +771,7 @@ _TOOL_REGISTRY: dict[str, ToolEntry] = {
     "analysis_market_earnings":   ToolEntry(fn=_register_market_earnings,   min_tier="free"),
     "analysis_earnings_history":  ToolEntry(fn=_register_earnings_history,  min_tier="free"),
     "analysis_news_sentiment":    ToolEntry(fn=_register_news_sentiment,    min_tier="free"),
+    "analysis_news_headlines":    ToolEntry(fn=_register_news_headlines,    min_tier="free"),
     # Advanced analysis tools (pro tier)
     "analysis_advanced_signals":  ToolEntry(fn=_register_advanced_signals,  min_tier="pro"),
     "analysis_advanced_custom":   ToolEntry(fn=_register_advanced_custom,   min_tier="pro"),

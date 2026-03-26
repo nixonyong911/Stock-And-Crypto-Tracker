@@ -39,13 +39,17 @@ using DataFetcher.Worker.Application.Providers.Pipeline;
 using DataFetcher.Worker.Application.Providers.Pipeline.Steps;
 using DataFetcher.Worker.Application.Providers.Fred;
 using DataFetcher.Worker.Application.Providers.MarketAuxNews;
+using DataFetcher.Worker.Application.Providers.GNews;
 using DataFetcher.Worker.Infrastructure.Providers.Fred;
 using DataFetcher.Worker.Infrastructure.Providers.Fred.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.MarketAuxNews;
 using DataFetcher.Worker.Infrastructure.Providers.MarketAuxNews.Repositories;
+using DataFetcher.Worker.Infrastructure.Providers.GNews;
+using DataFetcher.Worker.Infrastructure.Providers.GNews.Repositories;
 using DataFetcher.Worker.Workers.Fred;
 using DataFetcher.Worker.Workers.LocalIndicators;
 using DataFetcher.Worker.Workers.MarketAuxNews;
+using DataFetcher.Worker.Workers.GNews;
 using DataFetcher.Worker.Workers.DataCompleteness;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
@@ -93,6 +97,8 @@ try
         builder.Configuration.GetSection("Gateway"));
     builder.Services.Configure<MarketAuxSettings>(
         builder.Configuration.GetSection("Providers:MarketAux"));
+    builder.Services.Configure<GNewsSettings>(
+        builder.Configuration.GetSection("Providers:GNews"));
     builder.Services.Configure<FredSettings>(
         builder.Configuration.GetSection("Providers:Fred"));
 
@@ -198,6 +204,12 @@ try
     builder.Services.AddHttpClient<IMarketAuxApiClient, MarketAuxApiClient>()
         .AddPolicyHandler(GetRetryPolicy());
 
+    // Application & Infrastructure - GNews Provider
+    builder.Services.AddScoped<IGNewsFetchService, GNewsFetchService>();
+    builder.Services.AddScoped<IGNewsArticleRepository, GNewsArticleRepository>();
+    builder.Services.AddHttpClient<IGNewsApiClient, GNewsApiClient>()
+        .AddPolicyHandler(GetRetryPolicy());
+
     // Infrastructure - Alpaca Provider
     builder.Services.AddScoped<IAlpacaStockPriceRepository, AlpacaStockPriceRepository>();
     builder.Services.AddScoped<IAlpacaCryptoPriceRepository, AlpacaCryptoPriceRepository>();
@@ -294,6 +306,9 @@ try
 
     // MarketAux workers
     builder.Services.AddHostedService<MarketAuxNewsWorker>();
+
+    // GNews workers
+    builder.Services.AddHostedService<GNewsWorker>();
 
     // Dynamic indicator scheduling
     builder.Services.AddHostedService<DynamicIndicatorScheduler>();

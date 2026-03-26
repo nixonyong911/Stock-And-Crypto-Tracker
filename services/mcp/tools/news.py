@@ -1,4 +1,4 @@
-"""News sentiment analysis tool: market-moving news with entity-level sentiment from MarketAux."""
+"""News analysis tools: market-moving news with entity-level sentiment from MarketAux, and global headlines from GNews."""
 
 import asyncio
 import json
@@ -130,6 +130,107 @@ async def get_news_sentiment(
         "ticker": ticker.upper() if ticker else None,
         "category": category,
         "sentiment_filter": sentiment,
+        "summary": summary,
+        "articles": articles,
+    })
+
+
+async def get_news_headlines(
+    conn,
+    days_back: int = 3,
+    category: str | None = None,
+    source: str | None = None,
+    limit: int = 20,
+) -> str:
+    """
+    Get recent global/world/business headlines from GNews.
+
+    Args:
+        conn: Database connection
+        days_back: Number of days to look back (1-30)
+        category: Optional category filter: general, world, business
+        source: Optional source filter: marketaux, gnews, or None for both
+        limit: Maximum articles to return (1-50)
+
+    Returns:
+        JSON with articles from the combined news view (MarketAux + GNews)
+    """
+    days_back = max(1, min(30, days_back))
+    limit = max(1, min(50, limit))
+    cutoff = date.today() - timedelta(days=days_back)
+
+    conditions = ["published_at >= $1::date"]
+    params: list = [cutoff]
+    idx = 2
+
+    if category:
+        conditions.append(f"search_category = ${idx}")
+        params.append(category.lower())
+        idx += 1
+
+    if source:
+        conditions.append(f"source_api = ${idx}")
+        params.append(source.lower())
+        idx += 1
+
+    where = " AND ".join(conditions)
+
+    query = f"""
+        SELECT
+            source_api, external_id, title, description,
+            content_excerpt, url, source_name, published_at,
+            search_category, sentiment_label
+        FROM analysis_news_combined
+        WHERE {where}
+        ORDER BY published_at DESC
+        LIMIT ${idx}
+    """
+    params.append(limit)
+
+    count_query = f"""
+        SELECT
+            COUNT(*) as total,
+            COUNT(*) FILTER (WHERE source_api = 'marketaux') as marketaux_count,
+            COUNT(*) FILTER (WHERE source_api = 'gnews') as gnews_count
+        FROM analysis_news_combined
+        WHERE {where}
+    """
+
+    try:
+        rows = await _safe_fetch(conn, query, *params)
+        count_rows = await _safe_fetch(conn, count_query, *params[:-1])
+    except asyncio.TimeoutError:
+        return json.dumps({
+            "error": "Query timeout",
+            "message": f"Query took longer than {QUERY_TIMEOUT}s",
+        })
+
+    articles = []
+    for row in rows:
+        articles.append({
+            "source_api": row["source_api"],
+            "title": row["title"],
+            "description": row["description"],
+            "source": row["source_name"],
+            "published_at": str(row["published_at"]),
+            "category": row["search_category"],
+            "sentiment_label": row["sentiment_label"],
+            "url": row["url"],
+        })
+
+    summary = {}
+    if count_rows:
+        c = count_rows[0]
+        summary = {
+            "total_articles": c["total"],
+            "marketaux_count": c["marketaux_count"],
+            "gnews_count": c["gnews_count"],
+            "days_back": days_back,
+        }
+
+    return json.dumps({
+        "category": category,
+        "source_filter": source,
         "summary": summary,
         "articles": articles,
     })

@@ -127,6 +127,10 @@ services:
       - Providers__MarketAux__ApiKey=${MARKETAUX_API_KEY}
       - Providers__MarketAux__BaseUrl=https://api.marketaux.com/v1
       - Providers__MarketAux__DailyRequestBudget=80
+      # GNews Provider (global/world/business headlines)
+      - Providers__GNews__ApiKey=${GNEWS_API_KEY}
+      - Providers__GNews__BaseUrl=https://gnews.io/api/v4
+      - Providers__GNews__DailyRequestBudget=90
       # FRED Provider (economic indicators)
       - Providers__Fred__ApiKey=${FRED_API_KEY}
       - Providers__Fred__BaseUrl=https://api.stlouisfed.org
