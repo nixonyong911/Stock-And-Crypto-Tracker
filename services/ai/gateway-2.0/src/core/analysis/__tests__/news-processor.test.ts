@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   parseLLMOutput,
   formatAdminNotification,
-  type FilteredNewsEntry,
   type ProcessingResult,
 } from "../news-processor.js";
 
