@@ -192,7 +192,7 @@ async function fetchRecentArticles(
     `SELECT source_api, external_id, title, description,
             published_at::text, search_category, sentiment_label
      FROM unfiltered_news_combined
-     WHERE published_at >= NOW() - INTERVAL '${LOOKBACK_HOURS} hours'
+     WHERE created_at >= NOW() - INTERVAL '${LOOKBACK_HOURS} hours'
      ORDER BY published_at DESC`,
   );
 
