@@ -58,8 +58,8 @@ export interface NewsProcessorDeps {
 
 const DEDUP_KEY = "news:processing:lock";
 const DEDUP_TTL_SECONDS = 1800; // 30 minutes
-const MAX_ARTICLES = 200;
-const LLM_TIMEOUT_MS = 90_000;
+const MAX_ARTICLES = 75;
+const LLM_TIMEOUT_MS = 180_000;
 const RETENTION_DAYS = 7;
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]/g;
 const LOOKBACK_HOURS = 12;
