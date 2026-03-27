@@ -8,6 +8,7 @@ import { broadcastDailyOverview } from "../core/analysis/daily-overview-broadcas
 import { generateExplanation } from "../core/analysis/explanation-generator.js";
 import { formatRecommendation } from "../core/analysis/digest-formatter.js";
 import { secondsUntilMidnightUTC } from "../core/analysis/wishlist-calculator.js";
+import { processUnfilteredNews } from "../core/analysis/news-processor.js";
 
 interface CheckRecommendationsBody {
   assetType?: "stock" | "crypto";
@@ -143,6 +144,35 @@ export function registerRecommendationRoutes(
       }
     },
   );
+
+  const telegramNotify = buildTelegramNotify(config);
+
+  app.post(
+    "/internal/process-news",
+    async (request, reply) => {
+      const serviceKey = request.headers["x-service-key"] as string | undefined;
+      if (
+        !config.internalServiceKey ||
+        !serviceKey ||
+        serviceKey !== config.internalServiceKey
+      ) {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+
+      try {
+        const result = await processUnfilteredNews({
+          db,
+          redis,
+          log: app.log,
+          telegramNotify,
+        });
+        return reply.send({ ok: true, ...result });
+      } catch (err) {
+        app.log.error({ err }, "Error processing unfiltered news");
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    },
+  );
 }
 
 async function filterDedupSignals(
@@ -254,4 +284,24 @@ async function fanOutToWatchers(
   }
 
   return sent;
+}
+
+function buildTelegramNotify(
+  config: GatewayConfig,
+): ((msg: string) => Promise<void>) | undefined {
+  if (!config.telegramBotToken || !config.telegramErrorChatId) return undefined;
+  const botToken = config.telegramBotToken;
+  const chatId = config.telegramErrorChatId;
+  return async (msg: string) => {
+    try {
+      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: "HTML" }),
+      });
+    } catch {
+      // Best-effort notification
+    }
+  };
 }
