@@ -150,6 +150,8 @@ export async function curateMarketMemory(
       existingThemes, recentStories, curatorModel, log,
     );
 
+    resolveThemeIds(curatorOutput, existingThemes, log);
+
     const batchIds = [...new Set(recentStories.map((s) => s.batch_id))];
     const priceSnapshot = await snapshotTickerPrices(db, curatorOutput, log);
 
@@ -507,6 +509,44 @@ function validateDecay(
     }
   }
   return results;
+}
+
+// ── Resolve truncated theme IDs ───────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function resolveThemeIds(
+  output: CuratorOutput,
+  themes: MemoryTheme[],
+  log: FastifyBaseLogger,
+): void {
+  const themeMap = new Map(themes.map((t) => [t.theme_id, t.theme_id]));
+  for (const t of themes) themeMap.set(t.theme_id.split("-")[0]!, t.theme_id);
+
+  const resolve = (id: string): string | null => {
+    if (UUID_RE.test(id)) return id;
+    const match = themeMap.get(id) ?? themes.find((t) => t.theme_id.startsWith(id))?.theme_id;
+    if (match) {
+      log.debug({ truncated: id, resolved: match }, "Resolved truncated theme_id");
+      return match;
+    }
+    log.warn({ themeId: id }, "Could not resolve truncated theme_id");
+    return null;
+  };
+
+  output.updates = output.updates.filter((u) => {
+    const full = resolve(u.theme_id);
+    if (!full) return false;
+    u.theme_id = full;
+    return true;
+  });
+
+  output.decay = output.decay.filter((d) => {
+    const full = resolve(d.theme_id);
+    if (!full) return false;
+    d.theme_id = full;
+    return true;
+  });
 }
 
 // ── Price snapshot ────────────────────────────────────────────────────
