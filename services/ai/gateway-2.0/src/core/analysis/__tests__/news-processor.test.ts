@@ -253,23 +253,38 @@ describe("parseLLMOutput", () => {
 // ── formatAdminNotification ──────────────────────────────────────────
 
 describe("formatAdminNotification", () => {
-  it("formats successful processing result", () => {
+  it("formats successful processing result with source breakdown", () => {
     const result: ProcessingResult = {
       batchId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       inputArticles: 87,
       outputStories: 12,
       highImpact: 3,
       processingTimeMs: 8200,
+      sourceBreakdown: { marketaux: 50, gnews: 37 },
     };
 
     const msg = formatAdminNotification(result);
     expect(msg).toContain("NEWS PROCESSING");
     expect(msg).toContain("Status:</b> OK");
+    expect(msg).toContain("Source:</b> marketaux (50), gnews (37)");
     expect(msg).toContain("Input articles:</b> 87");
     expect(msg).toContain("Output stories:</b> 12");
     expect(msg).toContain("High impact:</b> 3");
     expect(msg).toContain("8.2s");
     expect(msg).toContain("a1b2c3d4");
+  });
+
+  it("shows N/A when no source breakdown", () => {
+    const result: ProcessingResult = {
+      batchId: "abc",
+      inputArticles: 10,
+      outputStories: 2,
+      highImpact: 1,
+      processingTimeMs: 5000,
+    };
+
+    const msg = formatAdminNotification(result);
+    expect(msg).toContain("Source:</b> N/A");
   });
 
   it("formats failed processing result", () => {

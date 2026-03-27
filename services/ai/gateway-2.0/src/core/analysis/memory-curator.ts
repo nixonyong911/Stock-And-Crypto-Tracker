@@ -522,25 +522,30 @@ async function snapshotTickerPrices(
 
   try {
     const tickerArr = [...tickers];
-    const { rows: stockRows } = await db.query<{ symbol: string; close_price: number }>(
-      `SELECT DISTINCT ON (symbol) symbol, close_price
-       FROM analysis_prices
-       WHERE symbol = ANY($1)
-       ORDER BY symbol, timestamp DESC`,
-      [tickerArr],
-    );
-
-    const { rows: cryptoRows } = await db.query<{ symbol: string; price: number }>(
-      `SELECT DISTINCT ON (symbol) symbol, price
-       FROM analysis_crypto_prices
-       WHERE symbol = ANY($1)
-       ORDER BY symbol, timestamp DESC`,
-      [tickerArr],
-    );
-
     const prices: Record<string, number> = {};
-    for (const r of stockRows) prices[r.symbol] = r.close_price;
-    for (const r of cryptoRows) prices[r.symbol] = r.price;
+
+    const { rows: targetRows } = await db.query<{ ticker_symbol: string; latest_close: number }>(
+      `SELECT DISTINCT ON (ticker_symbol) ticker_symbol, latest_close
+       FROM analysis_ticker_price_targets
+       WHERE ticker_symbol = ANY($1) AND latest_close IS NOT NULL
+       ORDER BY ticker_symbol, analysis_date DESC`,
+      [tickerArr],
+    );
+    for (const r of targetRows) prices[r.ticker_symbol] = Number(r.latest_close);
+
+    const remaining = tickerArr.filter((t) => !(t in prices));
+    if (remaining.length > 0) {
+      const { rows: cryptoRows } = await db.query<{ symbol: string; close_price: number }>(
+        `SELECT DISTINCT ON (ct.symbol) ct.symbol, cp.close_price
+         FROM crypto_prices cp
+         JOIN crypto_tickers ct ON ct.id = cp.crypto_ticker_id
+         WHERE ct.symbol = ANY($1)
+         ORDER BY ct.symbol, cp.price_time DESC`,
+        [remaining],
+      );
+      for (const r of cryptoRows) prices[r.symbol] = Number(r.close_price);
+    }
+
     return prices;
   } catch (err) {
     log.warn({ err }, "Failed to snapshot ticker prices — non-fatal");

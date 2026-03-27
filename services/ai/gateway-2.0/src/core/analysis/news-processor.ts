@@ -42,6 +42,7 @@ export interface ProcessingResult {
   outputStories: number;
   highImpact: number;
   processingTimeMs: number;
+  sourceBreakdown?: Record<string, number>;
   error?: string;
 }
 
@@ -99,6 +100,12 @@ export async function processUnfilteredNews(
       return result;
     }
 
+    const sourceBreakdown: Record<string, number> = {};
+    for (const a of articles) {
+      const src = a.source_api || "unknown";
+      sourceBreakdown[src] = (sourceBreakdown[src] ?? 0) + 1;
+    }
+
     const deduped = deduplicateByTitle(articles);
     const capped = deduped.slice(0, MAX_ARTICLES);
 
@@ -116,6 +123,7 @@ export async function processUnfilteredNews(
         outputStories: 0,
         highImpact: 0,
         processingTimeMs: Date.now() - startTime,
+        sourceBreakdown,
         error: "LLM returned no stories",
       };
       await notifyAdmin(telegramNotify, result);
@@ -133,6 +141,7 @@ export async function processUnfilteredNews(
       outputStories: stories.length,
       highImpact,
       processingTimeMs: Date.now() - startTime,
+      sourceBreakdown,
     };
 
     log.info(result, "News processing complete");
@@ -507,9 +516,18 @@ async function cleanupOldEntries(db: Pool, log: FastifyBaseLogger): Promise<void
 
 export function formatAdminNotification(result: ProcessingResult): string {
   const status = result.error ? "FAILED" : "OK";
+
+  let sourceLabel = "N/A";
+  if (result.sourceBreakdown && Object.keys(result.sourceBreakdown).length > 0) {
+    sourceLabel = Object.entries(result.sourceBreakdown)
+      .map(([src, count]) => `${src} (${count})`)
+      .join(", ");
+  }
+
   const lines = [
     "<b>--- NEWS PROCESSING ---</b>",
     `<b>Status:</b> ${status}`,
+    `<b>Source:</b> ${sourceLabel}`,
     `<b>Input articles:</b> ${result.inputArticles}`,
     `<b>Output stories:</b> ${result.outputStories}`,
     `<b>High impact:</b> ${result.highImpact}`,
