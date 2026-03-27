@@ -239,16 +239,16 @@ async function fetchTopNews(db: Pool, limit = 15): Promise<NewsItem[]> {
     search_category: string;
     impact_level: string | null;
   }>(
-    `SELECT headline AS title,
-            COALESCE(source_articles->0->>'source_api', 'analysis') AS source,
-            sentiment AS sentiment_label,
+    `SELECT theme AS title,
+            'memory' AS source,
+            COALESCE(sentiment, 'neutral') AS sentiment_label,
             category AS search_category,
             impact_level
-     FROM analysis_filtered_news
-     WHERE processed_at >= NOW() - INTERVAL '24 hours'
+     FROM analysis_market_memory
+     WHERE status IN ('active', 'fading')
      ORDER BY
-       CASE impact_level WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
-       processed_at DESC
+       CASE impact_level WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+       relevance_score DESC
      LIMIT $1`,
     [limit],
   );
@@ -486,10 +486,11 @@ function buildSnapshotSummary(snapshot: MarketSnapshot): string {
   }
 
   if (snapshot.topNews.length > 0) {
-    const macroNews = snapshot.topNews.filter((n) => n.category !== "market").slice(0, 5);
-    const marketNews = snapshot.topNews.filter((n) => n.category === "market").slice(0, 5);
-    const newsItems = [...macroNews, ...marketNews].slice(0, 8);
-    parts.push("Top headlines:\n" + newsItems.map((n) => `- [${n.category}] ${n.title} (${n.source})`).join("\n"));
+    const macroThemes = snapshot.topNews.filter((n) => n.category !== "market").slice(0, 5);
+    const marketThemes = snapshot.topNews.filter((n) => n.category === "market").slice(0, 5);
+    const themes = [...macroThemes, ...marketThemes].slice(0, 8);
+    parts.push("Active market themes (from memory curator — weave into a natural narrative):\n" +
+      themes.map((n) => `- [${n.category}${n.impact_level ? "/" + n.impact_level : ""}] ${n.title} (${n.sentiment})`).join("\n"));
   }
 
   return parts.join("\n\n");

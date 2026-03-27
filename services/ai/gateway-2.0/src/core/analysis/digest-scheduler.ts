@@ -4,6 +4,7 @@ import type { Redis } from "ioredis";
 import type { FastifyBaseLogger } from "fastify";
 import type { ExtensionRegistry } from "../../extension/registry.js";
 import { broadcastDailyOverview } from "./daily-overview-broadcaster.js";
+import { runDailyMemoryMaintenance } from "./memory-curator.js";
 
 export interface DigestSchedulerDeps {
   db: Pool;
@@ -13,10 +14,9 @@ export interface DigestSchedulerDeps {
 }
 
 export function startDigestScheduler(deps: DigestSchedulerDeps): { stop: () => void } {
-  const { log } = deps;
+  const { db, log } = deps;
 
   // Pre-market brief: 7:00 AM ET = 12:00 UTC (11:00 UTC during EDT)
-  // Use 12:00 UTC to cover EST; during EDT it fires at 8 AM ET which is acceptable.
   const morningJob = cron.schedule("0 12 * * 1-5", () => {
     log.info("Digest scheduler: triggering morning brief");
     broadcastDailyOverview(deps, "pre_market").catch((err) => {
@@ -25,7 +25,6 @@ export function startDigestScheduler(deps: DigestSchedulerDeps): { stop: () => v
   }, { timezone: "UTC" });
 
   // Post-close recap: 5:00 PM ET = 22:00 UTC (21:00 UTC during EDT)
-  // Use 22:00 UTC to cover EST; during EDT it fires at 6 PM ET which is acceptable.
   const eveningJob = cron.schedule("0 22 * * 1-5", () => {
     log.info("Digest scheduler: triggering evening recap");
     broadcastDailyOverview(deps, "post_close").catch((err) => {
@@ -33,12 +32,21 @@ export function startDigestScheduler(deps: DigestSchedulerDeps): { stop: () => v
     });
   }, { timezone: "UTC" });
 
-  log.info("Digest scheduler started (morning brief: 12:00 UTC Mon-Fri, evening recap: 22:00 UTC Mon-Fri)");
+  // Daily memory maintenance: 04:00 UTC (off-peak, runs decay + archival + cleanup)
+  const memoryMaintenanceJob = cron.schedule("0 4 * * *", () => {
+    log.info("Digest scheduler: triggering daily memory maintenance");
+    runDailyMemoryMaintenance(db, log).catch((err) => {
+      log.error({ err }, "Failed to run daily memory maintenance");
+    });
+  }, { timezone: "UTC" });
+
+  log.info("Digest scheduler started (morning: 12:00 UTC M-F, evening: 22:00 UTC M-F, memory maintenance: 04:00 UTC daily)");
 
   return {
     stop: () => {
       morningJob.stop();
       eveningJob.stop();
+      memoryMaintenanceJob.stop();
       log.info("Digest scheduler stopped");
     },
   };

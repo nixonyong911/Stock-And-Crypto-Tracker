@@ -1,4 +1,4 @@
-"""News analysis tools: AI-filtered news with sentiment, and raw unfiltered news for dev inspection."""
+"""News analysis tools: market memory themes with sentiment, and raw unfiltered news for dev inspection."""
 
 import asyncio
 import json
@@ -14,32 +14,28 @@ def _float(val) -> float | None:
 async def get_news_sentiment(
     conn,
     ticker: str | None = None,
-    days_back: int = 7,
     category: str | None = None,
     sentiment: str | None = None,
     limit: int = 20,
 ) -> str:
     """
-    Get recent AI-filtered news with sentiment analysis.
+    Get active market memory themes with sentiment analysis.
 
     Args:
         conn: Database connection
         ticker: Optional ticker to filter by (matches against affected_tickers array)
-        days_back: Number of days to look back (1-30)
         category: Optional category filter
         sentiment: Optional sentiment filter: bullish, bearish, neutral
-        limit: Maximum articles to return (1-50)
+        limit: Maximum themes to return (1-50)
 
     Returns:
-        JSON with articles and aggregate sentiment summary
+        JSON with themes and aggregate sentiment summary
     """
-    days_back = max(1, min(30, days_back))
     limit = max(1, min(50, limit))
-    cutoff = date.today() - timedelta(days=days_back)
 
-    conditions = ["processed_at >= $1::date"]
-    params: list = [cutoff]
-    idx = 2
+    conditions = ["status IN ('active', 'fading')"]
+    params: list = []
+    idx = 1
 
     if ticker:
         conditions.append(f"${idx} = ANY(affected_tickers)")
@@ -58,31 +54,31 @@ async def get_news_sentiment(
 
     where = " AND ".join(conditions)
 
-    articles_query = f"""
+    themes_query = f"""
         SELECT
-            headline, summary, category, impact_level,
+            theme, summary, category, impact_level,
             affected_tickers, sentiment, sentiment_score,
-            key_points, market_implications, processed_at
-        FROM analysis_filtered_news
+            key_facts, market_implications, relevance_score, last_updated
+        FROM analysis_market_memory
         WHERE {where}
-        ORDER BY processed_at DESC
+        ORDER BY relevance_score DESC
         LIMIT ${idx}
     """
     params.append(limit)
 
     summary_query = f"""
         SELECT
-            COUNT(*) as total_articles,
+            COUNT(*) as total_themes,
             AVG(sentiment_score) as avg_sentiment,
             COUNT(*) FILTER (WHERE sentiment = 'bullish') as bullish_count,
             COUNT(*) FILTER (WHERE sentiment = 'bearish') as bearish_count,
             COUNT(*) FILTER (WHERE sentiment = 'neutral') as neutral_count
-        FROM analysis_filtered_news
+        FROM analysis_market_memory
         WHERE {where}
     """
 
     try:
-        article_rows = await _safe_fetch(conn, articles_query, *params)
+        theme_rows = await _safe_fetch(conn, themes_query, *params)
         summary_rows = await _safe_fetch(conn, summary_query, *params[:-1])
     except asyncio.TimeoutError:
         return json.dumps({
@@ -90,38 +86,38 @@ async def get_news_sentiment(
             "message": f"Query took longer than {QUERY_TIMEOUT}s",
         })
 
-    articles = []
-    for row in article_rows:
-        articles.append({
-            "headline": row["headline"],
+    themes = []
+    for row in theme_rows:
+        themes.append({
+            "theme": row["theme"],
             "summary": row["summary"],
             "category": row["category"],
             "impact_level": row["impact_level"],
             "affected_tickers": row["affected_tickers"],
             "sentiment": row["sentiment"],
             "sentiment_score": _float(row["sentiment_score"]),
-            "key_points": row["key_points"],
+            "key_facts": row["key_facts"],
             "market_implications": row["market_implications"],
-            "processed_at": str(row["processed_at"]),
+            "relevance_score": _float(row["relevance_score"]),
+            "last_updated": str(row["last_updated"]),
         })
 
     summary = {}
     if summary_rows:
         s = summary_rows[0]
-        total = s["total_articles"]
+        total = s["total_themes"]
         avg = _float(s["avg_sentiment"])
         overall_label = "neutral"
         if avg is not None:
             overall_label = "bullish" if avg >= 0.2 else "bearish" if avg <= -0.2 else "neutral"
 
         summary = {
-            "total_articles": total,
+            "total_themes": total,
             "avg_sentiment": round(avg, 4) if avg is not None else None,
             "overall_signal": overall_label,
             "bullish_count": s["bullish_count"],
             "bearish_count": s["bearish_count"],
             "neutral_count": s["neutral_count"],
-            "days_back": days_back,
         }
 
     return json.dumps({
@@ -129,35 +125,31 @@ async def get_news_sentiment(
         "category": category,
         "sentiment_filter": sentiment,
         "summary": summary,
-        "articles": articles,
+        "themes": themes,
     })
 
 
 async def get_news_headlines(
     conn,
-    days_back: int = 3,
     category: str | None = None,
     limit: int = 20,
 ) -> str:
     """
-    Get recent AI-filtered news headlines.
+    Get active market memory themes (headlines).
 
     Args:
         conn: Database connection
-        days_back: Number of days to look back (1-30)
         category: Optional category filter
-        limit: Maximum articles to return (1-50)
+        limit: Maximum themes to return (1-50)
 
     Returns:
-        JSON with filtered news articles and count summary
+        JSON with market memory themes and count summary
     """
-    days_back = max(1, min(30, days_back))
     limit = max(1, min(50, limit))
-    cutoff = date.today() - timedelta(days=days_back)
 
-    conditions = ["processed_at >= $1::date"]
-    params: list = [cutoff]
-    idx = 2
+    conditions = ["status IN ('active', 'fading')"]
+    params: list = []
+    idx = 1
 
     if category:
         conditions.append(f"category = ${idx}")
@@ -168,18 +160,18 @@ async def get_news_headlines(
 
     query = f"""
         SELECT
-            headline, summary, category, impact_level,
-            sentiment, key_points, processed_at
-        FROM analysis_filtered_news
+            theme, summary, category, impact_level,
+            sentiment, key_facts, relevance_score, last_updated
+        FROM analysis_market_memory
         WHERE {where}
-        ORDER BY processed_at DESC
+        ORDER BY relevance_score DESC
         LIMIT ${idx}
     """
     params.append(limit)
 
     count_query = f"""
         SELECT COUNT(*) as total
-        FROM analysis_filtered_news
+        FROM analysis_market_memory
         WHERE {where}
     """
 
@@ -192,29 +184,29 @@ async def get_news_headlines(
             "message": f"Query took longer than {QUERY_TIMEOUT}s",
         })
 
-    articles = []
+    themes = []
     for row in rows:
-        articles.append({
-            "headline": row["headline"],
+        themes.append({
+            "theme": row["theme"],
             "summary": row["summary"],
             "category": row["category"],
             "impact_level": row["impact_level"],
             "sentiment": row["sentiment"],
-            "key_points": row["key_points"],
-            "processed_at": str(row["processed_at"]),
+            "key_facts": row["key_facts"],
+            "relevance_score": _float(row["relevance_score"]),
+            "last_updated": str(row["last_updated"]),
         })
 
     summary = {}
     if count_rows:
         summary = {
-            "total_articles": count_rows[0]["total"],
-            "days_back": days_back,
+            "total_themes": count_rows[0]["total"],
         }
 
     return json.dumps({
         "category": category,
         "summary": summary,
-        "articles": articles,
+        "themes": themes,
     })
 
 

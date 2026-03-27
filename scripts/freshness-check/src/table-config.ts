@@ -114,4 +114,13 @@ export const TABLE_CHECKS: readonly TableCheck[] = [
     skipRule: "never",
     label: "filtered_news",
   },
+
+  // Market memory — curated themes (single source of truth for news consumers)
+  {
+    table: "analysis_market_memory",
+    column: "last_updated",
+    thresholdHours: 24,
+    skipRule: "never",
+    label: "market_memory",
+  },
 ] as const;

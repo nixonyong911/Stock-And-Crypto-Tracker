@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import type { FastifyBaseLogger } from "fastify";
+import { curateMarketMemory } from "./memory-curator.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ export interface NewsProcessorDeps {
   db: Pool;
   redis: Redis;
   log: FastifyBaseLogger;
+  curatorModel?: string;
   telegramNotify?: (message: string) => Promise<void>;
 }
 
@@ -57,7 +59,7 @@ const DEDUP_KEY = "news:processing:lock";
 const DEDUP_TTL_SECONDS = 1800; // 30 minutes
 const MAX_ARTICLES = 200;
 const LLM_TIMEOUT_MS = 90_000;
-const RETENTION_DAYS = 30;
+const RETENTION_DAYS = 7;
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]/g;
 const LOOKBACK_HOURS = 12;
 
@@ -135,6 +137,18 @@ export async function processUnfilteredNews(
 
     log.info(result, "News processing complete");
     await notifyAdmin(telegramNotify, result);
+
+    if (deps.curatorModel) {
+      try {
+        log.info("Triggering memory curator after news processing");
+        await curateMarketMemory({
+          db, redis, log, curatorModel: deps.curatorModel, telegramNotify,
+        });
+      } catch (curatorErr) {
+        log.error({ err: curatorErr }, "Memory curator failed — news processing result unaffected");
+      }
+    }
+
     return result;
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);

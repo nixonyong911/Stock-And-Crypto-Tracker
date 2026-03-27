@@ -9,6 +9,7 @@ import { generateExplanation } from "../core/analysis/explanation-generator.js";
 import { formatRecommendation } from "../core/analysis/digest-formatter.js";
 import { secondsUntilMidnightUTC } from "../core/analysis/wishlist-calculator.js";
 import { processUnfilteredNews } from "../core/analysis/news-processor.js";
+import { curateMarketMemory } from "../core/analysis/memory-curator.js";
 
 interface CheckRecommendationsBody {
   assetType?: "stock" | "crypto";
@@ -164,11 +165,39 @@ export function registerRecommendationRoutes(
           db,
           redis,
           log: app.log,
+          curatorModel: config.curatorModel,
           telegramNotify,
         });
         return reply.send({ ok: true, ...result });
       } catch (err) {
         app.log.error({ err }, "Error processing unfiltered news");
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    },
+  );
+  app.post(
+    "/internal/curate-memory",
+    async (request, reply) => {
+      const serviceKey = request.headers["x-service-key"] as string | undefined;
+      if (
+        !config.internalServiceKey ||
+        !serviceKey ||
+        serviceKey !== config.internalServiceKey
+      ) {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+
+      try {
+        const result = await curateMarketMemory({
+          db,
+          redis,
+          log: app.log,
+          curatorModel: config.curatorModel,
+          telegramNotify,
+        });
+        return reply.send({ ok: true, ...result });
+      } catch (err) {
+        app.log.error({ err }, "Error running memory curator");
         return reply.status(500).send({ error: "Internal server error" });
       }
     },

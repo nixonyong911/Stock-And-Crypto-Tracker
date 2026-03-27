@@ -245,8 +245,8 @@ async function fetchNewsSentiment(
        unnest(affected_tickers) AS symbol,
        COUNT(*) AS article_count,
        AVG(sentiment_score)::text AS avg_sentiment
-     FROM analysis_filtered_news
-     WHERE processed_at >= NOW() - INTERVAL '48 hours'
+     FROM analysis_market_memory
+     WHERE status IN ('active', 'fading')
        AND sentiment_score IS NOT NULL${symbolClause}
      GROUP BY unnest(affected_tickers)
      HAVING COUNT(*) >= 1`,
@@ -272,10 +272,10 @@ async function fetchNewsHeadlines(
   }
 
   const { rows } = await db.query<NewsHeadlineRow>(
-    `SELECT headline, affected_tickers
-     FROM analysis_filtered_news
-     WHERE processed_at >= NOW() - INTERVAL '48 hours'${symbolClause}
-     ORDER BY processed_at DESC
+    `SELECT theme AS headline, affected_tickers
+     FROM analysis_market_memory
+     WHERE status IN ('active', 'fading')${symbolClause}
+     ORDER BY relevance_score DESC
      LIMIT 50`,
     params,
   );
@@ -308,14 +308,14 @@ export async function fetchMacroContext(db: Pool): Promise<MacroContext> {
     category: string;
     sentiment_score: string | null;
   }>(
-    `SELECT headline AS title, summary AS description, category,
+    `SELECT theme AS title, summary AS description, category,
             sentiment_score::text
-     FROM analysis_filtered_news
-     WHERE processed_at >= NOW() - INTERVAL '24 hours'
+     FROM analysis_market_memory
+     WHERE status IN ('active', 'fading')
        AND category IN ('macro', 'geopolitical', 'policy')
      ORDER BY
-       CASE impact_level WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
-       processed_at DESC
+       CASE impact_level WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+       relevance_score DESC
      LIMIT 10`,
   );
 

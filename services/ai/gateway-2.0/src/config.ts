@@ -30,6 +30,7 @@ export interface GatewayConfig {
   readonly phoneHashSalt: string;
   readonly frontendUrl: string;
   readonly internalServiceKey: string;
+  readonly curatorModel: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,5 +101,6 @@ export function loadConfig(): GatewayConfig {
     phoneHashSalt: envStr("PHONE_HASH_SALT", ""),
     frontendUrl: envStr("FRONTEND_URL", "https://stockandcryptotracker.com"),
     internalServiceKey: envStr("INTERNAL_SERVICE_KEY", ""),
+    curatorModel: envStr("CURATOR_MODEL", "claude-4.6-sonnet-medium-thinking"),
   };
 }

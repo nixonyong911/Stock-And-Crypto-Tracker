@@ -248,12 +248,11 @@ class MarketEarningsInput(BaseModel):
 
 
 class NewsSentimentInput(BaseModel):
-    """Input for AI-filtered news sentiment analysis."""
-    ticker: Optional[str] = Field(None, description="Ticker symbol to filter news by (e.g., 'AAPL', 'NVDA'). Matches against affected_tickers.", max_length=20)
-    days_back: int = Field(default=7, description="Number of days to look back", ge=1, le=30)
-    category: Optional[str] = Field(None, description="News category filter (AI-assigned category)")
+    """Input for market memory theme sentiment analysis."""
+    ticker: Optional[str] = Field(None, description="Ticker symbol to filter themes by (e.g., 'AAPL', 'NVDA'). Matches against affected_tickers.", max_length=20)
+    category: Optional[str] = Field(None, description="Theme category filter (e.g., macro, geopolitical, policy, market)")
     sentiment: Optional[str] = Field(None, description="Sentiment filter: 'bullish', 'bearish', 'neutral'")
-    limit: int = Field(default=20, description="Maximum articles to return", ge=1, le=50)
+    limit: int = Field(default=20, description="Maximum themes to return", ge=1, le=50)
 
     @field_validator('sentiment')
     @classmethod
@@ -264,10 +263,9 @@ class NewsSentimentInput(BaseModel):
 
 
 class NewsHeadlinesInput(BaseModel):
-    """Input for AI-filtered news headlines."""
-    days_back: int = Field(default=3, description="Number of days to look back", ge=1, le=30)
-    category: Optional[str] = Field(None, description="Category filter (AI-assigned category)")
-    limit: int = Field(default=20, description="Maximum articles to return", ge=1, le=50)
+    """Input for market memory theme headlines."""
+    category: Optional[str] = Field(None, description="Category filter (e.g., macro, geopolitical, policy, market)")
+    limit: int = Field(default=20, description="Maximum themes to return", ge=1, le=50)
 
 
 class UnfilteredNewsInput(BaseModel):
@@ -559,15 +557,15 @@ def _register_news_sentiment(app: FastMCP) -> None:
     )
     async def analysis_news_sentiment(params: NewsSentimentInput, conn=Depends(get_db)) -> str:
         """
-        AI-filtered news with sentiment analysis.
+        Market memory themes with sentiment analysis.
 
-        Returns recent news articles that passed AI relevance filtering, with
-        sentiment scores, affected tickers, key points, and market implications.
+        Returns active market themes tracked by the Memory Curator, with
+        sentiment scores, affected tickers, key facts, and market implications.
         Filter by ticker (matches affected_tickers array), category, or sentiment.
-        Provides aggregate bullish/bearish/neutral summary for the period.
+        Provides aggregate bullish/bearish/neutral summary across all active themes.
         """
         return await get_news_sentiment(
-            conn=conn, ticker=params.ticker, days_back=params.days_back,
+            conn=conn, ticker=params.ticker,
             category=params.category, sentiment=params.sentiment,
             limit=params.limit,
         )
@@ -580,14 +578,14 @@ def _register_news_headlines(app: FastMCP) -> None:
     )
     async def analysis_news_headlines(params: NewsHeadlinesInput, conn=Depends(get_db)) -> str:
         """
-        AI-filtered news headlines with category and impact level.
+        Active market memory themes with impact and relevance.
 
-        Returns recent headlines that passed AI relevance filtering, including
-        summary, category, impact level, sentiment, and key points.
-        Use category to focus on a specific topic.
+        Returns themes tracked by the Memory Curator, including
+        summary, category, impact level, sentiment, key facts, and relevance score.
+        Use category to focus on a specific topic (macro, geopolitical, policy, market, etc.).
         """
         return await get_news_headlines(
-            conn=conn, days_back=params.days_back,
+            conn=conn,
             category=params.category,
             limit=params.limit,
         )
