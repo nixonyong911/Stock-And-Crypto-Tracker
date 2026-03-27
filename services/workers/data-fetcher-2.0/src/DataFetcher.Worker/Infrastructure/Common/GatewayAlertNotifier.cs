@@ -61,4 +61,44 @@ public class GatewayAlertNotifier : IGatewayAlertNotifier
             _logger.LogWarning(ex, "Failed to notify gateway for alert check ({AssetType}) — non-fatal", assetType);
         }
     }
+
+    public async Task NotifyProcessNewsAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(_settings.BaseUrl))
+        {
+            _logger.LogDebug("Gateway BaseUrl not configured, skipping process-news notification");
+            return;
+        }
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(30));
+
+            var url = $"{_settings.BaseUrl.TrimEnd('/')}/internal/process-news";
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Headers.Add("X-Service-Key", _settings.InternalServiceKey);
+            request.Content = JsonContent.Create(new { });
+
+            var response = await _httpClient.SendAsync(request, cts.Token);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Process-news notification sent successfully");
+            }
+            else
+            {
+                _logger.LogWarning("Process-news notification returned {StatusCode}", (int)response.StatusCode);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to notify gateway for process-news — non-fatal");
+        }
+    }
 }

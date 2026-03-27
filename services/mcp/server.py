@@ -72,7 +72,7 @@ from tools.screener import screen_stocks
 from tools.fundamentals import compare_stocks
 from tools.economic import get_macro_environment
 from tools.earnings import get_earnings_history, get_market_earnings
-from tools.news import get_news_sentiment, get_news_headlines
+from tools.news import get_news_sentiment, get_news_headlines, get_unfiltered_news, get_process_news_trigger
 from tools.advanced_indicators import get_advanced_signals, get_advanced_custom
 from tools.confluence import get_confluence_score
 from tools.db_admin import (
@@ -248,34 +248,34 @@ class MarketEarningsInput(BaseModel):
 
 
 class NewsSentimentInput(BaseModel):
-    """Input for news sentiment analysis."""
-    ticker: Optional[str] = Field(None, description="Ticker symbol to filter news by (e.g., 'AAPL', 'NVDA'). Omit for all market news.", max_length=20)
+    """Input for AI-filtered news sentiment analysis."""
+    ticker: Optional[str] = Field(None, description="Ticker symbol to filter news by (e.g., 'AAPL', 'NVDA'). Matches against affected_tickers.", max_length=20)
     days_back: int = Field(default=7, description="Number of days to look back", ge=1, le=30)
-    category: Optional[str] = Field(None, description="News category filter: 'macro', 'geopolitical', 'policy', 'market'")
-    sentiment: Optional[str] = Field(None, description="Sentiment filter: 'positive', 'negative', 'neutral'")
+    category: Optional[str] = Field(None, description="News category filter (AI-assigned category)")
+    sentiment: Optional[str] = Field(None, description="Sentiment filter: 'bullish', 'bearish', 'neutral'")
     limit: int = Field(default=20, description="Maximum articles to return", ge=1, le=50)
-
-    @field_validator('category')
-    @classmethod
-    def validate_category(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in ("macro", "geopolitical", "policy", "market"):
-            raise ValueError(f"category must be 'macro', 'geopolitical', 'policy', or 'market', got '{v}'")
-        return v
 
     @field_validator('sentiment')
     @classmethod
     def validate_sentiment(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in ("positive", "negative", "neutral"):
-            raise ValueError(f"sentiment must be 'positive', 'negative', or 'neutral', got '{v}'")
+        if v is not None and v not in ("bullish", "bearish", "neutral"):
+            raise ValueError(f"sentiment must be 'bullish', 'bearish', or 'neutral', got '{v}'")
         return v
 
 
 class NewsHeadlinesInput(BaseModel):
-    """Input for combined news headlines (MarketAux + GNews)."""
+    """Input for AI-filtered news headlines."""
     days_back: int = Field(default=3, description="Number of days to look back", ge=1, le=30)
-    category: Optional[str] = Field(None, description="Category filter: 'general', 'world', 'business', 'macro', 'geopolitical', 'policy', 'market'")
-    source: Optional[str] = Field(None, description="Source API filter: 'marketaux', 'gnews'. Omit for both.")
+    category: Optional[str] = Field(None, description="Category filter (AI-assigned category)")
     limit: int = Field(default=20, description="Maximum articles to return", ge=1, le=50)
+
+
+class UnfilteredNewsInput(BaseModel):
+    """Input for raw unfiltered news (dev-only)."""
+    source: Optional[str] = Field(None, description="Source API filter: 'marketaux' or 'gnews'. Omit for both.")
+    days_back: int = Field(default=3, description="Number of days to look back", ge=1, le=30)
+    category: Optional[str] = Field(None, description="Search category filter")
+    limit: int = Field(default=30, description="Maximum articles to return", ge=1, le=50)
 
     @field_validator('source')
     @classmethod
@@ -559,12 +559,12 @@ def _register_news_sentiment(app: FastMCP) -> None:
     )
     async def analysis_news_sentiment(params: NewsSentimentInput, conn=Depends(get_db)) -> str:
         """
-        Market-moving news with entity-level sentiment analysis.
+        AI-filtered news with sentiment analysis.
 
-        Returns recent news articles from MarketAux covering Fed/FOMC, geopolitical
-        events, policy changes, and market-wide moves. Each article includes sentiment
-        scores and affected entities (tickers/indices). Provides aggregate sentiment
-        summary for the requested period.
+        Returns recent news articles that passed AI relevance filtering, with
+        sentiment scores, affected tickers, key points, and market implications.
+        Filter by ticker (matches affected_tickers array), category, or sentiment.
+        Provides aggregate bullish/bearish/neutral summary for the period.
         """
         return await get_news_sentiment(
             conn=conn, ticker=params.ticker, days_back=params.days_back,
@@ -580,17 +580,51 @@ def _register_news_headlines(app: FastMCP) -> None:
     )
     async def analysis_news_headlines(params: NewsHeadlinesInput, conn=Depends(get_db)) -> str:
         """
-        Combined news headlines from MarketAux and GNews.
+        AI-filtered news headlines with category and impact level.
 
-        Returns recent headlines across all sources: global/world/business news from
-        GNews and market-moving financial news from MarketAux. Use the source filter
-        to narrow to one provider, or category to focus on a topic.
+        Returns recent headlines that passed AI relevance filtering, including
+        summary, category, impact level, sentiment, and key points.
+        Use category to focus on a specific topic.
         """
         return await get_news_headlines(
             conn=conn, days_back=params.days_back,
-            category=params.category, source=params.source,
+            category=params.category,
             limit=params.limit,
         )
+
+
+def _register_unfiltered_news(app: FastMCP) -> None:
+    @app.tool(
+        name="internal_unfiltered_news",
+        annotations={"title": "Unfiltered News (Dev)", **_RO_ANNOTATIONS},
+    )
+    async def internal_unfiltered_news(params: UnfilteredNewsInput, conn=Depends(get_db)) -> str:
+        """
+        Dev-only: raw unfiltered news before AI processing.
+
+        Returns articles from the unfiltered_news_combined view (MarketAux + GNews)
+        exactly as ingested. Useful for inspecting what the AI filter receives
+        and comparing against filtered output.
+        """
+        return await get_unfiltered_news(
+            conn=conn, source=params.source, days_back=params.days_back,
+            category=params.category, limit=params.limit,
+        )
+
+
+def _register_process_news_trigger(app: FastMCP) -> None:
+    @app.tool(
+        name="internal_process_news_trigger",
+        annotations={"title": "Process News Trigger (Dev)", **_RO_ANNOTATIONS},
+    )
+    async def internal_process_news_trigger(conn=Depends(get_db)) -> str:
+        """
+        Dev-only: information on how to trigger the news processing pipeline.
+
+        Returns instructions for invoking the AI gateway's /internal/process-news
+        endpoint. This tool is informational only.
+        """
+        return await get_process_news_trigger(conn=conn)
 
 
 def _register_earnings_history(app: FastMCP) -> None:
@@ -776,6 +810,9 @@ _TOOL_REGISTRY: dict[str, ToolEntry] = {
     "analysis_advanced_signals":  ToolEntry(fn=_register_advanced_signals,  min_tier="pro"),
     "analysis_advanced_custom":   ToolEntry(fn=_register_advanced_custom,   min_tier="pro"),
     "analysis_confluence_score":  ToolEntry(fn=_register_confluence,        min_tier="pro"),
+    # Internal dev tools
+    "internal_unfiltered_news":   ToolEntry(fn=_register_unfiltered_news,       min_tier="dev"),
+    "internal_process_news_trigger": ToolEntry(fn=_register_process_news_trigger, min_tier="dev"),
     # DB admin tools (dev tier only)
     "analysis_execute_sql":       ToolEntry(fn=_register_execute_sql,       min_tier="dev"),
     "analysis_list_tables":       ToolEntry(fn=_register_list_tables,       min_tier="dev"),

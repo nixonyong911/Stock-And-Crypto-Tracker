@@ -26,6 +26,7 @@ export interface NewsItem {
   source: string;
   sentiment: string;
   category: string;
+  impact_level?: string;
 }
 
 interface PriorOverview {
@@ -236,20 +237,18 @@ async function fetchTopNews(db: Pool, limit = 15): Promise<NewsItem[]> {
     source: string;
     sentiment_label: string;
     search_category: string;
+    impact_level: string | null;
   }>(
-    `(SELECT title, source, sentiment_label, search_category
-      FROM analysis_news_marketaux
-      WHERE published_at >= NOW() - INTERVAL '24 hours'
-        AND search_category IN ('macro', 'geopolitical', 'policy')
-      ORDER BY published_at DESC
-      LIMIT $1)
-     UNION ALL
-     (SELECT title, source, sentiment_label, search_category
-      FROM analysis_news_marketaux
-      WHERE published_at >= NOW() - INTERVAL '24 hours'
-        AND search_category = 'market'
-      ORDER BY published_at DESC
-      LIMIT $1)
+    `SELECT headline AS title,
+            COALESCE(source_articles->0->>'source_api', 'analysis') AS source,
+            sentiment AS sentiment_label,
+            category AS search_category,
+            impact_level
+     FROM analysis_filtered_news
+     WHERE processed_at >= NOW() - INTERVAL '24 hours'
+     ORDER BY
+       CASE impact_level WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+       processed_at DESC
      LIMIT $1`,
     [limit],
   );
@@ -259,6 +258,7 @@ async function fetchTopNews(db: Pool, limit = 15): Promise<NewsItem[]> {
     source: r.source,
     sentiment: r.sentiment_label,
     category: r.search_category,
+    impact_level: r.impact_level ?? undefined,
   }));
 }
 

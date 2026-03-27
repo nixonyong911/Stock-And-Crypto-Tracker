@@ -168,7 +168,7 @@ async function fetchRecentArticles(
   const { rows } = await db.query<RawArticle>(
     `SELECT source_api, external_id, title, description,
             published_at::text, search_category, sentiment_label
-     FROM analysis_news_combined
+     FROM unfiltered_news_combined
      WHERE published_at >= NOW() - INTERVAL '${LOOKBACK_HOURS} hours'
      ORDER BY published_at DESC`,
   );

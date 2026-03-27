@@ -21,7 +21,7 @@ public class NewsArticleRepository : INewsArticleRepository
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
-            INSERT INTO analysis_news_marketaux (
+            INSERT INTO unfiltered_news_marketaux (
                 marketaux_uuid, title, description, snippet, keywords,
                 url, source, published_at, language,
                 entities, avg_sentiment_score, sentiment_label,
@@ -49,7 +49,7 @@ public class NewsArticleRepository : INewsArticleRepository
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
-            DELETE FROM analysis_news_marketaux
+            DELETE FROM unfiltered_news_marketaux
             WHERE published_at < NOW() - MAKE_INTERVAL(days => @RetentionDays)";
 
         var deleted = await connection.ExecuteAsync(sql, new { RetentionDays = retentionDays });
@@ -66,7 +66,7 @@ public class NewsArticleRepository : INewsArticleRepository
 
         const string sql = @"
             SELECT MAX(published_at)
-            FROM analysis_news_marketaux
+            FROM unfiltered_news_marketaux
             WHERE search_category = @Category";
 
         return await connection.QuerySingleOrDefaultAsync<DateTime?>(sql, new { Category = category });

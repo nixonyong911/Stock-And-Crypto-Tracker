@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { TABLE_CHECKS } from "../src/table-config.js";
 
 describe("TABLE_CHECKS", () => {
-  it("contains exactly 11 tables", () => {
-    expect(TABLE_CHECKS).toHaveLength(11);
+  it("contains exactly 13 tables", () => {
+    expect(TABLE_CHECKS).toHaveLength(13);
   });
 
   it("has no duplicate table names", () => {
@@ -38,7 +38,9 @@ describe("TABLE_CHECKS", () => {
     { table: "analysis_stock_fundamentals", column: "updated_at", thresholdHours: 26, skipRule: "market-closed" },
     { table: "analysis_economic_indicators", column: "last_updated_at", thresholdHours: 26, skipRule: "weekends" },
     { table: "analysis_release_calendar", column: "last_synced_at", thresholdHours: 192, skipRule: "never" },
-    { table: "analysis_news_marketaux", column: "created_at", thresholdHours: 12, skipRule: "never" },
+    { table: "unfiltered_news_marketaux", column: "created_at", thresholdHours: 12, skipRule: "never" },
+    { table: "unfiltered_news_gnews", column: "created_at", thresholdHours: 18, skipRule: "never" },
+    { table: "analysis_filtered_news", column: "processed_at", thresholdHours: 12, skipRule: "never" },
   ] as const;
 
   it.each(expectedTables)(

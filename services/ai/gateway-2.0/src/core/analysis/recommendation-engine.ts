@@ -236,29 +236,28 @@ async function fetchNewsSentiment(
   const params: unknown[] = [];
   let symbolClause = "";
   if (symbolFilter) {
-    symbolClause = " AND entities @> $1::jsonb";
-    params.push(JSON.stringify([{ symbol: symbolFilter.toUpperCase() }]));
+    symbolClause = " AND $1 = ANY(affected_tickers)";
+    params.push(symbolFilter.toUpperCase());
   }
 
   const { rows } = await db.query<NewsSentimentRow>(
     `SELECT
-       e.value->>'symbol' AS symbol,
+       unnest(affected_tickers) AS symbol,
        COUNT(*) AS article_count,
-       AVG(avg_sentiment_score)::text AS avg_sentiment
-     FROM analysis_news_marketaux,
-          jsonb_array_elements(entities) AS e(value)
-     WHERE published_at >= NOW() - INTERVAL '48 hours'
-       AND avg_sentiment_score IS NOT NULL${symbolClause}
-     GROUP BY e.value->>'symbol'
-     HAVING COUNT(*) >= 3`,
+       AVG(sentiment_score)::text AS avg_sentiment
+     FROM analysis_filtered_news
+     WHERE processed_at >= NOW() - INTERVAL '48 hours'
+       AND sentiment_score IS NOT NULL${symbolClause}
+     GROUP BY unnest(affected_tickers)
+     HAVING COUNT(*) >= 1`,
     params,
   );
   return rows;
 }
 
 interface NewsHeadlineRow {
-  symbol: string;
-  title: string;
+  headline: string;
+  affected_tickers: string[];
 }
 
 async function fetchNewsHeadlines(
@@ -268,26 +267,27 @@ async function fetchNewsHeadlines(
   const params: unknown[] = [];
   let symbolClause = "";
   if (symbolFilter) {
-    symbolClause = " AND entities @> $1::jsonb";
-    params.push(JSON.stringify([{ symbol: symbolFilter.toUpperCase() }]));
+    symbolClause = " AND $1 = ANY(affected_tickers)";
+    params.push(symbolFilter.toUpperCase());
   }
 
   const { rows } = await db.query<NewsHeadlineRow>(
-    `SELECT e.value->>'symbol' AS symbol, title
-     FROM analysis_news_marketaux,
-          jsonb_array_elements(entities) AS e(value)
-     WHERE published_at >= NOW() - INTERVAL '48 hours'
-       AND avg_sentiment_score IS NOT NULL${symbolClause}
-     ORDER BY published_at DESC`,
+    `SELECT headline, affected_tickers
+     FROM analysis_filtered_news
+     WHERE processed_at >= NOW() - INTERVAL '48 hours'${symbolClause}
+     ORDER BY processed_at DESC
+     LIMIT 50`,
     params,
   );
 
   const headlineMap = new Map<string, string[]>();
   for (const row of rows) {
-    const existing = headlineMap.get(row.symbol) ?? [];
-    if (existing.length < 3) {
-      existing.push(row.title);
-      headlineMap.set(row.symbol, existing);
+    for (const ticker of row.affected_tickers ?? []) {
+      const existing = headlineMap.get(ticker) ?? [];
+      if (existing.length < 3) {
+        existing.push(row.headline);
+        headlineMap.set(ticker, existing);
+      }
     }
   }
   return headlineMap;
@@ -304,14 +304,18 @@ export interface MacroContext {
 export async function fetchMacroContext(db: Pool): Promise<MacroContext> {
   const { rows } = await db.query<{
     title: string;
-    search_category: string;
-    avg_sentiment_score: string | null;
+    description: string | null;
+    category: string;
+    sentiment_score: string | null;
   }>(
-    `SELECT title, search_category, avg_sentiment_score::text
-     FROM analysis_news_marketaux
-     WHERE published_at >= NOW() - INTERVAL '24 hours'
-       AND search_category IN ('macro', 'geopolitical', 'policy')
-     ORDER BY published_at DESC
+    `SELECT headline AS title, summary AS description, category,
+            sentiment_score::text
+     FROM analysis_filtered_news
+     WHERE processed_at >= NOW() - INTERVAL '24 hours'
+       AND category IN ('macro', 'geopolitical', 'policy')
+     ORDER BY
+       CASE impact_level WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+       processed_at DESC
      LIMIT 10`,
   );
 
@@ -326,8 +330,8 @@ export async function fetchMacroContext(db: Pool): Promise<MacroContext> {
   let sentimentCount = 0;
 
   for (const r of rows) {
-    categoryCounts.set(r.search_category, (categoryCounts.get(r.search_category) ?? 0) + 1);
-    const s = toNum(r.avg_sentiment_score);
+    categoryCounts.set(r.category, (categoryCounts.get(r.category) ?? 0) + 1);
+    const s = toNum(r.sentiment_score);
     if (s != null) {
       sentimentSum += s;
       sentimentCount++;

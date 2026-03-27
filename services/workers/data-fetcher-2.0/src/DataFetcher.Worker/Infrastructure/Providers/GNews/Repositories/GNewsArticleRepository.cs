@@ -21,7 +21,7 @@ public class GNewsArticleRepository : IGNewsArticleRepository
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
-            INSERT INTO analysis_news_gnews (
+            INSERT INTO unfiltered_news_gnews (
                 gnews_id, title, description, content_excerpt,
                 url, image_url, source_name, source_url,
                 published_at, language, search_category, created_at
@@ -45,7 +45,7 @@ public class GNewsArticleRepository : IGNewsArticleRepository
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
-            DELETE FROM analysis_news_gnews
+            DELETE FROM unfiltered_news_gnews
             WHERE published_at < NOW() - MAKE_INTERVAL(days => @RetentionDays)";
 
         var deleted = await connection.ExecuteAsync(sql, new { RetentionDays = retentionDays });
@@ -62,7 +62,7 @@ public class GNewsArticleRepository : IGNewsArticleRepository
 
         const string sql = @"
             SELECT MAX(published_at)
-            FROM analysis_news_gnews
+            FROM unfiltered_news_gnews
             WHERE search_category = @Category";
 
         return await connection.QuerySingleOrDefaultAsync<DateTime?>(sql, new { Category = category });

@@ -136,6 +136,12 @@ public class GNewsWorker : BackgroundService
                         await _metrics.IncrementCounterAsync($"{MetricsPrefix}_articles_stored_total", result.ArticlesStored);
 
                         _logger.LogInformation("GNews headlines fetch complete: {Status}", statusMessage);
+
+                        if (status == "success")
+                        {
+                            var gatewayNotifier = fetchScope.ServiceProvider.GetRequiredService<IGatewayAlertNotifier>();
+                            await gatewayNotifier.NotifyProcessNewsAsync(stoppingToken);
+                        }
                     }
                     catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                     {

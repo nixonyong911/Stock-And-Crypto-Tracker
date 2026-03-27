@@ -48,7 +48,7 @@ const fredTable: TableCheck = {
 };
 
 const newsTable: TableCheck = {
-  table: "analysis_news_marketaux",
+  table: "unfiltered_news_marketaux",
   column: "created_at",
   thresholdHours: 12,
   skipRule: "never",
