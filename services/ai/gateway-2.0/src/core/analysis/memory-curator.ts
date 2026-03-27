@@ -102,7 +102,8 @@ const DECAY_GRACE_DAYS = 7;
 const DECAY_RATE = 0.92;
 const FADING_THRESHOLD = 0.3;
 const ARCHIVE_THRESHOLD = 0.1;
-const FILTERED_LOOKBACK_HOURS = 6;
+const FILTERED_LOOKBACK_HOURS = 3;
+const MAX_STORIES_FOR_CURATOR = 25;
 
 // ── Main entry point ──────────────────────────────────────────────────
 
@@ -209,7 +210,8 @@ async function fetchRecentFilteredNews(db: Pool): Promise<FilteredStory[]> {
             market_implications, batch_id::text
      FROM analysis_filtered_news
      WHERE processed_at >= NOW() - INTERVAL '${FILTERED_LOOKBACK_HOURS} hours'
-     ORDER BY processed_at DESC`,
+     ORDER BY processed_at DESC
+     LIMIT ${MAX_STORIES_FOR_CURATOR}`,
   );
   return rows;
 }
