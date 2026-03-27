@@ -94,7 +94,7 @@ export interface CuratorDeps {
 
 const CURATOR_LOCK_KEY = "memory:curator:lock";
 const CURATOR_LOCK_TTL = 600; // 10 minutes
-const LLM_TIMEOUT_MS = 180_000; // 3 minutes for thinking model
+const LLM_TIMEOUT_MS = 300_000; // 5 minutes — thinking model with large theme+story context
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]/g;
 const ACTIVE_THEME_CAP = 50;
 const ACTIVE_THEME_TARGET = 45;
@@ -102,7 +102,7 @@ const DECAY_GRACE_DAYS = 7;
 const DECAY_RATE = 0.92;
 const FADING_THRESHOLD = 0.3;
 const ARCHIVE_THRESHOLD = 0.1;
-const FILTERED_LOOKBACK_HOURS = 12;
+const FILTERED_LOOKBACK_HOURS = 6;
 
 // ── Main entry point ──────────────────────────────────────────────────
 
