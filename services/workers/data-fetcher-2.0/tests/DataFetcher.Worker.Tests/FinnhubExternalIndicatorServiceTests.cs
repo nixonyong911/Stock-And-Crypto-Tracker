@@ -7,6 +7,7 @@ using DataFetcher.Worker.Domain.Providers.Massive.Entities;
 using DataFetcher.Worker.Infrastructure.Common;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub;
+using DataFetcher.Worker.Infrastructure.Providers.Finnhub.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.Massive.Repositories;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,6 +22,7 @@ public class FinnhubExternalIndicatorServiceTests
     private readonly Mock<IFinnhubApiClient> _finnhubClientMock = new();
     private readonly Mock<IStockTickerRepository> _stockTickerRepoMock = new();
     private readonly Mock<IStockIndicatorAdvancedRepository> _stockAdvancedRepoMock = new();
+    private readonly Mock<IInsiderTradingRepository> _insiderTradingRepoMock = new();
     private readonly Mock<IDbConnectionFactory> _dbFactoryMock = new();
     private readonly Mock<IMetricsClient> _metricsMock = new();
 
@@ -33,6 +35,7 @@ public class FinnhubExternalIndicatorServiceTests
             _finnhubClientMock.Object,
             _stockTickerRepoMock.Object,
             _stockAdvancedRepoMock.Object,
+            _insiderTradingRepoMock.Object,
             _dbFactoryMock.Object,
             _metricsMock.Object,
             Mock.Of<ILogger<FinnhubExternalIndicatorService>>());
@@ -335,6 +338,103 @@ public class FinnhubExternalIndicatorServiceTests
     }
 
     // ================================================================
+    // Test 11: FetchSingle stores raw insider transactions alongside aggregation
+    // ================================================================
+
+    [Fact]
+    public async Task FetchSingle_StoresRawTransactions_AlongsideAggregation()
+    {
+        SetupDefaultFinnhubResponses("AAPL");
+
+        var service = CreateService();
+        var success = await service.FetchStockExternalIndicatorsAsync(1, "AAPL");
+
+        Assert.True(success);
+        _stockAdvancedRepoMock.Verify(r => r.BulkUpsertAsync(It.IsAny<IEnumerable<StockIndicatorAdvanced>>()), Times.Once);
+        _insiderTradingRepoMock.Verify(r => r.BulkUpsertAsync(1, "AAPL", It.Is<List<InsiderTransaction>>(l => l.Count == 2)), Times.Once);
+    }
+
+    // ================================================================
+    // Test 12: FetchSingle with null insider data skips raw storage
+    // ================================================================
+
+    [Fact]
+    public async Task FetchSingle_NullInsiderData_SkipsRawStorage()
+    {
+        _finnhubClientMock.Setup(c => c.GetInsiderTransactionsAsync("AAPL", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InsiderTransactionsResponse?)null);
+        _finnhubClientMock.Setup(c => c.GetInsiderSentimentAsync("AAPL", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InsiderSentimentResponse?)null);
+        _finnhubClientMock.Setup(c => c.GetRecommendationTrendsAsync("AAPL", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((List<RecommendationTrend>?)null);
+
+        var service = CreateService();
+        await service.FetchStockExternalIndicatorsAsync(1, "AAPL");
+
+        _insiderTradingRepoMock.Verify(r => r.BulkUpsertAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<List<InsiderTransaction>>()), Times.Never);
+    }
+
+    // ================================================================
+    // Test 13: FetchSingle with empty insider data skips raw storage
+    // ================================================================
+
+    [Fact]
+    public async Task FetchSingle_EmptyInsiderData_SkipsRawStorage()
+    {
+        _finnhubClientMock.Setup(c => c.GetInsiderTransactionsAsync("AAPL", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new InsiderTransactionsResponse { Symbol = "AAPL", Data = new List<InsiderTransaction>() });
+        _finnhubClientMock.Setup(c => c.GetInsiderSentimentAsync("AAPL", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InsiderSentimentResponse?)null);
+        _finnhubClientMock.Setup(c => c.GetRecommendationTrendsAsync("AAPL", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((List<RecommendationTrend>?)null);
+
+        var service = CreateService();
+        await service.FetchStockExternalIndicatorsAsync(1, "AAPL");
+
+        _insiderTradingRepoMock.Verify(r => r.BulkUpsertAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<List<InsiderTransaction>>()), Times.Never);
+    }
+
+    // ================================================================
+    // Test 14: FetchAll calls cleanup after all tickers
+    // ================================================================
+
+    [Fact]
+    public async Task FetchAll_CallsCleanupAfterAllTickers()
+    {
+        _stockTickerRepoMock.Setup(r => r.GetActiveTickersAsync())
+            .ReturnsAsync(new List<StockTicker> { new() { Id = 1, Symbol = "AAPL", IsActive = true } });
+        SetupDefaultFinnhubResponses("AAPL");
+
+        var service = CreateService();
+        await service.FetchAllStockExternalIndicatorsAsync();
+
+        _insiderTradingRepoMock.Verify(r => r.CleanupOldTransactionsAsync(90), Times.Once);
+    }
+
+    // ================================================================
+    // Test 15: Raw storage failure does not prevent aggregation
+    // ================================================================
+
+    [Fact]
+    public async Task FetchSingle_RawStorageFails_AggregationStillSucceeds()
+    {
+        SetupDefaultFinnhubResponses("AAPL");
+        _insiderTradingRepoMock.Setup(r => r.BulkUpsertAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<List<InsiderTransaction>>()))
+            .ThrowsAsync(new InvalidOperationException("DB error"));
+
+        StockIndicatorAdvanced? captured = null;
+        _stockAdvancedRepoMock.Setup(r => r.BulkUpsertAsync(It.IsAny<IEnumerable<StockIndicatorAdvanced>>()))
+            .Callback<IEnumerable<StockIndicatorAdvanced>>(entities => captured = entities.First());
+
+        var service = CreateService();
+        var success = await service.FetchStockExternalIndicatorsAsync(1, "AAPL");
+
+        Assert.True(success);
+        Assert.NotNull(captured);
+        Assert.Equal(1, captured!.InsiderBuyCount);
+    }
+
+    // ================================================================
     // Testable subclass that bypasses Dapper for GetFinnhubDataSourceIdAsync
     // ================================================================
 
@@ -344,10 +444,11 @@ public class FinnhubExternalIndicatorServiceTests
             IFinnhubApiClient finnhubClient,
             IStockTickerRepository stockTickerRepo,
             IStockIndicatorAdvancedRepository stockAdvancedRepo,
+            IInsiderTradingRepository insiderTradingRepo,
             IDbConnectionFactory dbConnectionFactory,
             IMetricsClient metrics,
             ILogger<FinnhubExternalIndicatorService> logger)
-            : base(finnhubClient, stockTickerRepo, stockAdvancedRepo, dbConnectionFactory, metrics, logger)
+            : base(finnhubClient, stockTickerRepo, stockAdvancedRepo, insiderTradingRepo, dbConnectionFactory, metrics, logger)
         {
         }
 

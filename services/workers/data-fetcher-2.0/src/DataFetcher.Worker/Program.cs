@@ -109,6 +109,7 @@ try
 
     // Infrastructure - Finnhub Provider
     builder.Services.AddScoped<IFundamentalsRepository, FundamentalsRepository>();
+    builder.Services.AddScoped<IInsiderTradingRepository, InsiderTradingRepository>();
 
     // Infrastructure - Common (shared across providers)
     builder.Services.AddScoped<IEarningsRepository, EarningsRepository>();

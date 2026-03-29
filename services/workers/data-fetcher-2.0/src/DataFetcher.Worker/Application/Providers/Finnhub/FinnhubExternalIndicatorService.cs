@@ -5,6 +5,7 @@ using DataFetcher.Worker.Domain.Providers.Massive.Entities;
 using DataFetcher.Worker.Infrastructure.Common;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.Finnhub;
+using DataFetcher.Worker.Infrastructure.Providers.Finnhub.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.Massive.Repositories;
 using StockTracker.Common.Metrics;
 
@@ -18,6 +19,7 @@ public partial class FinnhubExternalIndicatorService : IFinnhubExternalIndicator
     private readonly IFinnhubApiClient _finnhubClient;
     private readonly IStockTickerRepository _stockTickerRepo;
     private readonly IStockIndicatorAdvancedRepository _stockAdvancedRepo;
+    private readonly IInsiderTradingRepository _insiderTradingRepo;
     private readonly IDbConnectionFactory _dbConnectionFactory;
     private readonly IMetricsClient _metrics;
     private readonly ILogger<FinnhubExternalIndicatorService> _logger;
@@ -28,6 +30,7 @@ public partial class FinnhubExternalIndicatorService : IFinnhubExternalIndicator
         IFinnhubApiClient finnhubClient,
         IStockTickerRepository stockTickerRepo,
         IStockIndicatorAdvancedRepository stockAdvancedRepo,
+        IInsiderTradingRepository insiderTradingRepo,
         IDbConnectionFactory dbConnectionFactory,
         IMetricsClient metrics,
         ILogger<FinnhubExternalIndicatorService> logger)
@@ -35,6 +38,7 @@ public partial class FinnhubExternalIndicatorService : IFinnhubExternalIndicator
         _finnhubClient = finnhubClient;
         _stockTickerRepo = stockTickerRepo;
         _stockAdvancedRepo = stockAdvancedRepo;
+        _insiderTradingRepo = insiderTradingRepo;
         _dbConnectionFactory = dbConnectionFactory;
         _metrics = metrics;
         _logger = logger;
@@ -84,6 +88,15 @@ public partial class FinnhubExternalIndicatorService : IFinnhubExternalIndicator
             result.Errors.Add($"Batch error: {ex.Message}");
         }
 
+        try
+        {
+            await _insiderTradingRepo.CleanupOldTransactionsAsync(90);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cleanup old insider trading transactions");
+        }
+
         sw.Stop();
         result.DurationSeconds = sw.Elapsed.TotalSeconds;
         await _metrics.IncrementCounterAsync($"{MetricsPrefix}.batch_complete");
@@ -99,6 +112,18 @@ public partial class FinnhubExternalIndicatorService : IFinnhubExternalIndicator
             var insider = await FinnhubResiliencePolicies.ExecuteWithRetryAsync(
                 () => _finnhubClient.GetInsiderTransactionsAsync(symbol, ct),
                 MaxRetries, _logger, $"InsiderTransactions({symbol})", ct);
+
+            if (insider?.Data is { Count: > 0 })
+            {
+                try
+                {
+                    await _insiderTradingRepo.BulkUpsertAsync(tickerId, symbol, insider.Data);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to store raw insider transactions for {Symbol}", symbol);
+                }
+            }
 
             var fromDate = DateTime.UtcNow.AddMonths(-12).ToString("yyyy-MM-dd");
             var toDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
