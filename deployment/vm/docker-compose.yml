@@ -400,6 +400,7 @@ services:
       - PHONE_HASH_SALT=${PHONE_HASH_SALT}
       - FRONTEND_URL=${FRONTEND_URL:-https://stockandcryptotracker.com}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+      - CURATOR_MODEL=${CURATOR_MODEL:-claude-4.6-sonnet-medium-thinking}
       - RABBITMQ_URL=amqp://stocktracker:${RABBITMQ_PASSWORD}@rabbitmq:5672
       - OVERVIEW_ALLOWED_USERS=${OVERVIEW_ALLOWED_USERS:-}
     volumes:

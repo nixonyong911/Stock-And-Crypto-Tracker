@@ -23,7 +23,7 @@ export interface MemoryTheme {
   update_count: number;
 }
 
-interface FilteredStory {
+export interface FilteredStory {
   headline: string;
   summary: string;
   category: string;
@@ -93,8 +93,8 @@ export interface CuratorDeps {
 // ── Constants ─────────────────────────────────────────────────────────
 
 const CURATOR_LOCK_KEY = "memory:curator:lock";
-const CURATOR_LOCK_TTL = 600; // 10 minutes
-const LLM_TIMEOUT_MS = 480_000; // 8 minutes — thinking model; lock TTL is 10 min
+const CURATOR_LOCK_TTL = 900; // 15 min — covers parallel batches + DB operations
+const LLM_TIMEOUT_MS = 360_000; // 6 min per batch — compact themes reduce prompt ~60%
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]/g;
 const ACTIVE_THEME_CAP = 50;
 const ACTIVE_THEME_TARGET = 45;
@@ -104,6 +104,7 @@ const FADING_THRESHOLD = 0.3;
 const ARCHIVE_THRESHOLD = 0.1;
 const FILTERED_LOOKBACK_HOURS = 3;
 const MAX_STORIES_FOR_CURATOR = 25;
+const MAX_STORIES_PER_BATCH = 10;
 
 // ── Main entry point ──────────────────────────────────────────────────
 
@@ -141,13 +142,40 @@ export async function curateMarketMemory(
       return result;
     }
 
+    const batches = chunkArray(recentStories, MAX_STORIES_PER_BATCH);
     log.info(
-      { themes: existingThemes.length, stories: recentStories.length },
-      "Running memory curator",
+      {
+        themes: existingThemes.length,
+        stories: recentStories.length,
+        batches: batches.length,
+        storiesPerBatch: batches.map((b) => b.length),
+      },
+      "Running memory curator in batches",
     );
 
-    const curatorOutput = await runCuratorLLM(
-      existingThemes, recentStories, curatorModel, log,
+    const batchResults = await Promise.allSettled(
+      batches.map((batch) =>
+        runCuratorLLM(existingThemes, batch, curatorModel, log),
+      ),
+    );
+
+    const successfulOutputs: CuratorOutput[] = [];
+    for (const r of batchResults) {
+      if (r.status === "fulfilled") {
+        successfulOutputs.push(r.value);
+      } else {
+        log.error({ err: r.reason }, "Curator batch failed");
+      }
+    }
+
+    if (successfulOutputs.length === 0) {
+      throw new Error(
+        `All ${batches.length} curator batches failed`,
+      );
+    }
+
+    const curatorOutput = mergeBatchResults(
+      successfulOutputs, existingThemes, log,
     );
 
     resolveThemeIds(curatorOutput, existingThemes, log);
@@ -218,27 +246,39 @@ async function fetchRecentFilteredNews(db: Pool): Promise<FilteredStory[]> {
   return rows;
 }
 
+// ── Batching utilities ────────────────────────────────────────────────
+
+export function chunkArray<T>(arr: T[], size: number): T[][] {
+  if (size < 1) return [arr];
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+export function buildCompactThemeList(
+  themes: MemoryTheme[],
+): Record<string, unknown>[] {
+  return themes.map((t) => ({
+    theme_id: t.theme_id,
+    theme: t.theme,
+    category: t.category,
+    impact_level: t.impact_level,
+    summary: t.summary,
+    affected_tickers: t.affected_tickers,
+    relevance_score: t.relevance_score,
+    update_count: t.update_count,
+  }));
+}
+
 // ── LLM curator call ──────────────────────────────────────────────────
 
-function buildCuratorPrompt(
+export function buildBatchCuratorPrompt(
   themes: MemoryTheme[],
   stories: FilteredStory[],
 ): string {
-  const themesJson = themes.map((t) => ({
-    theme_id: t.theme_id,
-    theme: t.theme,
-    status: t.status,
-    summary: t.summary,
-    key_facts: t.key_facts.slice(-5),
-    category: t.category,
-    impact_level: t.impact_level,
-    relevance_score: t.relevance_score,
-    affected_tickers: t.affected_tickers,
-    affected_sectors: t.affected_sectors,
-    first_observed: t.first_observed,
-    last_updated: t.last_updated,
-    update_count: t.update_count,
-  }));
+  const themesJson = buildCompactThemeList(themes);
 
   const storiesJson = stories.map((s) => ({
     headline: s.headline,
@@ -254,24 +294,25 @@ function buildCuratorPrompt(
 
   return `You are a Market Memory Curator. Your job is to maintain a set of market themes that represent the current state of global markets, acting like a human analyst's long-term memory.
 
-## Current Active Themes (existing memory)
+You are processing a BATCH of articles (not the full set). Only create new themes or updates based on evidence in THIS batch.
+
+## Current Active Themes (existing memory — compact view)
 ${JSON.stringify(themesJson, null, 2)}
 
-## New Processed Articles (latest batch)
+## New Processed Articles (this batch)
 ${JSON.stringify(storiesJson, null, 2)}
 
 ## Instructions
 
-Analyze the new articles against existing themes. Output a JSON object with:
+Analyze the articles against existing themes. Output a JSON object with:
 
 1. "new_themes": Genuinely new themes not covered by existing ones. Each entry:
    { "theme", "summary", "key_facts" (array), "category", "impact_level", "affected_sectors" (array), "affected_tickers" (array), "market_implications", "sentiment" (bullish/bearish/neutral), "sentiment_score" (-1.0 to 1.0) }
 
-2. "updates": Updates to existing themes reinforced by new evidence. Each entry:
-   { "theme_id", "new_facts" (array of new bullet points), "updated_summary" (rewritten summary), "updated_impact" (reassessed level), "updated_relevance" (0-1, increase if reinforced), "updated_sentiment" (bullish/bearish/neutral), "updated_sentiment_score" (-1.0 to 1.0) }
+2. "updates": Updates to existing themes reinforced by new evidence in this batch. Each entry:
+   { "theme_id", "new_facts" (array of new bullet points), "updated_summary" (rewritten summary incorporating new evidence), "updated_impact" (reassessed level), "updated_relevance" (0-1, increase if reinforced), "updated_sentiment" (bullish/bearish/neutral), "updated_sentiment_score" (-1.0 to 1.0) }
 
-3. "decay": Existing themes with NO new supporting evidence in this batch. Each entry:
-   { "theme_id", "reason" }
+Do NOT include a "decay" section — decay is handled separately after all batches are merged.
 
 RULES:
 - Deduplicate: merge similar articles into a single theme, never create two themes for the same event
@@ -280,7 +321,6 @@ RULES:
 - Tickers must be uppercase stock symbols
 - relevance_score: 0.0 to 1.0 — increase for themes with strong new evidence, keep stable otherwise
 - For updates: only include themes that have genuinely new information, not just restatements
-- For decay: only flag themes that received zero supporting evidence in this batch
 - Think carefully about second-order effects (e.g., oil shock → inflation → Fed policy implications)
 
 Output ONLY valid JSON, no markdown fences.`;
@@ -292,7 +332,7 @@ async function runCuratorLLM(
   model: string,
   log: FastifyBaseLogger,
 ): Promise<CuratorOutput> {
-  const prompt = buildCuratorPrompt(themes, stories);
+  const prompt = buildBatchCuratorPrompt(themes, stories);
 
   const args = ["cursor-agent", "-p", prompt, "--model", model, "--trust"];
   const apiKey = process.env["CURSOR_API_KEY"];
@@ -509,6 +549,58 @@ function validateDecay(
     }
   }
   return results;
+}
+
+// ── Merge batch results ──────────────────────────────────────────────
+
+export function mergeBatchResults(
+  results: CuratorOutput[],
+  themes: MemoryTheme[],
+  log: FastifyBaseLogger,
+): CuratorOutput {
+  const seenThemeNames = new Set<string>();
+  const newThemes: NewThemeEntry[] = [];
+  for (const result of results) {
+    for (const nt of result.new_themes) {
+      const key = nt.theme.toLowerCase().trim();
+      if (!seenThemeNames.has(key)) {
+        seenThemeNames.add(key);
+        newThemes.push(nt);
+      } else {
+        log.debug({ theme: nt.theme }, "Deduplicated new theme across batches");
+      }
+    }
+  }
+
+  const updateMap = new Map<string, ThemeUpdateEntry>();
+  for (const result of results) {
+    for (const upd of result.updates) {
+      const existing = updateMap.get(upd.theme_id);
+      if (existing) {
+        existing.new_facts = [...existing.new_facts, ...upd.new_facts];
+        existing.updated_summary = upd.updated_summary;
+        existing.updated_relevance = Math.max(existing.updated_relevance, upd.updated_relevance);
+        if (upd.updated_sentiment) existing.updated_sentiment = upd.updated_sentiment;
+        if (upd.updated_sentiment_score !== undefined) {
+          existing.updated_sentiment_score = upd.updated_sentiment_score;
+        }
+      } else {
+        updateMap.set(upd.theme_id, { ...upd, new_facts: [...upd.new_facts] });
+      }
+    }
+  }
+
+  const updatedIds = new Set(updateMap.keys());
+  const decay: ThemeDecayEntry[] = themes
+    .filter((t) => !updatedIds.has(t.theme_id))
+    .map((t) => ({ theme_id: t.theme_id, reason: "No new evidence in batch" }));
+
+  log.info(
+    { newThemes: newThemes.length, updates: updateMap.size, decay: decay.length },
+    "Merged batch results",
+  );
+
+  return { new_themes: newThemes, updates: [...updateMap.values()], decay };
 }
 
 // ── Resolve truncated theme IDs ───────────────────────────────────────
