@@ -15,4 +15,25 @@ public interface IEtoroMarketDataClient
         string direction = "desc",
         int count = 100,
         CancellationToken cancellationToken = default);
+
+    Task<EtoroSocialSearchResponse> SearchInstrumentsSortedAsync(
+        string sortField,
+        int? instrumentTypeId = null,
+        int pageSize = 25,
+        int pageNumber = 1,
+        string? fields = null,
+        CancellationToken cancellationToken = default);
+
+    Task<EtoroCuratedListsResponse?> GetCuratedListsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<EtoroInvestorSearchResponse> SearchTopInvestorsAsync(
+        string period = "CurrYear",
+        string sort = "-copiers",
+        int pageSize = 100,
+        CancellationToken cancellationToken = default);
+
+    Task<EtoroUserPortfolioResponse?> GetUserPortfolioAsync(
+        string username,
+        CancellationToken cancellationToken = default);
 }

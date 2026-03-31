@@ -325,6 +325,7 @@ try
 
     // eToro workers
     builder.Services.AddHostedService<EtoroFetchWorker>();
+    builder.Services.AddHostedService<EtoroSocialDataWorker>();
 
     // Pipeline orchestration (event-driven)
     builder.Services.AddHostedService<PipelineOrchestratorConsumer>();

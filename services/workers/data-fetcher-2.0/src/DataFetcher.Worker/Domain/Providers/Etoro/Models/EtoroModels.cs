@@ -76,3 +76,83 @@ public class EtoroCandle
     [JsonPropertyName("volume")]
     public double? Volume { get; set; }
 }
+
+public class EtoroSocialSearchResponse
+{
+    [JsonPropertyName("page")] public int Page { get; set; }
+    [JsonPropertyName("pageSize")] public int PageSize { get; set; }
+    [JsonPropertyName("totalItems")] public int TotalItems { get; set; }
+    [JsonPropertyName("items")] public List<EtoroSocialInstrument> Items { get; set; } = [];
+}
+
+public class EtoroSocialInstrument
+{
+    [JsonPropertyName("instrumentId")] public int InstrumentId { get; set; }
+    [JsonPropertyName("displayname")] public string? DisplayName { get; set; }
+    [JsonPropertyName("symbol")] public string? Symbol { get; set; }
+    [JsonPropertyName("instrumentTypeID")] public int? InstrumentTypeId { get; set; }
+    [JsonPropertyName("instrumentType")] public string? InstrumentType { get; set; }
+    [JsonPropertyName("holdingPct")] public double? HoldingPct { get; set; }
+    [JsonPropertyName("buyHoldingPct")] public double? BuyHoldingPct { get; set; }
+    [JsonPropertyName("sellHoldingPct")] public double? SellHoldingPct { get; set; }
+    [JsonPropertyName("buyPctChange24Hours")] public double? BuyPctChange24Hours { get; set; }
+    [JsonPropertyName("traders7DayChange")] public double? Traders7DayChange { get; set; }
+    [JsonPropertyName("traders30DayChange")] public double? Traders30DayChange { get; set; }
+    [JsonPropertyName("popularityUniques7Day")] public int? PopularityUniques7Day { get; set; }
+    [JsonPropertyName("dailyPriceChange")] public double? DailyPriceChange { get; set; }
+    [JsonPropertyName("weeklyPriceChange")] public double? WeeklyPriceChange { get; set; }
+    [JsonPropertyName("monthlyPriceChange")] public double? MonthlyPriceChange { get; set; }
+    [JsonPropertyName("currentRate")] public double? CurrentRate { get; set; }
+}
+
+public class EtoroCuratedListsResponse
+{
+    [JsonPropertyName("curatedLists")] public List<EtoroCuratedList> CuratedLists { get; set; } = [];
+}
+
+public class EtoroCuratedList
+{
+    [JsonPropertyName("uuid")] public string? Uuid { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("description")] public string? Description { get; set; }
+    [JsonPropertyName("items")] public List<EtoroCuratedListItem> Items { get; set; } = [];
+}
+
+public class EtoroCuratedListItem
+{
+    [JsonPropertyName("instrumentId")] public int InstrumentId { get; set; }
+}
+
+public class EtoroInvestorSearchResponse
+{
+    [JsonPropertyName("totalItems")] public int TotalItems { get; set; }
+    [JsonPropertyName("items")] public List<EtoroInvestor> Items { get; set; } = [];
+}
+
+public class EtoroInvestor
+{
+    [JsonPropertyName("userName")] public string UserName { get; set; } = string.Empty;
+    [JsonPropertyName("fullName")] public string? FullName { get; set; }
+    [JsonPropertyName("copiers")] public int Copiers { get; set; }
+    [JsonPropertyName("gain")] public double Gain { get; set; }
+    [JsonPropertyName("winRatio")] public double WinRatio { get; set; }
+    [JsonPropertyName("riskScore")] public int RiskScore { get; set; }
+    [JsonPropertyName("trades")] public int Trades { get; set; }
+    [JsonPropertyName("isPopularInvestor")] public bool IsPopularInvestor { get; set; }
+    [JsonPropertyName("topTradedInstrumentId")] public int? TopTradedInstrumentId { get; set; }
+}
+
+public class EtoroUserPortfolioResponse
+{
+    [JsonPropertyName("positions")] public List<EtoroPosition> Positions { get; set; } = [];
+}
+
+public class EtoroPosition
+{
+    [JsonPropertyName("instrumentId")] public int InstrumentId { get; set; }
+    [JsonPropertyName("isBuy")] public bool IsBuy { get; set; }
+    [JsonPropertyName("investmentPct")] public double InvestmentPct { get; set; }
+    [JsonPropertyName("netProfit")] public double NetProfit { get; set; }
+    [JsonPropertyName("openRate")] public double OpenRate { get; set; }
+    [JsonPropertyName("leverage")] public int Leverage { get; set; }
+}
