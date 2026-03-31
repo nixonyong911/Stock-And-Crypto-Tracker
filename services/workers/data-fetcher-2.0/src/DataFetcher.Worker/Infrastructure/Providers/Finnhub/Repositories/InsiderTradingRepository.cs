@@ -22,7 +22,7 @@ public class InsiderTradingRepository : IInsiderTradingRepository
         var inserted = 0;
 
         const string sql = @"
-            INSERT INTO insider_trading_transactions (
+            INSERT INTO analysis_insider_trading_transactions (
                 stock_ticker_id, symbol, finnhub_id, insider_name, transaction_code,
                 shares_changed, shares_after, transaction_price, transaction_date,
                 filing_date, is_derivative
@@ -73,7 +73,7 @@ public class InsiderTradingRepository : IInsiderTradingRepository
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
-            DELETE FROM insider_trading_transactions
+            DELETE FROM analysis_insider_trading_transactions
             WHERE transaction_date < CURRENT_DATE - @RetentionDays::int";
 
         var deleted = await connection.ExecuteAsync(sql, new { RetentionDays = retentionDays });

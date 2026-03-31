@@ -73,7 +73,7 @@ export const TABLE_CHECKS: readonly TableCheck[] = [
 
   // Daily — insider trading (fetched alongside fundamentals)
   {
-    table: "insider_trading_transactions",
+    table: "analysis_insider_trading_transactions",
     column: "created_at",
     thresholdHours: 26,
     skipRule: "market-closed",
