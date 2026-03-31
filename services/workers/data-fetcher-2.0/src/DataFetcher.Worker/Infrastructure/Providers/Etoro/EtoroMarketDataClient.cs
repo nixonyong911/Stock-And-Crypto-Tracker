@@ -81,10 +81,11 @@ public class EtoroMarketDataClient : IEtoroMarketDataClient
         CancellationToken cancellationToken = default)
     {
         var defaultFields = "instrumentId,displayname,symbol,instrumentTypeID,instrumentType,holdingPct,buyHoldingPct,sellHoldingPct,buyPctChange24Hours,traders7DayChange,traders30DayChange,popularityUniques7Day,dailyPriceChange,weeklyPriceChange,monthlyPriceChange,currentRate";
+        // eToro API: fields must NOT be URL-encoded (commas must be raw), uses "page" not "pageNumber"
         var url = $"{_settings.BaseUrl}/api/v1/market-data/search" +
-                  $"?fields={Uri.EscapeDataString(fields ?? defaultFields)}" +
-                  $"&sort={Uri.EscapeDataString(sortField)}" +
-                  $"&pageSize={pageSize}&pageNumber={pageNumber}";
+                  $"?fields={fields ?? defaultFields}" +
+                  $"&sort={sortField}" +
+                  $"&pageSize={pageSize}&page={pageNumber}";
 
         if (instrumentTypeId.HasValue)
             url += $"&instrumentTypeID={instrumentTypeId.Value}";

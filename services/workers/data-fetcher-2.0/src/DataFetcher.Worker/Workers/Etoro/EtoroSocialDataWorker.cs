@@ -25,12 +25,10 @@ public class EtoroSocialDataWorker : BackgroundService
     private readonly IMetricsClient _metrics;
 
     private const int IntervalHours = 4;
-    private const int PagesPerAssetType = 4;
+    private const int TotalPages = 8;
     private const int PageSize = 25;
     private const int TopInvestorCount = 100;
     private const int RetentionDays = 90;
-    private const int StockTypeId = 5;
-    private const int CryptoTypeId = 10;
 
     private static readonly TimeSpan ApiCallDelay = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan PortfolioCallDelay = TimeSpan.FromMilliseconds(1200);
@@ -115,27 +113,23 @@ public class EtoroSocialDataWorker : BackgroundService
         var fetchedAt = DateTime.UtcNow;
         var allInstruments = new List<EtoroSocialInstrument>();
 
-        // Phase A: Instrument discovery (top 100 stocks + top 100 crypto by holdingPct)
+        // Phase A: Instrument discovery (top 200 by holdingPct across all types)
+        // eToro API ignores instrumentTypeID filter, so we fetch all types together
         _logger.LogInformation("Phase A: Fetching top instruments by holdingPct");
 
-        foreach (var typeId in new[] { StockTypeId, CryptoTypeId })
+        for (var page = 1; page <= TotalPages; page++)
         {
-            var typeName = typeId == StockTypeId ? "stocks" : "crypto";
-            for (var page = 1; page <= PagesPerAssetType; page++)
-            {
-                ct.ThrowIfCancellationRequested();
-                var result = await client.SearchInstrumentsSortedAsync(
-                    sortField: "-holdingPct",
-                    instrumentTypeId: typeId,
-                    pageSize: PageSize,
-                    pageNumber: page,
-                    cancellationToken: ct);
+            ct.ThrowIfCancellationRequested();
+            var result = await client.SearchInstrumentsSortedAsync(
+                sortField: "-holdingPct",
+                pageSize: PageSize,
+                pageNumber: page,
+                cancellationToken: ct);
 
-                if (result.Items.Count == 0) break;
-                allInstruments.AddRange(result.Items);
-                _logger.LogDebug("Fetched page {Page} of {Type}: {Count} instruments", page, typeName, result.Items.Count);
-                await Task.Delay(ApiCallDelay, ct);
-            }
+            if (result.Items.Count == 0) break;
+            allInstruments.AddRange(result.Items);
+            _logger.LogDebug("Fetched page {Page}: {Count} instruments", page, result.Items.Count);
+            await Task.Delay(ApiCallDelay, ct);
         }
 
         _logger.LogInformation("Phase A complete: {Count} instruments discovered", allInstruments.Count);
@@ -333,12 +327,13 @@ public class EtoroSocialDataWorker : BackgroundService
 
         try
         {
-            await connection.ExecuteAsync(sql, parameters);
-            return instruments.Count;
+            var rows = await connection.ExecuteAsync(sql, parameters);
+            _logger.LogDebug("Inserted {Rows}/{Total} instrument social data rows", rows, instruments.Count);
+            return rows;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to insert instrument social data");
+            _logger.LogError(ex, "Failed to insert instrument social data ({Count} rows)", instruments.Count);
             return 0;
         }
     }
