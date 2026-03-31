@@ -1,6 +1,7 @@
 using Dapper;
 using DataFetcher.Worker.Application.Providers.Etoro;
 using DataFetcher.Worker.Infrastructure.Common;
+using DataFetcher.Worker.Workers.Etoro;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DataFetcher.Worker.Presentation.Controllers;
@@ -12,11 +13,16 @@ namespace DataFetcher.Worker.Presentation.Controllers;
 public class EtoroController : ControllerBase
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly EtoroInstrumentService _instrumentService;
     private readonly ILogger<EtoroController> _logger;
 
-    public EtoroController(IServiceProvider serviceProvider, ILogger<EtoroController> logger)
+    public EtoroController(
+        IServiceProvider serviceProvider,
+        EtoroInstrumentService instrumentService,
+        ILogger<EtoroController> logger)
     {
         _serviceProvider = serviceProvider;
+        _instrumentService = instrumentService;
         _logger = logger;
     }
 
@@ -134,9 +140,40 @@ public class EtoroController : ControllerBase
         }
     }
 
+    [HttpPost("backfill-lookup")]
+    public async Task<IActionResult> BackfillLookup(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Backfill-lookup triggered via API");
+            var filled = await _instrumentService.BackfillMissingAsync(cancellationToken);
+            return Ok(new
+            {
+                message = $"Backfill complete: {filled} instruments updated",
+                filled,
+                cacheSize = _instrumentService.CacheCount
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(499, new { message = "Request cancelled" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in BackfillLookup");
+            return StatusCode(500, new { message = "Backfill failed", error = ex.Message });
+        }
+    }
+
     [HttpGet("status")]
     public IActionResult GetStatus()
     {
-        return Ok(new { provider = "eToro", status = "running", timestamp = DateTime.UtcNow });
+        return Ok(new
+        {
+            provider = "eToro",
+            status = "running",
+            timestamp = DateTime.UtcNow,
+            instrumentCache = _instrumentService.CacheCount
+        });
     }
 }

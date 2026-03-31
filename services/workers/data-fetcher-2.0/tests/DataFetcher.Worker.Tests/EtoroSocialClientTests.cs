@@ -436,4 +436,132 @@ public class EtoroSocialClientTests
     }
 
     #endregion
+
+    #region GetInstrumentsMetadataAsync
+
+    [Fact]
+    public async Task GetInstrumentsMetadata_ReturnsData_OnSuccess()
+    {
+        var response = new EtoroInstrumentsMetadataResponse
+        {
+            Items =
+            [
+                new EtoroInstrumentMetadata
+                {
+                    InstrumentId = 1001, DisplayName = "Apple",
+                    InstrumentTypeId = 5, SymbolFull = "AAPL"
+                }
+            ]
+        };
+        SetupResponse(HttpStatusCode.OK, response);
+
+        var result = await _client.GetInstrumentsMetadataAsync([1001]);
+
+        Assert.Single(result);
+        Assert.Equal(1001, result[0].InstrumentId);
+        Assert.Equal("Apple", result[0].DisplayName);
+        Assert.Equal(5, result[0].InstrumentTypeId);
+        Assert.Equal("AAPL", result[0].SymbolFull);
+    }
+
+    [Fact]
+    public async Task GetInstrumentsMetadata_ReturnsEmpty_OnApiError()
+    {
+        SetupResponse(HttpStatusCode.InternalServerError, "Server error");
+
+        var result = await _client.GetInstrumentsMetadataAsync([1001, 1002]);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetInstrumentsMetadata_ReturnsEmpty_OnNetworkError()
+    {
+        SetupException(new HttpRequestException("Connection refused"));
+
+        var result = await _client.GetInstrumentsMetadataAsync([1001]);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetInstrumentsMetadata_ConstructsCorrectUrl()
+    {
+        SetupResponse(HttpStatusCode.OK, new EtoroInstrumentsMetadataResponse());
+        HttpRequestMessage? capturedRequest = null;
+
+        _httpHandlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("{\"instrumentDisplayDatas\":[]}")
+            });
+
+        await _client.GetInstrumentsMetadataAsync([1001, 1002, 1003]);
+
+        Assert.NotNull(capturedRequest);
+        var url = capturedRequest!.RequestUri!.ToString();
+        Assert.Contains("instrumentIds=1001,1002,1003", url);
+        Assert.Contains("/instruments", url);
+    }
+
+    #endregion
+
+    #region Field Coverage
+
+    [Fact]
+    public async Task SearchInstrumentsSorted_IncludesInternalSymbolFull_InDefaultFields()
+    {
+        HttpRequestMessage? capturedRequest = null;
+
+        _httpHandlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("{\"items\":[]}")
+            });
+
+        await _client.SearchInstrumentsSortedAsync("-holdingPct");
+
+        Assert.NotNull(capturedRequest);
+        var url = capturedRequest!.RequestUri!.ToString();
+        Assert.Contains("internalSymbolFull", url);
+    }
+
+    [Fact]
+    public async Task LookupInstrumentById_IncludesSymbolAndTypeId_InFields()
+    {
+        HttpRequestMessage? capturedRequest = null;
+
+        _httpHandlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("{\"items\":[]}")
+            });
+
+        await _client.LookupInstrumentByIdAsync(42);
+
+        Assert.NotNull(capturedRequest);
+        var url = capturedRequest!.RequestUri!.ToString();
+        Assert.Contains("symbol", url);
+        Assert.Contains("instrumentTypeID", url);
+    }
+
+    #endregion
 }

@@ -20,6 +20,7 @@ namespace DataFetcher.Worker.Workers.Etoro;
 public class EtoroSocialDataWorker : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly EtoroInstrumentService _instrumentService;
     private readonly EtoroSettings _settings;
     private readonly ILogger<EtoroSocialDataWorker> _logger;
     private readonly IMetricsClient _metrics;
@@ -30,19 +31,19 @@ public class EtoroSocialDataWorker : BackgroundService
     internal const int TopInvestorCount = 100;
     internal const int RetentionDays = 90;
     internal const int MaxConsecutivePortfolioFailures = 10;
-    internal const int MaxEnrichmentPerRun = 50;
 
     internal static readonly TimeSpan ApiCallDelay = TimeSpan.FromMilliseconds(200);
     internal static readonly TimeSpan PortfolioCallDelay = TimeSpan.FromMilliseconds(1200);
-    internal static readonly TimeSpan EnrichmentCallDelay = TimeSpan.FromMilliseconds(1200);
 
     public EtoroSocialDataWorker(
         IServiceProvider serviceProvider,
+        EtoroInstrumentService instrumentService,
         IOptions<EtoroSettings> settings,
         ILogger<EtoroSocialDataWorker> logger,
         IMetricsClient metrics)
     {
         _serviceProvider = serviceProvider;
+        _instrumentService = instrumentService;
         _settings = settings.Value;
         _logger = logger;
         _metrics = metrics;
@@ -118,13 +119,13 @@ public class EtoroSocialDataWorker : BackgroundService
         var stats = new FetchStats();
         var fetchedAt = DateTime.UtcNow;
 
-        var map = await EtoroInstrumentMap.LoadAsync(connection);
-        _logger.LogInformation("Loaded instrument map: {Count} known instruments", map.KnownCount);
+        await _instrumentService.LoadAsync(connection);
+        _logger.LogInformation("Instrument cache: {Count} instruments", _instrumentService.CacheCount);
 
-        // Phase A: Instrument discovery -- add results to map
+        // Phase A: Instrument discovery -- track results (zero I/O, captures all fields)
         var allInstruments = await FetchInstrumentsAsync(client, ct);
         foreach (var inst in allInstruments)
-            map.AddFromSearch(inst);
+            _instrumentService.TrackFromSearch(inst);
 
         // Phase B: Curated lists (isolated -- Phase A failure doesn't block this)
         var (curatedLists, curatedInstrumentIds) = await FetchCuratedListsAsync(client, ct);
@@ -132,20 +133,24 @@ public class EtoroSocialDataWorker : BackgroundService
         // Phase C+D: Top investors + their portfolios
         var investorPositions = await FetchInvestorPortfoliosAsync(client, ct);
 
-        // Persist raw data to unfiltered tables (no FK constraints)
+        // Phase E: Batch resolve unknowns BEFORE inserting (ensures all ids resolvable for downstream)
+        var unknowns = _instrumentService.FindUnknownIds(investorPositions, curatedInstrumentIds);
+        if (unknowns.Count > 0)
+        {
+            var resolved = await _instrumentService.ResolveBatchAsync(unknowns, ct);
+            stats.Enriched = resolved.Count;
+            _logger.LogInformation("Phase E: resolved {Resolved}/{Total} unknown instruments",
+                resolved.Count, unknowns.Count);
+        }
+
+        // Persist raw data to unfiltered tables (all instrument_ids now in cache)
         _logger.LogInformation("Persisting data to database");
         stats.InstrumentRows = await InsertInstrumentDataAsync(connection, allInstruments, fetchedAt);
         stats.CuratedRows = await InsertCuratedListsAsync(connection, curatedLists, fetchedAt);
         stats.InvestorRows = await InsertInvestorPositionsAsync(connection, investorPositions, fetchedAt);
 
-        // Phase E: Enrich unknown instrument_ids via API
-        var unknowns = map.FindUnknownIds(investorPositions, curatedInstrumentIds);
-        if (unknowns.Count > 0)
-            stats.Enriched = await EnrichUnknownInstrumentsAsync(client, map, unknowns, ct);
-
-        // Flush map changes to DB and clear
-        stats.LookupUpserts = await map.FlushAsync(connection);
-        map.Clear();
+        // Flush pending entries to lookup table (single batch VALUES statement)
+        stats.LookupUpserts = await _instrumentService.FlushPendingAsync(connection);
         _logger.LogInformation("Flushed {Upserts} lookup entries, enriched {Enriched} unknowns",
             stats.LookupUpserts, stats.Enriched);
 
@@ -310,42 +315,6 @@ public class EtoroSocialDataWorker : BackgroundService
                 AvgNetProfit = g.Average(p => p.NetProfit)
             })
             .ToList();
-    }
-
-    internal async Task<int> EnrichUnknownInstrumentsAsync(
-        IEtoroMarketDataClient client,
-        EtoroInstrumentMap map,
-        HashSet<int> unknownIds,
-        CancellationToken ct)
-    {
-        var toEnrich = unknownIds.Take(MaxEnrichmentPerRun).ToList();
-        _logger.LogInformation("Phase E: Enriching {Count}/{Total} unknown instrument_ids",
-            toEnrich.Count, unknownIds.Count);
-
-        var enriched = 0;
-        foreach (var id in toEnrich)
-        {
-            ct.ThrowIfCancellationRequested();
-            try
-            {
-                var result = await client.LookupInstrumentByIdAsync(id, ct);
-                if (result?.DisplayName != null)
-                {
-                    map.AddEnriched(id, result.DisplayName, result.InternalSymbol);
-                    enriched++;
-                }
-                await Task.Delay(EnrichmentCallDelay, ct);
-            }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to enrich instrument {Id} -- will retry next run", id);
-            }
-        }
-
-        _logger.LogInformation("Phase E complete: enriched {Enriched}/{Attempted} instruments",
-            enriched, toEnrich.Count);
-        return enriched;
     }
 
     internal async Task<int> InsertInstrumentDataAsync(
@@ -533,7 +502,7 @@ public class EtoroSocialDataWorker : BackgroundService
         public int Enriched { get; set; }
     }
 
-    internal class AggregatedPosition
+    public class AggregatedPosition
     {
         public string Username { get; set; } = string.Empty;
         public int Copiers { get; set; }

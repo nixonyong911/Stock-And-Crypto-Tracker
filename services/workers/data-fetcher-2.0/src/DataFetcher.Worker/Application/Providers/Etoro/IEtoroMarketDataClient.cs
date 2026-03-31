@@ -40,4 +40,8 @@ public interface IEtoroMarketDataClient
     Task<EtoroSocialInstrument?> LookupInstrumentByIdAsync(
         int instrumentId,
         CancellationToken cancellationToken = default);
+
+    Task<List<EtoroInstrumentMetadata>> GetInstrumentsMetadataAsync(
+        IEnumerable<int> instrumentIds,
+        CancellationToken cancellationToken = default);
 }

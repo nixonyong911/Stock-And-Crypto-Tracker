@@ -80,7 +80,7 @@ public class EtoroMarketDataClient : IEtoroMarketDataClient
         string? fields = null,
         CancellationToken cancellationToken = default)
     {
-        var defaultFields = "instrumentId,displayname,symbol,instrumentTypeID,instrumentType,holdingPct,buyHoldingPct,sellHoldingPct,buyPctChange24Hours,traders7DayChange,traders30DayChange,popularityUniques7Day,dailyPriceChange,weeklyPriceChange,monthlyPriceChange,currentRate";
+        var defaultFields = "instrumentId,displayname,symbol,instrumentTypeID,instrumentType,internalSymbolFull,holdingPct,buyHoldingPct,sellHoldingPct,buyPctChange24Hours,traders7DayChange,traders30DayChange,popularityUniques7Day,dailyPriceChange,weeklyPriceChange,monthlyPriceChange,currentRate";
         // eToro API: fields must NOT be URL-encoded (commas must be raw), uses "page" not "pageNumber"
         var url = $"{_settings.BaseUrl}/api/v1/market-data/search" +
                   $"?fields={fields ?? defaultFields}" +
@@ -174,7 +174,7 @@ public class EtoroMarketDataClient : IEtoroMarketDataClient
     {
         var url = $"{_settings.BaseUrl}/api/v1/market-data/search" +
                   $"?instrumentId={instrumentId}" +
-                  "&fields=instrumentId,displayname,internalSymbolFull";
+                  "&fields=instrumentId,displayname,internalSymbolFull,symbol,instrumentTypeID";
 
         var response = await SendRequestAsync(url, cancellationToken);
         if (response == null) return null;
@@ -188,6 +188,28 @@ public class EtoroMarketDataClient : IEtoroMarketDataClient
         {
             _logger.LogWarning(ex, "Failed to parse eToro lookup response for instrument {InstrumentId}", instrumentId);
             return null;
+        }
+    }
+
+    public async Task<List<EtoroInstrumentMetadata>> GetInstrumentsMetadataAsync(
+        IEnumerable<int> instrumentIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = string.Join(",", instrumentIds);
+        var url = $"{_settings.BaseUrl}/api/v1/market-data/instruments?instrumentIds={ids}";
+
+        var response = await SendRequestAsync(url, cancellationToken);
+        if (response == null) return [];
+
+        try
+        {
+            var metadataResponse = JsonSerializer.Deserialize<EtoroInstrumentsMetadataResponse>(response, JsonOptions);
+            return metadataResponse?.Items ?? [];
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse eToro instruments metadata response");
+            return [];
         }
     }
 

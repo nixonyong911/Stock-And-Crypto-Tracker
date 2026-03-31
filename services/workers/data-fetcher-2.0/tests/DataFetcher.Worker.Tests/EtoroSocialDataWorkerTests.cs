@@ -26,6 +26,7 @@ public class EtoroSocialDataWorkerTests
     private readonly Mock<IFetchScheduleRepository> _scheduleRepoMock;
     private readonly Mock<IMetricsClient> _metricsMock;
     private readonly Mock<ILogger<EtoroSocialDataWorker>> _loggerMock;
+    private readonly EtoroInstrumentService _instrumentService;
 
     public EtoroSocialDataWorkerTests()
     {
@@ -40,6 +41,10 @@ public class EtoroSocialDataWorkerTests
 
         SetupMockConnectionForDapper();
         _dbFactoryMock.Setup(f => f.CreateConnection()).Returns(_connectionMock.Object);
+
+        _clientMock.Setup(c => c.GetInstrumentsMetadataAsync(
+                It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<EtoroInstrumentMetadata>());
 
         var scopeMock = new Mock<IServiceScope>();
         scopeMock.Setup(s => s.ServiceProvider).Returns(_scopedProviderMock.Object);
@@ -57,11 +62,16 @@ public class EtoroSocialDataWorkerTests
         _scopedProviderMock.Setup(p => p.GetService(typeof(IFetchScheduleRepository)))
             .Returns(_scheduleRepoMock.Object);
 
+        _instrumentService = new EtoroInstrumentService(
+            scopeFactoryMock.Object,
+            Mock.Of<ILogger<EtoroInstrumentService>>());
+
         SetupDefaultApiResponses();
     }
 
     private EtoroSocialDataWorker CreateWorker() =>
         new(_serviceProviderMock.Object,
+            _instrumentService,
             Options.Create(new EtoroSettings()),
             _loggerMock.Object,
             _metricsMock.Object);
@@ -666,208 +676,4 @@ public class EtoroSocialDataWorkerTests
 
     #endregion
 
-    #region Phase E: Enrichment
-
-    [Fact]
-    public async Task EnrichUnknown_CallsApiForUnknownIds()
-    {
-        _clientMock.Setup(c => c.LookupInstrumentByIdAsync(42, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EtoroSocialInstrument { InstrumentId = 42, DisplayName = "Tesla", InternalSymbol = "TSLA" });
-
-        var worker = CreateWorker();
-        var map = new EtoroInstrumentMap();
-        var unknowns = new HashSet<int> { 42 };
-
-        var enriched = await worker.EnrichUnknownInstrumentsAsync(_clientMock.Object, map, unknowns, CancellationToken.None);
-
-        Assert.Equal(1, enriched);
-        Assert.True(map.TryGet(42, out var info));
-        Assert.Equal("Tesla", info!.DisplayName);
-        Assert.Equal("TSLA", info.InternalSymbol);
-    }
-
-    [Fact]
-    public async Task EnrichUnknown_SkipsWhenApiReturnsNull()
-    {
-        _clientMock.Setup(c => c.LookupInstrumentByIdAsync(99, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((EtoroSocialInstrument?)null);
-
-        var worker = CreateWorker();
-        var map = new EtoroInstrumentMap();
-        var unknowns = new HashSet<int> { 99 };
-
-        var enriched = await worker.EnrichUnknownInstrumentsAsync(_clientMock.Object, map, unknowns, CancellationToken.None);
-
-        Assert.Equal(0, enriched);
-        Assert.False(map.Contains(99));
-    }
-
-    [Fact]
-    public async Task EnrichUnknown_CapsAtMaxPerRun()
-    {
-        var largeSet = Enumerable.Range(1, 100).ToHashSet();
-        _clientMock.Setup(c => c.LookupInstrumentByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((int id, CancellationToken _) =>
-                new EtoroSocialInstrument { InstrumentId = id, DisplayName = $"Inst{id}" });
-
-        var worker = CreateWorker();
-        var map = new EtoroInstrumentMap();
-
-        await worker.EnrichUnknownInstrumentsAsync(_clientMock.Object, map, largeSet, CancellationToken.None);
-
-        _clientMock.Verify(c => c.LookupInstrumentByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(EtoroSocialDataWorker.MaxEnrichmentPerRun));
-    }
-
-    [Fact]
-    public async Task EnrichUnknown_ContinuesAfterSingleFailure()
-    {
-        _clientMock.Setup(c => c.LookupInstrumentByIdAsync(1, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new HttpRequestException("API error"));
-        _clientMock.Setup(c => c.LookupInstrumentByIdAsync(2, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EtoroSocialInstrument { InstrumentId = 2, DisplayName = "Nvidia" });
-
-        var worker = CreateWorker();
-        var map = new EtoroInstrumentMap();
-        var unknowns = new HashSet<int> { 1, 2 };
-
-        var enriched = await worker.EnrichUnknownInstrumentsAsync(_clientMock.Object, map, unknowns, CancellationToken.None);
-
-        Assert.Equal(1, enriched);
-        Assert.True(map.Contains(2));
-    }
-
-    [Fact]
-    public async Task EnrichUnknown_PropagatesCancellation()
-    {
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-
-        var worker = CreateWorker();
-        var map = new EtoroInstrumentMap();
-        var unknowns = new HashSet<int> { 1 };
-
-        await Assert.ThrowsAsync<OperationCanceledException>(
-            () => worker.EnrichUnknownInstrumentsAsync(_clientMock.Object, map, unknowns, cts.Token));
-    }
-
-    #endregion
-
-    #region EtoroInstrumentMap
-
-    [Fact]
-    public void Map_AddFromSearch_StoresInstrumentWithMetadata()
-    {
-        var map = new EtoroInstrumentMap();
-        map.AddFromSearch(new EtoroSocialInstrument
-        {
-            InstrumentId = 1, DisplayName = "Bitcoin", InternalSymbol = "BTC"
-        });
-
-        Assert.True(map.TryGet(1, out var info));
-        Assert.Equal("Bitcoin", info!.DisplayName);
-        Assert.Equal("BTC", info.InternalSymbol);
-        Assert.Equal(1, map.PendingCount);
-    }
-
-    [Fact]
-    public void Map_AddFromSearch_SkipsNullDisplayName()
-    {
-        var map = new EtoroInstrumentMap();
-        map.AddFromSearch(new EtoroSocialInstrument
-        {
-            InstrumentId = 1, DisplayName = null
-        });
-
-        Assert.False(map.Contains(1));
-        Assert.Equal(0, map.PendingCount);
-    }
-
-    [Fact]
-    public void Map_AddEnriched_StoresInstrument()
-    {
-        var map = new EtoroInstrumentMap();
-        map.AddEnriched(42, "Tesla Inc", "TSLA");
-
-        Assert.True(map.TryGet(42, out var info));
-        Assert.Equal("Tesla Inc", info!.DisplayName);
-        Assert.Equal("TSLA", info.InternalSymbol);
-    }
-
-    [Fact]
-    public void Map_AddEnriched_SkipsNullDisplayName()
-    {
-        var map = new EtoroInstrumentMap();
-        map.AddEnriched(42, null!, null);
-
-        Assert.False(map.Contains(42));
-    }
-
-    [Fact]
-    public void Map_FindUnknownIds_ReturnsIdsNotInMap()
-    {
-        var map = new EtoroInstrumentMap();
-        map.AddFromSearch(new EtoroSocialInstrument { InstrumentId = 1, DisplayName = "Known" });
-
-        var positions = new List<EtoroSocialDataWorker.AggregatedPosition>
-        {
-            new() { InstrumentId = 1 },
-            new() { InstrumentId = 2 },
-            new() { InstrumentId = 3 }
-        };
-        var curatedIds = new HashSet<int> { 1, 4 };
-
-        var unknowns = map.FindUnknownIds(positions, curatedIds);
-
-        Assert.Equal(3, unknowns.Count);
-        Assert.Contains(2, unknowns);
-        Assert.Contains(3, unknowns);
-        Assert.Contains(4, unknowns);
-        Assert.DoesNotContain(1, unknowns);
-    }
-
-    [Fact]
-    public void Map_FindUnknownIds_ReturnsEmpty_WhenAllKnown()
-    {
-        var map = new EtoroInstrumentMap();
-        map.AddFromSearch(new EtoroSocialInstrument { InstrumentId = 1, DisplayName = "A" });
-        map.AddFromSearch(new EtoroSocialInstrument { InstrumentId = 2, DisplayName = "B" });
-
-        var positions = new List<EtoroSocialDataWorker.AggregatedPosition>
-        {
-            new() { InstrumentId = 1 }
-        };
-        var curatedIds = new HashSet<int> { 2 };
-
-        var unknowns = map.FindUnknownIds(positions, curatedIds);
-
-        Assert.Empty(unknowns);
-    }
-
-    [Fact]
-    public void Map_Clear_RemovesAllEntries()
-    {
-        var map = new EtoroInstrumentMap();
-        map.AddFromSearch(new EtoroSocialInstrument { InstrumentId = 1, DisplayName = "A" });
-        map.AddEnriched(2, "B", "B");
-
-        map.Clear();
-
-        Assert.False(map.Contains(1));
-        Assert.False(map.Contains(2));
-        Assert.Equal(0, map.KnownCount);
-        Assert.Equal(0, map.PendingCount);
-    }
-
-    [Fact]
-    public void Map_Contains_ChecksBothKnownAndPending()
-    {
-        var map = new EtoroInstrumentMap();
-        map.AddEnriched(5, "Pending Item", "PI");
-
-        Assert.True(map.Contains(5));
-        Assert.False(map.Contains(999));
-    }
-
-    #endregion
 }

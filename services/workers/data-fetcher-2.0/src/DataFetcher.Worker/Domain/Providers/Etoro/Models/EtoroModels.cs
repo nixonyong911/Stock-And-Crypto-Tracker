@@ -157,3 +157,18 @@ public class EtoroPosition
     [JsonPropertyName("openRate")] public double OpenRate { get; set; }
     [JsonPropertyName("leverage")] public int Leverage { get; set; }
 }
+
+public class EtoroInstrumentsMetadataResponse
+{
+    [JsonPropertyName("instrumentDisplayDatas")]
+    public List<EtoroInstrumentMetadata> Items { get; set; } = [];
+}
+
+public class EtoroInstrumentMetadata
+{
+    [JsonPropertyName("instrumentID")] public int InstrumentId { get; set; }
+    [JsonPropertyName("instrumentDisplayName")] public string? DisplayName { get; set; }
+    [JsonPropertyName("instrumentTypeID")] public int? InstrumentTypeId { get; set; }
+    [JsonPropertyName("symbolFull")] public string? SymbolFull { get; set; }
+    [JsonPropertyName("exchangeID")] public int? ExchangeId { get; set; }
+}

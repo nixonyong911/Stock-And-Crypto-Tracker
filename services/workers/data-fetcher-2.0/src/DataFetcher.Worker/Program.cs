@@ -230,6 +230,7 @@ try
         .AddPolicyHandler(GetRetryPolicy());
 
     // Application - eToro Provider
+    builder.Services.AddSingleton<EtoroInstrumentService>();
     builder.Services.AddScoped<EtoroMarketDataProvider>();
     builder.Services.AddScoped<IDataProviderContract>(sp => sp.GetRequiredService<EtoroMarketDataProvider>());
     builder.Services.AddScoped<IEtoroBackfillService, EtoroBackfillService>();
@@ -592,6 +593,22 @@ try
 
         Log.Information("Provider compliance validation passed ({Count} providers verified)",
             providers.Count());
+    }
+
+    // Warm eToro instrument cache from DB before any worker starts
+    try
+    {
+        var instrumentService = app.Services.GetRequiredService<EtoroInstrumentService>();
+        using (var cacheScope = app.Services.CreateScope())
+        {
+            var cacheDb = cacheScope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
+            using var cacheConn = cacheDb.CreateConnection();
+            await instrumentService.LoadAsync(cacheConn);
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Failed to warm eToro instrument cache at startup (non-fatal)");
     }
 
     Log.Information("Data Fetcher 2.0 starting on port 8080");
