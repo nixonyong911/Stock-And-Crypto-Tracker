@@ -30,6 +30,7 @@ public class HostRegistrationTests
             "DynamicIndicatorScheduler",
             "EarningsSyncWorker",
             "EtoroFetchWorker",
+            "EtoroSocialDataWorker",
             "FinnhubFetchWorker",
             "FredCalendarSyncWorker",
             "FredFetchWorker",
@@ -53,7 +54,7 @@ public class HostRegistrationTests
         var count = assembly.GetTypes()
             .Count(t => t.IsClass && !t.IsAbstract && t.IsSubclassOf(typeof(BackgroundService)));
 
-        Assert.Equal(21, count);
+        Assert.Equal(22, count);
     }
 
     [Theory]
