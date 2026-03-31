@@ -22,7 +22,10 @@ internal class EtoroInstrumentMap
         var map = new EtoroInstrumentMap();
 
         var rows = await connection.QueryAsync<LookupRow>(
-            "SELECT instrument_id, internal_symbol, display_name FROM lookup_etoro_instruments");
+            @"SELECT instrument_id AS InstrumentId,
+                     internal_symbol AS InternalSymbol,
+                     display_name AS DisplayName
+              FROM lookup_etoro_instruments");
 
         foreach (var row in rows)
             map._known[row.InstrumentId] = new InstrumentInfo(row.InternalSymbol, row.DisplayName);
