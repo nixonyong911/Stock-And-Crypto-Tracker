@@ -289,6 +289,84 @@ public class EtoroSocialClientTests
 
     #endregion
 
+    #region LookupInstrumentByIdAsync
+
+    [Fact]
+    public async Task LookupInstrumentById_ReturnsInstrument_OnSuccess()
+    {
+        var response = new EtoroSocialSearchResponse
+        {
+            Items = [new EtoroSocialInstrument { InstrumentId = 42, DisplayName = "Tesla", InternalSymbol = "TSLA" }]
+        };
+        SetupResponse(HttpStatusCode.OK, response);
+
+        var result = await _client.LookupInstrumentByIdAsync(42);
+
+        Assert.NotNull(result);
+        Assert.Equal(42, result!.InstrumentId);
+        Assert.Equal("Tesla", result.DisplayName);
+        Assert.Equal("TSLA", result.InternalSymbol);
+    }
+
+    [Fact]
+    public async Task LookupInstrumentById_ReturnsNull_OnEmptyResults()
+    {
+        SetupResponse(HttpStatusCode.OK, new EtoroSocialSearchResponse { Items = [] });
+
+        var result = await _client.LookupInstrumentByIdAsync(999);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task LookupInstrumentById_ReturnsNull_OnApiError()
+    {
+        SetupResponse(HttpStatusCode.Unauthorized, "{}");
+
+        var result = await _client.LookupInstrumentByIdAsync(42);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task LookupInstrumentById_ReturnsNull_OnNetworkError()
+    {
+        SetupException(new HttpRequestException("Connection refused"));
+
+        var result = await _client.LookupInstrumentByIdAsync(42);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task LookupInstrumentById_ConstructsCorrectUrl()
+    {
+        SetupResponse(HttpStatusCode.OK, new EtoroSocialSearchResponse());
+        HttpRequestMessage? capturedRequest = null;
+
+        _httpHandlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("{\"items\":[]}")
+            });
+
+        await _client.LookupInstrumentByIdAsync(42);
+
+        Assert.NotNull(capturedRequest);
+        var url = capturedRequest!.RequestUri!.ToString();
+        Assert.Contains("instrumentId=42", url);
+        Assert.Contains("displayname", url);
+        Assert.Contains("internalSymbolFull", url);
+    }
+
+    #endregion
+
     #region GetUserPortfolioAsync
 
     [Fact]

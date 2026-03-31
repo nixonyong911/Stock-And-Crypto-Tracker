@@ -36,4 +36,8 @@ public interface IEtoroMarketDataClient
     Task<EtoroUserPortfolioResponse?> GetUserPortfolioAsync(
         string username,
         CancellationToken cancellationToken = default);
+
+    Task<EtoroSocialInstrument?> LookupInstrumentByIdAsync(
+        int instrumentId,
+        CancellationToken cancellationToken = default);
 }

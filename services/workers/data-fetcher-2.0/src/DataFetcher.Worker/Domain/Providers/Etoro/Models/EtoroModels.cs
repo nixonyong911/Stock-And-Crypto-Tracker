@@ -89,6 +89,7 @@ public class EtoroSocialInstrument
 {
     [JsonPropertyName("instrumentId")] public int InstrumentId { get; set; }
     [JsonPropertyName("displayname")] public string? DisplayName { get; set; }
+    [JsonPropertyName("internalSymbolFull")] public string? InternalSymbol { get; set; }
     [JsonPropertyName("symbol")] public string? Symbol { get; set; }
     [JsonPropertyName("instrumentTypeID")] public int? InstrumentTypeId { get; set; }
     [JsonPropertyName("instrumentType")] public string? InstrumentType { get; set; }

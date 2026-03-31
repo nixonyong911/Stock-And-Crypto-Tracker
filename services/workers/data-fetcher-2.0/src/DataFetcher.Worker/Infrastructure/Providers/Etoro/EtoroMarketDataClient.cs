@@ -168,6 +168,29 @@ public class EtoroMarketDataClient : IEtoroMarketDataClient
         }
     }
 
+    public async Task<EtoroSocialInstrument?> LookupInstrumentByIdAsync(
+        int instrumentId,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"{_settings.BaseUrl}/api/v1/market-data/search" +
+                  $"?instrumentId={instrumentId}" +
+                  "&fields=instrumentId,displayname,internalSymbolFull";
+
+        var response = await SendRequestAsync(url, cancellationToken);
+        if (response == null) return null;
+
+        try
+        {
+            var searchResponse = JsonSerializer.Deserialize<EtoroSocialSearchResponse>(response, JsonOptions);
+            return searchResponse?.Items.FirstOrDefault();
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse eToro lookup response for instrument {InstrumentId}", instrumentId);
+            return null;
+        }
+    }
+
     private async Task<string?> SendRequestAsync(string url, CancellationToken cancellationToken)
     {
         try

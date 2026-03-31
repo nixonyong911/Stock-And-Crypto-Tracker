@@ -30,9 +30,11 @@ public class EtoroSocialDataWorker : BackgroundService
     internal const int TopInvestorCount = 100;
     internal const int RetentionDays = 90;
     internal const int MaxConsecutivePortfolioFailures = 10;
+    internal const int MaxEnrichmentPerRun = 50;
 
     internal static readonly TimeSpan ApiCallDelay = TimeSpan.FromMilliseconds(200);
     internal static readonly TimeSpan PortfolioCallDelay = TimeSpan.FromMilliseconds(1200);
+    internal static readonly TimeSpan EnrichmentCallDelay = TimeSpan.FromMilliseconds(1200);
 
     public EtoroSocialDataWorker(
         IServiceProvider serviceProvider,
@@ -60,7 +62,7 @@ public class EtoroSocialDataWorker : BackgroundService
             try
             {
                 var stats = await CollectSocialDataAsync(stoppingToken);
-                message = $"Social data: {stats.InstrumentRows} instruments, {stats.InvestorRows} investor positions, {stats.CuratedRows} curated items, {stats.LookupUpserts} lookup upserts";
+                message = $"Social data: {stats.InstrumentRows} instruments, {stats.InvestorRows} investor positions, {stats.CuratedRows} curated items, {stats.LookupUpserts} lookup upserts, {stats.Enriched} enriched";
                 _logger.LogInformation("{Message}", message);
 
                 if (stats.InstrumentRows == 0 && stats.InvestorRows == 0 && stats.CuratedRows == 0)
@@ -116,8 +118,13 @@ public class EtoroSocialDataWorker : BackgroundService
         var stats = new FetchStats();
         var fetchedAt = DateTime.UtcNow;
 
-        // Phase A: Instrument discovery
+        var map = await EtoroInstrumentMap.LoadAsync(connection);
+        _logger.LogInformation("Loaded instrument map: {Count} known instruments", map.KnownCount);
+
+        // Phase A: Instrument discovery -- add results to map
         var allInstruments = await FetchInstrumentsAsync(client, ct);
+        foreach (var inst in allInstruments)
+            map.AddFromSearch(inst);
 
         // Phase B: Curated lists (isolated -- Phase A failure doesn't block this)
         var (curatedLists, curatedInstrumentIds) = await FetchCuratedListsAsync(client, ct);
@@ -125,15 +132,22 @@ public class EtoroSocialDataWorker : BackgroundService
         // Phase C+D: Top investors + their portfolios
         var investorPositions = await FetchInvestorPortfoliosAsync(client, ct);
 
-        // Persist to database -- lookup first (FK dependency), then data tables
+        // Persist raw data to unfiltered tables (no FK constraints)
         _logger.LogInformation("Persisting data to database");
-
-        stats.LookupUpserts = await UpsertLookupInstrumentsAsync(
-            connection, allInstruments, curatedInstrumentIds, investorPositions);
-
         stats.InstrumentRows = await InsertInstrumentDataAsync(connection, allInstruments, fetchedAt);
         stats.CuratedRows = await InsertCuratedListsAsync(connection, curatedLists, fetchedAt);
         stats.InvestorRows = await InsertInvestorPositionsAsync(connection, investorPositions, fetchedAt);
+
+        // Phase E: Enrich unknown instrument_ids via API
+        var unknowns = map.FindUnknownIds(investorPositions, curatedInstrumentIds);
+        if (unknowns.Count > 0)
+            stats.Enriched = await EnrichUnknownInstrumentsAsync(client, map, unknowns, ct);
+
+        // Flush map changes to DB and clear
+        stats.LookupUpserts = await map.FlushAsync(connection);
+        map.Clear();
+        _logger.LogInformation("Flushed {Upserts} lookup entries, enriched {Enriched} unknowns",
+            stats.LookupUpserts, stats.Enriched);
 
         await PruneOldDataAsync(connection);
 
@@ -298,63 +312,40 @@ public class EtoroSocialDataWorker : BackgroundService
             .ToList();
     }
 
-    internal async Task<int> UpsertLookupInstrumentsAsync(
-        System.Data.IDbConnection connection,
-        List<EtoroSocialInstrument> instruments,
-        HashSet<int> curatedInstrumentIds,
-        List<AggregatedPosition> investorPositions)
+    internal async Task<int> EnrichUnknownInstrumentsAsync(
+        IEtoroMarketDataClient client,
+        EtoroInstrumentMap map,
+        HashSet<int> unknownIds,
+        CancellationToken ct)
     {
-        var allIds = new Dictionary<int, (string? Symbol, string? DisplayName, int? TypeId, string? TypeName)>();
+        var toEnrich = unknownIds.Take(MaxEnrichmentPerRun).ToList();
+        _logger.LogInformation("Phase E: Enriching {Count}/{Total} unknown instrument_ids",
+            toEnrich.Count, unknownIds.Count);
 
-        foreach (var inst in instruments)
+        var enriched = 0;
+        foreach (var id in toEnrich)
         {
-            allIds[inst.InstrumentId] = (inst.Symbol, inst.DisplayName, inst.InstrumentTypeId, inst.InstrumentType);
-        }
-
-        foreach (var id in curatedInstrumentIds)
-        {
-            allIds.TryAdd(id, (null, null, null, null));
-        }
-
-        foreach (var pos in investorPositions)
-        {
-            allIds.TryAdd(pos.InstrumentId, (null, null, null, null));
-        }
-
-        if (allIds.Count == 0) return 0;
-
-        var count = 0;
-        const string upsertSql = @"
-            INSERT INTO lookup_etoro_instruments (instrument_id, symbol, display_name, instrument_type_id, instrument_type, updated_at)
-            VALUES (@InstrumentId, @Symbol, @DisplayName, @TypeId, @TypeName, NOW())
-            ON CONFLICT (instrument_id) DO UPDATE SET
-                symbol = COALESCE(EXCLUDED.symbol, lookup_etoro_instruments.symbol),
-                display_name = COALESCE(EXCLUDED.display_name, lookup_etoro_instruments.display_name),
-                instrument_type_id = COALESCE(EXCLUDED.instrument_type_id, lookup_etoro_instruments.instrument_type_id),
-                instrument_type = COALESCE(EXCLUDED.instrument_type, lookup_etoro_instruments.instrument_type),
-                updated_at = NOW()";
-
-        foreach (var kv in allIds)
-        {
+            ct.ThrowIfCancellationRequested();
             try
             {
-                await connection.ExecuteAsync(upsertSql, new
+                var result = await client.LookupInstrumentByIdAsync(id, ct);
+                if (result?.DisplayName != null)
                 {
-                    InstrumentId = kv.Key,
-                    Symbol = kv.Value.Symbol,
-                    DisplayName = kv.Value.DisplayName,
-                    TypeId = kv.Value.TypeId,
-                    TypeName = kv.Value.TypeName
-                });
-                count++;
+                    map.AddEnriched(id, result.DisplayName, result.InternalSymbol);
+                    enriched++;
+                }
+                await Task.Delay(EnrichmentCallDelay, ct);
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to upsert lookup instrument {Id}", kv.Key);
+                _logger.LogDebug(ex, "Failed to enrich instrument {Id} -- will retry next run", id);
             }
         }
 
-        return count;
+        _logger.LogInformation("Phase E complete: enriched {Enriched}/{Attempted} instruments",
+            enriched, toEnrich.Count);
+        return enriched;
     }
 
     internal async Task<int> InsertInstrumentDataAsync(
@@ -539,6 +530,7 @@ public class EtoroSocialDataWorker : BackgroundService
         public int InvestorRows { get; set; }
         public int CuratedRows { get; set; }
         public int LookupUpserts { get; set; }
+        public int Enriched { get; set; }
     }
 
     internal class AggregatedPosition
