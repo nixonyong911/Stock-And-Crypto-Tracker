@@ -12,7 +12,7 @@ namespace DataFetcher.Worker.Workers.Etoro;
 
 /// <summary>
 /// Collects crowd behavior data from eToro every 4 hours:
-/// - Top 100 stocks/crypto by holdingPct (instrument discovery)
+/// - Top instruments by holdingPct (instrument discovery)
 /// - Curated lists (Trending on News, Analysts' Top Picks)
 /// - Top 100 investor portfolios (aggregated by instrument)
 /// Pure data lake: no auto-actions, no alerts, no frontend integration.
@@ -24,14 +24,15 @@ public class EtoroSocialDataWorker : BackgroundService
     private readonly ILogger<EtoroSocialDataWorker> _logger;
     private readonly IMetricsClient _metrics;
 
-    private const int IntervalHours = 4;
-    private const int TotalPages = 8;
-    private const int PageSize = 25;
-    private const int TopInvestorCount = 100;
-    private const int RetentionDays = 90;
+    internal const int IntervalHours = 4;
+    internal const int TotalPages = 8;
+    internal const int PageSize = 25;
+    internal const int TopInvestorCount = 100;
+    internal const int RetentionDays = 90;
+    internal const int MaxConsecutivePortfolioFailures = 10;
 
-    private static readonly TimeSpan ApiCallDelay = TimeSpan.FromMilliseconds(200);
-    private static readonly TimeSpan PortfolioCallDelay = TimeSpan.FromMilliseconds(1200);
+    internal static readonly TimeSpan ApiCallDelay = TimeSpan.FromMilliseconds(200);
+    internal static readonly TimeSpan PortfolioCallDelay = TimeSpan.FromMilliseconds(1200);
 
     public EtoroSocialDataWorker(
         IServiceProvider serviceProvider,
@@ -62,8 +63,11 @@ public class EtoroSocialDataWorker : BackgroundService
                 message = $"Social data: {stats.InstrumentRows} instruments, {stats.InvestorRows} investor positions, {stats.CuratedRows} curated items, {stats.LookupUpserts} lookup upserts";
                 _logger.LogInformation("{Message}", message);
 
+                if (stats.InstrumentRows == 0 && stats.InvestorRows == 0 && stats.CuratedRows == 0)
+                    status = "empty";
+
                 await _metrics.IncrementCounterAsync("etoro_social_fetch_total", 1,
-                    new Dictionary<string, string> { ["status"] = "success" });
+                    new Dictionary<string, string> { ["status"] = status });
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -102,7 +106,7 @@ public class EtoroSocialDataWorker : BackgroundService
         _logger.LogInformation("eToro Social Data Worker stopped");
     }
 
-    private async Task<FetchStats> CollectSocialDataAsync(CancellationToken ct)
+    internal async Task<FetchStats> CollectSocialDataAsync(CancellationToken ct)
     {
         using var scope = _serviceProvider.CreateScope();
         var client = scope.ServiceProvider.GetRequiredService<IEtoroMarketDataClient>();
@@ -111,88 +115,17 @@ public class EtoroSocialDataWorker : BackgroundService
 
         var stats = new FetchStats();
         var fetchedAt = DateTime.UtcNow;
-        var allInstruments = new List<EtoroSocialInstrument>();
 
-        // Phase A: Instrument discovery (top 200 by holdingPct across all types)
-        // eToro API ignores instrumentTypeID filter, so we fetch all types together
-        _logger.LogInformation("Phase A: Fetching top instruments by holdingPct");
+        // Phase A: Instrument discovery
+        var allInstruments = await FetchInstrumentsAsync(client, ct);
 
-        for (var page = 1; page <= TotalPages; page++)
-        {
-            ct.ThrowIfCancellationRequested();
-            var result = await client.SearchInstrumentsSortedAsync(
-                sortField: "-holdingPct",
-                pageSize: PageSize,
-                pageNumber: page,
-                cancellationToken: ct);
+        // Phase B: Curated lists (isolated -- Phase A failure doesn't block this)
+        var (curatedLists, curatedInstrumentIds) = await FetchCuratedListsAsync(client, ct);
 
-            if (result.Items.Count == 0) break;
-            allInstruments.AddRange(result.Items);
-            _logger.LogDebug("Fetched page {Page}: {Count} instruments", page, result.Items.Count);
-            await Task.Delay(ApiCallDelay, ct);
-        }
+        // Phase C+D: Top investors + their portfolios
+        var investorPositions = await FetchInvestorPortfoliosAsync(client, ct);
 
-        _logger.LogInformation("Phase A complete: {Count} instruments discovered", allInstruments.Count);
-
-        // Phase B: Curated lists
-        _logger.LogInformation("Phase B: Fetching curated lists");
-        var curatedLists = await client.GetCuratedListsAsync(ct);
-        await Task.Delay(ApiCallDelay, ct);
-
-        var curatedInstrumentIds = new HashSet<int>();
-        if (curatedLists?.CuratedLists != null)
-        {
-            foreach (var list in curatedLists.CuratedLists)
-                foreach (var item in list.Items)
-                    curatedInstrumentIds.Add(item.InstrumentId);
-        }
-        _logger.LogInformation("Phase B complete: {ListCount} curated lists, {InstrumentCount} unique instruments",
-            curatedLists?.CuratedLists.Count ?? 0, curatedInstrumentIds.Count);
-
-        // Phase C: Top investors search
-        _logger.LogInformation("Phase C: Searching top {Count} investors by copiers", TopInvestorCount);
-        var investorResult = await client.SearchTopInvestorsAsync(
-            period: "CurrYear",
-            sort: "-copiers",
-            pageSize: TopInvestorCount,
-            cancellationToken: ct);
-        await Task.Delay(ApiCallDelay, ct);
-
-        _logger.LogInformation("Phase C complete: {Count} investors found", investorResult.Items.Count);
-
-        // Phase D: Fetch portfolios for each investor
-        _logger.LogInformation("Phase D: Fetching portfolios for {Count} investors", investorResult.Items.Count);
-        var investorPositions = new List<AggregatedPosition>();
-
-        for (var i = 0; i < investorResult.Items.Count; i++)
-        {
-            ct.ThrowIfCancellationRequested();
-            var investor = investorResult.Items[i];
-
-            try
-            {
-                var portfolio = await client.GetUserPortfolioAsync(investor.UserName, ct);
-                if (portfolio?.Positions != null && portfolio.Positions.Count > 0)
-                {
-                    var aggregated = AggregatePositions(investor, portfolio.Positions);
-                    investorPositions.AddRange(aggregated);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch portfolio for {Username}, skipping", investor.UserName);
-            }
-
-            if (i < investorResult.Items.Count - 1)
-                await Task.Delay(PortfolioCallDelay, ct);
-
-            if ((i + 1) % 20 == 0)
-                _logger.LogDebug("Portfolio progress: {Done}/{Total}", i + 1, investorResult.Items.Count);
-        }
-
-        _logger.LogInformation("Phase D complete: {Count} aggregated investor-instrument positions", investorPositions.Count);
-
-        // Persist to database
+        // Persist to database -- lookup first (FK dependency), then data tables
         _logger.LogInformation("Persisting data to database");
 
         stats.LookupUpserts = await UpsertLookupInstrumentsAsync(
@@ -202,13 +135,149 @@ public class EtoroSocialDataWorker : BackgroundService
         stats.CuratedRows = await InsertCuratedListsAsync(connection, curatedLists, fetchedAt);
         stats.InvestorRows = await InsertInvestorPositionsAsync(connection, investorPositions, fetchedAt);
 
-        // Prune old data
         await PruneOldDataAsync(connection);
 
         return stats;
     }
 
-    private static List<AggregatedPosition> AggregatePositions(
+    internal async Task<List<EtoroSocialInstrument>> FetchInstrumentsAsync(
+        IEtoroMarketDataClient client, CancellationToken ct)
+    {
+        var allInstruments = new List<EtoroSocialInstrument>();
+
+        try
+        {
+            _logger.LogInformation("Phase A: Fetching top instruments by holdingPct");
+
+            for (var page = 1; page <= TotalPages; page++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var result = await client.SearchInstrumentsSortedAsync(
+                    sortField: "-holdingPct",
+                    pageSize: PageSize,
+                    pageNumber: page,
+                    cancellationToken: ct);
+
+                if (result.Items.Count == 0) break;
+                allInstruments.AddRange(result.Items);
+                _logger.LogDebug("Fetched page {Page}: {Count} instruments", page, result.Items.Count);
+                await Task.Delay(ApiCallDelay, ct);
+            }
+
+            _logger.LogInformation("Phase A complete: {Count} instruments discovered", allInstruments.Count);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Phase A failed after {Count} instruments -- continuing with partial data", allInstruments.Count);
+        }
+
+        return allInstruments;
+    }
+
+    internal async Task<(EtoroCuratedListsResponse?, HashSet<int>)> FetchCuratedListsAsync(
+        IEtoroMarketDataClient client, CancellationToken ct)
+    {
+        var curatedInstrumentIds = new HashSet<int>();
+        EtoroCuratedListsResponse? curatedLists = null;
+
+        try
+        {
+            _logger.LogInformation("Phase B: Fetching curated lists");
+            curatedLists = await client.GetCuratedListsAsync(ct);
+            await Task.Delay(ApiCallDelay, ct);
+
+            if (curatedLists?.CuratedLists != null)
+            {
+                foreach (var list in curatedLists.CuratedLists)
+                    foreach (var item in list.Items)
+                        curatedInstrumentIds.Add(item.InstrumentId);
+            }
+
+            _logger.LogInformation("Phase B complete: {ListCount} curated lists, {InstrumentCount} unique instruments",
+                curatedLists?.CuratedLists.Count ?? 0, curatedInstrumentIds.Count);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Phase B failed -- continuing without curated lists");
+        }
+
+        return (curatedLists, curatedInstrumentIds);
+    }
+
+    internal async Task<List<AggregatedPosition>> FetchInvestorPortfoliosAsync(
+        IEtoroMarketDataClient client, CancellationToken ct)
+    {
+        var investorPositions = new List<AggregatedPosition>();
+
+        try
+        {
+            _logger.LogInformation("Phase C: Searching top {Count} investors by copiers", TopInvestorCount);
+            var investorResult = await client.SearchTopInvestorsAsync(
+                period: "CurrYear",
+                sort: "-copiers",
+                pageSize: TopInvestorCount,
+                cancellationToken: ct);
+            await Task.Delay(ApiCallDelay, ct);
+
+            _logger.LogInformation("Phase C complete: {Count} investors found", investorResult.Items.Count);
+
+            if (investorResult.Items.Count == 0)
+                return investorPositions;
+
+            _logger.LogInformation("Phase D: Fetching portfolios for {Count} investors", investorResult.Items.Count);
+            var consecutiveFailures = 0;
+
+            for (var i = 0; i < investorResult.Items.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var investor = investorResult.Items[i];
+
+                try
+                {
+                    var portfolio = await client.GetUserPortfolioAsync(investor.UserName, ct);
+                    if (portfolio?.Positions != null && portfolio.Positions.Count > 0)
+                    {
+                        var aggregated = AggregatePositions(investor, portfolio.Positions);
+                        investorPositions.AddRange(aggregated);
+                    }
+                    consecutiveFailures = 0;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    consecutiveFailures++;
+                    _logger.LogWarning(ex, "Failed to fetch portfolio for {Username} ({Consecutive} consecutive failures)",
+                        investor.UserName, consecutiveFailures);
+
+                    if (consecutiveFailures >= MaxConsecutivePortfolioFailures)
+                    {
+                        _logger.LogError("Aborting Phase D: {Max} consecutive portfolio failures -- possible auth or rate limit issue",
+                            MaxConsecutivePortfolioFailures);
+                        break;
+                    }
+                }
+
+                if (i < investorResult.Items.Count - 1)
+                    await Task.Delay(PortfolioCallDelay, ct);
+
+                if ((i + 1) % 20 == 0)
+                    _logger.LogDebug("Portfolio progress: {Done}/{Total}", i + 1, investorResult.Items.Count);
+            }
+
+            _logger.LogInformation("Phase D complete: {Count} aggregated investor-instrument positions", investorPositions.Count);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Phase C/D failed -- continuing with {Count} positions collected so far", investorPositions.Count);
+        }
+
+        return investorPositions;
+    }
+
+    internal static List<AggregatedPosition> AggregatePositions(
         EtoroInvestor investor, List<EtoroPosition> positions)
     {
         return positions
@@ -229,7 +298,7 @@ public class EtoroSocialDataWorker : BackgroundService
             .ToList();
     }
 
-    private async Task<int> UpsertLookupInstrumentsAsync(
+    internal async Task<int> UpsertLookupInstrumentsAsync(
         System.Data.IDbConnection connection,
         List<EtoroSocialInstrument> instruments,
         HashSet<int> curatedInstrumentIds,
@@ -288,7 +357,7 @@ public class EtoroSocialDataWorker : BackgroundService
         return count;
     }
 
-    private async Task<int> InsertInstrumentDataAsync(
+    internal async Task<int> InsertInstrumentDataAsync(
         System.Data.IDbConnection connection,
         List<EtoroSocialInstrument> instruments,
         DateTime fetchedAt)
@@ -338,7 +407,7 @@ public class EtoroSocialDataWorker : BackgroundService
         }
     }
 
-    private async Task<int> InsertCuratedListsAsync(
+    internal async Task<int> InsertCuratedListsAsync(
         System.Data.IDbConnection connection,
         EtoroCuratedListsResponse? curatedLists,
         DateTime fetchedAt)
@@ -381,14 +450,13 @@ public class EtoroSocialDataWorker : BackgroundService
         }
     }
 
-    private async Task<int> InsertInvestorPositionsAsync(
+    internal async Task<int> InsertInvestorPositionsAsync(
         System.Data.IDbConnection connection,
         List<AggregatedPosition> positions,
         DateTime fetchedAt)
     {
         if (positions.Count == 0) return 0;
 
-        // Batch in chunks of 500 to avoid parameter limits
         const int batchSize = 500;
         var total = 0;
 
@@ -435,7 +503,7 @@ public class EtoroSocialDataWorker : BackgroundService
         return total;
     }
 
-    private async Task PruneOldDataAsync(System.Data.IDbConnection connection)
+    internal async Task PruneOldDataAsync(System.Data.IDbConnection connection)
     {
         try
         {
@@ -465,7 +533,7 @@ public class EtoroSocialDataWorker : BackgroundService
         }
     }
 
-    private class FetchStats
+    internal class FetchStats
     {
         public int InstrumentRows { get; set; }
         public int InvestorRows { get; set; }
@@ -473,7 +541,7 @@ public class EtoroSocialDataWorker : BackgroundService
         public int LookupUpserts { get; set; }
     }
 
-    private class AggregatedPosition
+    internal class AggregatedPosition
     {
         public string Username { get; set; } = string.Empty;
         public int Copiers { get; set; }
