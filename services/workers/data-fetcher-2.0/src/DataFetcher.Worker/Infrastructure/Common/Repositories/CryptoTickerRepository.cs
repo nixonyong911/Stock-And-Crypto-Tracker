@@ -35,6 +35,27 @@ public class CryptoTickerRepository : ICryptoTickerRepository
         return await connection.QueryAsync<CryptoTicker>(sql);
     }
 
+    public async Task<IEnumerable<CryptoTicker>> GetTickersByDataSourceAsync(int dataSourceId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            SELECT
+                id as Id,
+                universe_id as UniverseId,
+                symbol as Symbol,
+                name as Name,
+                slug as Slug,
+                is_active as IsActive,
+                created_at as CreatedAt,
+                updated_at as UpdatedAt
+            FROM crypto_tickers
+            WHERE is_active = true AND preferred_data_source_id = @DataSourceId
+            ORDER BY symbol";
+
+        return await connection.QueryAsync<CryptoTicker>(sql, new { DataSourceId = dataSourceId });
+    }
+
     public async Task<CryptoTicker?> GetByIdAsync(int id)
     {
         using var connection = _connectionFactory.CreateConnection();

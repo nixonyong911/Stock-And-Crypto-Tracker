@@ -37,7 +37,7 @@ public class AlpacaCryptoFetchService : IAlpacaCryptoFetchService
         if (dataSource == null)
             throw new InvalidOperationException($"Data source '{DataSourceName}' not found");
 
-        var tickers = (await _cryptoTickerRepository.GetActiveTickersAsync()).ToList();
+        var tickers = (await _cryptoTickerRepository.GetTickersByDataSourceAsync(dataSource.Id)).ToList();
         if (tickers.Count == 0)
         {
             _logger.LogWarning("No active crypto tickers found");

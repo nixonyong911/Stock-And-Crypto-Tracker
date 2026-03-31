@@ -13,6 +13,11 @@ public interface IStockTickerRepository
     Task<IEnumerable<StockTicker>> GetActiveTickersAsync();
 
     /// <summary>
+    /// Gets active stock tickers assigned to a specific data source.
+    /// </summary>
+    Task<IEnumerable<StockTicker>> GetTickersByDataSourceAsync(int dataSourceId);
+
+    /// <summary>
     /// Gets a stock ticker by ID.
     /// </summary>
     Task<StockTicker?> GetByIdAsync(int id);

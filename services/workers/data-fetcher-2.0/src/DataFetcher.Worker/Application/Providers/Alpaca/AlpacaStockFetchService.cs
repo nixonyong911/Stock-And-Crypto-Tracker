@@ -34,7 +34,7 @@ public class AlpacaStockFetchService : IAlpacaStockFetchService
         if (dataSource == null)
             throw new InvalidOperationException($"Data source '{DataSourceName}' not found");
 
-        var tickers = (await _tickerRepository.GetActiveTickersAsync()).ToList();
+        var tickers = (await _tickerRepository.GetTickersByDataSourceAsync(dataSource.Id)).ToList();
         if (tickers.Count == 0)
         {
             _logger.LogWarning("No active stock tickers found");
