@@ -73,7 +73,6 @@ public class EtoroInstrumentService
             return;
 
         var info = new InstrumentInfo(
-            instrument.InternalSymbol,
             instrument.DisplayName,
             instrument.Symbol,
             instrument.InstrumentTypeId);
@@ -131,7 +130,6 @@ public class EtoroInstrumentService
 
         var rows = await connection.QueryAsync<LookupRow>(
             @"SELECT instrument_id AS InstrumentId,
-                     internal_symbol AS InternalSymbol,
                      display_name AS DisplayName,
                      symbol AS Symbol,
                      instrument_type_id AS InstrumentTypeId
@@ -140,7 +138,7 @@ public class EtoroInstrumentService
         foreach (var row in rows)
         {
             _cache[row.InstrumentId] = new InstrumentInfo(
-                row.InternalSymbol, row.DisplayName, row.Symbol, row.InstrumentTypeId);
+                row.DisplayName, row.Symbol, row.InstrumentTypeId);
         }
 
         _loaded = true;
@@ -165,10 +163,9 @@ public class EtoroInstrumentService
         foreach (var kv in snapshot)
         {
             if (idx > 0) sb.Append(", ");
-            sb.Append($"(@id{idx}, @sym{idx}, @isym{idx}, @dn{idx}, @tid{idx}, NOW(), NOW())");
+            sb.Append($"(@id{idx}, @sym{idx}, @dn{idx}, @tid{idx}, NOW(), NOW())");
             parameters.Add($"id{idx}", kv.Key);
             parameters.Add($"sym{idx}", kv.Value.Symbol);
-            parameters.Add($"isym{idx}", kv.Value.InternalSymbol);
             parameters.Add($"dn{idx}", kv.Value.DisplayName);
             parameters.Add($"tid{idx}", kv.Value.InstrumentTypeId);
             idx++;
@@ -176,11 +173,10 @@ public class EtoroInstrumentService
 
         var sql = $@"
             INSERT INTO lookup_etoro_instruments
-                (instrument_id, symbol, internal_symbol, display_name, instrument_type_id, first_seen_at, updated_at)
+                (instrument_id, symbol, display_name, instrument_type_id, first_seen_at, updated_at)
             VALUES {sb}
             ON CONFLICT (instrument_id) DO UPDATE SET
                 symbol = COALESCE(EXCLUDED.symbol, lookup_etoro_instruments.symbol),
-                internal_symbol = COALESCE(EXCLUDED.internal_symbol, lookup_etoro_instruments.internal_symbol),
                 display_name = EXCLUDED.display_name,
                 instrument_type_id = COALESCE(EXCLUDED.instrument_type_id, lookup_etoro_instruments.instrument_type_id),
                 updated_at = NOW()";
@@ -213,7 +209,6 @@ public class EtoroInstrumentService
 
         var row = await connection.QueryFirstOrDefaultAsync<LookupRow>(
             @"SELECT instrument_id AS InstrumentId,
-                     internal_symbol AS InternalSymbol,
                      display_name AS DisplayName,
                      symbol AS Symbol,
                      instrument_type_id AS InstrumentTypeId
@@ -222,7 +217,7 @@ public class EtoroInstrumentService
 
         if (row != null)
         {
-            var dbInfo = new InstrumentInfo(row.InternalSymbol, row.DisplayName, row.Symbol, row.InstrumentTypeId);
+            var dbInfo = new InstrumentInfo(row.DisplayName, row.Symbol, row.InstrumentTypeId);
             _cache[instrumentId] = dbInfo;
             return dbInfo;
         }
@@ -234,7 +229,7 @@ public class EtoroInstrumentService
             return null;
 
         var apiInfo = new InstrumentInfo(
-            result.InternalSymbol, result.DisplayName, result.Symbol, result.InstrumentTypeId);
+            result.DisplayName, result.Symbol, result.InstrumentTypeId);
 
         _cache[instrumentId] = apiInfo;
 
@@ -242,15 +237,14 @@ public class EtoroInstrumentService
         {
             await connection.ExecuteAsync(
                 @"INSERT INTO lookup_etoro_instruments
-                    (instrument_id, symbol, internal_symbol, display_name, instrument_type_id, first_seen_at, updated_at)
-                  VALUES (@Id, @Symbol, @InternalSymbol, @DisplayName, @TypeId, NOW(), NOW())
+                    (instrument_id, symbol, display_name, instrument_type_id, first_seen_at, updated_at)
+                  VALUES (@Id, @Symbol, @DisplayName, @TypeId, NOW(), NOW())
                   ON CONFLICT (instrument_id) DO UPDATE SET
                     symbol = COALESCE(EXCLUDED.symbol, lookup_etoro_instruments.symbol),
-                    internal_symbol = COALESCE(EXCLUDED.internal_symbol, lookup_etoro_instruments.internal_symbol),
                     display_name = EXCLUDED.display_name,
                     instrument_type_id = COALESCE(EXCLUDED.instrument_type_id, lookup_etoro_instruments.instrument_type_id),
                     updated_at = NOW()",
-                new { Id = instrumentId, apiInfo.Symbol, apiInfo.InternalSymbol, apiInfo.DisplayName, TypeId = apiInfo.InstrumentTypeId });
+                new { Id = instrumentId, apiInfo.Symbol, apiInfo.DisplayName, TypeId = apiInfo.InstrumentTypeId });
         }
         catch (Exception ex)
         {
@@ -283,7 +277,6 @@ public class EtoroInstrumentService
 
         var dbRows = await connection.QueryAsync<LookupRow>(
             @"SELECT instrument_id AS InstrumentId,
-                     internal_symbol AS InternalSymbol,
                      display_name AS DisplayName,
                      symbol AS Symbol,
                      instrument_type_id AS InstrumentTypeId
@@ -294,7 +287,7 @@ public class EtoroInstrumentService
         var remaining = new HashSet<int>(toResolve);
         foreach (var row in dbRows)
         {
-            var info = new InstrumentInfo(row.InternalSymbol, row.DisplayName, row.Symbol, row.InstrumentTypeId);
+            var info = new InstrumentInfo(row.DisplayName, row.Symbol, row.InstrumentTypeId);
             _cache[row.InstrumentId] = info;
             result[row.InstrumentId] = info;
             remaining.Remove(row.InstrumentId);
@@ -312,7 +305,7 @@ public class EtoroInstrumentService
             {
                 if (meta.DisplayName == null) continue;
 
-                var info = new InstrumentInfo(meta.SymbolFull, meta.DisplayName, meta.SymbolFull, meta.InstrumentTypeId);
+                var info = new InstrumentInfo(meta.DisplayName, meta.SymbolFull, meta.InstrumentTypeId);
                 _cache[meta.InstrumentId] = info;
                 result[meta.InstrumentId] = info;
                 remaining.Remove(meta.InstrumentId);
@@ -337,7 +330,7 @@ public class EtoroInstrumentService
                 if (lookup?.DisplayName == null) continue;
 
                 var info = new InstrumentInfo(
-                    lookup.InternalSymbol, lookup.DisplayName, lookup.Symbol, lookup.InstrumentTypeId);
+                    lookup.DisplayName, lookup.Symbol, lookup.InstrumentTypeId);
                 _cache[id] = info;
                 result[id] = info;
 
@@ -371,7 +364,7 @@ public class EtoroInstrumentService
 
         var missingIds = (await connection.QueryAsync<int>(
             @"SELECT instrument_id FROM lookup_etoro_instruments
-              WHERE symbol IS NULL OR instrument_type_id IS NULL OR internal_symbol IS NULL")).ToList();
+              WHERE symbol IS NULL OR instrument_type_id IS NULL")).ToList();
 
         if (missingIds.Count == 0)
         {
@@ -398,14 +391,13 @@ public class EtoroInstrumentService
                         @"UPDATE lookup_etoro_instruments SET
                             symbol = COALESCE(@Symbol, symbol),
                             instrument_type_id = COALESCE(@TypeId, instrument_type_id),
-                            internal_symbol = COALESCE(@InternalSymbol, internal_symbol),
                             display_name = COALESCE(@DisplayName, display_name),
                             updated_at = NOW()
                           WHERE instrument_id = @Id",
                         new { Id = meta.InstrumentId, Symbol = meta.SymbolFull, TypeId = meta.InstrumentTypeId,
-                              InternalSymbol = meta.SymbolFull, DisplayName = meta.DisplayName });
+                              DisplayName = meta.DisplayName });
 
-                    var info = new InstrumentInfo(meta.SymbolFull, meta.DisplayName, meta.SymbolFull, meta.InstrumentTypeId);
+                    var info = new InstrumentInfo(meta.DisplayName, meta.SymbolFull, meta.InstrumentTypeId);
                     _cache[meta.InstrumentId] = info;
                     filled++;
                 }
@@ -419,51 +411,17 @@ public class EtoroInstrumentService
             }
         }
 
-        var stillMissingInternal = (await connection.QueryAsync<int>(
-            "SELECT instrument_id FROM lookup_etoro_instruments WHERE internal_symbol IS NULL")).ToList();
-
-        foreach (var id in stillMissingInternal.Take(MaxEnrichmentPerRun))
-        {
-            ct.ThrowIfCancellationRequested();
-            try
-            {
-                var lookup = await client.LookupInstrumentByIdAsync(id, ct);
-                if (lookup?.InternalSymbol == null) continue;
-
-                await connection.ExecuteAsync(
-                    @"UPDATE lookup_etoro_instruments SET
-                        internal_symbol = @InternalSymbol,
-                        symbol = COALESCE(@Symbol, symbol),
-                        instrument_type_id = COALESCE(@TypeId, instrument_type_id),
-                        updated_at = NOW()
-                      WHERE instrument_id = @Id",
-                    new { Id = id, InternalSymbol = lookup.InternalSymbol, Symbol = lookup.Symbol, TypeId = lookup.InstrumentTypeId });
-
-                var info = new InstrumentInfo(lookup.InternalSymbol, lookup.DisplayName ?? "", lookup.Symbol, lookup.InstrumentTypeId);
-                _cache[id] = info;
-                filled++;
-
-                await Task.Delay(TimeSpan.FromMilliseconds(1200), ct);
-            }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Backfill individual lookup failed for instrument {Id}", id);
-            }
-        }
-
         _logger.LogInformation("Backfill complete: {Filled} instruments updated", filled);
         return filled;
     }
 
     #endregion
 
-    public record InstrumentInfo(string? InternalSymbol, string DisplayName, string? Symbol, int? InstrumentTypeId);
+    public record InstrumentInfo(string DisplayName, string? Symbol, int? InstrumentTypeId);
 
     private class LookupRow
     {
         public int InstrumentId { get; init; }
-        public string? InternalSymbol { get; init; }
         public string DisplayName { get; init; } = string.Empty;
         public string? Symbol { get; init; }
         public int? InstrumentTypeId { get; init; }

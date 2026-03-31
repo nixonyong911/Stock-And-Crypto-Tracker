@@ -86,13 +86,12 @@ public class EtoroInstrumentServiceTests
     {
         _service.TrackFromSearch(new EtoroSocialInstrument
         {
-            InstrumentId = 1, DisplayName = "Bitcoin", InternalSymbol = "BTC", Symbol = "BTC", InstrumentTypeId = 10
+            InstrumentId = 1, DisplayName = "Bitcoin", Symbol = "BTC", InstrumentTypeId = 10
         });
 
         Assert.True(_service.TryGet(1, out var info));
         Assert.NotNull(info);
         Assert.Equal("Bitcoin", info!.DisplayName);
-        Assert.Equal("BTC", info.InternalSymbol);
         Assert.Equal("BTC", info.Symbol);
         Assert.Equal(10, info.InstrumentTypeId);
     }
@@ -102,13 +101,12 @@ public class EtoroInstrumentServiceTests
     {
         _service.TrackFromSearch(new EtoroSocialInstrument
         {
-            InstrumentId = 1001, DisplayName = "Apple", InternalSymbol = "AAPL.RTH",
+            InstrumentId = 1001, DisplayName = "Apple",
             Symbol = "AAPL", InstrumentTypeId = 5
         });
 
         Assert.True(_service.TryGet(1001, out var info));
         Assert.Equal("Apple", info!.DisplayName);
-        Assert.Equal("AAPL.RTH", info.InternalSymbol);
         Assert.Equal("AAPL", info.Symbol);
         Assert.Equal(5, info.InstrumentTypeId);
     }
@@ -145,7 +143,7 @@ public class EtoroInstrumentServiceTests
     [Fact]
     public void TrackEnriched_UpdatesCacheAndPending()
     {
-        var info = new EtoroInstrumentService.InstrumentInfo("TSLA.RTH", "Tesla", "TSLA", 5);
+        var info = new EtoroInstrumentService.InstrumentInfo("Tesla", "TSLA", 5);
         _service.TrackEnriched(42, info);
 
         Assert.True(_service.TryGet(42, out var cached));
@@ -156,7 +154,7 @@ public class EtoroInstrumentServiceTests
     [Fact]
     public void TrackEnriched_SkipsNullDisplayName()
     {
-        var info = new EtoroInstrumentService.InstrumentInfo("X", "", null, null);
+        var info = new EtoroInstrumentService.InstrumentInfo("", null, null);
         _service.TrackEnriched(42, info);
 
         Assert.False(_service.Contains(42));
