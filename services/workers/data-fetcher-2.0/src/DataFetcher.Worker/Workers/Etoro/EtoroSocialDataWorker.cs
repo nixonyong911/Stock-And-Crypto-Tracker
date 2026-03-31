@@ -154,6 +154,7 @@ public class EtoroSocialDataWorker : BackgroundService
         _logger.LogInformation("Flushed {Upserts} lookup entries, enriched {Enriched} unknowns",
             stats.LookupUpserts, stats.Enriched);
 
+        await RefreshLeaderboardAsync(connection);
         await PruneOldDataAsync(connection);
 
         return stats;
@@ -461,6 +462,20 @@ public class EtoroSocialDataWorker : BackgroundService
         }
 
         return total;
+    }
+
+    internal async Task RefreshLeaderboardAsync(System.Data.IDbConnection connection)
+    {
+        try
+        {
+            await connection.ExecuteAsync(
+                "REFRESH MATERIALIZED VIEW CONCURRENTLY analysis_leaderboard_etoro");
+            _logger.LogInformation("Refreshed analysis_leaderboard_etoro materialized view");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to refresh leaderboard view -- will retry next run");
+        }
     }
 
     internal async Task PruneOldDataAsync(System.Data.IDbConnection connection)

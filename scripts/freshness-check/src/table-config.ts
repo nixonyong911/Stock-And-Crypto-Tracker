@@ -155,4 +155,13 @@ export const TABLE_CHECKS: readonly TableCheck[] = [
     skipRule: "never",
     label: "etoro_curated_lists",
   },
+
+  // 4-hour cycle — eToro leaderboard (materialized view, refreshed after social data)
+  {
+    table: "analysis_leaderboard_etoro",
+    column: "scored_at",
+    thresholdHours: 8,
+    skipRule: "never",
+    label: "etoro_leaderboard",
+  },
 ] as const;
