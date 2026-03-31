@@ -132,4 +132,27 @@ export const TABLE_CHECKS: readonly TableCheck[] = [
     skipRule: "never",
     label: "market_memory",
   },
+
+  // 4-hour cycle — eToro social intelligence (always-on, 6h threshold)
+  {
+    table: "unfiltered_etoro_social_instrument_data",
+    column: "fetched_at",
+    thresholdHours: 6,
+    skipRule: "never",
+    label: "etoro_social_instruments",
+  },
+  {
+    table: "unfiltered_etoro_top_investor_positions",
+    column: "fetched_at",
+    thresholdHours: 6,
+    skipRule: "never",
+    label: "etoro_top_investors",
+  },
+  {
+    table: "unfiltered_etoro_curated_lists",
+    column: "fetched_at",
+    thresholdHours: 6,
+    skipRule: "never",
+    label: "etoro_curated_lists",
+  },
 ] as const;
