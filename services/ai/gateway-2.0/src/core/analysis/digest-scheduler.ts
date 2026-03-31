@@ -5,16 +5,19 @@ import type { FastifyBaseLogger } from "fastify";
 import type { ExtensionRegistry } from "../../extension/registry.js";
 import { broadcastDailyOverview } from "./daily-overview-broadcaster.js";
 import { runDailyMemoryMaintenance } from "./memory-curator.js";
+import { processUnfilteredNews } from "./news-processor.js";
 
 export interface DigestSchedulerDeps {
   db: Pool;
   redis: Redis;
   extensions: ExtensionRegistry;
   log: FastifyBaseLogger;
+  curatorModel?: string;
+  telegramNotify?: (message: string) => Promise<void>;
 }
 
 export function startDigestScheduler(deps: DigestSchedulerDeps): { stop: () => void } {
-  const { db, log } = deps;
+  const { db, redis, log, curatorModel, telegramNotify } = deps;
 
   // Pre-market brief: 7:00 AM ET = 12:00 UTC (11:00 UTC during EDT)
   const morningJob = cron.schedule("0 12 * * 1-5", () => {
@@ -40,13 +43,25 @@ export function startDigestScheduler(deps: DigestSchedulerDeps): { stop: () => v
     });
   }, { timezone: "UTC" });
 
-  log.info("Digest scheduler started (morning: 12:00 UTC M-F, evening: 22:00 UTC M-F, memory maintenance: 04:00 UTC daily)");
+  // News processing: every 6 hours (00:00/06:00/12:00/18:00 UTC)
+  const newsProcessingJob = cron.schedule("0 */6 * * *", () => {
+    log.info("Digest scheduler: triggering scheduled news processing");
+    processUnfilteredNews({ db, redis, log, curatorModel, telegramNotify }).catch((err) => {
+      log.error({ err }, "Failed to run scheduled news processing");
+    });
+  }, { timezone: "UTC" });
+
+  log.info(
+    "Digest scheduler started (morning: 12:00 UTC M-F, evening: 22:00 UTC M-F, " +
+    "memory maintenance: 04:00 UTC daily, news processing: every 6h UTC)",
+  );
 
   return {
     stop: () => {
       morningJob.stop();
       eveningJob.stop();
       memoryMaintenanceJob.stop();
+      newsProcessingJob.stop();
       log.info("Digest scheduler stopped");
     },
   };

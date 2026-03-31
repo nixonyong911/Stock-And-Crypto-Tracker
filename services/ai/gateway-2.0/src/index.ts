@@ -76,11 +76,17 @@ async function main(): Promise<void> {
     });
     closePipelineConsumer = consumer.close;
 
+    const telegramNotify = (config.telegramBotToken && config.telegramErrorChatId)
+      ? buildSchedulerTelegramNotify(config.telegramBotToken, config.telegramErrorChatId)
+      : undefined;
+
     const digestScheduler = startDigestScheduler({
       db: result.pool,
       redis: redis.redis,
       extensions: result.extensions,
       log: app.log,
+      curatorModel: config.curatorModel,
+      telegramNotify,
     });
     stopDigestScheduler = digestScheduler.stop;
   } catch (err) {
@@ -142,6 +148,24 @@ async function main(): Promise<void> {
 
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
+}
+
+function buildSchedulerTelegramNotify(
+  botToken: string,
+  chatId: string,
+): (msg: string) => Promise<void> {
+  return async (msg: string) => {
+    try {
+      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: "HTML" }),
+      });
+    } catch {
+      // Best-effort notification
+    }
+  };
 }
 
 main().catch((err: unknown) => {
