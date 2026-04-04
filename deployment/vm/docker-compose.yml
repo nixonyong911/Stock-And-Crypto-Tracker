@@ -517,6 +517,19 @@ networks:
         - subnet: 172.18.0.0/16
         - subnet: fd00:db8:2::/64
 
+  # ===========================================
+  # Freshness Check - Build-only (runs via host cron, not as a long-lived service)
+  # ===========================================
+  freshness-check:
+    image: stocktracker-freshness-check:latest
+    build:
+      context: ./repo/scripts/freshness-check
+      dockerfile: Dockerfile
+    profiles:
+      - tools
+    networks:
+      - stocktracker
+
 volumes:
   caddy-data:
   caddy-config:

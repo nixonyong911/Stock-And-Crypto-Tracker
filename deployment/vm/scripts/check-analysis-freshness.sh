@@ -26,6 +26,16 @@ MIRROR_ENV="/opt/stocktracker/.env.mirror"
 
 log() { echo "[$(date)] $1"; }
 
+send_telegram() {
+  local message="$1"
+  if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_ERROR_CHAT_ID:-}" ]; then
+    curl -sf -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+      -d chat_id="${TELEGRAM_ERROR_CHAT_ID}" \
+      -d text="${message}" \
+      -d parse_mode="HTML" > /dev/null 2>&1 || true
+  fi
+}
+
 # Telegram creds from .env.mirror (same as mirror-to-supabase.sh)
 if [ -f "$MIRROR_ENV" ]; then
   source "$MIRROR_ENV"
@@ -66,8 +76,12 @@ if [ "$EXIT_CODE" -eq 0 ]; then
   log "Freshness check complete — all tables OK"
 elif [ "$EXIT_CODE" -eq 1 ]; then
   log "Freshness check complete — stale tables detected"
+elif [ "$EXIT_CODE" -eq 125 ]; then
+  log "ERROR: Docker image '${IMAGE_NAME}' not found — rebuild required"
+  send_telegram "🔴 <b>Freshness Check Failed</b>: Docker image <code>${IMAGE_NAME}</code> not found. Run: <code>cd /opt/stocktracker/repo/scripts/freshness-check && docker build -t ${IMAGE_NAME} .</code>"
 else
   log "ERROR: Freshness check failed with exit code ${EXIT_CODE}"
+  send_telegram "🔴 <b>Freshness Check Failed</b>: Exit code ${EXIT_CODE}"
 fi
 
 exit 0

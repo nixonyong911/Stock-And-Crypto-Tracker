@@ -42,6 +42,8 @@ send_telegram() {
   fi
 }
 
+trap 'log "ERROR: Script terminated unexpectedly at line $LINENO"; send_telegram "🔴 <b>Mirror Failed</b>: Unexpected error at line $LINENO"' ERR
+
 if [ -f "$ENV_FILE" ]; then
   source "$ENV_FILE"
 fi
@@ -69,16 +71,24 @@ fi
 log "Using dump: ${DUMP_FILE}"
 
 restore_to_supabase() {
-  docker exec "${CONTAINER}" pg_restore \
+  local output
+  output=$(docker exec "${CONTAINER}" pg_restore \
     --schema=public \
     --clean \
     --if-exists \
     --no-owner \
     --no-acl \
     -d "${SUPABASE_MIRROR_URL}" \
-    "${DUMP_FILE}" 2>&1
-  # pg_restore returns non-zero for non-fatal warnings (e.g., "does not exist, skipping")
-  # which are expected with --clean --if-exists. We verify via row counts instead.
+    "${DUMP_FILE}" 2>&1) || true
+
+  echo "$output"
+
+  # Fail on hard connectivity errors; tolerate non-fatal pg_restore warnings
+  # (e.g. "does not exist, skipping", "already exists") which are expected.
+  if echo "$output" | grep -qiE "connection.*failed|Network is unreachable|could not connect|timeout expired|SSL SYSCALL"; then
+    log "ERROR: Supabase connection failed"
+    return 1
+  fi
   return 0
 }
 

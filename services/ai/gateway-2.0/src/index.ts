@@ -54,6 +54,22 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // ---- Validate cursor-agent CLI ----
+  try {
+    const { CLIExecutor } = await import("./core/cli/executor.js");
+    const cliCheck = new CLIExecutor(config, bootstrapLogger as never);
+    const available = await cliCheck.checkCLIAvailable();
+    if (!available) {
+      bootstrapLogger.error(
+        "cursor-agent CLI not available or failed version check — bot messages will fail",
+      );
+    } else {
+      bootstrapLogger.info("cursor-agent CLI validated");
+    }
+  } catch (err) {
+    bootstrapLogger.error({ err }, "cursor-agent validation error");
+  }
+
   // ---- Server ----
   let app: FastifyInstance | undefined;
   let errorNotifier: ErrorNotifier | undefined;

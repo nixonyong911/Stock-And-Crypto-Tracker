@@ -683,6 +683,11 @@ jobs:
           # Docker Compose detects image changes and only recreates affected containers
           ./scripts/start-services.sh up -d
 
+          # Build tool images (not started, used by host cron scripts)
+          echo "=== Building tool images ==="
+          docker compose --profile tools build freshness-check 2>/dev/null || \
+            echo "WARNING: freshness-check build failed (non-blocking)"
+
           # NOTE: Frontend is deployed via Vercel, not on VM
           EOF
 

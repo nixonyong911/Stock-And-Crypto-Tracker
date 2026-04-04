@@ -243,6 +243,7 @@ export class CLIExecutor {
       message,
       "--approve-mcps",
       "--force",
+      "--trust",
     ];
 
     if (params.model) {
