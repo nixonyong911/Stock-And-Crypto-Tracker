@@ -422,7 +422,7 @@ services:
     container_name: gateway-2.0
     restart: unless-stopped
     init: true
-    mem_limit: 384m
+    mem_limit: 768m
     logging: *default-logging
     ports:
       - "8083:8080"
