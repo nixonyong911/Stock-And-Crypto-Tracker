@@ -617,7 +617,7 @@ describe("mergeBatchResults", () => {
         theme: "New Theme 1", summary: "Summary 1", key_facts: ["f1"],
         category: "macro", impact_level: "high",
         affected_sectors: [], affected_tickers: [], market_implications: "",
-        sentiment: "neutral", sentiment_score: 0,
+        sentiment: "neutral", sentiment_score: 0, news_one_liner: "",
       }],
       updates: [], decay: [],
     };
@@ -626,7 +626,7 @@ describe("mergeBatchResults", () => {
         theme: "New Theme 2", summary: "Summary 2", key_facts: ["f2"],
         category: "policy", impact_level: "medium",
         affected_sectors: [], affected_tickers: [], market_implications: "",
-        sentiment: "bullish", sentiment_score: 0.5,
+        sentiment: "bullish", sentiment_score: 0.5, news_one_liner: "",
       }],
       updates: [], decay: [],
     };
@@ -642,6 +642,7 @@ describe("mergeBatchResults", () => {
       category: "market", impact_level: "high",
       affected_sectors: ["energy"], affected_tickers: ["XOM"],
       market_implications: "Inflation risk", sentiment: "bearish", sentiment_score: -0.5,
+      news_one_liner: "",
     };
 
     const batch1: CuratorOutput = { new_themes: [entry], updates: [], decay: [] };
@@ -795,6 +796,7 @@ describe("mergeBatchResults", () => {
       category: "macro", impact_level: "high",
       affected_sectors: [], affected_tickers: [],
       market_implications: "", sentiment: "neutral", sentiment_score: 0,
+      news_one_liner: "",
     };
     const singleBatch: CuratorOutput = {
       new_themes: [entry],
