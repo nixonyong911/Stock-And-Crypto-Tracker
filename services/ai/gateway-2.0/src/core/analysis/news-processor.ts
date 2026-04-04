@@ -73,6 +73,9 @@ export async function processUnfilteredNews(
   const startTime = Date.now();
   const batchId = randomUUID();
 
+  let articleCount = 0;
+  let sourceBreakdown: Record<string, number> = {};
+
   try {
     const locked = await acquireProcessingLock(redis);
     if (!locked) {
@@ -100,7 +103,6 @@ export async function processUnfilteredNews(
       return result;
     }
 
-    const sourceBreakdown: Record<string, number> = {};
     for (const a of articles) {
       const src = a.source_api || "unknown";
       sourceBreakdown[src] = (sourceBreakdown[src] ?? 0) + 1;
@@ -108,6 +110,7 @@ export async function processUnfilteredNews(
 
     const deduped = deduplicateByTitle(articles);
     const capped = deduped.slice(0, MAX_ARTICLES);
+    articleCount = capped.length;
 
     log.info(
       { total: articles.length, afterDedup: deduped.length, capped: capped.length },
@@ -164,10 +167,11 @@ export async function processUnfilteredNews(
     log.error({ err }, "News processing failed");
     const result: ProcessingResult = {
       batchId,
-      inputArticles: 0,
+      inputArticles: articleCount,
       outputStories: 0,
       highImpact: 0,
       processingTimeMs: Date.now() - startTime,
+      sourceBreakdown,
       error: errorMsg,
     };
     await notifyAdmin(telegramNotify, result);
@@ -302,8 +306,12 @@ export async function analyzeWithLLM(
       detached: true,
     });
 
-    const chunks: Buffer[] = [];
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
     let settled = false;
+
+    const getStderr = () =>
+      Buffer.concat(stderrChunks).toString("utf-8").replace(ANSI_RE, "").trim().slice(0, 500);
 
     const timer = setTimeout(() => {
       if (settled) return;
@@ -311,10 +319,13 @@ export async function analyzeWithLLM(
       try {
         if (child.pid !== undefined) process.kill(-child.pid, "SIGKILL");
       } catch { /* already dead */ }
-      reject(new Error("LLM call timed out"));
+      const stderr = getStderr();
+      log.error({ stderr }, "cursor-agent timed out — stderr captured");
+      reject(new Error(`LLM call timed out${stderr ? ` | stderr: ${stderr}` : ""}`));
     }, LLM_TIMEOUT_MS);
 
-    child.stdout?.on("data", (chunk: Buffer) => chunks.push(chunk));
+    child.stdout?.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+    child.stderr?.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
 
     child.on("error", (err) => {
       if (settled) return;
@@ -328,10 +339,12 @@ export async function analyzeWithLLM(
       settled = true;
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(`cursor-agent exited with code ${code}`));
+        const stderr = getStderr();
+        log.error({ code, stderr }, "cursor-agent exited with non-zero code");
+        reject(new Error(`cursor-agent exited with code ${code}${stderr ? ` | stderr: ${stderr}` : ""}`));
         return;
       }
-      resolve(Buffer.concat(chunks).toString("utf-8").replace(ANSI_RE, "").trim());
+      resolve(Buffer.concat(stdoutChunks).toString("utf-8").replace(ANSI_RE, "").trim());
     });
   });
 
