@@ -40,7 +40,7 @@ export async function processRecommendations(
   let totalSent = 0;
 
   for (const type of types) {
-    const { signals, macroContext } = await detectSignals(db, type);
+    const { signals, macroContext, newsOneLinerMap } = await detectSignals(db, type);
     if (signals.length === 0) continue;
 
     log.info(
@@ -72,6 +72,7 @@ export async function processRecommendations(
         symbol,
         tickerSignals,
         macroContext,
+        newsOneLinerMap,
       );
       totalSent += sent;
     }
@@ -231,6 +232,7 @@ async function fanOutToWatchers(
   symbol: string,
   signals: TickerSignal[],
   macroContext: MacroContext,
+  newsOneLinerMap?: Map<string, string>,
 ): Promise<number> {
   const watchers = await db.query<{
     clerk_user_id: string;
@@ -253,6 +255,12 @@ async function fanOutToWatchers(
 
   const explanation = await generateExplanation(signals, log, redis, macroContext);
   const primary = signals[0]!;
+
+  if (primary.type !== "news_sentiment" && newsOneLinerMap) {
+    const oneLiner = newsOneLinerMap.get(symbol);
+    if (oneLiner) explanation.newsOneLiner = oneLiner;
+  }
+
   const message = formatRecommendation(
     primary.symbol,
     primary.headline,

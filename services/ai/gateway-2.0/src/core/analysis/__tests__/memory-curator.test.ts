@@ -202,6 +202,35 @@ describe("parseCuratorOutput", () => {
     expect(result.new_themes[0]!.affected_tickers).toEqual(["AAPL", "MSFT", "GOOG"]);
   });
 
+  it("extracts news_one_liner from new themes", () => {
+    const output = JSON.stringify({
+      new_themes: [{
+        theme: "Oil Surge", summary: "Oil prices rising",
+        key_facts: ["Fact"], category: "market", impact_level: "high",
+        affected_sectors: ["energy"], affected_tickers: ["XOM"],
+        market_implications: "", news_one_liner: "Oil prices are rising due to supply disruptions.",
+      }],
+      updates: [], decay: [],
+    });
+
+    const result = parseCuratorOutput(output, noopLog);
+    expect(result.new_themes[0]!.news_one_liner).toBe("Oil prices are rising due to supply disruptions.");
+  });
+
+  it("defaults news_one_liner to empty string when missing", () => {
+    const output = JSON.stringify({
+      new_themes: [{
+        theme: "No Liner", summary: "Test",
+        key_facts: ["Fact"], category: "macro", impact_level: "low",
+        affected_sectors: [], affected_tickers: [], market_implications: "",
+      }],
+      updates: [], decay: [],
+    });
+
+    const result = parseCuratorOutput(output, noopLog);
+    expect(result.new_themes[0]!.news_one_liner).toBe("");
+  });
+
   // ── Update validation ──────────────────────────────────────────────
 
   it("skips updates missing theme_id", () => {
@@ -248,6 +277,21 @@ describe("parseCuratorOutput", () => {
 
     const result = parseCuratorOutput(output, noopLog);
     expect(result.updates[0]!.updated_relevance).toBe(0.8);
+  });
+
+  it("extracts updated_one_liner from updates", () => {
+    const output = JSON.stringify({
+      new_themes: [],
+      updates: [{
+        theme_id: "test-id", updated_summary: "Updated summary",
+        updated_impact: "high", updated_relevance: 0.9, new_facts: ["new fact"],
+        updated_one_liner: "Markets are reacting to new trade policy changes.",
+      }],
+      decay: [],
+    });
+
+    const result = parseCuratorOutput(output, noopLog);
+    expect(result.updates[0]!.updated_one_liner).toBe("Markets are reacting to new trade policy changes.");
   });
 
   // ── Decay validation ───────────────────────────────────────────────
@@ -798,6 +842,30 @@ describe("mergeBatchResults", () => {
     const merged = mergeBatchResults([batch1, batch2], [themeA], noopLog);
     expect(merged.updates[0]!.updated_sentiment).toBe("neutral");
     expect(merged.updates[0]!.updated_sentiment_score).toBe(0.1);
+  });
+
+  it("preserves updated_one_liner when merging updates", () => {
+    const batch1: CuratorOutput = {
+      new_themes: [],
+      updates: [{
+        theme_id: themeA.theme_id, new_facts: ["f1"],
+        updated_summary: "s1", updated_impact: "high", updated_relevance: 0.8,
+        updated_one_liner: "First liner.",
+      }],
+      decay: [],
+    };
+    const batch2: CuratorOutput = {
+      new_themes: [],
+      updates: [{
+        theme_id: themeA.theme_id, new_facts: ["f2"],
+        updated_summary: "s2", updated_impact: "high", updated_relevance: 0.85,
+        updated_one_liner: "Updated liner from batch 2.",
+      }],
+      decay: [],
+    };
+
+    const merged = mergeBatchResults([batch1, batch2], [themeA], noopLog);
+    expect(merged.updates[0]!.updated_one_liner).toBe("Updated liner from batch 2.");
   });
 
   it("does not mutate input batch results", () => {

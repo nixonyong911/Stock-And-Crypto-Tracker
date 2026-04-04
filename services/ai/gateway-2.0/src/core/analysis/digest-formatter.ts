@@ -21,6 +21,9 @@ export function formatRecommendation(
     `**What's happening:** ${explanation.whatsHappening}`,
     "",
     `**What to watch:** ${explanation.whatToWatch}`,
+    ...(explanation.newsOneLiner
+      ? ["", `**News factor:** ${explanation.newsOneLiner}`]
+      : []),
     "",
     `_Educational market analysis, not financial advice._`,
     "",

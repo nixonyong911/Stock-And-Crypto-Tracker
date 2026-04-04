@@ -204,7 +204,7 @@ composer.command("add", async (ctx) => {
 
       try {
         const signalAssetType = assetType === "crypto" ? "crypto" as const : "stock" as const;
-        const { signals, macroContext } = await detectSignalsForTicker(db, symbol, signalAssetType);
+        const { signals, macroContext, newsOneLinerMap } = await detectSignalsForTicker(db, symbol, signalAssetType);
         if (signals.length > 0) {
           const explanation = await generateExplanation(
             signals,
@@ -213,6 +213,10 @@ composer.command("add", async (ctx) => {
             macroContext,
           );
           const primary = signals[0]!;
+          if (primary.type !== "news_sentiment") {
+            const oneLiner = newsOneLinerMap.get(symbol);
+            if (oneLiner) explanation.newsOneLiner = oneLiner;
+          }
           const message = formatRecommendation(
             primary.symbol,
             primary.headline,

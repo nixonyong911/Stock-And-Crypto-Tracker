@@ -10,6 +10,7 @@ export interface Explanation {
   horizon: string;
   confidence: string;
   risk: string;
+  newsOneLiner?: string;
 }
 
 const DAILY_LLM_LIMIT = 50;
@@ -331,8 +332,12 @@ Return ONLY the two paragraphs, no headers.`;
         detached: true,
       });
 
-      const chunks: Buffer[] = [];
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
       let settled = false;
+
+      const getStderr = () =>
+        Buffer.concat(stderrChunks).toString("utf-8").replace(ANSI_RE, "").trim().slice(0, 500);
 
       const timer = setTimeout(() => {
         if (settled) return;
@@ -342,10 +347,12 @@ Return ONLY the two paragraphs, no headers.`;
         } catch {
           /* already dead */
         }
-        reject(new Error("LLM call timed out"));
+        const stderr = getStderr();
+        reject(new Error(`LLM call timed out${stderr ? ` | stderr: ${stderr}` : ""}`));
       }, LLM_TIMEOUT_MS);
 
-      child.stdout?.on("data", (chunk: Buffer) => chunks.push(chunk));
+      child.stdout?.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+      child.stderr?.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
 
       child.on("error", (err) => {
         if (settled) return;
@@ -359,11 +366,12 @@ Return ONLY the two paragraphs, no headers.`;
         settled = true;
         clearTimeout(timer);
         if (code !== 0) {
-          reject(new Error(`cursor-agent exited with code ${code}`));
+          const stderr = getStderr();
+          reject(new Error(`cursor-agent exited with code ${code}${stderr ? ` | stderr: ${stderr}` : ""}`));
           return;
         }
         resolve(
-          Buffer.concat(chunks).toString("utf-8").replace(ANSI_RE, "").trim(),
+          Buffer.concat(stdoutChunks).toString("utf-8").replace(ANSI_RE, "").trim(),
         );
       });
     });

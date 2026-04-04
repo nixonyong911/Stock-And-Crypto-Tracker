@@ -62,4 +62,23 @@ describe("formatRecommendation", () => {
     expect(output).toContain(explanation.confidence);
     expect(output).toContain(explanation.risk);
   });
+
+  it("includes News factor line when newsOneLiner is provided", () => {
+    const explanation = makeExplanation({
+      newsOneLiner: "Tech under pressure from ETF rebalancing.",
+    });
+    const output = formatRecommendation("AAPL", "Headline", explanation);
+    expect(output).toContain("**News factor:** Tech under pressure from ETF rebalancing.");
+  });
+
+  it("omits News factor line when newsOneLiner is undefined", () => {
+    const output = formatRecommendation("AAPL", "Headline", makeExplanation());
+    expect(output).not.toContain("News factor");
+  });
+
+  it("omits News factor line when newsOneLiner is empty string", () => {
+    const explanation = makeExplanation({ newsOneLiner: "" });
+    const output = formatRecommendation("AAPL", "Headline", explanation);
+    expect(output).not.toContain("News factor");
+  });
 });

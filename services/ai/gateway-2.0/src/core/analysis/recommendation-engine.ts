@@ -258,12 +258,18 @@ async function fetchNewsSentiment(
 interface NewsHeadlineRow {
   headline: string;
   affected_tickers: string[];
+  news_one_liner: string | null;
+}
+
+interface FetchNewsHeadlinesResult {
+  headlineMap: Map<string, string[]>;
+  oneLinerMap: Map<string, string>;
 }
 
 async function fetchNewsHeadlines(
   db: Pool,
   symbolFilter?: string,
-): Promise<Map<string, string[]>> {
+): Promise<FetchNewsHeadlinesResult> {
   const params: unknown[] = [];
   let symbolClause = "";
   if (symbolFilter) {
@@ -272,7 +278,7 @@ async function fetchNewsHeadlines(
   }
 
   const { rows } = await db.query<NewsHeadlineRow>(
-    `SELECT theme AS headline, affected_tickers
+    `SELECT theme AS headline, affected_tickers, news_one_liner
      FROM analysis_market_memory
      WHERE status IN ('active', 'fading')${symbolClause}
      ORDER BY relevance_score DESC
@@ -281,6 +287,7 @@ async function fetchNewsHeadlines(
   );
 
   const headlineMap = new Map<string, string[]>();
+  const oneLinerMap = new Map<string, string>();
   for (const row of rows) {
     for (const ticker of row.affected_tickers ?? []) {
       const existing = headlineMap.get(ticker) ?? [];
@@ -288,9 +295,12 @@ async function fetchNewsHeadlines(
         existing.push(row.headline);
         headlineMap.set(ticker, existing);
       }
+      if (row.news_one_liner && !oneLinerMap.has(ticker)) {
+        oneLinerMap.set(ticker, row.news_one_liner);
+      }
     }
   }
-  return headlineMap;
+  return { headlineMap, oneLinerMap };
 }
 
 // ── Macro context ────────────────────────────────────────────────────
@@ -655,6 +665,7 @@ function detectNewsSentimentSignals(
 export interface DetectSignalsResult {
   signals: TickerSignal[];
   macroContext: MacroContext;
+  newsOneLinerMap: Map<string, string>;
 }
 
 export async function detectSignals(
@@ -670,11 +681,15 @@ export async function detectSignals(
 
   let newsRows: NewsSentimentRow[] = [];
   let headlineMap = new Map<string, string[]>();
+  let oneLinerMap = new Map<string, string>();
   try {
-    [newsRows, headlineMap] = await Promise.all([
+    const [sentimentRows, headlineResult] = await Promise.all([
       fetchNewsSentiment(db),
       fetchNewsHeadlines(db),
     ]);
+    newsRows = sentimentRows;
+    headlineMap = headlineResult.headlineMap;
+    oneLinerMap = headlineResult.oneLinerMap;
   } catch { /* non-critical: news table may not exist or be inaccessible */ }
 
   const contexts = buildContexts(assetType, targets, indicators, candles);
@@ -684,7 +699,7 @@ export async function detectSignals(
   const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap, assetType)
     .filter((s) => technicalSymbols.has(s.symbol));
 
-  return { signals: [...technicalSignals, ...newsSignals], macroContext };
+  return { signals: [...technicalSignals, ...newsSignals], macroContext, newsOneLinerMap: oneLinerMap };
 }
 
 export async function detectSignalsForTicker(
@@ -701,11 +716,15 @@ export async function detectSignalsForTicker(
 
   let newsRows: NewsSentimentRow[] = [];
   let headlineMap = new Map<string, string[]>();
+  let oneLinerMap = new Map<string, string>();
   try {
-    [newsRows, headlineMap] = await Promise.all([
+    const [sentimentRows, headlineResult] = await Promise.all([
       fetchNewsSentiment(db, symbol),
       fetchNewsHeadlines(db, symbol),
     ]);
+    newsRows = sentimentRows;
+    headlineMap = headlineResult.headlineMap;
+    oneLinerMap = headlineResult.oneLinerMap;
   } catch { /* non-critical */ }
 
   const contexts = buildContexts(assetType, targets, indicators, candles);
@@ -715,5 +734,5 @@ export async function detectSignalsForTicker(
   const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap, assetType)
     .filter((s) => technicalSymbols.has(s.symbol));
 
-  return { signals: [...technicalSignals, ...newsSignals], macroContext };
+  return { signals: [...technicalSignals, ...newsSignals], macroContext, newsOneLinerMap: oneLinerMap };
 }

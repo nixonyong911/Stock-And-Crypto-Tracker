@@ -158,6 +158,11 @@ describe("templateForSignal", () => {
     expect(result).toHaveProperty("confidence");
     expect(result).toHaveProperty("risk");
   });
+
+  it("does not set newsOneLiner (set externally)", () => {
+    const result = templateForSignal(makeSignal());
+    expect(result.newsOneLiner).toBeUndefined();
+  });
 });
 
 describe("stackTemplates", () => {

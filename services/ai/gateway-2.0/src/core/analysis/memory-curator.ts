@@ -55,6 +55,7 @@ export interface NewThemeEntry {
   market_implications: string;
   sentiment: string;
   sentiment_score: number;
+  news_one_liner: string;
 }
 
 export interface ThemeUpdateEntry {
@@ -65,6 +66,7 @@ export interface ThemeUpdateEntry {
   updated_relevance: number;
   updated_sentiment?: string;
   updated_sentiment_score?: number;
+  updated_one_liner?: string;
 }
 
 export interface ThemeDecayEntry {
@@ -307,10 +309,10 @@ ${JSON.stringify(storiesJson, null, 2)}
 Analyze the articles against existing themes. Output a JSON object with:
 
 1. "new_themes": Genuinely new themes not covered by existing ones. Each entry:
-   { "theme", "summary", "key_facts" (array), "category", "impact_level", "affected_sectors" (array), "affected_tickers" (array), "market_implications", "sentiment" (bullish/bearish/neutral), "sentiment_score" (-1.0 to 1.0) }
+   { "theme", "summary", "key_facts" (array), "category", "impact_level", "affected_sectors" (array), "affected_tickers" (array), "market_implications", "sentiment" (bullish/bearish/neutral), "sentiment_score" (-1.0 to 1.0), "news_one_liner" }
 
 2. "updates": Updates to existing themes reinforced by new evidence in this batch. Each entry:
-   { "theme_id", "new_facts" (array of new bullet points), "updated_summary" (rewritten summary incorporating new evidence), "updated_impact" (reassessed level), "updated_relevance" (0-1, increase if reinforced), "updated_sentiment" (bullish/bearish/neutral), "updated_sentiment_score" (-1.0 to 1.0) }
+   { "theme_id", "new_facts" (array of new bullet points), "updated_summary" (rewritten summary incorporating new evidence), "updated_impact" (reassessed level), "updated_relevance" (0-1, increase if reinforced), "updated_sentiment" (bullish/bearish/neutral), "updated_sentiment_score" (-1.0 to 1.0), "updated_one_liner" }
 
 Do NOT include a "decay" section — decay is handled separately after all batches are merged.
 
@@ -322,6 +324,7 @@ RULES:
 - relevance_score: 0.0 to 1.0 — increase for themes with strong new evidence, keep stable otherwise
 - For updates: only include themes that have genuinely new information, not just restatements
 - Think carefully about second-order effects (e.g., oil shock → inflation → Fed policy implications)
+- news_one_liner / updated_one_liner: A single plain-language sentence (max 140 chars) explaining what is happening and why it matters to affected stocks, written for a general audience. Use cause-and-effect language. Example: "Tech stocks face selling pressure as large ETFs shift more weight into the sector."
 
 Output ONLY valid JSON, no markdown fences.`;
 }
@@ -344,8 +347,12 @@ async function runCuratorLLM(
       detached: true,
     });
 
-    const chunks: Buffer[] = [];
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
     let settled = false;
+
+    const getStderr = () =>
+      Buffer.concat(stderrChunks).toString("utf-8").replace(ANSI_RE, "").trim().slice(0, 500);
 
     const timer = setTimeout(() => {
       if (settled) return;
@@ -353,10 +360,12 @@ async function runCuratorLLM(
       try {
         if (child.pid !== undefined) process.kill(-child.pid, "SIGKILL");
       } catch { /* already dead */ }
-      reject(new Error("Curator LLM call timed out"));
+      const stderr = getStderr();
+      reject(new Error(`Curator LLM call timed out${stderr ? ` | stderr: ${stderr}` : ""}`));
     }, LLM_TIMEOUT_MS);
 
-    child.stdout?.on("data", (chunk: Buffer) => chunks.push(chunk));
+    child.stdout?.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+    child.stderr?.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
 
     child.on("error", (err) => {
       if (settled) return;
@@ -370,10 +379,11 @@ async function runCuratorLLM(
       settled = true;
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(`cursor-agent exited with code ${code}`));
+        const stderr = getStderr();
+        reject(new Error(`cursor-agent exited with code ${code}${stderr ? ` | stderr: ${stderr}` : ""}`));
         return;
       }
-      resolve(Buffer.concat(chunks).toString("utf-8").replace(ANSI_RE, "").trim());
+      resolve(Buffer.concat(stdoutChunks).toString("utf-8").replace(ANSI_RE, "").trim());
     });
   });
 
@@ -465,11 +475,16 @@ function validateNewThemes(
         ? Math.max(-1, Math.min(1, obj["sentiment_score"]))
         : 0;
 
+      const newsOneLiner = typeof obj["news_one_liner"] === "string"
+        ? obj["news_one_liner"].slice(0, 200)
+        : "";
+
       results.push({
         theme, summary, key_facts: keyFacts, category,
         impact_level: impactLevel, affected_sectors: affectedSectors,
         affected_tickers: affectedTickers, market_implications: marketImplications,
         sentiment, sentiment_score: sentimentScore,
+        news_one_liner: newsOneLiner,
       });
     } catch (err) {
       log.warn({ err, item }, "Skipping invalid new theme entry");
@@ -514,11 +529,15 @@ function validateUpdates(
       const updatedSentimentScore = typeof obj["updated_sentiment_score"] === "number"
         ? Math.max(-1, Math.min(1, obj["updated_sentiment_score"]))
         : undefined;
+      const updatedOneLiner = typeof obj["updated_one_liner"] === "string"
+        ? obj["updated_one_liner"].slice(0, 200)
+        : undefined;
 
       results.push({
         theme_id: themeId, new_facts: newFacts, updated_summary: updatedSummary,
         updated_impact: updatedImpact, updated_relevance: updatedRelevance,
         updated_sentiment: updatedSentiment, updated_sentiment_score: updatedSentimentScore,
+        updated_one_liner: updatedOneLiner,
       });
     } catch (err) {
       log.warn({ err, item }, "Skipping invalid theme update entry");
@@ -584,6 +603,7 @@ export function mergeBatchResults(
         if (upd.updated_sentiment_score !== undefined) {
           existing.updated_sentiment_score = upd.updated_sentiment_score;
         }
+        if (upd.updated_one_liner) existing.updated_one_liner = upd.updated_one_liner;
       } else {
         updateMap.set(upd.theme_id, { ...upd, new_facts: [...upd.new_facts] });
       }
@@ -719,13 +739,13 @@ async function applyChanges(
           relevance_score, affected_sectors, affected_tickers, market_implications,
           sentiment, sentiment_score,
           first_observed, last_updated, update_count, source_batch_ids,
-          price_snapshot_at, ticker_prices_at_creation)
-         VALUES ($1,$2,'active',$3,$4,$5,$6,1.000,$7,$8,$9,$10,$11,$12,$12,1,$13,$12,$14)`,
+          price_snapshot_at, ticker_prices_at_creation, news_one_liner)
+         VALUES ($1,$2,'active',$3,$4,$5,$6,1.000,$7,$8,$9,$10,$11,$12,$12,1,$13,$12,$14,$15)`,
         [
           themeId, nt.theme, nt.summary, nt.key_facts, nt.category,
           nt.impact_level, nt.affected_sectors, nt.affected_tickers,
           nt.market_implications, nt.sentiment, nt.sentiment_score,
-          now, batchIds, JSON.stringify(tickerPrices),
+          now, batchIds, JSON.stringify(tickerPrices), nt.news_one_liner || null,
         ],
       );
       newThemes++;
@@ -750,6 +770,10 @@ async function applyChanges(
       if (upd.updated_sentiment_score !== undefined) {
         params.push(upd.updated_sentiment_score);
         setClauses.push(`sentiment_score = $${params.length}`);
+      }
+      if (upd.updated_one_liner) {
+        params.push(upd.updated_one_liner);
+        setClauses.push(`news_one_liner = $${params.length}`);
       }
 
       const result = await client.query(
