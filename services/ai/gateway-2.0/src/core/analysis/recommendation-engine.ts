@@ -613,6 +613,7 @@ export function detectForTicker(ctx: TickerCtx): TickerSignal[] {
 function detectNewsSentimentSignals(
   newsRows: NewsSentimentRow[],
   headlineMap: Map<string, string[]>,
+  assetType: "stock" | "crypto",
 ): TickerSignal[] {
   const signals: TickerSignal[] = [];
 
@@ -630,7 +631,7 @@ function detectNewsSentimentSignals(
 
     signals.push({
       symbol: row.symbol,
-      assetType: "stock",
+      assetType,
       type: "news_sentiment",
       priority: count >= 5 ? "high" : "medium",
       timeframeAlignment: "partial",
@@ -676,11 +677,12 @@ export async function detectSignals(
     ]);
   } catch { /* non-critical: news table may not exist or be inaccessible */ }
 
-  const technicalSignals = buildContexts(assetType, targets, indicators, candles).flatMap(
-    detectForTicker,
-  );
+  const contexts = buildContexts(assetType, targets, indicators, candles);
+  const technicalSignals = contexts.flatMap(detectForTicker);
 
-  const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap);
+  const technicalSymbols = new Set(contexts.map((c) => c.symbol));
+  const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap, assetType)
+    .filter((s) => technicalSymbols.has(s.symbol));
 
   return { signals: [...technicalSignals, ...newsSignals], macroContext };
 }
@@ -706,11 +708,12 @@ export async function detectSignalsForTicker(
     ]);
   } catch { /* non-critical */ }
 
-  const technicalSignals = buildContexts(assetType, targets, indicators, candles).flatMap(
-    detectForTicker,
-  );
+  const contexts = buildContexts(assetType, targets, indicators, candles);
+  const technicalSignals = contexts.flatMap(detectForTicker);
 
-  const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap);
+  const technicalSymbols = new Set(contexts.map((c) => c.symbol));
+  const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap, assetType)
+    .filter((s) => technicalSymbols.has(s.symbol));
 
   return { signals: [...technicalSignals, ...newsSignals], macroContext };
 }
