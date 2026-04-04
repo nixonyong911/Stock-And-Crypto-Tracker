@@ -508,15 +508,6 @@ services:
 
   # NOTE: Frontend is deployed via Vercel, not on VM
 
-networks:
-  stocktracker:
-    driver: bridge
-    enable_ipv6: true
-    ipam:
-      config:
-        - subnet: 172.18.0.0/16
-        - subnet: fd00:db8:2::/64
-
   # ===========================================
   # Freshness Check - Build-only (runs via host cron, not as a long-lived service)
   # ===========================================
@@ -529,6 +520,15 @@ networks:
       - tools
     networks:
       - stocktracker
+
+networks:
+  stocktracker:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+        - subnet: fd00:db8:2::/64
 
 volumes:
   caddy-data:
