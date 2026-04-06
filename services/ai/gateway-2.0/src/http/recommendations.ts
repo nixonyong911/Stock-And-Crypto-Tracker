@@ -5,6 +5,7 @@ import type { GatewayConfig } from "../config.js";
 import type { ExtensionRegistry } from "../extension/registry.js";
 import {
   detectSignals,
+  detectSignalsForTicker,
   resolveNewsOneLiner,
   type TickerSignal,
   type MacroContext,
@@ -204,6 +205,140 @@ export function registerRecommendationRoutes(
         return reply.send({ ok: true, ...result });
       } catch (err) {
         app.log.error({ err }, "Error running memory curator");
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    },
+  );
+
+  app.post<{
+    Body: {
+      clerkUserId: string;
+      symbol: string;
+      assetType?: "stock" | "crypto";
+      /** If true (default), Telegram a short note when there are no technical signals */
+      notifyOnNoSignals?: boolean;
+    };
+  }>(
+    "/internal/force-send-digest",
+    async (request, reply) => {
+      const serviceKey = request.headers["x-service-key"] as string | undefined;
+      if (
+        !config.internalServiceKey ||
+        !serviceKey ||
+        serviceKey !== config.internalServiceKey
+      ) {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+
+      const clerkUserId = request.body?.clerkUserId?.trim();
+      const rawSym = request.body?.symbol?.trim();
+      const symbol = rawSym ? rawSym.toUpperCase() : "";
+      const assetType = request.body?.assetType === "crypto" ? "crypto" : "stock";
+      const notifyOnNoSignals = request.body?.notifyOnNoSignals !== false;
+
+      if (!clerkUserId || !symbol) {
+        return reply.status(400).send({ error: "clerkUserId and symbol required" });
+      }
+
+      try {
+        const { rows } = await db.query<{ platform_user_id: string }>(
+          `SELECT ca.platform_user_id
+           FROM channel_accounts ca
+           JOIN gateway_sessions gs
+             ON gs.clerk_user_id = ca.clerk_user_id
+             AND gs.channel_type = 'telegram'
+             AND gs.expires_at > NOW()
+           JOIN user_watchlist uw
+             ON uw.clerk_user_id = ca.clerk_user_id
+             AND UPPER(uw.ticker_symbol) = UPPER($2)
+           WHERE ca.clerk_user_id = $1 AND ca.channel_type = 'telegram'
+           LIMIT 1`,
+          [clerkUserId, symbol],
+        );
+
+        if (rows.length === 0) {
+          return reply.status(404).send({
+            error:
+              "No Telegram session or symbol not on watchlist for this clerk user",
+          });
+        }
+
+        const platformUserId = rows[0]!.platform_user_id;
+        const telegram = extensions.get("telegram");
+        if (!telegram) {
+          return reply.status(503).send({ error: "Telegram extension not configured" });
+        }
+
+        const { signals, macroContext, newsOneLinerMap } = await detectSignalsForTicker(
+          db,
+          symbol,
+          assetType,
+        );
+
+        if (signals.length === 0) {
+          if (notifyOnNoSignals) {
+            await telegram.sendText({
+              platformChatId: platformUserId,
+              text:
+                `*Manual pipeline test*\nNo digest-worthy technical signals for **${symbol}** right now (entry zone / patterns / etc.).\n` +
+                `Run \`/internal/process-news\` then retry after memory updates.`,
+              parseMode: "Markdown",
+            });
+          }
+          return reply.send({
+            ok: true,
+            sent: notifyOnNoSignals,
+            reason: "no_signals_for_symbol",
+            symbol,
+            assetType,
+          });
+        }
+
+        const explanation = await generateExplanation(signals, app.log, redis, macroContext);
+        const primary = signals[0]!;
+        if (primary.type !== "news_sentiment" && newsOneLinerMap) {
+          const oneLiner = resolveNewsOneLiner(symbol, newsOneLinerMap);
+          if (oneLiner) explanation.newsOneLiner = oneLiner;
+        }
+
+        const message = formatRecommendation(
+          primary.symbol,
+          primary.headline,
+          explanation,
+        );
+
+        await telegram.sendText({
+          platformChatId: platformUserId,
+          text: message,
+          parseMode: "Markdown",
+        });
+
+        await db
+          .query(
+            `INSERT INTO user_recommendation_log
+             (clerk_user_id, ticker_symbol, recommendation_type, priority, headline, message_body, timeframe_alignment)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+              clerkUserId,
+              primary.symbol,
+              primary.type,
+              primary.priority,
+              primary.headline,
+              message,
+              primary.timeframeAlignment,
+            ],
+          )
+          .catch((err) => app.log.error({ err }, "Failed to log recommendation"));
+
+        return reply.send({
+          ok: true,
+          sent: true,
+          symbol: primary.symbol,
+          signalType: primary.type,
+          headline: primary.headline,
+        });
+      } catch (err) {
+        app.log.error({ err }, "Error in force-send-digest");
         return reply.status(500).send({ error: "Internal server error" });
       }
     },
