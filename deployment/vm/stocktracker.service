@@ -1,0 +1,16 @@
+[Unit]
+Description=StockTracker Services (Infisical secret injection)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/stocktracker
+ExecStart=/opt/stocktracker/scripts/start-services.sh up -d
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=120
+User=azureuser
+
+[Install]
+WantedBy=multi-user.target

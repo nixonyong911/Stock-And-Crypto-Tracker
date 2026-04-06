@@ -72,6 +72,22 @@ else
 fi
 
 # ===========================================
+# Install Systemd Boot Service
+# ===========================================
+echo ""
+echo "=== Installing StockTracker boot service ==="
+DEPLOY_PATH="/opt/stocktracker"
+if [ -f "$DEPLOY_PATH/repo/deployment/vm/stocktracker.service" ]; then
+    cp "$DEPLOY_PATH/repo/deployment/vm/stocktracker.service" /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable stocktracker.service
+    echo "stocktracker.service installed and enabled"
+else
+    echo "WARNING: stocktracker.service not found in repo, skipping"
+    echo "It will be installed on the next CI/CD deploy"
+fi
+
+# ===========================================
 # Summary
 # ===========================================
 echo ""

@@ -676,6 +676,11 @@ jobs:
           sudo chmod +x $DEPLOY_PATH/scripts/*.sh
           sudo chown azureuser:azureuser $DEPLOY_PATH/scripts/*
 
+          echo "=== Installing systemd boot service ==="
+          sudo cp $DEPLOY_PATH/repo/deployment/vm/stocktracker.service /etc/systemd/system/
+          sudo systemctl daemon-reload
+          sudo systemctl enable stocktracker.service
+
           echo "=========================================="
           echo "=== Starting services ==="
           echo "=========================================="

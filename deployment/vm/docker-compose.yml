@@ -353,18 +353,22 @@ services:
   # Access at: /pgadmin
   # ===========================================
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:9.13.0
     container_name: pgadmin
     restart: unless-stopped
     init: true
-    mem_limit: 256m
+    mem_limit: 512m
     logging: *default-logging
+    entrypoint: /bin/sh -c "echo \"postgres:5432:*:postgres:$$POSTGRES_PASSWORD\" > /tmp/pgpass && chmod 600 /tmp/pgpass && /entrypoint.sh"
     environment:
       - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
       - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+      - PGADMIN_SERVER_JSON_FILE=/pgadmin4/servers.json
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - SCRIPT_NAME=/pgadmin
     volumes:
       - pgadmin-data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
     networks:
       - stocktracker
     depends_on:

@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "StockTracker",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "stocktracker",
+      "Username": "postgres",
+      "PassFile": "/tmp/pgpass",
+      "SSLMode": "prefer"
+    }
+  }
+}
