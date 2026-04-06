@@ -15,7 +15,8 @@ public class MarketAuxNewsWorker : BackgroundService
     private const string WorkerVersion = "1.1.0";
     private const string MetricsPrefix = "data_fetcher_2_marketaux_news";
     private const int DefaultDailyBudget = 100;
-    private const int DefaultCycleBudget = 25;
+    /// <summary>Room for macro/geo/policy/commodity (6 pages each), crypto pass (4), index/market remainder.</summary>
+    private const int DefaultCycleBudget = 35;
 
     public MarketAuxNewsWorker(
         IServiceProvider serviceProvider,
@@ -223,8 +224,8 @@ public class MarketAuxNewsWorker : BackgroundService
 public class MarketAuxFetchConfig
 {
     public int DailyRequestBudget { get; set; } = 100;
-    public int CycleBudget { get; set; } = 25;
+    public int CycleBudget { get; set; } = 35;
     public int RequestsToday { get; set; }
     public string CounterDate { get; set; } = "";
-    public List<string> Queries { get; set; } = new() { "macro", "geopolitical", "policy", "market" };
+    public List<string> Queries { get; set; } = new() { "macro", "geopolitical", "policy", "commodity", "crypto", "market" };
 }

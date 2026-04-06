@@ -1,7 +1,10 @@
 import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
 import { Tier } from "../../../extension/types.js";
-import { detectSignalsForTicker } from "../../../core/analysis/recommendation-engine.js";
+import {
+  detectSignalsForTicker,
+  resolveNewsOneLiner,
+} from "../../../core/analysis/recommendation-engine.js";
 import { generateExplanation } from "../../../core/analysis/explanation-generator.js";
 import { formatRecommendation } from "../../../core/analysis/digest-formatter.js";
 import {
@@ -214,7 +217,7 @@ composer.command("add", async (ctx) => {
           );
           const primary = signals[0]!;
           if (primary.type !== "news_sentiment") {
-            const oneLiner = newsOneLinerMap.get(symbol);
+            const oneLiner = resolveNewsOneLiner(symbol, newsOneLinerMap);
             if (oneLiner) explanation.newsOneLiner = oneLiner;
           }
           const message = formatRecommendation(

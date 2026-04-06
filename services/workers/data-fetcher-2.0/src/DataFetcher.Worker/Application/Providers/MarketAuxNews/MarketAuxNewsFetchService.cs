@@ -14,10 +14,14 @@ public class MarketAuxNewsFetchService : IMarketAuxNewsFetchService
         ["macro"] = "fed rate OR fomc OR inflation OR cpi OR gdp OR unemployment OR interest rate OR treasury yield OR jobs report OR nonfarm OR consumer confidence OR retail sales OR housing starts",
         ["geopolitical"] = "tariff OR trade war OR sanctions OR war OR conflict OR oil supply OR energy crisis OR commodity shock",
         ["policy"] = "trump OR executive order OR regulation OR legislation OR sec OR antitrust OR tax reform",
+        ["commodity"] = "crude oil OR WTI OR Brent OR natural gas OR copper OR gold price OR silver price OR wheat OR corn futures OR OPEC",
     };
 
     private const string MarketEntityType = "index";
-    private const int FocusedQueryMaxPages = 8;
+    /// <summary>MarketAux API accepts "cryptocurrency" — "crypto" returns no results.</summary>
+    private const string CryptocurrencyEntityType = "cryptocurrency";
+    private const int CryptoQueryMaxPages = 4;
+    private const int FocusedQueryMaxPages = 6;
     private const int FreetierPageLimit = 3;
 
     public MarketAuxNewsFetchService(
@@ -37,7 +41,7 @@ public class MarketAuxNewsFetchService : IMarketAuxNewsFetchService
         var result = new MarketAuxFetchResult();
         var defaultAfter = DateTime.UtcNow.AddHours(-6).ToString("yyyy-MM-ddTHH:mm");
 
-        // Step 1: Focused queries (macro, geopolitical, policy) -- capped at 5 pages each
+        // Step 1: Focused queries (macro, geopolitical, policy, commodity)
         foreach (var (category, searchQuery) in SearchQueries)
         {
             if (cancellationToken.IsCancellationRequested || result.RequestsMade >= cycleBudget)
@@ -60,7 +64,27 @@ public class MarketAuxNewsFetchService : IMarketAuxNewsFetchService
             }
         }
 
-        // Step 2: Market/index -- gets ALL remaining budget
+        // Step 2: Crypto — entity_types=cryptocurrency (validated against MarketAux API)
+        if (!cancellationToken.IsCancellationRequested && result.RequestsMade < cycleBudget)
+        {
+            try
+            {
+                var publishedAfter = await GetPublishedAfterForCategory("crypto", defaultAfter);
+                var pagesUsed = await FetchCategoryWithPagination(
+                    result, string.Empty, publishedAfter, CryptocurrencyEntityType,
+                    "crypto", CryptoQueryMaxPages, cycleBudget,
+                    cancellationToken);
+
+                _logger.LogDebug("Category 'crypto' (cryptocurrency entities): {Pages} pages fetched", pagesUsed);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to fetch cryptocurrency-tagged news");
+                result.Errors.Add($"category:crypto: {ex.Message}");
+            }
+        }
+
+        // Step 3: Market/index — remaining budget
         if (!cancellationToken.IsCancellationRequested && result.RequestsMade < cycleBudget)
         {
             try

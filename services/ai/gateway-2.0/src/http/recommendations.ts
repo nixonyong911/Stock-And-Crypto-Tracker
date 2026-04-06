@@ -3,7 +3,12 @@ import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import type { GatewayConfig } from "../config.js";
 import type { ExtensionRegistry } from "../extension/registry.js";
-import { detectSignals, type TickerSignal, type MacroContext } from "../core/analysis/recommendation-engine.js";
+import {
+  detectSignals,
+  resolveNewsOneLiner,
+  type TickerSignal,
+  type MacroContext,
+} from "../core/analysis/recommendation-engine.js";
 import { broadcastDailyOverview } from "../core/analysis/daily-overview-broadcaster.js";
 import { generateExplanation } from "../core/analysis/explanation-generator.js";
 import { formatRecommendation } from "../core/analysis/digest-formatter.js";
@@ -257,7 +262,7 @@ async function fanOutToWatchers(
   const primary = signals[0]!;
 
   if (primary.type !== "news_sentiment" && newsOneLinerMap) {
-    const oneLiner = newsOneLinerMap.get(symbol);
+    const oneLiner = resolveNewsOneLiner(symbol, newsOneLinerMap);
     if (oneLiner) explanation.newsOneLiner = oneLiner;
   }
 

@@ -320,11 +320,11 @@ RULES:
 - Deduplicate: merge similar articles into a single theme, never create two themes for the same event
 - Categories: macro, geopolitical, policy, market, crypto, diplomatic, sector, earnings
 - Impact levels: critical, high, medium, low
-- Tickers must be uppercase stock symbols
+- affected_tickers: uppercase symbols only. Include **equities** (AAPL, NVDA), **platform crypto** as BTC or BTC/USD (match the tradable symbol), **platform indices** (SPX500, NSDQ100, DJ30, RTY, etc.), and **platform commodities** (OIL, GOLD, NATGAS, etc.) when the theme materially affects them. For broad macro or risk-off themes that move "the market," include at least one major index symbol (e.g. SPX500) alongside any ETFs (SPY, QQQ). Do not use only generic ETF tickers when a platform index symbol applies.
 - relevance_score: 0.0 to 1.0 — increase for themes with strong new evidence, keep stable otherwise
 - For updates: only include themes that have genuinely new information, not just restatements
 - Think carefully about second-order effects (e.g., oil shock → inflation → Fed policy implications)
-- news_one_liner / updated_one_liner: A single plain-language sentence (max 140 chars) explaining what is happening and why it matters to affected stocks, written for a general audience. Use cause-and-effect language. Example: "Tech stocks face selling pressure as large ETFs shift more weight into the sector."
+- news_one_liner / updated_one_liner: A single plain-language sentence (max 140 chars) explaining what is happening and why it matters to investors in the affected tickers (stocks, crypto, indices, or commodities). Use cause-and-effect language. Example: "Tech stocks face selling pressure as large ETFs shift more weight into the sector."
 
 Output ONLY valid JSON, no markdown fences.`;
 }

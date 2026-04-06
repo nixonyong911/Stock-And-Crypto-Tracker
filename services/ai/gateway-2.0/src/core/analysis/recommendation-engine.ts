@@ -114,6 +114,79 @@ function fmtPrice(n: number): string {
   return n.toPrecision(4);
 }
 
+/** ETF / index proxies when memory lists SPY/QQQ but digest symbol is platform index (eToro). */
+const NEWS_ONE_LINER_INDEX_ALIASES: Record<string, string[]> = {
+  SPX500: ["SPY"],
+  NSDQ100: ["QQQ"],
+  DJ30: ["DIA"],
+  RTY: ["IWM"],
+};
+
+/** Base asset for crypto pair symbols stored as BASE/USD in price targets. */
+export function cryptoPairBase(symbol: string): string | null {
+  const u = symbol.toUpperCase();
+  const i = u.indexOf("/");
+  if (i <= 0) return null;
+  const base = u.slice(0, i).trim();
+  return base.length > 0 ? base : null;
+}
+
+/** Symbols to match against `analysis_market_memory.affected_tickers` for one digest symbol. */
+export function newsLookupCandidateSymbols(symbol: string): string[] {
+  const upper = symbol.toUpperCase();
+  const out = new Set<string>([upper]);
+  const base = cryptoPairBase(upper);
+  if (base) {
+    out.add(base);
+    out.add(`${base}/USD`);
+  }
+  for (const [platform, alts] of Object.entries(NEWS_ONE_LINER_INDEX_ALIASES)) {
+    if (platform === upper) {
+      for (const a of alts) out.add(a.toUpperCase());
+    }
+  }
+  return [...out];
+}
+
+/** Resolve `news_one_liner` when memory keys differ from digest symbol (e.g. BTC vs BTC/USD, SPY vs SPX500). */
+export function resolveNewsOneLiner(
+  symbol: string,
+  map: Map<string, string>,
+): string | undefined {
+  const upper = symbol.toUpperCase();
+  let v = map.get(upper);
+  if (v) return v;
+  const base = cryptoPairBase(upper);
+  if (base) {
+    v = map.get(base);
+    if (v) return v;
+    v = map.get(`${base}/USD`);
+    if (v) return v;
+  }
+  for (const alt of NEWS_ONE_LINER_INDEX_ALIASES[upper] ?? []) {
+    v = map.get(alt.toUpperCase());
+    if (v) return v;
+  }
+  return undefined;
+}
+
+function mergeHeadlineAndOneLinerMapsForDigestSymbol(
+  digestSymbol: string,
+  headlineMap: Map<string, string[]>,
+  oneLinerMap: Map<string, string>,
+): void {
+  const primary = digestSymbol.toUpperCase();
+  const candidates = newsLookupCandidateSymbols(digestSymbol);
+  const mergedHeadlines: string[] = [];
+  for (const c of candidates) {
+    mergedHeadlines.push(...(headlineMap.get(c) ?? []));
+  }
+  const uniq = [...new Set(mergedHeadlines)].slice(0, 10);
+  if (uniq.length > 0) headlineMap.set(primary, uniq);
+  const one = resolveNewsOneLiner(digestSymbol, oneLinerMap);
+  if (one) oneLinerMap.set(primary, one);
+}
+
 function groupBy<T extends { ticker_symbol: string }>(
   rows: T[],
 ): Map<string, T[]> {
@@ -229,6 +302,34 @@ export interface NewsSentimentRow {
   avg_sentiment: string;
 }
 
+function mergeNewsSentimentRowsForDigestSymbol(
+  rows: NewsSentimentRow[],
+  digestSymbol: string,
+): NewsSentimentRow[] {
+  const primary = digestSymbol.toUpperCase();
+  const candidates = new Set(
+    newsLookupCandidateSymbols(digestSymbol).map((s) => s.toUpperCase()),
+  );
+  let themeCount = 0;
+  let weightedSent = 0;
+  for (const r of rows) {
+    if (!candidates.has(r.symbol.toUpperCase())) continue;
+    const n = Number(r.article_count);
+    const av = toNum(r.avg_sentiment);
+    if (!Number.isFinite(n) || n < 1 || av == null) continue;
+    weightedSent += av * n;
+    themeCount += n;
+  }
+  if (themeCount <= 0) return [];
+  return [
+    {
+      symbol: primary,
+      article_count: themeCount,
+      avg_sentiment: String(weightedSent / themeCount),
+    },
+  ];
+}
+
 async function fetchNewsSentiment(
   db: Pool,
   symbolFilter?: string,
@@ -236,8 +337,8 @@ async function fetchNewsSentiment(
   const params: unknown[] = [];
   let symbolClause = "";
   if (symbolFilter) {
-    symbolClause = " AND $1 = ANY(affected_tickers)";
-    params.push(symbolFilter.toUpperCase());
+    symbolClause = " AND affected_tickers && $1::text[]";
+    params.push(newsLookupCandidateSymbols(symbolFilter));
   }
 
   const { rows } = await db.query<NewsSentimentRow>(
@@ -252,6 +353,10 @@ async function fetchNewsSentiment(
      HAVING COUNT(*) >= 1`,
     params,
   );
+
+  if (symbolFilter && rows.length > 0) {
+    return mergeNewsSentimentRowsForDigestSymbol(rows, symbolFilter);
+  }
   return rows;
 }
 
@@ -273,8 +378,8 @@ async function fetchNewsHeadlines(
   const params: unknown[] = [];
   let symbolClause = "";
   if (symbolFilter) {
-    symbolClause = " AND $1 = ANY(affected_tickers)";
-    params.push(symbolFilter.toUpperCase());
+    symbolClause = " AND affected_tickers && $1::text[]";
+    params.push(newsLookupCandidateSymbols(symbolFilter));
   }
 
   const { rows } = await db.query<NewsHeadlineRow>(
@@ -725,6 +830,7 @@ export async function detectSignalsForTicker(
     newsRows = sentimentRows;
     headlineMap = headlineResult.headlineMap;
     oneLinerMap = headlineResult.oneLinerMap;
+    mergeHeadlineAndOneLinerMapsForDigestSymbol(symbol, headlineMap, oneLinerMap);
   } catch { /* non-critical */ }
 
   const contexts = buildContexts(assetType, targets, indicators, candles);

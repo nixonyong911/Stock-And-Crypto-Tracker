@@ -152,7 +152,7 @@ public class MarketAuxNewsFetchServiceTests
     #region Fetch and Store Flow (Priority-Based Pagination)
 
     [Fact]
-    public async Task FetchAndStore_EmptyResponses_Makes4ApiCalls()
+    public async Task FetchAndStore_EmptyResponses_MakesOneCallPerPhase()
     {
         _apiClientMock
             .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -160,7 +160,8 @@ public class MarketAuxNewsFetchServiceTests
 
         var result = await _service.FetchAndStoreNewsAsync(25);
 
-        Assert.Equal(4, result.RequestsMade);
+        // macro, geopolitical, policy, commodity (search), crypto (entities), market (index entities)
+        Assert.Equal(6, result.RequestsMade);
     }
 
     [Fact]
@@ -172,7 +173,7 @@ public class MarketAuxNewsFetchServiceTests
 
         var result = await _service.FetchAndStoreNewsAsync(25);
 
-        Assert.Equal(4, result.RequestsMade);
+        Assert.Equal(6, result.RequestsMade);
         Assert.Equal(0, result.ArticlesFetched);
         Assert.Equal(0, result.ArticlesStored);
         Assert.Empty(result.Errors);
@@ -201,11 +202,13 @@ public class MarketAuxNewsFetchServiceTests
                 return callCount % 2 == 1 ? fullPage : lastPage;
             });
 
-        var result = await _service.FetchAndStoreNewsAsync(25);
+        // Budget must cover 4 search categories + crypto + partial market pagination
+        var result = await _service.FetchAndStoreNewsAsync(40);
 
-        // Each of 4 categories gets page1 (full) + page2 (partial) = 2 calls each = 8 total
-        Assert.Equal(8, result.RequestsMade);
-        Assert.Equal(16, result.ArticlesFetched);
+        // 4 search × 2 pages + crypto × 2 pages = 10 calls; market uses remaining pages with same alternating mock
+        Assert.Equal(12, result.RequestsMade);
+        // 4 search × (3+1) + crypto × (3+1) + market × (3+1) articles
+        Assert.Equal(24, result.ArticlesFetched);
     }
 
     [Fact]
@@ -239,10 +242,10 @@ public class MarketAuxNewsFetchServiceTests
             .Setup(c => c.FetchNewsAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(fullPage);
 
-        // Budget 25: 3 focused queries x 5 pages = 15, then market gets remaining 10
-        var result = await _service.FetchAndStoreNewsAsync(cycleBudget: 25);
+        // Default worker cycle (35): 4 search × up to 6 pages + crypto × up to 4 + market remainder — all pages full
+        var result = await _service.FetchAndStoreNewsAsync(cycleBudget: 35);
 
-        Assert.Equal(25, result.RequestsMade);
+        Assert.Equal(35, result.RequestsMade);
     }
 
     [Fact]
@@ -263,7 +266,8 @@ public class MarketAuxNewsFetchServiceTests
 
         Assert.Single(result.Errors);
         Assert.Contains("macro", result.Errors[0]);
-        Assert.Equal(3, result.RequestsMade);
+        // After macro throws: geopolitical, policy, commodity, crypto each 1 call; market not reached at budget 5
+        Assert.Equal(5, result.RequestsMade);
     }
 
     [Fact]
@@ -310,9 +314,10 @@ public class MarketAuxNewsFetchServiceTests
         var configEmpty = MarketAuxNewsWorker.ParseFetchConfig("");
 
         Assert.Equal(100, configNull.DailyRequestBudget);
-        Assert.Equal(25, configNull.CycleBudget);
+        Assert.Equal(35, configNull.CycleBudget);
         Assert.Equal(0, configNull.RequestsToday);
         Assert.Equal(100, configEmpty.DailyRequestBudget);
+        Assert.Equal(35, configEmpty.CycleBudget);
         Assert.Equal(0, configEmpty.RequestsToday);
     }
 
@@ -322,6 +327,7 @@ public class MarketAuxNewsFetchServiceTests
         var config = MarketAuxNewsWorker.ParseFetchConfig("{invalid json!!}");
 
         Assert.Equal(100, config.DailyRequestBudget);
+        Assert.Equal(35, config.CycleBudget);
         Assert.Equal(0, config.RequestsToday);
     }
 

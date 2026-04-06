@@ -273,7 +273,7 @@ Return ONLY a valid JSON array (no markdown, no explanation). Each element:
   "category": "macro|geopolitical|policy|market|crypto|diplomatic",
   "impact_level": "high|medium|low",
   "affected_sectors": ["tech", "energy", "finance", ...],
-  "affected_tickers": ["AAPL", "BTC", ...],
+  "affected_tickers": ["AAPL", "NVDA", "BTC", "BTC/USD", "SPX500", "OIL", ...],
   "sentiment": "bullish|bearish|neutral",
   "sentiment_score": 0.0,
   "key_points": ["point 1", "point 2", "point 3"],
@@ -286,6 +286,7 @@ RULES:
 - Only include stories with genuine market relevance
 - Group related articles into a single story
 - source_article_indices: which input articles (1-indexed) relate to this story
+- affected_tickers: use **platform tradable symbols** — US equities (AAPL), crypto as BTC or BTC/USD consistently, **indices** (SPX500, NSDQ100, DJ30, RTY, …), **commodities** (OIL, GOLD, …) when the story applies. For macro/risk themes that hit broad markets, include a relevant index symbol (e.g. SPX500) not only SPY/QQQ unless the story is ETF-specific.
 - Return between 5 and 15 stories, ordered by impact_level (high first)
 - Return ONLY the JSON array, nothing else`;
 }
