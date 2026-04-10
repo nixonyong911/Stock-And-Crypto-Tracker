@@ -2,11 +2,12 @@ import { setRequestLocale } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import {
   HeroSection,
+  SmartDigestSection,
   ProblemSection,
   SolutionSection,
   HowItWorksSection,
   FeaturesSection,
-  SmartDigestSection,
+  TestimonialsSection,
   PricingSection,
   TrustSection,
   FinalCtaSection,
@@ -25,11 +26,12 @@ export default async function HomePage({ params }: Props) {
       <Header />
       <main className="flex-1">
         <HeroSection />
+        <SmartDigestSection />
         <ProblemSection />
         <SolutionSection />
         <HowItWorksSection />
         <FeaturesSection />
-        <SmartDigestSection />
+        <TestimonialsSection />
         <PricingSection />
         <TrustSection />
         <FinalCtaSection />

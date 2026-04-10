@@ -16,11 +16,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    default: "Stock And Crypto Tracker - AI-Powered Market Clarity",
+    default: "Stock And Crypto Tracker - Daily Briefing for Your Watchlist",
     template: "%s | Stock And Crypto Tracker",
   },
   description:
-    "AI-powered market analysis for stocks and crypto. Get clear signals without the noise, delivered directly to Telegram. Free to start.",
+    "One personalized daily briefing for the stocks and crypto you follow—watchlist context, curated news, plain English. Save time; updates in Telegram.",
   keywords: [
     "stock tracker",
     "crypto tracker",
@@ -44,15 +44,15 @@ export const metadata: Metadata = {
     alternateLocale: "zh_CN",
     url: baseUrl,
     siteName: "Stock And Crypto Tracker",
-    title: "Stock And Crypto Tracker - AI-Powered Market Clarity",
+    title: "Stock And Crypto Tracker - Daily Briefing for Your Watchlist",
     description:
-      "AI-powered market analysis for stocks and crypto. Get clear signals without the noise, delivered directly to Telegram.",
+      "Personalized watchlist briefings with curated news and plain-English market context. Delivered on Telegram.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Stock And Crypto Tracker - AI-Powered Market Analysis",
+        alt: "Stock And Crypto Tracker - Watchlist market briefings",
       },
     ],
   },
@@ -60,9 +60,9 @@ export const metadata: Metadata = {
   // Twitter Card
   twitter: {
     card: "summary_large_image",
-    title: "Stock And Crypto Tracker - AI-Powered Market Clarity",
+    title: "Stock And Crypto Tracker - Daily Briefing for Your Watchlist",
     description:
-      "AI-powered market analysis for stocks and crypto. Get clear signals without the noise, delivered directly to Telegram.",
+      "Personalized watchlist briefings with curated news and plain-English market context. Delivered on Telegram.",
     images: ["/og-image.png"],
   },
 

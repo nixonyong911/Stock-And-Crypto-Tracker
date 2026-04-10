@@ -10,7 +10,7 @@ const organizationSchema = {
   url: baseUrl,
   logo: `${baseUrl}/logo.png`,
   description:
-    "AI-powered market analysis for stocks and crypto. Get clear signals without the noise, delivered directly to Telegram.",
+    "Personalized daily briefings for your stock and crypto watchlist—curated context and plain English, delivered on Telegram.",
   foundingDate: "2025",
   sameAs: ["https://t.me/StockAndCryptoAdvisorBot"],
   contactPoint: {
@@ -28,7 +28,7 @@ const websiteSchema = {
   name: "Stock And Crypto Tracker",
   url: baseUrl,
   description:
-    "AI-powered market analysis for stocks and crypto delivered via Telegram.",
+    "Watchlist-first market briefings with curated news and plain-English updates via Telegram.",
   inLanguage: ["en", "zh"],
   publisher: {
     "@type": "Organization",
@@ -44,7 +44,7 @@ const softwareApplicationSchema = {
   applicationCategory: "FinanceApplication",
   operatingSystem: "Telegram",
   description:
-    "AI-powered market analysis bot for stocks and crypto. Get clear signals without the noise, delivered directly to your Telegram.",
+    "Telegram bot for personalized stock and crypto watchlist briefings—plain English, curated context.",
   offers: [
     {
       "@type": "Offer",
@@ -62,43 +62,38 @@ const softwareApplicationSchema = {
       description: "Full stocks and crypto coverage with priority processing",
     },
   ],
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.8",
-    ratingCount: "50",
-  },
 };
 
 // HowTo Schema (for "How it Works" section)
 const howToSchema = {
   "@context": "https://schema.org",
   "@type": "HowTo",
-  name: "How to Get AI-Powered Market Analysis",
+  name: "How to Get Watchlist Market Briefings",
   description:
-    "Learn how Stock And Crypto Tracker delivers AI-powered market signals to your Telegram.",
+    "Add your tickers, receive plain-English watchlist updates and curated context on Telegram.",
   step: [
     {
       "@type": "HowToStep",
-      name: "We monitor the market",
-      text: "Our AI analyzes price action, volume, and technical patterns across stocks and crypto continuously.",
+      name: "Add your watchlist",
+      text: "Tell the service which stocks and crypto you want to follow.",
       position: 1,
     },
     {
       "@type": "HowToStep",
-      name: "We detect meaningful setups",
-      text: "Only when conditions matter. No constant spam - just actionable insights.",
+      name: "We monitor for you",
+      text: "Price action, setups, and narrative are tracked so you don't have to hunt across sites.",
       position: 2,
     },
     {
       "@type": "HowToStep",
-      name: "You get clear context",
-      text: "Receive signal type, time horizon, confidence level, and risk factors to watch.",
+      name: "You get a short update",
+      text: "When it matters: what's happening, what to watch, horizon, confidence, and risk—in plain language.",
       position: 3,
     },
     {
       "@type": "HowToStep",
-      name: "Delivered on Telegram",
-      text: "Access everything via your Telegram account - no apps to download.",
+      name: "Read it in Telegram",
+      text: "Updates are delivered to your Telegram account—no separate app required.",
       position: 4,
     },
   ],

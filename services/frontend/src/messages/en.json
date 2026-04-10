@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "Stock And Crypto Tracker - AI-Powered Market Clarity",
-    "description": "AI-powered market analysis for stocks and crypto. Get clear signals without the noise, delivered directly to Telegram."
+    "title": "Stock And Crypto Tracker - Daily Briefing for Your Watchlist",
+    "description": "One personalized daily briefing for the stocks and crypto you follow—watchlist context, curated news, plain English. Save time; get updates in Telegram."
   },
   "nav": {
     "product": "Product",
@@ -16,54 +16,57 @@
     "smartDigestDesc": "AI-powered watchlist insights"
   },
   "hero": {
-    "headline": "Clarity for Stock and Crypto Markets.",
-    "headlineHighlightPrefix": "Powered by ",
-    "headlineHighlightAccent": "AI",
+    "headline": "Your daily market briefing.",
+    "headlineHighlightPrefix": "One place for ",
+    "headlineHighlightAccent": "your tickers",
     "headlineHighlightSuffix": ".",
-    "subheadlinePart1": "Stock And Crypto Tracker scans global markets ",
-    "subheadlineAccent": "24/7",
-    "subheadlinePart2": " and explains technical conditions in plain language. No hype. No noise. Just clear market context delivered on Telegram.",
-    "cta": "Start Free on Telegram",
+    "subheadlinePart1": "Stop jumping between sites and feeds. We pull watchlist context and ",
+    "subheadlineAccent": "curated news",
+    "subheadlinePart2": " into a short, plain-English update—personalized to what you track, delivered on Telegram.",
+    "previewLabel": "Example of what you might see",
+    "ctaPrimary": "Start 7-Day Free Trial",
+    "ctaPrimaryHint": "No card required for the trial. Updates land in Telegram once you're set up.",
+    "ctaTelegram": "Open Telegram bot",
     "ctaSecondary": "See how it works"
   },
   "problem": {
-    "heading": "The market moves fast. Most signals don't.",
-    "paragraph1": "Retail investors are flooded with charts, indicators, and \"buy\" calls.",
-    "paragraph2": "By the time most signals reach you, the opportunity is often gone.",
-    "paragraph3": "You don't need more noise.",
+    "heading": "You don't have time to chase every headline.",
+    "paragraph1": "Between work and life, most people can't sit on ten tabs—news, charts, social, filings—just to feel caught up.",
+    "paragraph2": "So you skim, you guess, or you tune out. None of that feels great when your money is on the line.",
+    "paragraph3": "You don't need more apps or more noise.",
     "highlightPrefix": "You need ",
-    "highlightAccent": "clarity",
-    "highlightSuffix": "."
+    "highlightAccent": "one calm briefing",
+    "highlightSuffix": " you can trust."
   },
   "solution": {
     "headingPrefix": "One ",
-    "headingAccent": "AI",
-    "headingSuffix": ". One clear view of the market.",
+    "headingAccent": "digest",
+    "headingSuffix": ". Built around your watchlist.",
     "bullets": {
-      "scan": "Scans stocks and crypto continuously",
-      "identify": "Identifies meaningful technical setups",
-      "explain": "Explains what's happening and what to watch",
-      "deliver": "Sends alerts directly to your Telegram account"
+      "scan": "Monitors your tickers so you don't have to bounce between sources",
+      "identify": "Surfaces meaningful technical context when it matters—not constant spam",
+      "explain": "Explains what's going on and what to watch, in plain English",
+      "deliver": "Delivers updates where you already are: Telegram"
     },
-    "tagline": "No dashboards. No downloads. No complexity."
+    "tagline": "No dashboards. No new habit to build. Just your list, summarized."
   },
   "howItWorks": {
     "heading": "How it works",
     "step1": {
-      "title": "We monitor the market",
-      "description": "Our AI analyzes price action, volume, and technical patterns across stocks and crypto."
+      "title": "Add your watchlist",
+      "description": "Tell us the stocks and crypto you care about. That's the center of everything we send you."
     },
     "step2": {
-      "title": "We detect meaningful setups",
-      "description": "Only when conditions matter. No constant spam."
+      "title": "We watch the market for you",
+      "description": "Our system tracks price action, setups, and narrative so you don't have to hunt across sites."
     },
     "step3": {
-      "title": "You get clear context",
-      "description": "Signal type, time horizon, confidence level, and risk to watch."
+      "title": "You get a short, clear update",
+      "description": "When something matters: what's happening, what to watch, horizon, confidence, and risk—explained plainly."
     },
     "step4": {
-      "title": "Delivered on Telegram",
-      "description": "Access everything via your own Telegram account."
+      "title": "It shows up in Telegram",
+      "description": "No extra app. Open Telegram and read your briefing when you have a minute."
     }
   },
   "features": {
@@ -71,25 +74,47 @@
     "headingBrand": "Stock And Crypto Tracker",
     "headingSuffix": "",
     "bullets": {
-      "context": "Market context, not blind signals",
-      "plain": "Technical explanations in plain English",
-      "coverage": "Stock and crypto coverage",
-      "fatigue": "Alert fatigue control",
-      "education": "Educational insights with every update"
+      "context": "A single stream for your tickers instead of scattered tabs",
+      "plain": "Technical context explained in plain English",
+      "coverage": "Stocks and crypto in one flow",
+      "fatigue": "Fewer pings—only when the update is worth reading",
+      "education": "Educational framing with every meaningful update"
     },
-    "tagline": "Built for investors who value discipline over hype."
+    "tagline": "Built for busy people who still want to stay informed."
+  },
+  "testimonials": {
+    "heading": "What people say",
+    "subheading": "Short notes from people who wanted less noise and a faster catch-up.",
+    "items": {
+      "one": {
+        "quote": "I used to open five sites before coffee. Now I read one update and I'm caught up.",
+        "name": "Jordan",
+        "role": "Retail investor"
+      },
+      "two": {
+        "quote": "Plain English, my tickers only. That's exactly what I was looking for.",
+        "name": "Sam",
+        "role": "Works full-time"
+      },
+      "three": {
+        "quote": "Fewer random alerts. When it pings, I know it's worth a look.",
+        "name": "Riley",
+        "role": "Pro member"
+      }
+    }
   },
   "smartDigest": {
-    "headingPrefix": "Your personal ",
-    "headingAccent": "AI analyst",
-    "headingSuffix": ", always watching.",
+    "headingPrefix": "Smart ",
+    "headingAccent": "Digest",
+    "headingSuffix": ": your daily catch-up.",
     "bullets": {
-      "multiTimeframe": "Analyzes your watchlist across multiple timeframes to spot real signals and filter out noise.",
-      "plainEnglish": "Explains what's happening and what to watch in plain English. No charts. No jargon.",
-      "noSpam": "Only sends when something meaningful happens. No constant alerts. No spam."
+      "multiTimeframe": "Watchlist-first summary so you see your names—not the whole market firehose.",
+      "plainEnglish": "Curated context and narrative in plain English, alongside technical notes when they matter.",
+      "noSpam": "We only reach out when there's something worth your attention."
     },
-    "tagline": "Add tickers to your watchlist. The AI does the rest.",
-    "cta": "Start Free on Telegram",
+    "tagline": "Add your tickers once. We handle the scanning and summarizing.",
+    "cta": "Start 7-Day Free Trial",
+    "ctaTelegram": "Open Telegram bot",
     "learnMore": "Learn more",
     "mockMessage": {
       "ticker": "NVDA",
@@ -246,12 +271,13 @@
     "paragraph3": "Always apply your own risk management."
   },
   "finalCta": {
-    "heading": "Get clarity without the noise.",
-    "cta": "Start Free on Telegram",
-    "subtext": "No credit card. No app download."
+    "heading": "Catch up in minutes, not across ten tabs.",
+    "cta": "Start 7-Day Free Trial",
+    "ctaTelegram": "Open Telegram bot",
+    "subtext": "Trial does not require a card. Telegram is where updates are delivered."
   },
   "footer": {
-    "tagline": "AI-powered market analysis for stocks and crypto. Get clear signals without the noise.",
+    "tagline": "Personalized market briefings for your watchlist—plain English, delivered on Telegram.",
     "sections": {
       "product": "Product",
       "company": "Company",

@@ -4,6 +4,7 @@ export { SolutionSection } from "./solution";
 export { HowItWorksSection } from "./how-it-works";
 export { FeaturesSection } from "./features";
 export { SmartDigestSection } from "./smart-digest";
+export { TestimonialsSection } from "./testimonials";
 export { PricingSection } from "./pricing";
 export { TrustSection } from "./trust";
 export { FinalCtaSection } from "./final-cta";

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "Stock And Crypto Tracker - AI驱动的市场洞察",
-    "description": "AI驱动的股票和加密货币市场分析。获取清晰的信号，通过Telegram直接推送。"
+    "title": "Stock And Crypto Tracker - 自选股每日简报",
+    "description": "为你在意的股票与加密货币提供一份个性化每日简报：自选股要点、精选资讯、通俗解读。节省时间，在 Telegram 收取更新。"
   },
   "nav": {
     "product": "产品",
@@ -16,54 +16,57 @@
     "smartDigestDesc": "AI驱动的自选股洞察"
   },
   "hero": {
-    "headline": "股票和加密货币市场的清晰洞察。",
-    "headlineHighlightPrefix": "",
-    "headlineHighlightAccent": "AI",
-    "headlineHighlightSuffix": "驱动。",
-    "subheadlinePart1": "Stock And Crypto Tracker ",
-    "subheadlineAccent": "全天候",
-    "subheadlinePart2": "扫描全球市场，用通俗易懂的语言解释技术状况。没有炒作。没有噪音。只有清晰的市场背景，直接发送到Telegram。",
-    "cta": "在Telegram上免费开始",
+    "headline": "你的每日市场简报。",
+    "headlineHighlightPrefix": "在一个地方看清 ",
+    "headlineHighlightAccent": "你的自选股",
+    "headlineHighlightSuffix": "。",
+    "subheadlinePart1": "不必在网站和资讯流之间来回切换。我们把自选股要点与",
+    "subheadlineAccent": "精选资讯",
+    "subheadlinePart2": "收成一篇简短的通俗解读——只围绕你关注的标的，通过 Telegram 送达。",
+    "previewLabel": "以下为示例样式",
+    "ctaPrimary": "开始 7 天免费试用",
+    "ctaPrimaryHint": "试用无需绑卡。设置完成后，更新会发到 Telegram。",
+    "ctaTelegram": "打开 Telegram 机器人",
     "ctaSecondary": "了解运作方式"
   },
   "problem": {
-    "heading": "市场瞬息万变。大多数信号却跟不上。",
-    "paragraph1": "散户投资者被图表、指标和\"买入\"信号淹没。",
-    "paragraph2": "当大多数信号到达你手中时，机会往往已经消失。",
-    "paragraph3": "你不需要更多的噪音。",
-    "highlightPrefix": "你需要",
-    "highlightAccent": "清晰的洞察",
-    "highlightSuffix": "。"
+    "heading": "你没空追着每条头条跑。",
+    "paragraph1": "上班、生活两头忙，大多数人没法一直开着十个标签——新闻、图表、社群、公告——只为了心里踏实。",
+    "paragraph2": "于是随便扫两眼、凭感觉猜、或者干脆不看。钱在市场里时，哪种都不太舒服。",
+    "paragraph3": "你不需要更多应用，也不需要更多噪音。",
+    "highlightPrefix": "你需要的是",
+    "highlightAccent": "一份冷静的简报",
+    "highlightSuffix": "，让你快速跟上。"
   },
   "solution": {
-    "headingPrefix": "一个",
-    "headingAccent": "AI",
-    "headingSuffix": "。一个清晰的市场视角。",
+    "headingPrefix": "一份",
+    "headingAccent": "智能摘要",
+    "headingSuffix": "，围绕你的自选股。",
     "bullets": {
-      "scan": "持续扫描股票和加密货币",
-      "identify": "识别有意义的技术形态",
-      "explain": "解释正在发生什么以及需要关注什么",
-      "deliver": "直接发送提醒到你的Telegram账户"
+      "scan": "替你盯着自选标的，少在各类来源之间来回跳",
+      "identify": "在重要时提示有意义的技术背景——不是不停刷屏",
+      "explain": "用通俗中文说明发生了什么、要留意什么",
+      "deliver": "消息发到你已经在用的 Telegram"
     },
-    "tagline": "无需仪表盘。无需下载。无需复杂操作。"
+    "tagline": "不用新仪表盘，不用养成新习惯。只要你的列表，我们帮你整理。"
   },
   "howItWorks": {
     "heading": "运作方式",
     "step1": {
-      "title": "我们监控市场",
-      "description": "我们的AI分析股票和加密货币的价格走势、成交量和技术形态。"
+      "title": "添加自选股",
+      "description": "告诉我们你关心的股票和加密货币——这是我们推送的中心。"
     },
     "step2": {
-      "title": "我们检测有意义的形态",
-      "description": "只在条件重要时提醒。不会持续发送垃圾信息。"
+      "title": "我们替你盯盘与梳理",
+      "description": "系统跟踪价格、形态与叙事，你不必自己到处找资讯。"
     },
     "step3": {
-      "title": "你获得清晰的背景",
-      "description": "信号类型、时间范围、置信度和需要关注的风险。"
+      "title": "收到简短清晰的更新",
+      "description": "在重要时说明：正在发生什么、要关注什么、周期、置信度与风险——用平实语言写清楚。"
     },
     "step4": {
-      "title": "通过Telegram推送",
-      "description": "通过你自己的Telegram账户访问所有内容。"
+      "title": "在 Telegram 里阅读",
+      "description": "不用另装应用。有空打开 Telegram，读完简报即可。"
     }
   },
   "features": {
@@ -71,25 +74,47 @@
     "headingBrand": "Stock And Crypto Tracker",
     "headingSuffix": " 为你提供",
     "bullets": {
-      "context": "市场背景，而非盲目信号",
-      "plain": "用简单易懂的语言解释技术分析",
-      "coverage": "股票和加密货币全覆盖",
-      "fatigue": "提醒疲劳控制",
-      "education": "每次更新都附带教育性见解"
+      "context": "自选标的集中在一条流里，不再散落各处标签页",
+      "plain": "用通俗中文讲清楚技术背景",
+      "coverage": "股票与加密货币同一套推送",
+      "fatigue": "更少打扰——只有值得读的更新才提醒",
+      "education": "每次有意义的更新都带一点学习视角"
     },
-    "tagline": "为重视纪律而非炒作的投资者打造。"
+    "tagline": "给想跟上市场、又时间有限的人。"
+  },
+  "testimonials": {
+    "heading": "用户怎么说",
+    "subheading": "几句真实风格的反馈——想少点噪音、快点跟上进度。",
+    "items": {
+      "one": {
+        "quote": "以前喝咖啡前要开五六个网站。现在读一条更新就心里有数了。",
+        "name": "Jordan",
+        "role": "散户投资者"
+      },
+      "two": {
+        "quote": "通俗话、只看我的自选股。这正是我想要的。",
+        "name": "Sam",
+        "role": "上班族"
+      },
+      "three": {
+        "quote": "乱响的提醒少了。一响我就知道值得点开看一眼。",
+        "name": "Riley",
+        "role": "Pro 会员"
+      }
+    }
   },
   "smartDigest": {
-    "headingPrefix": "你的专属",
-    "headingAccent": "AI分析师",
-    "headingSuffix": "，时刻关注市场。",
+    "headingPrefix": "智能",
+    "headingAccent": "摘要",
+    "headingSuffix": "：你的每日快报。",
     "bullets": {
-      "multiTimeframe": "跨多个时间周期分析你的自选股，发现真正的信号，过滤噪音。",
-      "plainEnglish": "用通俗易懂的语言解释发生了什么以及需要关注什么。无图表，无术语。",
-      "noSpam": "只在有意义的事情发生时才发送。没有持续轰炸，没有垃圾信息。"
+      "multiTimeframe": "以自选股为主，只看你在意的名字，而不是全市场信息流。",
+      "plainEnglish": "在重要时提供精选背景与叙事，并用通俗话配合技术要点。",
+      "noSpam": "只有当你真的值得知道时，我们才会发消息。"
     },
-    "tagline": "将股票添加到你的自选股。AI会处理剩下的一切。",
-    "cta": "在Telegram上免费开始",
+    "tagline": "自选股添加一次。扫描和归纳交给我们。",
+    "cta": "开始 7 天免费试用",
+    "ctaTelegram": "打开 Telegram 机器人",
     "learnMore": "了解更多",
     "mockMessage": {
       "ticker": "NVDA",
@@ -246,12 +271,13 @@
     "paragraph3": "请始终运用你自己的风险管理。"
   },
   "finalCta": {
-    "heading": "获取清晰洞察，远离噪音。",
-    "cta": "在Telegram上免费开始",
-    "subtext": "无需信用卡。无需下载应用。"
+    "heading": "用几分钟跟上进度，而不是开十个标签页。",
+    "cta": "开始 7 天免费试用",
+    "ctaTelegram": "打开 Telegram 机器人",
+    "subtext": "试用无需绑卡。更新通过 Telegram 送达。"
   },
   "footer": {
-    "tagline": "AI驱动的股票和加密货币市场分析。获取清晰的信号，无需噪音。",
+    "tagline": "围绕自选股的个性化市场简报——通俗解读，Telegram 送达。",
     "sections": {
       "product": "产品",
       "company": "公司",
