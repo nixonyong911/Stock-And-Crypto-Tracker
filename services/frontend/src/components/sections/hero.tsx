@@ -40,18 +40,11 @@ export function HeroSection() {
             </h1>
 
             <p className="text-lg leading-8 text-muted-foreground sm:text-xl">
-              {t("subheadlinePart1")}
-              <GradientText className="text-xl font-semibold sm:text-2xl">
-                {t("subheadlineAccent")}
-              </GradientText>
-              {t("subheadlinePart2")}
+              {t("subheadline")}
             </p>
           </div>
 
           <div className="lg:pt-4">
-            <p className="mb-3 text-center text-sm font-medium text-muted-foreground lg:text-left">
-              {t("previewLabel")}
-            </p>
             <DigestPreviewCard />
           </div>
 
