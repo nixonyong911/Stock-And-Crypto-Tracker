@@ -178,7 +178,7 @@ export function SmartDigestContent() {
           </h2>
 
           <div className="mt-12 grid gap-6 lg:grid-cols-3">
-            {(["nvda", "sofi", "aapl"] as const).map((example) => (
+            {(["meta", "sofi", "aapl"] as const).map((example) => (
               <ExampleMessage
                 key={example}
                 ticker={t(`examples.${example}.ticker`)}

@@ -129,15 +129,15 @@
     "ctaTelegram": "Open Telegram bot",
     "learnMore": "Learn more",
     "mockMessage": {
-      "ticker": "NVDA",
-      "headline": "Approaching Support Zone",
+      "ticker": "META",
+      "headline": "Leading the Magnificent Seven (past month)",
       "whatsHappeningLabel": "What's happening:",
-      "whatsHappening": "NVIDIA has pulled back to $180, near a support level ($176-$183) that has held across the past 20 trading sessions. The stock is trading below its short-term averages, but the technical outlook remains bullish across all timeframes.",
+      "whatsHappening": "Over the past month, Meta (META) has posted the strongest gain among the Magnificent Seven. The move followed a quarterly report that beat profit expectations and renewed confidence that AI and infrastructure spending is translating into better ad targeting, engagement, and product velocity across Facebook, Instagram, Threads, and WhatsApp. Buyers also favored Meta’s clearer near-term earnings path while other mega caps faced tougher compares on valuation and capex payback.",
       "whatToWatchLabel": "What to watch:",
-      "whatToWatch": "A hold above $176 could confirm this level as a floor. A break below $170 would suggest further downside toward the 39-day low.",
+      "whatToWatch": "The next read on ad revenue and impression growth; any change in tone on 2025 capex; and regulatory headlines (privacy, antitrust) that could shift sentiment. On the chart, see whether price holds above the rising short-term averages—losing that support would hint this rally leg is tiring.",
       "outlook": "Bullish",
-      "horizon": "Swing (1-3 weeks)",
-      "confidence": "High",
+      "horizon": "Swing (3-6 weeks)",
+      "confidence": "Medium-High",
       "risk": "Medium"
     }
   },
@@ -175,14 +175,14 @@
     },
     "examples": {
       "heading": "See it in action",
-      "nvda": {
-        "ticker": "NVDA",
-        "headline": "Approaching Support Zone",
-        "whatsHappening": "NVIDIA has pulled back to $180, near a support level ($176-$183) that has held across the past 20 trading sessions. The stock is trading below its short-term averages, but the technical outlook remains bullish across all timeframes.",
-        "whatToWatch": "A hold above $176 could confirm this level as a floor. A break below $170 would suggest further downside toward the 39-day low.",
+      "meta": {
+        "ticker": "META",
+        "headline": "Leading the Magnificent Seven (past month)",
+        "whatsHappening": "Over the past month, Meta (META) has posted the strongest gain among the Magnificent Seven. The move followed a quarterly report that beat profit expectations and renewed confidence that AI and infrastructure spending is translating into better ad targeting, engagement, and product velocity across Facebook, Instagram, Threads, and WhatsApp. Buyers also favored Meta’s clearer near-term earnings path while other mega caps faced tougher compares on valuation and capex payback.",
+        "whatToWatch": "The next read on ad revenue and impression growth; any change in tone on 2025 capex; and regulatory headlines (privacy, antitrust) that could shift sentiment. On the chart, see whether price holds above the rising short-term averages—losing that support would hint this rally leg is tiring.",
         "outlook": "Bullish",
-        "horizon": "Swing (1-3 weeks)",
-        "confidence": "High",
+        "horizon": "Swing (3-6 weeks)",
+        "confidence": "Medium-High",
         "risk": "Medium"
       },
       "sofi": {

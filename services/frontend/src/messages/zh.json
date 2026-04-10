@@ -129,15 +129,15 @@
     "ctaTelegram": "打开 Telegram 机器人",
     "learnMore": "了解更多",
     "mockMessage": {
-      "ticker": "NVDA",
-      "headline": "接近支撑区间",
+      "ticker": "META",
+      "headline": "近一月「科技七巨头」中涨幅领先",
       "whatsHappeningLabel": "正在发生：",
-      "whatsHappening": "英伟达回调至$180，接近过去20个交易日一直保持的支撑位（$176-$183）。该股在短期均线下方交易，但所有时间周期的技术面展望仍然看涨。",
+      "whatsHappening": "过去一个月，Meta（META）在「科技七巨头」（Magnificent Seven）中涨幅居前。推动因素包括：季度盈利明显好于预期，以及市场更愿意相信人工智能与基础设施投入正在改善广告定向、用户互动与产品迭代（Facebook、Instagram、Threads、WhatsApp）。相较部分超大市值同行，Meta 的盈利路径更清晰，因而在估值与资本开支回报的讨论中更受资金青睐。",
       "whatToWatchLabel": "需要关注：",
-      "whatToWatch": "守住$176以上可能确认该水平为底部。跌破$170则可能进一步下探至39天低点。",
+      "whatToWatch": "下一期广告收入与展示量趋势；2025 年资本开支指引是否变化；以及欧美监管、隐私与反垄断相关消息对情绪的影响。技术面上留意能否守住走高的短期均线——若失守，可能意味本轮上攻动能减弱。",
       "outlook": "看涨",
-      "horizon": "波段（1-3周）",
-      "confidence": "高",
+      "horizon": "波段（3-6周）",
+      "confidence": "中高",
       "risk": "中等"
     }
   },
@@ -175,14 +175,14 @@
     },
     "examples": {
       "heading": "实际效果展示",
-      "nvda": {
-        "ticker": "NVDA",
-        "headline": "接近支撑区间",
-        "whatsHappening": "英伟达回调至$180，接近过去20个交易日一直保持的支撑位（$176-$183）。该股在短期均线下方交易，但所有时间周期的技术面展望仍然看涨。",
-        "whatToWatch": "守住$176以上可能确认该水平为底部。跌破$170则可能进一步下探至39天低点。",
+      "meta": {
+        "ticker": "META",
+        "headline": "近一月「科技七巨头」中涨幅领先",
+        "whatsHappening": "过去一个月，Meta（META）在「科技七巨头」（Magnificent Seven）中涨幅居前。推动因素包括：季度盈利明显好于预期，以及市场更愿意相信人工智能与基础设施投入正在改善广告定向、用户互动与产品迭代（Facebook、Instagram、Threads、WhatsApp）。相较部分超大市值同行，Meta 的盈利路径更清晰，因而在估值与资本开支回报的讨论中更受资金青睐。",
+        "whatToWatch": "下一期广告收入与展示量趋势；2025 年资本开支指引是否变化；以及欧美监管、隐私与反垄断相关消息对情绪的影响。技术面上留意能否守住走高的短期均线——若失守，可能意味本轮上攻动能减弱。",
         "outlook": "看涨",
-        "horizon": "波段（1-3周）",
-        "confidence": "高",
+        "horizon": "波段（3-6周）",
+        "confidence": "中高",
         "risk": "中等"
       },
       "sofi": {
