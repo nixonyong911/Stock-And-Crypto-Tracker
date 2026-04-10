@@ -87,17 +87,32 @@
     "subheading": "Short notes from people who wanted less noise and a faster catch-up.",
     "items": {
       "one": {
-        "quote": "I used to open five sites before coffee. Now I read one update and I'm caught up.",
-        "name": "Jordan",
-        "role": "Retail investor"
+        "quote": "I'd have six tabs open before work. Now I skim one message and I'm done.",
+        "name": "Alex",
+        "role": "Engineer"
       },
       "two": {
-        "quote": "Plain English, my tickers only. That's exactly what I was looking for.",
+        "quote": "I don't have time for Discord and Twitter drama. This is just my list, summarized.",
+        "name": "Chris",
+        "role": "Night shift"
+      },
+      "three": {
+        "quote": "No chart walls. It tells me what changed and what to watch. That's enough for me.",
+        "name": "Marcus",
+        "role": "Busy parent"
+      },
+      "four": {
+        "quote": "Telegram was already on my home screen. I didn't want another app to learn.",
         "name": "Sam",
         "role": "Works full-time"
       },
-      "three": {
-        "quote": "Fewer random alerts. When it pings, I know it's worth a look.",
+      "five": {
+        "quote": "I still make my own calls—but I'm not guessing what I missed overnight.",
+        "name": "Jordan",
+        "role": "Retail investor"
+      },
+      "six": {
+        "quote": "It doesn't tell me what to do. It tells me what's going on. That's the right line for me.",
         "name": "Riley",
         "role": "Pro member"
       }

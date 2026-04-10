@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
-const ITEM_KEYS = ["one", "two", "three"] as const;
+const ITEM_KEYS = ["one", "two", "three", "four", "five", "six"] as const;
 
 export function TestimonialsSection() {
   const t = useTranslations("testimonials");
@@ -17,7 +17,7 @@ export function TestimonialsSection() {
           {t("subheading")}
         </p>
 
-        <ul className="mx-auto mt-14 grid max-w-5xl gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mx-auto mt-14 grid max-w-6xl gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {ITEM_KEYS.map((key) => (
             <li
               key={key}
