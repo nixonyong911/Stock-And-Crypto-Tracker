@@ -128,17 +128,27 @@
     "cta": "开始 7 天免费试用",
     "ctaTelegram": "打开 Telegram 机器人",
     "learnMore": "了解更多",
+    "messageLabels": {
+      "whatsHappening": "正在发生：",
+      "whatToWatch": "需要关注：",
+      "newsFactor": "资讯因素：",
+      "confidence": "置信度：",
+      "risk": "风险：",
+      "disclaimer": "教育性市场分析，不构成投资建议。",
+      "viewWatchlist": "查看自选股：/watchlist",
+      "pauseAlerts": "暂停提醒：/alert off"
+    },
     "mockMessage": {
       "ticker": "META",
-      "headline": "近一月「科技七巨头」中涨幅领先",
-      "whatsHappeningLabel": "正在发生：",
-      "whatsHappening": "过去一个月，Meta（META）在「科技七巨头」（Magnificent Seven）中涨幅居前。推动因素包括：季度盈利明显好于预期，以及市场更愿意相信人工智能与基础设施投入正在改善广告定向、用户互动与产品迭代（Facebook、Instagram、Threads、WhatsApp）。相较部分超大市值同行，Meta 的盈利路径更清晰，因而在估值与资本开支回报的讨论中更受资金青睐。",
-      "whatToWatchLabel": "需要关注：",
-      "whatToWatch": "下一期广告收入与展示量趋势；2025 年资本开支指引是否变化；以及欧美监管、隐私与反垄断相关消息对情绪的影响。技术面上留意能否守住走高的短期均线——若失守，可能意味本轮上攻动能减弱。",
       "outlook": "看涨",
       "horizon": "波段（3-6周）",
       "confidence": "中高",
-      "risk": "中等"
+      "risk": "中等",
+      "summary": "META 正延续财报后的上行结构，近一个月在「科技七巨头」中走势领先。",
+      "whatsHappening": "价格呈阶梯抬高，回调往往在走高的短期均线附近获得承接；上涨日成交量整体大于下跌日，动能仍偏强，但相对上一轮小幅整理已略显延伸。",
+      "whatToWatch": "关注下一期广告收入与展示量、2025 年资本开支口风，以及监管与隐私、反垄断类消息。技术上若周线收在上一关键低点之下，可能意味本轮上攻阶段接近尾声。",
+      "newsFactor": "季报盈利好于预期，且市场更愿意相信人工智能与基础设施投入正在提升广告相关性与各应用互动（Facebook、Instagram、Threads、WhatsApp）。相较部分 capex 争议更大的超大市值标的，Meta 盈利路径更可见，因而更受资金偏好。",
+      "timestamp": "8:05"
     }
   },
   "smartDigestPage": {
@@ -177,33 +187,39 @@
       "heading": "实际效果展示",
       "meta": {
         "ticker": "META",
-        "headline": "近一月「科技七巨头」中涨幅领先",
-        "whatsHappening": "过去一个月，Meta（META）在「科技七巨头」（Magnificent Seven）中涨幅居前。推动因素包括：季度盈利明显好于预期，以及市场更愿意相信人工智能与基础设施投入正在改善广告定向、用户互动与产品迭代（Facebook、Instagram、Threads、WhatsApp）。相较部分超大市值同行，Meta 的盈利路径更清晰，因而在估值与资本开支回报的讨论中更受资金青睐。",
-        "whatToWatch": "下一期广告收入与展示量趋势；2025 年资本开支指引是否变化；以及欧美监管、隐私与反垄断相关消息对情绪的影响。技术面上留意能否守住走高的短期均线——若失守，可能意味本轮上攻动能减弱。",
         "outlook": "看涨",
         "horizon": "波段（3-6周）",
         "confidence": "中高",
-        "risk": "中等"
+        "risk": "中等",
+        "summary": "META 正延续财报后的上行结构，近一个月在「科技七巨头」中走势领先。",
+        "whatsHappening": "价格呈阶梯抬高，回调往往在走高的短期均线附近获得承接；上涨日成交量整体大于下跌日，动能仍偏强，但相对上一轮小幅整理已略显延伸。",
+        "whatToWatch": "关注下一期广告收入与展示量、2025 年资本开支口风，以及监管与隐私、反垄断类消息。技术上若周线收在上一关键低点之下，可能意味本轮上攻阶段接近尾声。",
+        "newsFactor": "季报盈利好于预期，且市场更愿意相信人工智能与基础设施投入正在提升广告相关性与各应用互动（Facebook、Instagram、Threads、WhatsApp）。相较部分 capex 争议更大的超大市值标的，Meta 盈利路径更可见，因而更受资金偏好。",
+        "timestamp": "8:05"
       },
       "sofi": {
         "ticker": "SOFI",
-        "headline": "接近支撑，但需谨慎",
-        "whatsHappening": "SoFi交易价格接近$18.91，靠近支撑区间。然而，日线、波段和长期时间周期的技术面展望均为看跌。动量指标显示抛售压力持续。",
-        "whatToWatch": "跌破$18.50可能加速下跌。在考虑这是底部之前，关注日线RSI的反转信号。",
         "outlook": "看跌",
         "horizon": "日内（1-3天）",
         "confidence": "高",
-        "risk": "高"
+        "risk": "高",
+        "summary": "SOFI 在约 $18.91 一线横盘测试支撑，更长周期结构仍偏空。",
+        "whatsHappening": "股价正测试近期多次止跌的横向区间，但日线与波段趋势仍向下，动能尚未给出明确反转信号。",
+        "whatToWatch": "若有效跌破约 $18.50，可能下探下一档支撑；若日线 RSI 企稳拐头，再考虑是否形成更可靠底部。",
+        "newsFactor": "消费金融情绪与利率预期仍在压制板块估值——SOFI 更多随风险偏好波动，单一公司头条影响相对有限。",
+        "timestamp": "7:42"
       },
       "aapl": {
         "ticker": "AAPL",
-        "headline": "入场区间 + 锤子线形态",
-        "whatsHappening": "苹果回调至一个已维持3周的支撑区间。今天出现锤子线蜡烛形态，表明卖出动量正在减弱，可能正在形成反弹。",
-        "whatToWatch": "守住$178以上确认该形态。跌破$172则失效。下一交易日的成交量将是关键。",
         "outlook": "看涨",
         "horizon": "波段（1-2周）",
         "confidence": "高",
-        "risk": "低-中"
+        "risk": "低-中",
+        "summary": "AAPL 回落到三周支撑带附近，并出现类似「锤子」的企稳 K 线。",
+        "whatsHappening": "价格回到多次获得承接的区间；最近一根 K 线接近锤形收盘，暗示抛压可能在支撑位减弱。",
+        "whatToWatch": "收盘需守在 $178 上方；跌破约 $172 则反弹假设失效。下一交易日成交量决定买盘是否认真。",
+        "newsFactor": "硬件周期预期与服务业务叙事仍是主变量；部分资金回流资产负债表稳健的超大科技，亦在回调中提供承接。",
+        "timestamp": "6:18"
       }
     },
     "includes": {

@@ -128,17 +128,27 @@
     "cta": "Start 7-Day Free Trial",
     "ctaTelegram": "Open Telegram bot",
     "learnMore": "Learn more",
+    "messageLabels": {
+      "whatsHappening": "What's happening:",
+      "whatToWatch": "What to watch:",
+      "newsFactor": "News factor:",
+      "confidence": "Confidence:",
+      "risk": "Risk:",
+      "disclaimer": "Educational market analysis, not financial advice.",
+      "viewWatchlist": "View watchlist: /watchlist",
+      "pauseAlerts": "Pause alerts: /alert off"
+    },
     "mockMessage": {
       "ticker": "META",
-      "headline": "Leading the Magnificent Seven (past month)",
-      "whatsHappeningLabel": "What's happening:",
-      "whatsHappening": "Over the past month, Meta (META) has posted the strongest gain among the Magnificent Seven. The move followed a quarterly report that beat profit expectations and renewed confidence that AI and infrastructure spending is translating into better ad targeting, engagement, and product velocity across Facebook, Instagram, Threads, and WhatsApp. Buyers also favored Meta’s clearer near-term earnings path while other mega caps faced tougher compares on valuation and capex payback.",
-      "whatToWatchLabel": "What to watch:",
-      "whatToWatch": "The next read on ad revenue and impression growth; any change in tone on 2025 capex; and regulatory headlines (privacy, antitrust) that could shift sentiment. On the chart, see whether price holds above the rising short-term averages—losing that support would hint this rally leg is tiring.",
       "outlook": "Bullish",
       "horizon": "Swing (3-6 weeks)",
       "confidence": "Medium-High",
-      "risk": "Medium"
+      "risk": "Medium",
+      "summary": "META is holding a post-earnings trend that has paced the Magnificent Seven over the past month.",
+      "whatsHappening": "Price has stair-stepped higher with pullbacks finding buyers near the rising short-term averages. Volume on up-days has outweighed down-days, and momentum remains constructive though extended versus the last minor reset.",
+      "whatToWatch": "Ad revenue and impression trends on the next read; tone on 2025 capex; regulatory headlines (privacy, antitrust). Technically, a weekly close below the last higher low would suggest this leg is exhausted.",
+      "newsFactor": "A stronger-than-expected quarter and a clearer story that AI and infrastructure spend is feeding ad relevance and engagement across Facebook, Instagram, Threads, and WhatsApp. Investors also favored Meta’s visible profit path versus heavier capex debates elsewhere in the mega-cap group.",
+      "timestamp": "8:05 AM"
     }
   },
   "smartDigestPage": {
@@ -177,33 +187,39 @@
       "heading": "See it in action",
       "meta": {
         "ticker": "META",
-        "headline": "Leading the Magnificent Seven (past month)",
-        "whatsHappening": "Over the past month, Meta (META) has posted the strongest gain among the Magnificent Seven. The move followed a quarterly report that beat profit expectations and renewed confidence that AI and infrastructure spending is translating into better ad targeting, engagement, and product velocity across Facebook, Instagram, Threads, and WhatsApp. Buyers also favored Meta’s clearer near-term earnings path while other mega caps faced tougher compares on valuation and capex payback.",
-        "whatToWatch": "The next read on ad revenue and impression growth; any change in tone on 2025 capex; and regulatory headlines (privacy, antitrust) that could shift sentiment. On the chart, see whether price holds above the rising short-term averages—losing that support would hint this rally leg is tiring.",
         "outlook": "Bullish",
         "horizon": "Swing (3-6 weeks)",
         "confidence": "Medium-High",
-        "risk": "Medium"
+        "risk": "Medium",
+        "summary": "META is holding a post-earnings trend that has paced the Magnificent Seven over the past month.",
+        "whatsHappening": "Price has stair-stepped higher with pullbacks finding buyers near the rising short-term averages. Volume on up-days has outweighed down-days, and momentum remains constructive though extended versus the last minor reset.",
+        "whatToWatch": "Ad revenue and impression trends on the next read; tone on 2025 capex; regulatory headlines (privacy, antitrust). Technically, a weekly close below the last higher low would suggest this leg is exhausted.",
+        "newsFactor": "A stronger-than-expected quarter and a clearer story that AI and infrastructure spend is feeding ad relevance and engagement across Facebook, Instagram, Threads, and WhatsApp. Investors also favored Meta’s visible profit path versus heavier capex debates elsewhere in the mega-cap group.",
+        "timestamp": "8:05 AM"
       },
       "sofi": {
         "ticker": "SOFI",
-        "headline": "Near Support, But Proceed With Caution",
-        "whatsHappening": "SoFi is trading near $18.91, close to a support zone. However, the technical outlook is bearish across day, swing, and long-term timeframes. Momentum indicators suggest continued selling pressure.",
-        "whatToWatch": "A break below $18.50 could accelerate the decline. Watch for a reversal in the daily RSI before considering this a bottom.",
         "outlook": "Bearish",
         "horizon": "Day (1-3 days)",
         "confidence": "High",
-        "risk": "High"
+        "risk": "High",
+        "summary": "SOFI is parked on support near $18.91 while longer timeframes remain bearish.",
+        "whatsHappening": "The stock is testing a horizontal band that has contained dips recently, but day and swing trends still point lower and momentum has not confirmed a reversal.",
+        "whatToWatch": "A sustained break under ~$18.50 likely opens the next shelf lower; look for RSI to stabilize and curl before treating this as a durable floor.",
+        "newsFactor": "Consumer-fintech sentiment and rate expectations are still driving multiple compression in the group—SOFI trades more as a risk-on beta name than on single-stock headlines alone.",
+        "timestamp": "7:42 AM"
       },
       "aapl": {
         "ticker": "AAPL",
-        "headline": "Entry Zone + Hammer Pattern",
-        "whatsHappening": "Apple pulled back into a support zone that has held for 3 weeks. A hammer candlestick pattern appeared today, suggesting selling momentum is fading and a potential bounce is forming.",
-        "whatToWatch": "Hold above $178 confirms the setup. Break below $172 invalidates it. Volume on the next session will be key.",
         "outlook": "Bullish",
         "horizon": "Swing (1-2 weeks)",
         "confidence": "High",
-        "risk": "Low-Medium"
+        "risk": "Low-Medium",
+        "summary": "AAPL is leaning on a three-week support band after a potential exhaustion candle.",
+        "whatsHappening": "Price drifted back into a zone that has held multiple touches; the latest session printed a hammer-style close, hinting sellers are tiring into support.",
+        "whatToWatch": "$178 needs to hold on a closing basis; below ~$172 invalidates the bounce case. Next session volume should confirm whether buyers are committed.",
+        "newsFactor": "Mega-cap hardware sentiment and the services growth narrative remain the swing factors; modest rotation back into quality balance-sheet tech has helped bids on dips.",
+        "timestamp": "6:18 AM"
       }
     },
     "includes": {

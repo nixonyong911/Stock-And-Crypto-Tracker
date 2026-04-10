@@ -27,58 +27,73 @@ const includeItems = [
 
 function ExampleMessage({
   ticker,
-  headline,
-  whatsHappening,
-  whatToWatch,
   outlook,
   horizon,
   confidence,
   risk,
+  summary,
+  whatsHappening,
+  whatToWatch,
+  newsFactor,
+  timestamp,
 }: {
   ticker: string;
-  headline: string;
-  whatsHappening: string;
-  whatToWatch: string;
   outlook: string;
   horizon: string;
   confidence: string;
   risk: string;
+  summary: string;
+  whatsHappening: string;
+  whatToWatch: string;
+  newsFactor: string;
+  timestamp: string;
 }) {
+  const l = useTranslations("smartDigest.messageLabels");
+
   return (
-    <div className="rounded-2xl border bg-card p-6 shadow-md">
-      <div className="space-y-3 font-mono text-sm leading-relaxed">
-        <p className="font-bold text-foreground">
-          {ticker} &mdash; {headline}
+    <div className="rounded-2xl border border-primary/25 bg-muted/60 p-5 shadow-md dark:border-primary/30 dark:bg-slate-950/75">
+      <div className="space-y-3.5 font-mono text-sm leading-relaxed">
+        <p className="font-semibold text-foreground">
+          {ticker} <span className="text-muted-foreground">|</span> {outlook}{" "}
+          <span className="text-muted-foreground">|</span> {horizon}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {l("confidence")}{" "}
+          <span className="font-medium text-foreground">{confidence}</span>
+          <span className="mx-1.5 text-muted-foreground/60">|</span>
+          {l("risk")}{" "}
+          <span className="font-medium text-foreground">{risk}</span>
+        </p>
+        <p className="border-t border-border pt-3 text-[13px] text-foreground/90">
+          {summary}
         </p>
         <div>
           <span className="font-semibold text-foreground">
-            What&apos;s happening:
+            {l("whatsHappening")}
           </span>{" "}
           <span className="text-muted-foreground">{whatsHappening}</span>
         </div>
         <div>
-          <span className="font-semibold text-foreground">What to watch:</span>{" "}
+          <span className="font-semibold text-foreground">{l("whatToWatch")}</span>{" "}
           <span className="text-muted-foreground">{whatToWatch}</span>
         </div>
-        <div className="border-t pt-3 text-xs text-muted-foreground">
-          <span>
-            Outlook:{" "}
-            <span className="font-medium text-foreground">{outlook}</span>
-          </span>
-          <span className="mx-2">|</span>
-          <span>
-            Horizon:{" "}
-            <span className="font-medium text-foreground">{horizon}</span>
-          </span>
-          <br />
-          <span>
-            Confidence:{" "}
-            <span className="font-medium text-foreground">{confidence}</span>
-          </span>
-          <span className="mx-2">|</span>
-          <span>
-            Risk: <span className="font-medium text-foreground">{risk}</span>
-          </span>
+        <div>
+          <span className="font-semibold text-foreground">{l("newsFactor")}</span>{" "}
+          <span className="text-muted-foreground">{newsFactor}</span>
+        </div>
+        <p className="border-t border-border pt-3 text-xs italic text-muted-foreground">
+          {l("disclaimer")}
+        </p>
+        <div className="flex flex-col gap-2 border-t border-border pt-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1.5 text-primary sm:flex-row sm:gap-4">
+            <span className="underline decoration-primary/40 underline-offset-2">
+              {l("viewWatchlist")}
+            </span>
+            <span className="underline decoration-primary/40 underline-offset-2">
+              {l("pauseAlerts")}
+            </span>
+          </div>
+          <span className="text-muted-foreground sm:text-right">{timestamp}</span>
         </div>
       </div>
     </div>
@@ -182,13 +197,15 @@ export function SmartDigestContent() {
               <ExampleMessage
                 key={example}
                 ticker={t(`examples.${example}.ticker`)}
-                headline={t(`examples.${example}.headline`)}
-                whatsHappening={t(`examples.${example}.whatsHappening`)}
-                whatToWatch={t(`examples.${example}.whatToWatch`)}
                 outlook={t(`examples.${example}.outlook`)}
                 horizon={t(`examples.${example}.horizon`)}
                 confidence={t(`examples.${example}.confidence`)}
                 risk={t(`examples.${example}.risk`)}
+                summary={t(`examples.${example}.summary`)}
+                whatsHappening={t(`examples.${example}.whatsHappening`)}
+                whatToWatch={t(`examples.${example}.whatToWatch`)}
+                newsFactor={t(`examples.${example}.newsFactor`)}
+                timestamp={t(`examples.${example}.timestamp`)}
               />
             ))}
           </div>
