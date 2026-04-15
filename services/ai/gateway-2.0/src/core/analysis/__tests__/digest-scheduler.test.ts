@@ -72,7 +72,16 @@ describe("startDigestScheduler", () => {
   it("passes curatorModel and telegramNotify to news processing job", async () => {
     const { processUnfilteredNews } = await import("../news-processor.js");
     const telegramNotify = vi.fn().mockResolvedValue(undefined);
-    const deps = makeDeps({ curatorModel: "test-model", telegramNotify });
+    const deps = makeDeps({
+      curatorModel: "test-model",
+      telegramNotify,
+      curatorSequentialBatches: true,
+      curatorVerboseLogs: true,
+      curatorTelegramErrorMaxChars: 2500,
+      curatorLlmTimeoutMs: 480_000,
+      curatorMaxStories: 20,
+      curatorMaxStoriesPerBatch: 8,
+    });
     startDigestScheduler(deps);
 
     const newsCall = scheduleSpy.mock.calls.find((call: unknown[]) => call[0] === "0 */6 * * *");
@@ -86,6 +95,12 @@ describe("startDigestScheduler", () => {
         expect.objectContaining({
           curatorModel: "test-model",
           telegramNotify,
+          curatorSequentialBatches: true,
+          curatorVerboseLogs: true,
+          curatorTelegramErrorMaxChars: 2500,
+          curatorLlmTimeoutMs: 480_000,
+          curatorMaxStories: 20,
+          curatorMaxStoriesPerBatch: 8,
         }),
       );
     });

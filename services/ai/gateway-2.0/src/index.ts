@@ -54,6 +54,19 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  bootstrapLogger.info(
+    {
+      curatorModel: config.curatorModel,
+      curatorSequentialBatches: config.curatorSequentialBatches,
+      curatorVerboseLogs: config.curatorVerboseLogs,
+      curatorLlmTimeoutMs: config.curatorLlmTimeoutMs,
+      curatorMaxStories: config.curatorMaxStories,
+      curatorMaxStoriesPerBatch: config.curatorMaxStoriesPerBatch,
+      cursorApiKeyConfigured: config.cursorApiKeyConfigured,
+    },
+    "Memory curator / Cursor CLI bootstrap summary",
+  );
+
   // ---- Validate cursor-agent CLI ----
   try {
     const { CLIExecutor } = await import("./core/cli/executor.js");
@@ -103,6 +116,12 @@ async function main(): Promise<void> {
       log: app.log,
       curatorModel: config.curatorModel,
       telegramNotify,
+      curatorSequentialBatches: config.curatorSequentialBatches,
+      curatorVerboseLogs: config.curatorVerboseLogs,
+      curatorTelegramErrorMaxChars: config.curatorTelegramErrorMaxChars,
+      curatorLlmTimeoutMs: config.curatorLlmTimeoutMs,
+      curatorMaxStories: config.curatorMaxStories,
+      curatorMaxStoriesPerBatch: config.curatorMaxStoriesPerBatch,
     });
     stopDigestScheduler = digestScheduler.stop;
   } catch (err) {

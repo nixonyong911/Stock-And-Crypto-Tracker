@@ -6,6 +6,7 @@ import {
   buildCompactThemeList,
   buildBatchCuratorPrompt,
   mergeBatchResults,
+  computeCuratorLockTtlSeconds,
   type CuratorResult,
   type CuratorOutput,
   type MemoryTheme,
@@ -423,6 +424,36 @@ describe("formatCuratorNotification", () => {
     const msg = formatCuratorNotification(result);
     expect(msg).not.toContain("<script>");
     expect(msg).toContain("&lt;script&gt;");
+  });
+
+  it("truncates long errors to telegramErrorMaxChars", () => {
+    const longErr = "x".repeat(5000);
+    const result: CuratorResult = {
+      newThemes: 0, updatedThemes: 0, decayedThemes: 0,
+      archivedThemes: 0, activeThemes: 0, processingTimeMs: 100,
+      error: longErr,
+    };
+
+    const msg = formatCuratorNotification(result, { telegramErrorMaxChars: 400 });
+    const body = msg.split("\n")[1] ?? "";
+    expect(body.length).toBeLessThanOrEqual(400);
+    expect(body).toContain("xxx");
+  });
+});
+
+describe("computeCuratorLockTtlSeconds", () => {
+  it("uses per-batch timeout for lock TTL math", () => {
+    const high = computeCuratorLockTtlSeconds(2, false, 800_000);
+    const low = computeCuratorLockTtlSeconds(2, false, 200_000);
+    expect(high).toBeGreaterThan(low);
+  });
+
+  it("extends TTL for sequential multi-batch runs", () => {
+    const parallel = computeCuratorLockTtlSeconds(3, false);
+    const sequential = computeCuratorLockTtlSeconds(3, true);
+    expect(sequential).toBeGreaterThan(parallel);
+    expect(sequential).toBeLessThanOrEqual(3600);
+    expect(parallel).toBeGreaterThanOrEqual(900);
   });
 });
 

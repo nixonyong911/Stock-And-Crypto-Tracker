@@ -14,10 +14,20 @@ export interface DigestSchedulerDeps {
   log: FastifyBaseLogger;
   curatorModel?: string;
   telegramNotify?: (message: string) => Promise<void>;
+  curatorSequentialBatches?: boolean;
+  curatorVerboseLogs?: boolean;
+  curatorTelegramErrorMaxChars?: number;
+  curatorLlmTimeoutMs?: number;
+  curatorMaxStories?: number;
+  curatorMaxStoriesPerBatch?: number;
 }
 
 export function startDigestScheduler(deps: DigestSchedulerDeps): { stop: () => void } {
-  const { db, redis, log, curatorModel, telegramNotify } = deps;
+  const {
+    db, redis, log, curatorModel, telegramNotify,
+    curatorSequentialBatches, curatorVerboseLogs, curatorTelegramErrorMaxChars,
+    curatorLlmTimeoutMs, curatorMaxStories, curatorMaxStoriesPerBatch,
+  } = deps;
 
   // Pre-market brief: 7:00 AM ET = 12:00 UTC (11:00 UTC during EDT)
   const morningJob = cron.schedule("0 12 * * 1-5", () => {
@@ -46,7 +56,11 @@ export function startDigestScheduler(deps: DigestSchedulerDeps): { stop: () => v
   // News processing: every 6 hours (00:00/06:00/12:00/18:00 UTC)
   const newsProcessingJob = cron.schedule("0 */6 * * *", () => {
     log.info("Digest scheduler: triggering scheduled news processing");
-    processUnfilteredNews({ db, redis, log, curatorModel, telegramNotify }).catch((err) => {
+    processUnfilteredNews({
+      db, redis, log, curatorModel, telegramNotify,
+      curatorSequentialBatches, curatorVerboseLogs, curatorTelegramErrorMaxChars,
+      curatorLlmTimeoutMs, curatorMaxStories, curatorMaxStoriesPerBatch,
+    }).catch((err) => {
       log.error({ err }, "Failed to run scheduled news processing");
     });
   }, { timezone: "UTC" });

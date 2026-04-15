@@ -90,13 +90,27 @@ export interface CuratorDeps {
   log: FastifyBaseLogger;
   curatorModel: string;
   telegramNotify?: (message: string) => Promise<void>;
+  /** When true (default), run one LLM batch at a time to reduce rate limits and load. */
+  sequentialBatches?: boolean;
+  /** When true, log larger stderr previews from cursor-agent failures. */
+  verboseCuratorLogs?: boolean;
+  /** Max characters of error text in Telegram FAILED alerts (default 2000, capped at 3500). */
+  curatorTelegramErrorMaxChars?: number;
+  /** Per-batch `cursor-agent` timeout in ms (default 360_000). */
+  llmTimeoutMs?: number;
+  /** Max stories loaded from `analysis_filtered_news` for one curation run (default 25). */
+  maxStoriesForCurator?: number;
+  /** Max stories per LLM batch (default 10). */
+  maxStoriesPerBatch?: number;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────
 
 const CURATOR_LOCK_KEY = "memory:curator:lock";
-const CURATOR_LOCK_TTL = 900; // 15 min — covers parallel batches + DB operations
-const LLM_TIMEOUT_MS = 360_000; // 6 min per batch — compact themes reduce prompt ~60%
+const CURATOR_LOCK_TTL_MIN = 900; // baseline — dynamic TTL extends for sequential batches
+/** Default per-batch `cursor-agent` ceiling (override with `CURATOR_LLM_TIMEOUT_MS` / deps). */
+export const DEFAULT_CURATOR_LLM_TIMEOUT_MS = 360_000;
+const CURATOR_LOCK_TTL_MAX = 3600; // 1 h ceiling
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]/g;
 const ACTIVE_THEME_CAP = 50;
 const ACTIVE_THEME_TARGET = 45;
@@ -108,6 +122,20 @@ const FILTERED_LOOKBACK_HOURS = 3;
 const MAX_STORIES_FOR_CURATOR = 25;
 const MAX_STORIES_PER_BATCH = 10;
 
+/** Redis lock TTL: long enough for all batches (sequential = sum of per-batch ceilings). */
+export function computeCuratorLockTtlSeconds(
+  batchCount: number,
+  sequentialBatches: boolean,
+  perBatchTimeoutMs: number = DEFAULT_CURATOR_LLM_TIMEOUT_MS,
+): number {
+  const perBatchSec = Math.ceil(perBatchTimeoutMs / 1000);
+  const waveSec = sequentialBatches
+    ? Math.max(1, batchCount) * perBatchSec
+    : perBatchSec;
+  const padded = 120 + waveSec;
+  return Math.min(CURATOR_LOCK_TTL_MAX, Math.max(CURATOR_LOCK_TTL_MIN, padded));
+}
+
 // ── Main entry point ──────────────────────────────────────────────────
 
 export async function curateMarketMemory(
@@ -115,10 +143,50 @@ export async function curateMarketMemory(
 ): Promise<CuratorResult> {
   const { db, redis, log, curatorModel, telegramNotify } = deps;
   const startTime = Date.now();
+  const sequentialBatches = deps.sequentialBatches !== false;
+  const verboseCuratorLogs = deps.verboseCuratorLogs === true;
+  const stderrCap = verboseCuratorLogs ? 12_000 : 500;
+  const telegramErrorMaxChars = Math.min(
+    3500,
+    Math.max(200, deps.curatorTelegramErrorMaxChars ?? 2000),
+  );
+  const notifyOpts = { telegramErrorMaxChars };
+  const llmTimeoutMs = Math.min(
+    900_000,
+    Math.max(60_000, deps.llmTimeoutMs ?? DEFAULT_CURATOR_LLM_TIMEOUT_MS),
+  );
+  const maxStoriesCap = Math.min(
+    50,
+    Math.max(5, deps.maxStoriesForCurator ?? MAX_STORIES_FOR_CURATOR),
+  );
+  let maxPerBatch = Math.min(
+    20,
+    Math.max(3, deps.maxStoriesPerBatch ?? MAX_STORIES_PER_BATCH),
+  );
+  maxPerBatch = Math.min(maxPerBatch, Math.max(1, maxStoriesCap));
 
   try {
+    const existingThemes = await fetchActiveThemes(db);
+    const recentStories = await fetchRecentFilteredNews(db, maxStoriesCap);
+
+    if (recentStories.length === 0) {
+      log.info("No recent filtered stories for memory curation");
+      const activeCount = existingThemes.filter((t) => t.status === "active").length;
+      const result: CuratorResult = {
+        newThemes: 0, updatedThemes: 0, decayedThemes: 0,
+        archivedThemes: 0, activeThemes: activeCount,
+        processingTimeMs: Date.now() - startTime,
+      };
+      await notifyCurator(telegramNotify, result, notifyOpts);
+      return result;
+    }
+
+    const batches = chunkArray(recentStories, maxPerBatch);
+    const lockTtlSec = computeCuratorLockTtlSeconds(
+      batches.length, sequentialBatches, llmTimeoutMs,
+    );
     const locked = await redis.set(
-      CURATOR_LOCK_KEY, "1", "EX", CURATOR_LOCK_TTL, "NX",
+      CURATOR_LOCK_KEY, "1", "EX", lockTtlSec, "NX",
     );
     if (locked !== "OK") {
       log.info("Memory curator skipped — another run is in progress");
@@ -129,93 +197,119 @@ export async function curateMarketMemory(
       };
     }
 
-    const existingThemes = await fetchActiveThemes(db);
-    const recentStories = await fetchRecentFilteredNews(db);
-
-    if (recentStories.length === 0) {
-      log.info("No recent filtered stories for memory curation");
-      const activeCount = existingThemes.filter((t) => t.status === "active").length;
-      const result: CuratorResult = {
-        newThemes: 0, updatedThemes: 0, decayedThemes: 0,
-        archivedThemes: 0, activeThemes: activeCount,
-        processingTimeMs: Date.now() - startTime,
-      };
-      await notifyCurator(telegramNotify, result);
-      return result;
-    }
-
-    const batches = chunkArray(recentStories, MAX_STORIES_PER_BATCH);
+    const runId = randomUUID();
     log.info(
       {
+        curatorRunId: runId,
         themes: existingThemes.length,
         stories: recentStories.length,
         batches: batches.length,
         storiesPerBatch: batches.map((b) => b.length),
+        sequentialBatches,
+        lockTtlSec,
+        llmTimeoutMs,
+        maxStoriesForCurator: maxStoriesCap,
+        maxStoriesPerBatch: maxPerBatch,
       },
       "Running memory curator in batches",
     );
 
-    const batchResults = await Promise.allSettled(
-      batches.map((batch) =>
-        runCuratorLLM(existingThemes, batch, curatorModel, log),
-      ),
-    );
+    try {
+      const successfulOutputs: CuratorOutput[] = [];
+      const batchFailureMessages: string[] = [];
 
-    const successfulOutputs: CuratorOutput[] = [];
-    for (const r of batchResults) {
-      if (r.status === "fulfilled") {
-        successfulOutputs.push(r.value);
+      if (sequentialBatches) {
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i]!;
+          try {
+            const out = await runCuratorLLM(
+              existingThemes, batch, curatorModel, log, stderrCap, llmTimeoutMs,
+            );
+            successfulOutputs.push(out);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            batchFailureMessages.push(`batch[${i}]: ${msg}`);
+            log.error({ err, batchIndex: i, curatorRunId: runId }, "Curator batch failed");
+          }
+        }
       } else {
-        log.error({ err: r.reason }, "Curator batch failed");
+        const batchResults = await Promise.allSettled(
+          batches.map((batch) =>
+            runCuratorLLM(
+              existingThemes, batch, curatorModel, log, stderrCap, llmTimeoutMs,
+            ),
+          ),
+        );
+
+        for (let i = 0; i < batchResults.length; i++) {
+          const r = batchResults[i]!;
+          if (r.status === "fulfilled") {
+            successfulOutputs.push(r.value);
+          } else {
+            const msg = r.reason instanceof Error ? r.reason.message : String(r.reason);
+            batchFailureMessages.push(`batch[${i}]: ${msg}`);
+            log.error(
+              { err: r.reason, batchIndex: i, curatorRunId: runId },
+              "Curator batch failed",
+            );
+          }
+        }
       }
-    }
 
-    if (successfulOutputs.length === 0) {
-      throw new Error(
-        `All ${batches.length} curator batches failed`,
+      if (successfulOutputs.length === 0) {
+        const detail = batchFailureMessages.length > 0
+          ? ` Details: ${batchFailureMessages.join(" | ")}`
+          : "";
+        throw new Error(
+          `All ${batches.length} curator batches failed.${detail}`,
+        );
+      }
+
+      const curatorOutput = mergeBatchResults(
+        successfulOutputs, existingThemes, log,
       );
+
+      resolveThemeIds(curatorOutput, existingThemes, log);
+
+      const batchIds = [...new Set(recentStories.map((s) => s.batch_id))];
+      const priceSnapshot = await snapshotTickerPrices(db, curatorOutput, log);
+
+      const applied = await applyChanges(
+        db, curatorOutput, batchIds, priceSnapshot, log,
+      );
+
+      const archivedFromCap = await enforceThemeCap(db, log);
+
+      const result: CuratorResult = {
+        newThemes: applied.newThemes,
+        updatedThemes: applied.updatedThemes,
+        decayedThemes: applied.decayedThemes,
+        archivedThemes: applied.archivedThemes + archivedFromCap,
+        activeThemes: await countActiveThemes(db),
+        processingTimeMs: Date.now() - startTime,
+      };
+
+      log.info({ ...result, curatorRunId: runId }, "Memory curation complete");
+      await notifyCurator(telegramNotify, result, notifyOpts);
+      return result;
+    } finally {
+      await redis.del(CURATOR_LOCK_KEY).catch(() => {});
     }
-
-    const curatorOutput = mergeBatchResults(
-      successfulOutputs, existingThemes, log,
-    );
-
-    resolveThemeIds(curatorOutput, existingThemes, log);
-
-    const batchIds = [...new Set(recentStories.map((s) => s.batch_id))];
-    const priceSnapshot = await snapshotTickerPrices(db, curatorOutput, log);
-
-    const applied = await applyChanges(
-      db, curatorOutput, batchIds, priceSnapshot, log,
-    );
-
-    const archivedFromCap = await enforceThemeCap(db, log);
-
-    const result: CuratorResult = {
-      newThemes: applied.newThemes,
-      updatedThemes: applied.updatedThemes,
-      decayedThemes: applied.decayedThemes,
-      archivedThemes: applied.archivedThemes + archivedFromCap,
-      activeThemes: await countActiveThemes(db),
-      processingTimeMs: Date.now() - startTime,
-    };
-
-    log.info(result, "Memory curation complete");
-    await notifyCurator(telegramNotify, result);
-    return result;
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    log.error({ err }, "Memory curation failed");
+    const stack = err instanceof Error ? err.stack : undefined;
+    log.error(
+      { err, memoryCurationErrorMessage: errorMsg, stack },
+      "Memory curation failed",
+    );
     const result: CuratorResult = {
       newThemes: 0, updatedThemes: 0, decayedThemes: 0,
       archivedThemes: 0, activeThemes: 0,
       processingTimeMs: Date.now() - startTime,
       error: errorMsg,
     };
-    await notifyCurator(telegramNotify, result);
+    await notifyCurator(telegramNotify, result, notifyOpts);
     throw err;
-  } finally {
-    await redis.del(CURATOR_LOCK_KEY).catch(() => {});
   }
 }
 
@@ -235,7 +329,11 @@ async function fetchActiveThemes(db: Pool): Promise<MemoryTheme[]> {
 
 // ── Fetch recent filtered news ────────────────────────────────────────
 
-async function fetchRecentFilteredNews(db: Pool): Promise<FilteredStory[]> {
+async function fetchRecentFilteredNews(
+  db: Pool,
+  limit: number,
+): Promise<FilteredStory[]> {
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
   const { rows } = await db.query<FilteredStory>(
     `SELECT headline, summary, category, impact_level, sentiment,
             sentiment_score, key_points, affected_tickers, affected_sectors,
@@ -243,7 +341,7 @@ async function fetchRecentFilteredNews(db: Pool): Promise<FilteredStory[]> {
      FROM analysis_filtered_news
      WHERE processed_at >= NOW() - INTERVAL '${FILTERED_LOOKBACK_HOURS} hours'
      ORDER BY processed_at DESC
-     LIMIT ${MAX_STORIES_FOR_CURATOR}`,
+     LIMIT ${safeLimit}`,
   );
   return rows;
 }
@@ -334,12 +432,16 @@ async function runCuratorLLM(
   stories: FilteredStory[],
   model: string,
   log: FastifyBaseLogger,
+  stderrMaxChars: number,
+  llmTimeoutMs: number,
 ): Promise<CuratorOutput> {
   const prompt = buildBatchCuratorPrompt(themes, stories);
 
   const args = ["cursor-agent", "-p", prompt, "--model", model, "--trust"];
   const apiKey = process.env["CURSOR_API_KEY"];
   if (apiKey) args.push("--api-key", apiKey);
+
+  const stderrCap = Math.max(200, Math.min(20_000, stderrMaxChars));
 
   const output = await new Promise<string>((resolve, reject) => {
     const child = spawn(args[0]!, args.slice(1), {
@@ -352,7 +454,7 @@ async function runCuratorLLM(
     let settled = false;
 
     const getStderr = () =>
-      Buffer.concat(stderrChunks).toString("utf-8").replace(ANSI_RE, "").trim().slice(0, 500);
+      Buffer.concat(stderrChunks).toString("utf-8").replace(ANSI_RE, "").trim().slice(0, stderrCap);
 
     const timer = setTimeout(() => {
       if (settled) return;
@@ -362,7 +464,7 @@ async function runCuratorLLM(
       } catch { /* already dead */ }
       const stderr = getStderr();
       reject(new Error(`Curator LLM call timed out${stderr ? ` | stderr: ${stderr}` : ""}`));
-    }, LLM_TIMEOUT_MS);
+    }, llmTimeoutMs);
 
     child.stdout?.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
     child.stderr?.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
@@ -921,9 +1023,16 @@ export async function runDailyMemoryMaintenance(
 
 // ── Admin notification ────────────────────────────────────────────────
 
-export function formatCuratorNotification(result: CuratorResult): string {
+export function formatCuratorNotification(
+  result: CuratorResult,
+  opts?: { telegramErrorMaxChars?: number },
+): string {
+  const maxErr = Math.min(
+    3500,
+    Math.max(200, opts?.telegramErrorMaxChars ?? 2000),
+  );
   if (result.error) {
-    return `<b>Memory Curator: FAILED</b>\n${escapeHtml(result.error.slice(0, 200))}\nTime: ${new Date().toISOString()}`;
+    return `<b>Memory Curator: FAILED</b>\n${escapeHtml(result.error.slice(0, maxErr))}\nTime: ${new Date().toISOString()}`;
   }
 
   const parts: string[] = [];
@@ -939,10 +1048,11 @@ export function formatCuratorNotification(result: CuratorResult): string {
 async function notifyCurator(
   telegramNotify: ((msg: string) => Promise<void>) | undefined,
   result: CuratorResult,
+  opts?: { telegramErrorMaxChars?: number },
 ): Promise<void> {
   if (!telegramNotify) return;
   try {
-    await telegramNotify(formatCuratorNotification(result));
+    await telegramNotify(formatCuratorNotification(result, opts));
   } catch {
     // Best-effort
   }

@@ -174,6 +174,12 @@ export function registerRecommendationRoutes(
           log: app.log,
           curatorModel: config.curatorModel,
           telegramNotify,
+          curatorSequentialBatches: config.curatorSequentialBatches,
+          curatorVerboseLogs: config.curatorVerboseLogs,
+          curatorTelegramErrorMaxChars: config.curatorTelegramErrorMaxChars,
+          curatorLlmTimeoutMs: config.curatorLlmTimeoutMs,
+          curatorMaxStories: config.curatorMaxStories,
+          curatorMaxStoriesPerBatch: config.curatorMaxStoriesPerBatch,
         });
         return reply.send({ ok: true, ...result });
       } catch (err) {
@@ -201,10 +207,18 @@ export function registerRecommendationRoutes(
           log: app.log,
           curatorModel: config.curatorModel,
           telegramNotify,
+          sequentialBatches: config.curatorSequentialBatches,
+          verboseCuratorLogs: config.curatorVerboseLogs,
+          curatorTelegramErrorMaxChars: config.curatorTelegramErrorMaxChars,
+          llmTimeoutMs: config.curatorLlmTimeoutMs,
+          maxStoriesForCurator: config.curatorMaxStories,
+          maxStoriesPerBatch: config.curatorMaxStoriesPerBatch,
         });
         return reply.send({ ok: true, ...result });
       } catch (err) {
-        app.log.error({ err }, "Error running memory curator");
+        const msg = err instanceof Error ? err.message : String(err);
+        const stack = err instanceof Error ? err.stack : undefined;
+        app.log.error({ err, memoryCurationErrorMessage: msg, stack }, "Error running memory curator");
         return reply.status(500).send({ error: "Internal server error" });
       }
     },

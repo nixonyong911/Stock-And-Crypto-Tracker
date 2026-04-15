@@ -366,7 +366,7 @@ export async function createServer(deps: ServerDeps): Promise<ServerResult> {
 
   // ---- 9. Register HTTP routes ----
 
-  registerHealthRoutes(app, db, redis, cli);
+  registerHealthRoutes(app, db, redis, cli, config);
   registerChatRoutes(app, {
     config,
     security,

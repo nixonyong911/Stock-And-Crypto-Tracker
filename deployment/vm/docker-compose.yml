@@ -448,6 +448,15 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-https://stockandcryptotracker.com}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
       - CURATOR_MODEL=${CURATOR_MODEL:-claude-4.6-sonnet-medium-thinking}
+      # Memory curator: sequential batches (default true) reduces parallel cursor-agent failures
+      - CURATOR_SEQUENTIAL_BATCHES=${CURATOR_SEQUENTIAL_BATCHES:-true}
+      - CURATOR_VERBOSE_LOGS=${CURATOR_VERBOSE_LOGS:-false}
+      - CURATOR_TELEGRAM_ERROR_MAX_CHARS=${CURATOR_TELEGRAM_ERROR_MAX_CHARS:-2000}
+      # Optional: raise timeout (ms) if batches hit Curator LLM call timed out; max 900000
+      - CURATOR_LLM_TIMEOUT_MS=${CURATOR_LLM_TIMEOUT_MS:-360000}
+      # Optional: fewer stories per run reduces prompt size and failure rate
+      - CURATOR_MAX_STORIES=${CURATOR_MAX_STORIES:-25}
+      - CURATOR_MAX_STORIES_PER_BATCH=${CURATOR_MAX_STORIES_PER_BATCH:-10}
       - RABBITMQ_URL=amqp://stocktracker:${RABBITMQ_PASSWORD}@rabbitmq:5672
       - OVERVIEW_ALLOWED_USERS=${OVERVIEW_ALLOWED_USERS:-}
     volumes:

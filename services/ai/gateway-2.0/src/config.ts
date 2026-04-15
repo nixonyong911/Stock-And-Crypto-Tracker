@@ -31,6 +31,20 @@ export interface GatewayConfig {
   readonly frontendUrl: string;
   readonly internalServiceKey: string;
   readonly curatorModel: string;
+  /** Default true: one LLM batch at a time to reduce parallel cursor-agent failures. */
+  readonly curatorSequentialBatches: boolean;
+  /** When true, memory curator logs larger stderr from cursor-agent. */
+  readonly curatorVerboseLogs: boolean;
+  /** Max error characters in Telegram FAILED lines (200–3500). */
+  readonly curatorTelegramErrorMaxChars: number;
+  /** Per-batch memory curator LLM timeout (ms), clamped 60s–15m. */
+  readonly curatorLlmTimeoutMs: number;
+  /** Max filtered-news rows per curation run (clamped 5–50). */
+  readonly curatorMaxStories: number;
+  /** Max stories per curator batch (clamped 3–20, capped by max stories). */
+  readonly curatorMaxStoriesPerBatch: number;
+  /** Whether CURSOR_API_KEY is set (for readiness / ops; value is never stored). */
+  readonly cursorApiKeyConfigured: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +84,17 @@ function envOptional(key: string): string | undefined {
   return undefined;
 }
 
+function envBool(key: string, defaultValue: boolean): boolean {
+  const raw = process.env[key];
+  if (raw === undefined || raw === "") {
+    return defaultValue;
+  }
+  const v = raw.toLowerCase();
+  if (["1", "true", "yes", "on"].includes(v)) return true;
+  if (["0", "false", "no", "off"].includes(v)) return false;
+  return defaultValue;
+}
+
 // ---------------------------------------------------------------------------
 // Loader
 // ---------------------------------------------------------------------------
@@ -102,5 +127,24 @@ export function loadConfig(): GatewayConfig {
     frontendUrl: envStr("FRONTEND_URL", "https://stockandcryptotracker.com"),
     internalServiceKey: envStr("INTERNAL_SERVICE_KEY", ""),
     curatorModel: envStr("CURATOR_MODEL", "claude-4.6-sonnet-medium-thinking"),
+    curatorSequentialBatches: envBool("CURATOR_SEQUENTIAL_BATCHES", true),
+    curatorVerboseLogs: envBool("CURATOR_VERBOSE_LOGS", false),
+    curatorTelegramErrorMaxChars: Math.min(
+      3500,
+      Math.max(200, envInt("CURATOR_TELEGRAM_ERROR_MAX_CHARS", 2000)),
+    ),
+    curatorLlmTimeoutMs: Math.min(
+      900_000,
+      Math.max(60_000, envInt("CURATOR_LLM_TIMEOUT_MS", 360_000)),
+    ),
+    curatorMaxStories: Math.min(
+      50,
+      Math.max(5, envInt("CURATOR_MAX_STORIES", 25)),
+    ),
+    curatorMaxStoriesPerBatch: Math.min(
+      20,
+      Math.max(3, envInt("CURATOR_MAX_STORIES_PER_BATCH", 10)),
+    ),
+    cursorApiKeyConfigured: Boolean(envOptional("CURSOR_API_KEY")),
   };
 }

@@ -52,6 +52,12 @@ export interface NewsProcessorDeps {
   log: FastifyBaseLogger;
   curatorModel?: string;
   telegramNotify?: (message: string) => Promise<void>;
+  curatorSequentialBatches?: boolean;
+  curatorVerboseLogs?: boolean;
+  curatorTelegramErrorMaxChars?: number;
+  curatorLlmTimeoutMs?: number;
+  curatorMaxStories?: number;
+  curatorMaxStoriesPerBatch?: number;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────
@@ -154,10 +160,25 @@ export async function processUnfilteredNews(
       try {
         log.info("Triggering memory curator after news processing");
         await curateMarketMemory({
-          db, redis, log, curatorModel: deps.curatorModel, telegramNotify,
+          db,
+          redis,
+          log,
+          curatorModel: deps.curatorModel,
+          telegramNotify,
+          sequentialBatches: deps.curatorSequentialBatches,
+          verboseCuratorLogs: deps.curatorVerboseLogs,
+          curatorTelegramErrorMaxChars: deps.curatorTelegramErrorMaxChars,
+          llmTimeoutMs: deps.curatorLlmTimeoutMs,
+          maxStoriesForCurator: deps.curatorMaxStories,
+          maxStoriesPerBatch: deps.curatorMaxStoriesPerBatch,
         });
       } catch (curatorErr) {
-        log.error({ err: curatorErr }, "Memory curator failed — news processing result unaffected");
+        const cmsg = curatorErr instanceof Error ? curatorErr.message : String(curatorErr);
+        const cstack = curatorErr instanceof Error ? curatorErr.stack : undefined;
+        log.error(
+          { err: curatorErr, memoryCurationErrorMessage: cmsg, stack: cstack },
+          "Memory curator failed — news processing result unaffected",
+        );
       }
     }
 
