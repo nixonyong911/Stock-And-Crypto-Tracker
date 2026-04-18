@@ -1089,5 +1089,51 @@
     "learnMore": "Learn more",
     "accept": "Accept",
     "reject": "Reject"
+  },
+  "tickerPage": {
+    "meta": {
+      "titleStock": "{symbol} ({name}) Stock Analysis & Signal Today",
+      "titleCrypto": "{symbol} ({name}) Crypto Analysis & Signal Today",
+      "descriptionStock": "Latest AI-powered analysis for {symbol} ({name}). See today's signal, price targets, entry, stop-loss, and confidence level. Updated daily.",
+      "descriptionCrypto": "Latest AI-powered analysis for {symbol} ({name}). See today's crypto signal, price targets, and confidence level. Updated daily."
+    },
+    "breadcrumbs": {
+      "home": "Home",
+      "tickers": "Tickers"
+    },
+    "hero": {
+      "stock": "Stock",
+      "crypto": "Crypto",
+      "exchange": "Exchange"
+    },
+    "signal": {
+      "title": "Today's Signal",
+      "noData": "No analysis available for this ticker yet. Check back tomorrow.",
+      "analysisDate": "Analysis Date",
+      "signal": "Signal",
+      "confidence": "Confidence",
+      "latestClose": "Latest Close",
+      "dailyChange": "Daily Change",
+      "entryPrice": "Entry Price",
+      "targetPrice": "Target Price",
+      "stopLoss": "Stop Loss",
+      "potentialUpside": "Potential Upside",
+      "potentialDownside": "Risk to Stop"
+    },
+    "history": {
+      "title": "Recent Signal History",
+      "date": "Date",
+      "close": "Close",
+      "signal": "Signal",
+      "confidence": "Confidence",
+      "target": "Target"
+    },
+    "cta": {
+      "title": "Get {symbol} alerts on Telegram",
+      "description": "Add {symbol} to your watchlist and receive personalized daily briefings — plain English, no jargon.",
+      "button": "Start Free on Telegram",
+      "secondaryButton": "See Pricing"
+    },
+    "disclaimer": "Educational market analysis only — not financial advice. Past signals do not guarantee future results."
   }
 }

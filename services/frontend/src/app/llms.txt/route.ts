@@ -15,6 +15,7 @@ Stock And Crypto Tracker is a SaaS product that monitors stocks, ETFs, and crypt
 - Technical indicators: https://stockandcryptotracker.com/en/indicators
 - Bot documentation: https://stockandcryptotracker.com/en/docs
 - Blog: https://stockandcryptotracker.com/en/blog
+- Ticker analysis (example): https://stockandcryptotracker.com/en/ticker/AAPL
 - About: https://stockandcryptotracker.com/en/about
 - Contact: https://stockandcryptotracker.com/en/contact
 

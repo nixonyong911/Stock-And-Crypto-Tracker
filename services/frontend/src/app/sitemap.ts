@@ -1,6 +1,7 @@
 import { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/blog";
 import { getAllCommandSlugs } from "@/data/commands";
+import { getAllActiveSymbols } from "@/lib/db/tickers";
 
 const baseUrl = "https://stockandcryptotracker.com";
 const locales = ["en", "zh"] as const;
@@ -79,5 +80,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Command slugs unavailable at sitemap generation time
   }
 
-  return [...staticEntries, ...blogEntries, ...commandEntries];
+  let tickerEntries: MetadataRoute.Sitemap = [];
+  try {
+    const symbols = await getAllActiveSymbols();
+    tickerEntries = symbols.flatMap((s) =>
+      locales.map((locale) => ({
+        url: `${baseUrl}/${locale}/ticker/${s.symbol}`,
+        lastModified,
+        changeFrequency: "daily" as const,
+        priority: 0.6,
+        alternates: buildAlternates(`/ticker/${s.symbol}`),
+      }))
+    );
+  } catch {
+    // Ticker data unavailable at sitemap generation time
+  }
+
+  return [...staticEntries, ...blogEntries, ...commandEntries, ...tickerEntries];
 }

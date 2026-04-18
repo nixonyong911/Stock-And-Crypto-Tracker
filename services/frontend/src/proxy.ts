@@ -41,6 +41,7 @@ const isPublicRoute = createRouteMatcher([
   "/:locale/get-started(.*)",
   "/:locale/docs(.*)",
   "/:locale/smart-digest(.*)",
+  "/:locale/ticker(.*)",
   "/:locale/affiliate(.*)",
 ]);
 
