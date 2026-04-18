@@ -24,6 +24,7 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
+  "/api/seo(.*)",
   // Locale-prefixed routes
   "/:locale",
   "/:locale/sign-in(.*)",
