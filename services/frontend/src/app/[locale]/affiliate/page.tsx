@@ -5,6 +5,7 @@ import { Header, Footer } from "@/components/layout";
 import { AffiliateContent } from "./affiliate-content";
 import { ensureUserExists } from "@/lib/db/users";
 import { Metadata } from "next";
+import { buildAlternates } from "@/lib/seo/alternates";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,17 @@ export async function generateMetadata({
   return {
     title: t("meta.title"),
     description: t("meta.description"),
+    keywords: [
+      "affiliate program",
+      "stock tracker referral",
+      "earn commissions",
+      "crypto tracker affiliate",
+    ],
     openGraph: {
       title: t("meta.title"),
       description: t("meta.description"),
     },
+    alternates: buildAlternates("/affiliate", locale),
   };
 }
 

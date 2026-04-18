@@ -2,6 +2,7 @@ import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
+import { buildAlternates } from "@/lib/seo/alternates";
 import { ContactForm } from "./contact-form";
 
 export async function generateMetadata({
@@ -25,6 +26,7 @@ export async function generateMetadata({
       title: t("meta.title"),
       description: t("meta.description"),
     },
+    alternates: buildAlternates("/contact", locale),
   };
 }
 
@@ -34,7 +36,7 @@ const contactPageSchema = {
   "@type": "ContactPage",
   name: "Contact Us - Stock And Crypto Tracker",
   description: "Get in touch with Stock And Crypto Tracker team",
-  url: "https://stockandcryptotracker.com/contact",
+  url: "https://stockandcryptotracker.com/en/contact",
   mainEntity: {
     "@type": "Organization",
     name: "Stock And Crypto Tracker",

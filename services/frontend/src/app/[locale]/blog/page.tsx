@@ -2,6 +2,8 @@ import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
+import { buildAlternates } from "@/lib/seo/alternates";
+import { BreadcrumbJsonLd } from "@/components/seo";
 import { getAllPosts, formatDate, getCategoryName } from "@/lib/blog";
 import { Link } from "@/lib/i18n/routing";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +31,7 @@ export async function generateMetadata({
       title: t("meta.title"),
       description: t("meta.description"),
     },
+    alternates: buildAlternates("/blog", locale),
   };
 }
 
@@ -46,7 +49,13 @@ export default async function BlogPage({ params }: Props) {
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1">
-        {/* Hero Section */}
+        <BreadcrumbJsonLd
+          locale={locale}
+          items={[
+            { name: "Home", path: "" },
+            { name: t("hero.title") },
+          ]}
+        />
         <section className="border-b bg-muted/30 py-16">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">

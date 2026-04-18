@@ -3,6 +3,7 @@ import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
+import { buildAlternates } from "@/lib/seo/alternates";
 import {
   getEconomicIndicators,
   getReleaseCalendar,
@@ -40,6 +41,7 @@ export async function generateMetadata({
       title: t("meta.title"),
       description: t("meta.description"),
     },
+    alternates: buildAlternates("/indicators", locale),
   };
 }
 

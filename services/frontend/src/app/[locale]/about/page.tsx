@@ -2,6 +2,7 @@ import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
+import { buildAlternates } from "@/lib/seo/alternates";
 import { AboutContent } from "./about-content";
 
 export async function generateMetadata({
@@ -25,6 +26,7 @@ export async function generateMetadata({
       title: t("meta.title"),
       description: t("meta.description"),
     },
+    alternates: buildAlternates("/about", locale),
   };
 }
 
@@ -35,7 +37,7 @@ const aboutPageSchema = {
   name: "About Us - Stock And Crypto Tracker",
   description:
     "Learn about Stock And Crypto Tracker - AI-powered market analysis for stocks and crypto",
-  url: "https://stockandcryptotracker.com/about",
+  url: "https://stockandcryptotracker.com/en/about",
   mainEntity: {
     "@type": "Organization",
     name: "Stock And Crypto Tracker",

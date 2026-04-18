@@ -2,11 +2,21 @@ import { setRequestLocale } from "next-intl/server";
 import { useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
+import { buildAlternates } from "@/lib/seo/alternates";
 
-export const metadata: Metadata = {
-  title: "Terms of Service | Stock And Crypto Tracker",
-  description: "Terms of Service for using Stock And Crypto Tracker services.",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
+    title: "Terms of Service",
+    description:
+      "Terms of Service for using Stock And Crypto Tracker services.",
+    alternates: buildAlternates("/terms", locale),
+  };
+}
 
 type Props = {
   params: Promise<{ locale: string }>;

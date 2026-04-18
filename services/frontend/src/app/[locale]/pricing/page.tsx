@@ -2,6 +2,8 @@ import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
+import { buildAlternates } from "@/lib/seo/alternates";
+import { BreadcrumbJsonLd } from "@/components/seo";
 import { PricingContent } from "./pricing-content";
 import { getStripePrices } from "@/lib/stripe/prices";
 
@@ -27,6 +29,7 @@ export async function generateMetadata({
       title: t("meta.title"),
       description: t("meta.description"),
     },
+    alternates: buildAlternates("/pricing", locale),
   };
 }
 
@@ -95,6 +98,13 @@ export default async function PricingPage({ params }: Props) {
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1">
+        <BreadcrumbJsonLd
+          locale={locale}
+          items={[
+            { name: "Home", path: "" },
+            { name: "Pricing" },
+          ]}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

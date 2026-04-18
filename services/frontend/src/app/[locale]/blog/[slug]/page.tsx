@@ -2,6 +2,9 @@ import { setRequestLocale } from "next-intl/server";
 import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { Metadata } from "next";
+import { buildAlternates } from "@/lib/seo/alternates";
+import { BreadcrumbJsonLd, ArticleJsonLd } from "@/components/seo";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { notFound } from "next/navigation";
 import {
   getPostBySlug,
@@ -54,6 +57,7 @@ export async function generateMetadata({
       publishedTime: post.date,
       authors: ["Stock And Crypto Tracker"],
     },
+    alternates: buildAlternates(`/blog/${slug}`, locale),
     twitter: {
       card: "summary_large_image",
       title,
@@ -79,54 +83,39 @@ export default async function BlogPostPage({ params }: Props) {
   const title = locale === "zh" && post.title_zh ? post.title_zh : post.title;
   const content = locale === "zh" && post.content_zh ? post.content_zh : post.content;
 
-  // Article JSON-LD schema
-  const articleSchema = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: title,
-    description: locale === "zh" && post.excerpt_zh ? post.excerpt_zh : post.excerpt,
-    datePublished: post.date,
-    dateModified: post.date,
-    author: {
-      "@type": "Organization",
-      name: "Stock And Crypto Tracker",
-      url: "https://stockandcryptotracker.com",
-    },
-    publisher: {
-      "@type": "Organization",
-      name: "Stock And Crypto Tracker",
-      logo: {
-        "@type": "ImageObject",
-        url: "https://stockandcryptotracker.com/logo.png",
-      },
-    },
-    mainEntityOfPage: {
-      "@type": "WebPage",
-      "@id": `https://stockandcryptotracker.com/${locale}/blog/${slug}`,
-    },
-  };
+  const description =
+    locale === "zh" && post.excerpt_zh ? post.excerpt_zh : post.excerpt;
 
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(articleSchema),
-          }}
+        <BreadcrumbJsonLd
+          locale={locale}
+          items={[
+            { name: "Home", path: "" },
+            { name: t("title"), path: "/blog" },
+            { name: title },
+          ]}
+        />
+        <ArticleJsonLd
+          locale={locale}
+          title={title}
+          description={description}
+          slug={slug}
+          datePublished={post.date}
         />
 
         <article className="py-12">
           <div className="container mx-auto px-4">
             <div className="mx-auto max-w-3xl">
-              {/* Back Link */}
-              <Button asChild variant="ghost" size="sm" className="mb-8">
-                <Link href="/blog">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  {t("backToList")}
-                </Link>
-              </Button>
+              <Breadcrumbs
+                items={[
+                  { label: "Home", href: "/" },
+                  { label: t("title"), href: "/blog" },
+                  { label: title },
+                ]}
+              />
 
               {/* Post Header */}
               <header className="mb-8">
@@ -154,9 +143,9 @@ export default async function BlogPostPage({ params }: Props) {
                 {content.split("\n").map((paragraph, index) => {
                   if (paragraph.startsWith("# ")) {
                     return (
-                      <h1 key={index} className="text-2xl font-bold mt-8 mb-4">
+                      <h2 key={index} className="text-2xl font-bold mt-8 mb-4">
                         {paragraph.replace("# ", "")}
-                      </h1>
+                      </h2>
                     );
                   }
                   if (paragraph.startsWith("## ")) {
