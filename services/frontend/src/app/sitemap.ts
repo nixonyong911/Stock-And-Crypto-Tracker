@@ -34,26 +34,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   );
 
-  // Get all blog posts and add to sitemap
-  const posts = await getAllPosts();
-  const blogEntries: MetadataRoute.Sitemap = posts.flatMap((post) =>
-    locales.map((locale) => ({
-      url: `${baseUrl}/${locale}/blog/${post.slug}`,
-      lastModified: new Date(post.date),
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    }))
-  );
+  let blogEntries: MetadataRoute.Sitemap = [];
+  try {
+    const posts = await getAllPosts();
+    blogEntries = posts.flatMap((post) =>
+      locales.map((locale) => ({
+        url: `${baseUrl}/${locale}/blog/${post.slug}`,
+        lastModified: new Date(post.date),
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      }))
+    );
+  } catch {
+    // Blog posts unavailable at sitemap generation time — skip gracefully
+  }
 
-  const commandSlugs = getAllCommandSlugs();
-  const commandEntries: MetadataRoute.Sitemap = commandSlugs.flatMap((slug) =>
-    locales.map((locale) => ({
-      url: `${baseUrl}/${locale}/docs/commands/${slug}`,
-      lastModified,
-      changeFrequency: "monthly" as const,
-      priority: 0.6,
-    }))
-  );
+  let commandEntries: MetadataRoute.Sitemap = [];
+  try {
+    const commandSlugs = getAllCommandSlugs();
+    commandEntries = commandSlugs.flatMap((slug) =>
+      locales.map((locale) => ({
+        url: `${baseUrl}/${locale}/docs/commands/${slug}`,
+        lastModified,
+        changeFrequency: "monthly" as const,
+        priority: 0.6,
+      }))
+    );
+  } catch {
+    // Command slugs unavailable at sitemap generation time — skip gracefully
+  }
 
   return [...staticEntries, ...blogEntries, ...commandEntries];
 }
