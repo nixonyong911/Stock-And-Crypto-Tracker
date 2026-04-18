@@ -466,7 +466,7 @@
       },
       "cookies": {
         "title": "11. Cookies and Tracking",
-        "content": "Our website uses essential cookies for basic functionality, including session management and language preferences. We do not use cookies for advertising, behavioral tracking, or third-party analytics purposes. You may configure your browser to refuse cookies, but this may affect your ability to use certain features of the Service."
+        "content": "Our website uses essential cookies for basic functionality, including session management and language preferences. With your consent, we also use analytics services to understand how visitors use the Service and to measure site performance. The analytics providers we use are Google Analytics 4 (Google LLC) and Vercel Analytics and Speed Insights (Vercel Inc.). These services may set cookies or collect pseudonymous identifiers, page views, referrers, and device information. No data is collected until you accept analytics cookies via our consent banner; you can change your choice at any time by clearing the \"sct-analytics-consent\" entry in your browser storage. We do not use cookies for advertising or cross-site behavioral tracking."
       },
       "children": {
         "title": "12. Children's Privacy",
@@ -1082,5 +1082,12 @@
     "faq": "FAQ",
     "contact": "Contact",
     "blog": "Blog"
+  },
+  "consent": {
+    "ariaLabel": "Cookie consent",
+    "message": "We use cookies for essential site features and, with your consent, for analytics (Google Analytics and Vercel) to understand site usage and performance.",
+    "learnMore": "Learn more",
+    "accept": "Accept",
+    "reject": "Reject"
   }
 }

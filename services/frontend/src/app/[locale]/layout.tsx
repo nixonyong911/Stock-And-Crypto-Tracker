@@ -3,10 +3,10 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ClerkProviderWrapper } from "@/components/providers/clerk-provider-wrapper";
 import { JsonLdSchemas } from "@/components/seo";
+import { AnalyticsProvider, ConsentBanner } from "@/components/analytics";
 import { locales } from "@/lib/i18n/config";
 import { notFound } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
-import { GoogleAnalytics } from "@next/third-parties/google";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,13 +36,13 @@ export default async function LocaleLayout({ children, params }: Props) {
 
   setRequestLocale(locale);
   const messages = await getMessages();
+  const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
         <JsonLdSchemas />
       </head>
-      <GoogleAnalytics gaId="G-12Y3CK1FVE" />
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
@@ -55,6 +55,8 @@ export default async function LocaleLayout({ children, params }: Props) {
           <ClerkProviderWrapper locale={locale}>
             <NextIntlClientProvider messages={messages}>
               {children}
+              <ConsentBanner />
+              <AnalyticsProvider gaMeasurementId={gaMeasurementId} />
             </NextIntlClientProvider>
           </ClerkProviderWrapper>
         </ThemeProvider>

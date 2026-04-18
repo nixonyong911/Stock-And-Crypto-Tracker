@@ -466,7 +466,7 @@
       },
       "cookies": {
         "title": "11. Cookies 和跟踪",
-        "content": "我们的网站使用必要的 cookies 用于基本功能，包括会话管理和语言偏好。我们不使用 cookies 进行广告、行为跟踪或第三方分析目的。您可以配置浏览器拒绝 cookies，但这可能会影响您使用本服务某些功能的能力。"
+        "content": "我们的网站使用必要的 cookies 用于基本功能，包括会话管理和语言偏好。在您同意的情况下，我们也使用分析服务来了解访客如何使用本服务以及衡量网站性能。我们使用的分析服务提供商包括 Google Analytics 4（Google LLC）以及 Vercel Analytics 和 Speed Insights（Vercel Inc.）。这些服务可能会设置 cookies 或收集匿名化标识符、页面浏览量、引荐来源及设备信息。在您通过同意横幅接受分析 cookies 之前，不会收集任何数据；您可以随时通过清除浏览器存储中的 \"sct-analytics-consent\" 条目来更改您的选择。我们不使用 cookies 进行广告或跨站行为跟踪。"
       },
       "children": {
         "title": "12. 儿童隐私",
@@ -1082,5 +1082,12 @@
     "faq": "常见问题",
     "contact": "联系我们",
     "blog": "博客"
+  },
+  "consent": {
+    "ariaLabel": "Cookie 同意",
+    "message": "我们使用 cookies 来支持网站的基本功能，并在您同意的情况下用于分析（Google Analytics 和 Vercel），以了解网站使用情况和性能。",
+    "learnMore": "了解更多",
+    "accept": "接受",
+    "reject": "拒绝"
   }
 }
