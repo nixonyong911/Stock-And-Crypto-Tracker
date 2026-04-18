@@ -1,4 +1,4 @@
-name: IndexNow URL Push
+name: IndexNow + Sitemap Ping
 
 on:
   push:
@@ -8,11 +8,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  indexnow:
-    name: Notify IndexNow
+  search-engine-notify:
+    name: Notify Search Engines
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ping Google Sitemap
+        run: |
+          echo "Pinging Google with updated sitemap..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://www.google.com/ping?sitemap=https://stockandcryptotracker.com/sitemap.xml")
+          echo "Google sitemap ping: HTTP $HTTP_CODE"
 
       - name: Push URLs to IndexNow
         run: |
@@ -26,11 +33,15 @@ jobs:
             "https://${HOST}/en/pricing"
             "https://${HOST}/en/faq"
             "https://${HOST}/en/blog"
+            "https://${HOST}/en/blog/how-ai-stock-analysis-works"
+            "https://${HOST}/en/blog/technical-indicators-explained"
             "https://${HOST}/en/docs"
             "https://${HOST}/en/smart-digest"
             "https://${HOST}/en/indicators"
             "https://${HOST}/en/about"
+            "https://${HOST}/en/affiliate"
             "https://${HOST}/sitemap.xml"
+            "https://${HOST}/llms.txt"
           )
 
           URLS_JSON=$(printf '%s\n' "${URLS[@]}" | jq -R . | jq -s .)

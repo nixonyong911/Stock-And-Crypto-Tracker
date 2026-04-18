@@ -34,6 +34,24 @@ const websiteSchema = {
     "@type": "Organization",
     name: "Stock And Crypto Tracker",
   },
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${baseUrl}/en/ticker/{search_term_string}`,
+    },
+    "query-input": "required name=search_term_string",
+  },
+};
+
+// Speakable Schema — signals AI engines which content is answer-worthy
+const speakableSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  speakable: {
+    "@type": "SpeakableSpecification",
+    cssSelector: ["h1", ".prose h2", "[data-speakable]"],
+  },
 };
 
 // SoftwareApplication Schema (for the Telegram Bot)
@@ -125,6 +143,12 @@ export function JsonLdSchemas() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(howToSchema),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(speakableSchema),
         }}
       />
     </>

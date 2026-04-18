@@ -58,6 +58,25 @@ export async function generateMetadata({
     name: nameOrSymbol,
   });
 
+  const latest = await getLatestPriceTarget(ticker.symbol);
+  const ogParams = new URLSearchParams({
+    symbol: ticker.symbol,
+    name: nameOrSymbol,
+    signal: latest?.signalSummary ?? "Neutral",
+    type: ticker.assetType,
+    ...(latest && { price: latest.latestClose.toString() }),
+    ...(latest?.confidence && {
+      confidence: Math.round(latest.confidence * 100).toString(),
+    }),
+  });
+
+  const ogImage = {
+    url: `/og/ticker?${ogParams.toString()}`,
+    width: 1200,
+    height: 630,
+    alt: `${ticker.symbol} analysis signal`,
+  };
+
   return {
     title,
     description,
@@ -74,6 +93,13 @@ export async function generateMetadata({
     openGraph: {
       title,
       description,
+      images: [ogImage],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage.url],
     },
     alternates: buildAlternates(`/ticker/${ticker.symbol}`, locale),
   };
@@ -99,11 +125,62 @@ export default async function TickerPage({ params }: Props) {
 
   const t = await getTranslations({ locale, namespace: "tickerPage" });
 
+  const nameLabel = ticker.name ?? ticker.symbol;
+  const assetLabel = ticker.assetType === "crypto" ? "crypto" : "stock";
+  const signalText = latest?.signalSummary ?? "Neutral";
+  const confText = latest?.confidence
+    ? `${Math.round(latest.confidence * 100)}%`
+    : "not yet available";
+  const priceText = latest
+    ? `$${latest.latestClose.toLocaleString()}`
+    : "not yet available";
+
+  const tickerFaqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: `What is the current signal for ${ticker.symbol}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `The latest AI-generated signal for ${ticker.symbol} (${nameLabel}) is "${signalText}" with ${confText} confidence. This signal is updated daily based on technical analysis.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What is the price target for ${ticker.symbol}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: latest?.targetPrice
+            ? `The current price target for ${ticker.symbol} is $${latest.targetPrice.toLocaleString()}, with an entry price of ${latest.entryPrice ? `$${latest.entryPrice.toLocaleString()}` : "N/A"} and a stop-loss at ${latest.stopLoss ? `$${latest.stopLoss.toLocaleString()}` : "N/A"}. These levels are computed daily using a technical composite method.`
+            : `Price targets for ${ticker.symbol} are updated daily. Check back for the latest entry, target, and stop-loss levels.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `How do I get ${ticker.symbol} alerts?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Add ${ticker.symbol} to your watchlist on Stock And Crypto Tracker's Telegram bot (@StockAndCryptoAdvisorBot). You'll receive personalized daily briefings covering signal, confidence, risk, and what to watch — all in plain English.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `Is ${ticker.symbol} a ${assetLabel}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `${ticker.symbol} (${nameLabel}) is tracked as a ${assetLabel}${ticker.exchange ? ` on ${ticker.exchange}` : ""}. The latest closing price is ${priceText}.`,
+        },
+      },
+    ],
+  };
+
   const finProductSchema = {
     "@context": "https://schema.org",
     "@type": "FinancialProduct",
     name: `${ticker.symbol} Analysis`,
-    description: `AI-powered daily signal and price targets for ${ticker.symbol}${ticker.name ? ` (${ticker.name})` : ""}`,
+    description: `AI-powered daily signal and price targets for ${ticker.symbol} (${nameLabel})`,
     url: `${baseUrl}/${locale}/ticker/${ticker.symbol}`,
     provider: {
       "@type": "Organization",
@@ -137,6 +214,12 @@ export default async function TickerPage({ params }: Props) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(finProductSchema),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(tickerFaqSchema),
           }}
         />
 

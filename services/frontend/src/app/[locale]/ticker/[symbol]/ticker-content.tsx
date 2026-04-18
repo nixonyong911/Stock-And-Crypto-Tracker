@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/routing";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { trackTickerCTA } from "@/lib/seo/analytics-events";
 import {
   Card,
   CardContent,
@@ -318,16 +319,66 @@ export function TickerContent({ ticker, latest, history }: Props) {
                 href="https://t.me/StockAndCryptoAdvisorBot"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackTickerCTA(ticker.symbol, "telegram")}
               >
                 {t("cta.button")}
               </a>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/pricing">{t("cta.secondaryButton")}</Link>
+              <Link
+                href="/pricing"
+                onClick={() => trackTickerCTA(ticker.symbol, "pricing")}
+              >
+                {t("cta.secondaryButton")}
+              </Link>
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Inline FAQ for AEO */}
+      <section className="mt-8 mb-8" data-speakable="true">
+        <h2 className="text-lg font-semibold mb-4">
+          Frequently Asked Questions about {ticker.symbol}
+        </h2>
+        <div className="space-y-4">
+          <details className="group border rounded-lg">
+            <summary className="flex cursor-pointer items-center justify-between p-4 font-medium">
+              What is the current signal for {ticker.symbol}?
+            </summary>
+            <div className="px-4 pb-4 text-sm text-muted-foreground">
+              The latest AI-generated signal for {ticker.symbol}
+              {ticker.name ? ` (${ticker.name})` : ""} is &quot;
+              {latest?.signalSummary ?? "Neutral"}&quot;
+              {latest?.confidence
+                ? ` with ${Math.round(latest.confidence * 100)}% confidence`
+                : ""}
+              . This signal is updated daily based on technical analysis.
+            </div>
+          </details>
+          <details className="group border rounded-lg">
+            <summary className="flex cursor-pointer items-center justify-between p-4 font-medium">
+              What is the price target for {ticker.symbol}?
+            </summary>
+            <div className="px-4 pb-4 text-sm text-muted-foreground">
+              {latest?.targetPrice
+                ? `The current price target for ${ticker.symbol} is $${latest.targetPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, with entry at ${latest.entryPrice ? `$${latest.entryPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "N/A"} and stop-loss at ${latest.stopLoss ? `$${latest.stopLoss.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "N/A"}.`
+                : `Price targets for ${ticker.symbol} are updated daily. Check back for the latest levels.`}
+            </div>
+          </details>
+          <details className="group border rounded-lg">
+            <summary className="flex cursor-pointer items-center justify-between p-4 font-medium">
+              How do I get {ticker.symbol} alerts?
+            </summary>
+            <div className="px-4 pb-4 text-sm text-muted-foreground">
+              Add {ticker.symbol} to your watchlist on Stock And Crypto
+              Tracker&apos;s Telegram bot. You&apos;ll receive daily briefings
+              covering signal, confidence, risk, and what to watch — in plain
+              English.
+            </div>
+          </details>
+        </div>
+      </section>
 
       {/* Disclaimer */}
       <p className="mt-6 text-center text-xs text-muted-foreground">
