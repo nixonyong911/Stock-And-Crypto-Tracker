@@ -1,0 +1,55 @@
+name: IndexNow URL Push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/frontend/**"
+  workflow_dispatch:
+
+jobs:
+  indexnow:
+    name: Notify IndexNow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push URLs to IndexNow
+        run: |
+          KEY="d41864d7353d4b0781f94fc09d9ba8c0"
+          HOST="stockandcryptotracker.com"
+          KEY_LOCATION="https://${HOST}/${KEY}.txt"
+
+          URLS=(
+            "https://${HOST}/en"
+            "https://${HOST}/zh"
+            "https://${HOST}/en/pricing"
+            "https://${HOST}/en/faq"
+            "https://${HOST}/en/blog"
+            "https://${HOST}/en/docs"
+            "https://${HOST}/en/smart-digest"
+            "https://${HOST}/en/indicators"
+            "https://${HOST}/en/about"
+            "https://${HOST}/sitemap.xml"
+          )
+
+          URLS_JSON=$(printf '%s\n' "${URLS[@]}" | jq -R . | jq -s .)
+
+          PAYLOAD=$(jq -n \
+            --arg host "$HOST" \
+            --arg key "$KEY" \
+            --arg keyLocation "$KEY_LOCATION" \
+            --argjson urlList "$URLS_JSON" \
+            '{host: $host, key: $key, keyLocation: $keyLocation, urlList: $urlList}')
+
+          echo "Submitting ${#URLS[@]} URLs to IndexNow..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "https://api.indexnow.org/indexnow" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
+            echo "IndexNow accepted (HTTP $HTTP_CODE)"
+          else
+            echo "::warning::IndexNow returned HTTP $HTTP_CODE"
+          fi

@@ -2,12 +2,23 @@ import { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/blog";
 import { getAllCommandSlugs } from "@/data/commands";
 
+const baseUrl = "https://stockandcryptotracker.com";
+const locales = ["en", "zh"] as const;
+
+type AlternateLanguages = Record<string, string>;
+
+function buildAlternates(path: string): { languages: AlternateLanguages } {
+  const languages: AlternateLanguages = {};
+  for (const locale of locales) {
+    languages[locale] = `${baseUrl}/${locale}${path}`;
+  }
+  languages["x-default"] = `${baseUrl}/en${path}`;
+  return { languages };
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://stockandcryptotracker.com";
-  const locales = ["en", "zh"];
   const lastModified = new Date();
 
-  // Static routes with their priorities and change frequencies
   const routes: {
     path: string;
     changeFrequency: "daily" | "weekly" | "monthly";
@@ -20,17 +31,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/faq", changeFrequency: "weekly", priority: 0.8 },
     { path: "/blog", changeFrequency: "daily", priority: 0.8 },
     { path: "/docs", changeFrequency: "weekly", priority: 0.8 },
+    { path: "/smart-digest", changeFrequency: "weekly", priority: 0.8 },
+    { path: "/indicators", changeFrequency: "weekly", priority: 0.7 },
     { path: "/privacy", changeFrequency: "monthly", priority: 0.3 },
     { path: "/terms", changeFrequency: "monthly", priority: 0.3 },
   ];
 
-  // Generate sitemap entries for static routes
   const staticEntries: MetadataRoute.Sitemap = routes.flatMap((route) =>
     locales.map((locale) => ({
       url: `${baseUrl}/${locale}${route.path}`,
       lastModified,
       changeFrequency: route.changeFrequency,
       priority: route.priority,
+      alternates: buildAlternates(route.path),
     }))
   );
 
@@ -43,10 +56,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: new Date(post.date),
         changeFrequency: "weekly" as const,
         priority: 0.7,
+        alternates: buildAlternates(`/blog/${post.slug}`),
       }))
     );
   } catch {
-    // Blog posts unavailable at sitemap generation time — skip gracefully
+    // Blog posts unavailable at sitemap generation time
   }
 
   let commandEntries: MetadataRoute.Sitemap = [];
@@ -58,10 +72,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified,
         changeFrequency: "monthly" as const,
         priority: 0.6,
+        alternates: buildAlternates(`/docs/commands/${slug}`),
       }))
     );
   } catch {
-    // Command slugs unavailable at sitemap generation time — skip gracefully
+    // Command slugs unavailable at sitemap generation time
   }
 
   return [...staticEntries, ...blogEntries, ...commandEntries];
