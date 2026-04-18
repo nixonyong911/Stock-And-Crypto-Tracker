@@ -49,7 +49,7 @@ export const metadata: Metadata = {
       "Personalized watchlist briefings with curated news and plain-English market context. Delivered on Telegram.",
     images: [
       {
-        url: "/en/opengraph-image",
+        url: "/og",
         width: 1200,
         height: 630,
         alt: "Stock And Crypto Tracker - Watchlist market briefings",
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
     title: "Stock And Crypto Tracker - Daily Briefing for Your Watchlist",
     description:
       "Personalized watchlist briefings with curated news and plain-English market context. Delivered on Telegram.",
-    images: ["/en/opengraph-image"],
+    images: ["/og"],
   },
 
   // Robots

@@ -1,11 +1,8 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Stock And Crypto Tracker - Daily Briefing for Your Watchlist";
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
 
-export default function OGImage() {
+export async function GET() {
   return new ImageResponse(
     (
       <div
@@ -110,6 +107,6 @@ export default function OGImage() {
         </div>
       </div>
     ),
-    { ...size }
+    { width: 1200, height: 630 }
   );
 }

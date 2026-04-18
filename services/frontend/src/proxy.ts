@@ -47,10 +47,13 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, request: NextRequest) => {
   const { pathname } = request.nextUrl;
 
-  // Skip locale handling for API routes, Next.js internals, and static files
+  // Skip locale handling for API routes, Next.js internals, static files, and SEO routes
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
+    pathname.startsWith("/og") ||
+    pathname.startsWith("/logo.png") ||
+    pathname.startsWith("/llms") ||
     pathname.includes(".")
   ) {
     // Still protect non-public API routes
