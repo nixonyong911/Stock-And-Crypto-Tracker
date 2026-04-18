@@ -6,6 +6,7 @@ import { JsonLdSchemas } from "@/components/seo";
 import { locales } from "@/lib/i18n/config";
 import { notFound } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +42,7 @@ export default async function LocaleLayout({ children, params }: Props) {
       <head>
         <JsonLdSchemas />
       </head>
+      <GoogleAnalytics gaId="G-12Y3CK1FVE" />
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
