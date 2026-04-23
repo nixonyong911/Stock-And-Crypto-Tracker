@@ -3,8 +3,10 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/routing";
 import { Button } from "@/components/ui/button";
+import { Send } from "lucide-react";
 
-const TELEGRAM_BOT_URL = "https://t.me/StockAndCryptoAdvisorBot";
+const TELEGRAM_BOT_URL =
+  "https://t.me/StockAndCryptoAdvisorBot?start=register";
 
 export function FinalCtaSection() {
   const t = useTranslations("finalCta");
@@ -16,19 +18,23 @@ export function FinalCtaSection() {
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
             {t("heading")}
           </h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            {t("subheading")}
+          </p>
 
-          <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Button asChild size="lg">
-              <Link href="/pricing">{t("cta")}</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Button asChild size="lg" className="gap-2">
               <a
                 href={TELEGRAM_BOT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                {t("ctaTelegram")}
+                <Send className="h-4 w-4" />
+                {t("cta")}
               </a>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link href="/pricing">{t("ctaSecondary")}</Link>
             </Button>
           </div>
 

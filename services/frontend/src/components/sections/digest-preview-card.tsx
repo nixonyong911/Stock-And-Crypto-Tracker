@@ -2,16 +2,60 @@
 
 import { useTranslations } from "next-intl";
 
+type ExampleKey = "meta" | "sofi" | "aapl" | "btc";
+
+interface DigestPreviewCardProps {
+  /**
+   * Which example to render. Defaults to `"meta"` (matches the previous
+   * mock message). Other variants pull from `smartDigestPage.examples.*`.
+   */
+  example?: ExampleKey;
+  /**
+   * When true, renders the Telegram-style chrome (app bar, bot name) so
+   * the card reads as a native chat message.
+   */
+  telegramChrome?: boolean;
+}
+
 /**
- * Telegram-style digest preview; copy under `smartDigest.mockMessage` + `smartDigest.messageLabels`.
+ * Telegram-style Smart Digest preview. Copy lives under
+ * `smartDigest.mockMessage` (default) or `smartDigestPage.examples.{variant}`.
  */
-export function DigestPreviewCard() {
-  const t = useTranslations("smartDigest.mockMessage");
+export function DigestPreviewCard({
+  example = "meta",
+  telegramChrome = false,
+}: DigestPreviewCardProps) {
   const l = useTranslations("smartDigest.messageLabels");
+  const tDefault = useTranslations("smartDigest.mockMessage");
+  const tExample = useTranslations(`smartDigestPage.examples.${example}`);
+
+  const t = example === "meta" ? tDefault : tExample;
 
   return (
-    <div className="rounded-2xl border border-primary/25 bg-muted/60 p-5 shadow-lg dark:border-primary/30 dark:bg-slate-950/75">
-      <div className="space-y-3.5 font-mono text-sm leading-relaxed">
+    <div className="overflow-hidden rounded-2xl border border-primary/25 bg-muted/60 shadow-lg dark:border-primary/30 dark:bg-slate-950/75">
+      {telegramChrome && (
+        <div className="flex items-center gap-3 border-b bg-background/60 px-4 py-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <svg
+              aria-hidden
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="currentColor"
+            >
+              <path d="M9.036 15.803 8.88 19.2c.362 0 .52-.155.71-.341l1.705-1.63 3.535 2.585c.648.36 1.11.17 1.285-.6l2.329-10.9c.217-1.007-.363-1.4-1-.158L4.36 11.22c-.99.385-.977.939-.172 1.19l3.572 1.115 8.29-5.226c.39-.26.746-.116.453.146l-6.467 7.358Z" />
+            </svg>
+          </div>
+          <div className="flex flex-1 flex-col">
+            <span className="text-sm font-semibold text-foreground">
+              Stock &amp; Crypto Tracker
+            </span>
+            <span className="text-xs text-muted-foreground">bot · online</span>
+          </div>
+          <span className="text-xs text-muted-foreground">{t("timestamp")}</span>
+        </div>
+      )}
+
+      <div className="space-y-3.5 p-5 font-mono text-sm leading-relaxed">
         <p className="font-semibold text-foreground">
           {t("ticker")} <span className="text-muted-foreground">|</span>{" "}
           {t("outlook")}{" "}
@@ -19,7 +63,9 @@ export function DigestPreviewCard() {
         </p>
         <p className="text-xs text-muted-foreground">
           {l("confidence")}{" "}
-          <span className="font-medium text-foreground">{t("confidence")}</span>
+          <span className="font-medium text-foreground">
+            {t("confidence")}
+          </span>
           <span className="mx-1.5 text-muted-foreground/60">|</span>
           {l("risk")}{" "}
           <span className="font-medium text-foreground">{t("risk")}</span>
@@ -37,12 +83,16 @@ export function DigestPreviewCard() {
         </div>
 
         <div>
-          <span className="font-semibold text-foreground">{l("whatToWatch")}</span>{" "}
+          <span className="font-semibold text-foreground">
+            {l("whatToWatch")}
+          </span>{" "}
           <span className="text-muted-foreground">{t("whatToWatch")}</span>
         </div>
 
         <div>
-          <span className="font-semibold text-foreground">{l("newsFactor")}</span>{" "}
+          <span className="font-semibold text-foreground">
+            {l("newsFactor")}
+          </span>{" "}
           <span className="text-muted-foreground">{t("newsFactor")}</span>
         </div>
 
@@ -59,7 +109,11 @@ export function DigestPreviewCard() {
               {l("pauseAlerts")}
             </span>
           </div>
-          <span className="text-muted-foreground sm:text-right">{t("timestamp")}</span>
+          {!telegramChrome && (
+            <span className="text-muted-foreground sm:text-right">
+              {t("timestamp")}
+            </span>
+          )}
         </div>
       </div>
     </div>
