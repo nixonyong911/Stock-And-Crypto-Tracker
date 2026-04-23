@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "Stock And Crypto Tracker - 自选股每日简报",
-    "description": "为你在意的股票与加密货币提供一份个性化每日简报：自选股要点、精选资讯、通俗解读。节省时间，在 Telegram 收取更新。"
+    "title": "Stock And Crypto Tracker - Telegram 里的自选股简报",
+    "description": "别再开十个标签页。每天一份冷静的简报，只围绕你关注的股票和加密货币——通俗中文，Telegram 送达。7 天 Pro 试用，无需绑卡。"
   },
   "nav": {
     "product": "产品",
@@ -16,24 +16,39 @@
     "smartDigestDesc": "AI驱动的自选股洞察"
   },
   "hero": {
-    "headline": "你的每日市场简报。",
-    "headlineHighlightPrefix": "一处汇总，为 ",
-    "headlineHighlightAccent": "你",
-    "headlineHighlightSuffix": "。",
-    "subheadline": "不必在网站和资讯流之间来回切换。我们替你盯盘，把市场整理成简短、通俗易懂的更新——专为你个人化，通过 Telegram 送达。",
-    "ctaPrimary": "开始 7 天免费试用",
-    "ctaPrimaryHint": "试用无需绑卡。设置完成后，更新会发到 Telegram。",
+    "eyebrow": "为忙碌的投资者打造",
+    "headlinePrefix": "别再为了跟上",
+    "headlineAccent": "你的自选股",
+    "headlineSuffix": "，同时开着十个标签页。",
+    "subheadline": "每天一份冷静的简报，只围绕你真正关注的股票和加密货币——通俗易懂，通过 Telegram 送达。省时间、过滤噪音，喝第一杯咖啡前就跟上进度。",
+    "ctaPrimary": "在 Telegram 免费开始",
+    "ctaSecondary": "看一份示例简报",
+    "ctaPrimaryHint": "7 天 Pro 试用，无需绑卡。试用后可继续使用免费版。",
     "ctaTelegram": "打开 Telegram 机器人",
-    "ctaSecondary": "了解运作方式"
+    "trustBadges": {
+      "noCard": "7 天试用无需绑卡",
+      "telegramNative": "直接在 Telegram 使用，无需新应用",
+      "cancelAnytime": "随时一键取消"
+    }
   },
-  "problem": {
-    "heading": "你没空追着每条头条跑。",
-    "paragraph1": "上班、生活两头忙，大多数人没法一直开着十个标签——新闻、图表、社群、公告——只为了心里踏实。",
-    "paragraph2": "于是随便扫两眼、凭感觉猜、或者干脆不看。钱在市场里时，哪种都不太舒服。",
-    "paragraph3": "你不需要更多应用，也不需要更多噪音。",
-    "highlightPrefix": "你需要的是",
-    "highlightAccent": "一份冷静的简报",
-    "highlightSuffix": "，让你快速跟上。"
+  "painRelief": {
+    "heading": "市场不会停，你的日程也不会。",
+    "subheading": "大多数忙碌的投资者缺的不是工具，而是少一点摩擦、少错过一些关键变化。",
+    "painHeading": "现在「跟上市场」大概是这样",
+    "painItems": {
+      "tabs": "十个标签页的新闻、图表、Discord、Twitter 和公告",
+      "noise": "无穷无尽的头条，却说不清真正重要的是什么",
+      "alerts": "没有背景的价格提醒，不停地响",
+      "behind": "心里隐约担心自选股昨晚是不是又错过了什么"
+    },
+    "reliefHeading": "用 Stock And Crypto Tracker 之后",
+    "reliefItems": {
+      "oneFeed": "一份简报，围绕你的自选股",
+      "context": "用通俗中文说明「变了什么、为什么重要」",
+      "horizon": "每条有意义的更新都带置信度、风险和周期",
+      "telegram": "直接发到你已经在用的 Telegram"
+    },
+    "tagline": "你的清单，帮你归纳。没有仪表盘要去查。"
   },
   "solution": {
     "headingPrefix": "一份",
@@ -116,16 +131,33 @@
     }
   },
   "smartDigest": {
-    "headingPrefix": "智能",
-    "headingAccent": "摘要",
-    "headingSuffix": "：你的每日快报。",
+    "eyebrow": "看看一份简报长什么样",
+    "headingPrefix": "不是粗糙的警报，是一份 ",
+    "headingAccent": "智能摘要",
+    "headingSuffix": "。",
+    "subheading": "每条更新写给你在一分钟内读完，给到刚好够用的背景，让你不掉线。",
+    "tabs": {
+      "bullish": "看涨示例",
+      "bearish": "风险提醒",
+      "crypto": "加密示例"
+    },
+    "anatomy": {
+      "heading": "每条简报包含什么",
+      "items": {
+        "signal": "方向、周期、置信度与风险标签",
+        "happening": "正在发生什么——通俗中文",
+        "watch": "接下来要留意什么（失效条件、关键位、催化剂）",
+        "news": "为什么新闻或市场背景很重要",
+        "actions": "一键查看自选股或暂停提醒的指令"
+      }
+    },
     "bullets": {
       "multiTimeframe": "以自选股为主，只看你在意的名字，而不是全市场信息流。",
       "plainEnglish": "在重要时提供精选背景与叙事，并用通俗话配合技术要点。",
       "noSpam": "只有当你真的值得知道时，我们才会发消息。"
     },
     "tagline": "自选股添加一次。扫描和归纳交给我们。",
-    "cta": "开始 7 天免费试用",
+    "cta": "在 Telegram 免费开始",
     "ctaTelegram": "打开 Telegram 机器人",
     "learnMore": "了解更多",
     "messageLabels": {
@@ -220,6 +252,18 @@
         "whatToWatch": "收盘需守在 $178 上方；跌破约 $172 则反弹假设失效。下一交易日成交量决定买盘是否认真。",
         "newsFactor": "硬件周期预期与服务业务叙事仍是主变量；部分资金回流资产负债表稳健的超大科技，亦在回调中提供承接。",
         "timestamp": "6:18"
+      },
+      "btc": {
+        "ticker": "BTC",
+        "outlook": "中性偏多",
+        "horizon": "波段（2-4周）",
+        "confidence": "中",
+        "risk": "中-高",
+        "summary": "BTC 在数周区间的上半部震荡，已守住关键高点低位。",
+        "whatsHappening": "价格多次回探最近一次波段低点均获承接，动能完成休整但结构未破。现货成交量在上涨日有所放大，永续资金费率仍受控。",
+        "whatToWatch": "若周线收回区间高点上方，前一段上攻可能重启；若跌破最近的高点低位，则结构转弱，可能回测区间下沿。ETF 资金流和宏观（利率、美元指数）仍是更大的潮汐。",
+        "newsFactor": "现货 ETF 净流入再度转正，大户抛压放缓。科技与加密的风险偏好仍受利率预期与后续宏观数据影响。",
+        "timestamp": "7:10"
       }
     },
     "includes": {
@@ -290,19 +334,84 @@
       "errorGeneric": "出了点问题，请重试。"
     }
   },
+  "differentiation": {
+    "eyebrow": "为什么选这个，而不是常见替代品",
+    "heading": "比通用 AI 聊天或价格提醒更有用。",
+    "subheading": "其他工具帮你回答问题，或是在波动时发提醒。Stock And Crypto Tracker 把你的自选股放在上下文里，告诉你什么值得看。",
+    "columns": {
+      "ai": {
+        "title": "通用 AI 聊天",
+        "items": {
+          "context": "不知道你的自选股里有什么",
+          "live": "不会持续为你盯盘",
+          "framing": "需要你自己提问、自己归纳、自己过滤"
+        }
+      },
+      "alerts": {
+        "title": "价格提醒与 Bot",
+        "items": {
+          "context": "告诉你价格动了，没告诉你是否重要",
+          "live": "只按阈值触发，没有叙事也没有周期",
+          "framing": "原因还得你自己拼起来"
+        }
+      },
+      "newsletters": {
+        "title": "Newsletter 与信息流",
+        "items": {
+          "context": "一刀切——不是围绕你的名字写的",
+          "live": "按固定时间出稿，不跟你的自选股",
+          "framing": "阅读量更多，不是更少"
+        }
+      },
+      "sct": {
+        "title": "Stock And Crypto Tracker",
+        "items": {
+          "context": "每天围绕你的自选股出简报",
+          "live": "技术指标 + 新闻背景已经替你拼好",
+          "framing": "简短的通俗中文，附带置信度和风险"
+        }
+      }
+    },
+    "footnote": "我们整合了自家的市场数据、每日指标和精选新闻背景，让背后的 AI 有真正的信息可用——不是只靠一句提示词。"
+  },
+  "whoItsFor": {
+    "eyebrow": "为谁设计",
+    "heading": "为那些想保持敏锐，又不想活在 K 线里的投资者。",
+    "personas": {
+      "beginner": {
+        "title": "入门与业余投资者",
+        "description": "你在建立信心，想要不带术语和吹嘘的通俗解读。"
+      },
+      "busy": {
+        "title": "忙碌的散户投资者",
+        "description": "有工作、有生活、有一份自选股。希望跟上节奏，却不想把晚上都耗在资讯流上。"
+      },
+      "swing": {
+        "title": "波段交易者",
+        "description": "持仓几天到几周，希望每次更新都带周期、置信度和风险——不只是价格提醒。"
+      },
+      "parttime": {
+        "title": "兼职投资者",
+        "description": "Telegram 本来就在用，想一个地方看完自己的名字，不想再学新应用。"
+      }
+    },
+    "footnote": "不适合盯着 tick 数据的日内交易者，也不适合只想跟单的人群。这是给愿意想清楚、而不是想多点几下的人用的。"
+  },
   "trust": {
-    "headingPrefix": "为",
-    "headingAccent": "清晰",
-    "headingSuffix": "而构建。负责任地设计。",
-    "paragraph1": "Stock And Crypto Tracker 仅为教育目的提供技术市场分析。",
-    "paragraph2": "我们不提供财务建议、投资组合建议或保证。",
-    "paragraph3": "请始终运用你自己的风险管理。"
+    "headingPrefix": "教育工具。",
+    "headingAccent": "不构成投资建议",
+    "headingSuffix": "。",
+    "paragraph1": "Stock And Crypto Tracker 仅出于教育目的提供技术与市场分析。",
+    "paragraph2": "我们不提供投资组合建议、业绩保证，也不会告诉你何时买卖。",
+    "paragraph3": "决策、风险管理和资金，都由你自己负责。"
   },
   "finalCta": {
     "heading": "用几分钟跟上进度，而不是开十个标签页。",
-    "cta": "开始 7 天免费试用",
+    "subheading": "在 Telegram 里开始，添加自选股，看到你的第一份简报。",
+    "cta": "在 Telegram 免费开始",
     "ctaTelegram": "打开 Telegram 机器人",
-    "subtext": "试用无需绑卡。更新通过 Telegram 送达。"
+    "ctaSecondary": "查看定价",
+    "subtext": "7 天 Pro 试用，无需绑卡。试用后可继续使用免费版。"
   },
   "footer": {
     "tagline": "围绕自选股的个性化市场简报——通俗解读，Telegram 送达。",
@@ -547,8 +656,8 @@
           "answer": "是的，您可以随时从免费升级到Pro。降级时，您的Pro功能将保持活跃直到计费周期结束。"
         },
         "trialPeriod": {
-          "question": "Pro有免费试用吗？",
-          "answer": "我们不提供免费试用，但我们的免费计划让您体验核心功能。此外，我们有7天退款保证。"
+          "question": "Pro 有免费试用吗？",
+          "answer": "有。新用户可开启 7 天 Pro 试用，无需绑卡。关联 Telegram 并验证手机号后即可激活，享有完整 Pro 权限。试用结束后可添加支付方式继续使用 Pro，或转回免费计划，由你决定。"
         },
         "affiliateDiscount": {
           "question": "什么是推荐折扣？",
@@ -698,19 +807,19 @@
         "questions": {
           "q1": {
             "question": "有免费计划吗？",
-            "answer": "有！我们的免费计划包括股票覆盖、延迟提醒和教育性洞察。非常适合开始了解服务的运作方式。"
+            "answer": "有。免费计划包括股票覆盖、延迟提醒与教育性洞察，是在决定是否升级 Pro 之前了解产品的好方法。"
           },
           "q2": {
-            "question": "Pro包括什么？",
-            "answer": "Pro（每月$20）包括无限分析、每日收盘提醒、完整的股票和加密货币覆盖、信号置信度标签和优先处理。"
+            "question": "Pro 包括什么？",
+            "answer": "Pro（$19.99 / 月）包括无限分析、每日收盘提醒、完整的股票与加密覆盖、信号置信度与风险标签，以及优先处理。"
           },
           "q3": {
-            "question": "我可以随时取消吗？",
-            "answer": "当然可以。您可以随时取消Pro订阅，无需任何处罚。您的访问权限将持续到当前计费周期结束。"
+            "question": "Pro 有免费试用吗？",
+            "answer": "有。新用户可开启 7 天 Pro 试用，无需绑卡，前提是已关联 Telegram 并验证手机号。试用结束后，可添加支付方式继续使用 Pro，或保留在免费计划。"
           },
           "q4": {
-            "question": "你们提供退款吗？",
-            "answer": "是的，我们为新Pro订阅用户提供7天退款保证。如果您在前7天内不满意，请联系我们全额退款。"
+            "question": "我可以随时取消吗？",
+            "answer": "可以。随时取消 Pro 订阅，不收取任何费用。访问权限将持续到当前计费周期结束。"
           }
         }
       },

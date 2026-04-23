@@ -6,10 +6,9 @@ import {
   HeroSection,
   SmartDigestSection,
   ProblemSection,
-  SolutionSection,
+  DifferentiationSection,
+  WhoItsForSection,
   HowItWorksSection,
-  FeaturesSection,
-  TestimonialsSection,
   PricingSection,
   TrustSection,
   FinalCtaSection,
@@ -45,10 +44,9 @@ export default async function HomePage({ params }: Props) {
         <HeroSection />
         <SmartDigestSection />
         <ProblemSection />
-        <SolutionSection />
+        <DifferentiationSection />
+        <WhoItsForSection />
         <HowItWorksSection />
-        <FeaturesSection />
-        <TestimonialsSection />
         <PricingSection />
         <TrustSection />
         <FinalCtaSection />

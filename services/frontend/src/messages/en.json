@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "Stock And Crypto Tracker - Daily Briefing for Your Watchlist",
-    "description": "One personalized daily briefing for the stocks and crypto you follow—watchlist context, curated news, plain English. Save time; get updates in Telegram."
+    "title": "Stock And Crypto Tracker - Watchlist Briefings in Telegram",
+    "description": "Stop checking ten tabs. Get one calm daily briefing on the stocks and crypto you follow—plain English, delivered in Telegram. 7-day Pro trial, no card required."
   },
   "nav": {
     "product": "Product",
@@ -16,24 +16,39 @@
     "smartDigestDesc": "AI-powered watchlist insights"
   },
   "hero": {
-    "headline": "Your daily market briefing.",
-    "headlineHighlightPrefix": "One place for ",
-    "headlineHighlightAccent": "you",
-    "headlineHighlightSuffix": ".",
-    "subheadline": "Stop jumping between sites and feeds. We watch the market for you and send short, plain-English updates on Telegram—personalized for you.",
-    "ctaPrimary": "Start 7-Day Free Trial",
-    "ctaPrimaryHint": "No card required for the trial. Updates land in Telegram once you're set up.",
+    "eyebrow": "Built for busy investors",
+    "headlinePrefix": "Stop checking ten tabs just to stay on top of ",
+    "headlineAccent": "your watchlist",
+    "headlineSuffix": ".",
+    "subheadline": "One calm daily briefing on the stocks and crypto you actually follow—plain English, delivered in Telegram. Save time, skip the noise, feel caught up before your coffee.",
+    "ctaPrimary": "Start free in Telegram",
+    "ctaSecondary": "See an example briefing",
+    "ctaPrimaryHint": "7-day Pro trial, no card required. Free plan available after.",
     "ctaTelegram": "Open Telegram bot",
-    "ctaSecondary": "See how it works"
+    "trustBadges": {
+      "noCard": "No card for the 7-day trial",
+      "telegramNative": "Works in Telegram—no new app",
+      "cancelAnytime": "Cancel in one tap"
+    }
   },
-  "problem": {
-    "heading": "You don't have time to chase every headline.",
-    "paragraph1": "Between work and life, most people can't sit on ten tabs—news, charts, social, filings—just to feel caught up.",
-    "paragraph2": "So you skim, you guess, or you tune out. None of that feels great when your money is on the line.",
-    "paragraph3": "You don't need more apps or more noise.",
-    "highlightPrefix": "You need ",
-    "highlightAccent": "one calm briefing",
-    "highlightSuffix": " you can trust."
+  "painRelief": {
+    "heading": "The market doesn't slow down. Your day doesn't either.",
+    "subheading": "Most busy investors don't need more tools. They need less friction and fewer missed moves.",
+    "painHeading": "What staying informed looks like now",
+    "painItems": {
+      "tabs": "Ten tabs of news, charts, Discord, Twitter, and filings",
+      "noise": "Endless headlines that don't tell you what actually matters",
+      "alerts": "Price alerts that ping without context",
+      "behind": "A quiet worry that you missed something on your watchlist overnight"
+    },
+    "reliefHeading": "What it looks like with Stock And Crypto Tracker",
+    "reliefItems": {
+      "oneFeed": "One briefing, built around your watchlist",
+      "context": "Plain-English context on what changed and why it matters",
+      "horizon": "Confidence, risk, and horizon on every meaningful update",
+      "telegram": "Delivered in Telegram, where you already are"
+    },
+    "tagline": "Your list, summarized. No dashboard to check."
   },
   "solution": {
     "headingPrefix": "One ",
@@ -116,16 +131,33 @@
     }
   },
   "smartDigest": {
-    "headingPrefix": "Smart ",
-    "headingAccent": "Digest",
-    "headingSuffix": ": your daily catch-up.",
+    "eyebrow": "See what a briefing actually looks like",
+    "headingPrefix": "Not a raw alert. A ",
+    "headingAccent": "Smart Digest",
+    "headingSuffix": ".",
+    "subheading": "Each update is written to be read in under a minute, with just enough context to keep you oriented.",
+    "tabs": {
+      "bullish": "Bullish example",
+      "bearish": "Risk warning",
+      "crypto": "Crypto example"
+    },
+    "anatomy": {
+      "heading": "What every briefing includes",
+      "items": {
+        "signal": "Outlook, horizon, confidence, and risk labels",
+        "happening": "What's happening in plain English",
+        "watch": "What to watch next (invalidation, levels, catalysts)",
+        "news": "Why the news or market context matters",
+        "actions": "Quick commands to view watchlist or pause alerts"
+      }
+    },
     "bullets": {
       "multiTimeframe": "Watchlist-first summary so you see your names—not the whole market firehose.",
       "plainEnglish": "Curated context and narrative in plain English, alongside technical notes when they matter.",
       "noSpam": "We only reach out when there's something worth your attention."
     },
     "tagline": "Add your tickers once. We handle the scanning and summarizing.",
-    "cta": "Start 7-Day Free Trial",
+    "cta": "Start free in Telegram",
     "ctaTelegram": "Open Telegram bot",
     "learnMore": "Learn more",
     "messageLabels": {
@@ -220,6 +252,18 @@
         "whatToWatch": "$178 needs to hold on a closing basis; below ~$172 invalidates the bounce case. Next session volume should confirm whether buyers are committed.",
         "newsFactor": "Mega-cap hardware sentiment and the services growth narrative remain the swing factors; modest rotation back into quality balance-sheet tech has helped bids on dips.",
         "timestamp": "6:18 AM"
+      },
+      "btc": {
+        "ticker": "BTC",
+        "outlook": "Neutral-Bullish",
+        "horizon": "Swing (2-4 weeks)",
+        "confidence": "Medium",
+        "risk": "Medium-High",
+        "summary": "BTC is chopping in the upper half of its multi-week range after defending a key higher low.",
+        "whatsHappening": "Price has held above the last swing low on multiple tests and momentum has reset without breaking structure. Spot volume is picking up on green days while funding stays contained.",
+        "whatToWatch": "A weekly close back above the range highs would re-open the prior leg. A break below the last higher low flips the setup and likely retests range support. ETF flow and macro (rates, DXY) remain the larger tide.",
+        "newsFactor": "Spot ETF net flows have turned positive again and large holders show slowing distribution. Risk sentiment across tech and crypto is still sensitive to rate expectations and upcoming macro prints.",
+        "timestamp": "7:10 AM"
       }
     },
     "includes": {
@@ -290,19 +334,84 @@
       "errorGeneric": "Something went wrong. Please try again."
     }
   },
+  "differentiation": {
+    "eyebrow": "Why this, not the usual options",
+    "heading": "More useful than a generic assistant or a price alert.",
+    "subheading": "Other tools answer questions or ping you on moves. Stock And Crypto Tracker keeps your watchlist in context and tells you what's worth your attention.",
+    "columns": {
+      "ai": {
+        "title": "Generic AI chat",
+        "items": {
+          "context": "Has no idea what's on your watchlist",
+          "live": "Not continuously tracking the market for you",
+          "framing": "You do the prompting, summarizing, and filtering"
+        }
+      },
+      "alerts": {
+        "title": "Price alerts & bots",
+        "items": {
+          "context": "Tell you something moved, not whether it matters",
+          "live": "Fire on thresholds without narrative or horizon",
+          "framing": "Leave you to piece together the why"
+        }
+      },
+      "newsletters": {
+        "title": "Newsletters & feeds",
+        "items": {
+          "context": "One-size-fits-all—not built around your names",
+          "live": "Fixed schedule, not responsive to your watchlist",
+          "framing": "More reading, not less"
+        }
+      },
+      "sct": {
+        "title": "Stock And Crypto Tracker",
+        "items": {
+          "context": "Briefings built around your watchlist, every day",
+          "live": "Indicator + news context stitched together for you",
+          "framing": "Short, plain-English updates with confidence and risk"
+        }
+      }
+    },
+    "footnote": "We combine our own market data, daily indicators, and curated news context so the AI behind your briefings has something real to work from—not just a prompt."
+  },
+  "whoItsFor": {
+    "eyebrow": "Who this is built for",
+    "heading": "Designed for investors who want to stay sharp without living in charts.",
+    "personas": {
+      "beginner": {
+        "title": "Beginner & amateur investors",
+        "description": "You're building confidence and want context in plain English—without jargon or hype."
+      },
+      "busy": {
+        "title": "Busy retail investors",
+        "description": "You have a job, a life, and a watchlist. You want to feel caught up without burning evenings on market feeds."
+      },
+      "swing": {
+        "title": "Swing traders",
+        "description": "You hold positions for days or weeks and want horizon, confidence, and risk on every update—not just a price ping."
+      },
+      "parttime": {
+        "title": "Part-time investors",
+        "description": "You already use Telegram. You want one place to check your names, not another app to learn."
+      }
+    },
+    "footnote": "Not for day traders glued to tick data. Not for signal-copy crowds. This is for people who want to think more clearly, not click more."
+  },
   "trust": {
-    "headingPrefix": "Built for ",
-    "headingAccent": "clarity",
-    "headingSuffix": ". Designed responsibly.",
-    "paragraph1": "Stock And Crypto Tracker provides technical market analysis for educational purposes only.",
-    "paragraph2": "We do not provide financial advice, portfolio recommendations, or guarantees.",
-    "paragraph3": "Always apply your own risk management."
+    "headingPrefix": "Educational tool. ",
+    "headingAccent": "Not financial advice",
+    "headingSuffix": ".",
+    "paragraph1": "Stock And Crypto Tracker provides technical and market analysis for educational purposes only.",
+    "paragraph2": "We don't give portfolio recommendations, performance guarantees, or tell you when to buy and sell.",
+    "paragraph3": "Your decisions, your risk management, your money."
   },
   "finalCta": {
     "heading": "Catch up in minutes, not across ten tabs.",
-    "cta": "Start 7-Day Free Trial",
+    "subheading": "Start in Telegram, add your watchlist, and see your first briefing.",
+    "cta": "Start free in Telegram",
     "ctaTelegram": "Open Telegram bot",
-    "subtext": "Trial does not require a card. Telegram is where updates are delivered."
+    "ctaSecondary": "View pricing",
+    "subtext": "7-day Pro trial, no card required. Free plan available after."
   },
   "footer": {
     "tagline": "Personalized market briefings for your watchlist—plain English, delivered on Telegram.",
@@ -548,7 +657,7 @@
         },
         "trialPeriod": {
           "question": "Is there a free trial for Pro?",
-          "answer": "We don't offer a free trial, but our Free plan lets you experience the core features. Plus, we have a 7-day money-back guarantee."
+          "answer": "Yes. New users can start a 7-day Pro trial with no card required. Once you link Telegram and verify your phone, your trial activates and you get full Pro access. After the trial, add a payment method to continue with Pro or drop to the Free plan—your choice."
         },
         "affiliateDiscount": {
           "question": "What is the referral discount?",
@@ -698,19 +807,19 @@
         "questions": {
           "q1": {
             "question": "Is there a free plan?",
-            "answer": "Yes! Our Free plan includes stock coverage, delayed alerts, and educational insights. It's perfect for getting started and understanding how the service works."
+            "answer": "Yes. The Free plan includes stock coverage, delayed alerts, and educational insights. It's a good way to understand the flow before deciding on Pro."
           },
           "q2": {
             "question": "What does Pro include?",
-            "answer": "Pro ($20/month) includes unlimited analysis, end-of-day alerts, full stock and crypto coverage, signal confidence labels, and priority processing."
+            "answer": "Pro ($19.99/month) includes unlimited analysis, end-of-day alerts, full stock and crypto coverage, signal confidence and risk labels, and priority processing."
           },
           "q3": {
-            "question": "Can I cancel anytime?",
-            "answer": "Absolutely. You can cancel your Pro subscription at any time with no penalties. Your access continues until the end of your current billing period."
+            "question": "Is there a free trial for Pro?",
+            "answer": "Yes. New users can start a 7-day Pro trial with no card required, as long as Telegram is linked and phone is verified. After the trial, add a payment method to continue on Pro or stay on the Free plan."
           },
           "q4": {
-            "question": "Do you offer refunds?",
-            "answer": "Yes, we offer a 7-day money-back guarantee for new Pro subscribers. If you're not satisfied within the first 7 days, contact us for a full refund."
+            "question": "Can I cancel anytime?",
+            "answer": "Yes. Cancel your Pro subscription at any time with no penalty. Your access stays active until the end of the current billing period."
           }
         }
       },
