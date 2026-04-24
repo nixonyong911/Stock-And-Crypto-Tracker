@@ -595,33 +595,33 @@
   "pricingPage": {
     "meta": {
       "title": "定价 - Stock And Crypto Tracker",
-      "description": "AI驱动的股票和加密货币市场分析的简单透明定价。免费开始或升级到Pro获得完整覆盖。"
+      "description": "了解SCT免费版和Pro版的功能。免费开始，当每日简报证明有用时再升级。"
     },
     "hero": {
-      "title": "简单透明的定价",
-      "subtitle": "免费开始，随时升级。无隐藏费用，随时取消。"
+      "title": "适合你日常节奏的方案",
+      "subtitle": "从免费版开始。当简报证明有用时再升级。"
     },
     "benefits": {
-      "title": "交易者选择我们的原因",
-      "cta": "立即体验",
+      "title": "投资者为何信赖SCT",
+      "cta": "在Telegram上免费试用",
       "items": {
         "reduceNoise": {
-          "title": "减少噪音和无效交易",
-          "description": "通过AI过滤的信号穿透市场混乱"
+          "title": "更少噪音，更多清晰度",
+          "description": "只有当市场状况值得关注时，SCT才会发送简报。没有垃圾信息，没有多余内容。"
         },
         "marketContext": {
-          "title": "秒懂市场背景",
-          "description": "通过模式识别即时获得价格走势的清晰洞察"
+          "title": "快速获取可行动的背景",
+          "description": "用通俗语言总结你关注列表中的重要动态 — 几秒钟内即可了解，无需花费数小时。"
         },
         "learnFromAlerts": {
-          "title": "从每个提醒中学习",
-          "description": "教育性洞察帮助您逐步成长为更好的交易者"
+          "title": "逐步建立投资信心",
+          "description": "每份简报都解释市场状况背后的原因，让你的理解随每次阅读而加深。"
         }
       }
     },
     "ctas": {
-      "tryFree": "在Telegram免费试用",
-      "startLearning": "立即开始学习"
+      "tryFree": "在Telegram上免费试用",
+      "startLearning": "获取你的第一份简报"
     },
     "comparison": {
       "title": "功能对比",

@@ -217,7 +217,7 @@
       "smartMessage": "SoFi is near a support level, but the technical outlook is bearish across all timeframes. This could be a temporary floor, not a confirmed reversal."
     },
     "examples": {
-      "heading": "See it in action",
+      "heading": "Try it free on Telegram",
       "meta": {
         "ticker": "META",
         "outlook": "Bullish",
@@ -595,33 +595,33 @@
   "pricingPage": {
     "meta": {
       "title": "Pricing - Stock And Crypto Tracker",
-      "description": "Simple, transparent pricing for AI-powered stock and crypto market analysis. Start free or upgrade to Pro for full coverage."
+      "description": "See what's included in SCT's free and Pro plans. Start free, upgrade when the daily briefings prove useful."
     },
     "hero": {
-      "title": "Simple, Transparent Pricing",
-      "subtitle": "Start free and upgrade when you're ready. No hidden fees, cancel anytime."
+      "title": "Plans that fit your routine",
+      "subtitle": "Start with the free plan. Upgrade when the briefings prove useful."
     },
     "benefits": {
-      "title": "Why traders choose us",
-      "cta": "See it in action",
+      "title": "Why investors stay with SCT",
+      "cta": "Try it free on Telegram",
       "items": {
         "reduceNoise": {
-          "title": "Reduce noise and wasted trades",
-          "description": "Cut through market chaos with AI-filtered signals that matter"
+          "title": "Less noise, more clarity",
+          "description": "You only hear from SCT when market conditions are worth your attention. No spam, no filler."
         },
         "marketContext": {
-          "title": "Understand market context in seconds",
-          "description": "Get instant clarity on price action with pattern recognition"
+          "title": "Context you can act on quickly",
+          "description": "Plain-language summaries of what matters on your watchlist — ready in seconds, not hours."
         },
         "learnFromAlerts": {
-          "title": "Learn from every alert",
-          "description": "Educational insights help you grow as a trader over time"
+          "title": "Build confidence over time",
+          "description": "Every briefing explains the why behind market conditions, so your understanding grows with each one."
         }
       }
     },
     "ctas": {
-      "tryFree": "Try free in Telegram",
-      "startLearning": "Start learning now"
+      "tryFree": "Try free on Telegram",
+      "startLearning": "Get your first briefing"
     },
     "comparison": {
       "title": "Feature Comparison",
