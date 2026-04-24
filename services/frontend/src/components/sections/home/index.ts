@@ -1,0 +1,12 @@
+export { NewHeroSection } from "./hero-section";
+export { DiffSection } from "./diff-section";
+export { ProofSection } from "./proof-section";
+export { NewTestimonialsSection } from "./testimonials-section";
+export { AnatomySection } from "./anatomy-section";
+export { NewHowItWorksSection } from "./how-section";
+export { NewPricingSection } from "./pricing-section";
+export { SecuritySection } from "./security-section";
+export { FounderSection } from "./founder-section";
+export { HomeFaqSection } from "./faq-section";
+export { NewFinalCtaSection } from "./final-cta-section";
+export { RevealProvider } from "./reveal-provider";

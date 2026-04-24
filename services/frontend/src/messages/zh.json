@@ -11,6 +11,7 @@
     "affiliate": "推广计划",
     "docs": "文档",
     "blog": "博客",
+    "faq": "常见问题",
     "features": "功能",
     "smartDigest": "智能摘要",
     "smartDigestDesc": "AI驱动的自选股洞察"
@@ -656,8 +657,8 @@
           "answer": "是的，您可以随时从免费升级到Pro。降级时，您的Pro功能将保持活跃直到计费周期结束。"
         },
         "trialPeriod": {
-          "question": "Pro 有免费试用吗？",
-          "answer": "有。新用户可开启 7 天 Pro 试用，无需绑卡。关联 Telegram 并验证手机号后即可激活，享有完整 Pro 权限。试用结束后可添加支付方式继续使用 Pro，或转回免费计划，由你决定。"
+          "question": "Pro有免费试用吗？",
+          "answer": "是的 — Pro包含7天免费试用，无需信用卡。无论如何您都可以保留账户；如果不订阅，Pro功能将暂停。"
         },
         "affiliateDiscount": {
           "question": "什么是推荐折扣？",

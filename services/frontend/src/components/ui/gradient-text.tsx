@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-type GradientTextVariant = "blue" | "cyan" | "purple";
+type GradientTextVariant = "brand" | "blue" | "cyan" | "purple";
 
 interface GradientTextProps {
   children: React.ReactNode;
@@ -10,14 +10,15 @@ interface GradientTextProps {
 }
 
 const variantStyles: Record<GradientTextVariant, string> = {
-  blue: "from-[var(--gradient-from)] to-[var(--gradient-to)]",
+  brand: "from-[var(--brand)] to-[var(--brand-ink)]",
+  blue: "from-[var(--brand)] to-[var(--brand-ink)]",
   cyan: "from-cyan-400 to-blue-500",
   purple: "from-purple-400 to-pink-500",
 };
 
 export function GradientText({
   children,
-  variant = "blue",
+  variant = "brand",
   className,
   as: Component = "span",
 }: GradientTextProps) {

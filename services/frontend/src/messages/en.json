@@ -11,6 +11,7 @@
     "affiliate": "Affiliate",
     "docs": "Docs",
     "blog": "Blog",
+    "faq": "FAQ",
     "features": "Features",
     "smartDigest": "Smart Digest",
     "smartDigestDesc": "AI-powered watchlist insights"
@@ -657,7 +658,7 @@
         },
         "trialPeriod": {
           "question": "Is there a free trial for Pro?",
-          "answer": "Yes. New users can start a 7-day Pro trial with no card required. Once you link Telegram and verify your phone, your trial activates and you get full Pro access. After the trial, add a payment method to continue with Pro or drop to the Free plan—your choice."
+          "answer": "Yes — Pro includes a 7-day free trial, no credit card required. You keep your account either way; Pro features pause if you don't subscribe."
         },
         "affiliateDiscount": {
           "question": "What is the referral discount?",

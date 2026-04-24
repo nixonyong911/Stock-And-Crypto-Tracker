@@ -6,16 +6,24 @@ import { JsonLdSchemas } from "@/components/seo";
 import { AnalyticsProvider, ConsentBanner } from "@/components/analytics";
 import { locales } from "@/lib/i18n/config";
 import { notFound } from "next/navigation";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const interTight = Inter_Tight({
+  variable: "--font-inter-tight",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jb-mono",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 export function generateStaticParams() {
@@ -44,13 +52,12 @@ export default async function LocaleLayout({ children, params }: Props) {
         <JsonLdSchemas />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
+        className={`${inter.variable} ${interTight.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
-          disableTransitionOnChange
         >
           <ClerkProviderWrapper locale={locale}>
             <NextIntlClientProvider messages={messages}>
