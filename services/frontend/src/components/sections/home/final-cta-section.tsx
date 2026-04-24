@@ -1,4 +1,6 @@
-import { Link } from "@/lib/i18n/routing";
+"use client";
+
+import { SmartCtaLink } from "@/components/ui/smart-cta-link";
 
 export function NewFinalCtaSection() {
   return (
@@ -18,9 +20,9 @@ export function NewFinalCtaSection() {
           morning.
         </p>
         <div className="finale-cta">
-          <Link href="/pricing" className="sct-btn">
+          <SmartCtaLink className="sct-btn">
             Start Free — sign up
-          </Link>
+          </SmartCtaLink>
           <a href="#proof" className="sct-btn sct-btn-ghost">
             See an example brief
           </a>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { SignInButton } from "@/components/ui/sign-in-button";
+import { SmartCtaLink } from "@/components/ui/smart-cta-link";
 import { Menu, X } from "lucide-react";
 
 const isClerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -78,9 +79,9 @@ export function Header() {
             <SignInButton size="sm" className="sct-btn-ghost sct-btn-sm hidden sm:inline-flex" />
           )}
 
-          <Link href="/pricing" className="sct-btn sct-btn-sm hidden sm:inline-flex">
+          <SmartCtaLink className="sct-btn sct-btn-sm hidden sm:inline-flex">
             Start Free
-          </Link>
+          </SmartCtaLink>
 
           <Button
             variant="ghost"
@@ -127,13 +128,9 @@ export function Header() {
               ) : (
                 <SignInButton size="sm" className="w-full justify-center sm:hidden" />
               )}
-              <Link
-                href="/pricing"
-                className="sct-btn justify-center sm:hidden"
-                onClick={() => setMobileMenuOpen(false)}
-              >
+              <SmartCtaLink className="sct-btn justify-center sm:hidden">
                 Start Free
-              </Link>
+              </SmartCtaLink>
             </div>
           </nav>
         </div>

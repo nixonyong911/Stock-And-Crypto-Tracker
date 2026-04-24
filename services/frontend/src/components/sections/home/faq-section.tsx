@@ -10,7 +10,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Which tickers can I track?",
-    a: "US stocks, ETFs, and major cryptocurrencies. If it has a widely-tracked ticker — think AAPL, NVDA, TSLA, SPY, BTC, ETH, SOL — you can add it to your watchlist.",
+    a: "Any US stock, ETF, or major cryptocurrency. If it trades on a major exchange, you can add it to your watchlist.",
   },
   {
     q: "How often do briefings arrive?",

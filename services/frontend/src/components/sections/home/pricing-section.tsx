@@ -2,6 +2,7 @@
 
 import { useState, useRef, useLayoutEffect } from "react";
 import { Link } from "@/lib/i18n/routing";
+import { SmartCtaLink } from "@/components/ui/smart-cta-link";
 
 export function NewPricingSection() {
   const [cycle, setCycle] = useState<"monthly" | "annual">("monthly");
@@ -75,9 +76,9 @@ export function NewPricingSection() {
               <li><span className="c">✓</span>Telegram access</li>
             </ul>
             <div className="btn-pair">
-              <Link href="/pricing" className="sct-btn sct-btn-ghost" style={{ justifyContent: "center" }}>
+              <SmartCtaLink className="sct-btn sct-btn-ghost" style={{ justifyContent: "center" }}>
                 <span style={{ opacity: 0.7 }}>✈</span> Start Free
-              </Link>
+              </SmartCtaLink>
             </div>
           </div>
 
@@ -109,12 +110,12 @@ export function NewPricingSection() {
               <li><span className="c">✓</span>Full Telegram access</li>
             </ul>
             <div className="btn-pair">
-              <Link href="/pricing" className="sct-btn" style={{ justifyContent: "center" }}>
+              <SmartCtaLink className="sct-btn" style={{ justifyContent: "center" }}>
                 Start 7-Day Free Trial
-              </Link>
-              <Link href="/pricing" className="sct-btn sct-btn-ghost" style={{ justifyContent: "center" }}>
+              </SmartCtaLink>
+              <SmartCtaLink className="sct-btn sct-btn-ghost" style={{ justifyContent: "center" }}>
                 Subscribe Now
-              </Link>
+              </SmartCtaLink>
             </div>
           </div>
         </div>

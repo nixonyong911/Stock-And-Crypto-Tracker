@@ -1,6 +1,6 @@
 "use client";
 
-import { Link } from "@/lib/i18n/routing";
+import { SmartCtaLink } from "@/components/ui/smart-cta-link";
 
 function OrbitTiles() {
   return (
@@ -46,9 +46,9 @@ export function NewHeroSection() {
             coffee.
           </p>
           <div className="hero-cta">
-            <Link href="/pricing" className="sct-btn">
+            <SmartCtaLink className="sct-btn">
               Start Free <span style={{ opacity: 0.6, marginLeft: 2 }}>→</span>
-            </Link>
+            </SmartCtaLink>
             <a href="#proof" className="sct-btn sct-btn-ghost">
               See a real briefing
             </a>
