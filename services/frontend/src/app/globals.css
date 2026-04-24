@@ -8,10 +8,10 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  /* Fonts */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-jb-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-display: var(--font-inter-tight), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  /* Fonts — explicit names as fallbacks for var() resolution edge cases */
+  --font-sans: var(--font-inter, "Inter"), "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jb-mono, "JetBrains Mono"), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: var(--font-inter-tight, "Inter Tight"), "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
 
   /* shadcn tokens */
   --color-sidebar-ring: var(--sidebar-ring);
@@ -91,9 +91,9 @@
   --radius-sct-xl: 24px;
   --maxw: 1200px;
   --pad: clamp(20px, 4vw, 40px);
-  --font-display-stack: var(--font-inter-tight), "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-body-stack: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono-stack: var(--font-jb-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display-stack: var(--font-inter-tight, "Inter Tight"), "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-body-stack: var(--font-inter, "Inter"), "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono-stack: var(--font-jb-mono, "JetBrains Mono"), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* shadcn vars mapped to new design */
   --radius: 0.75rem;
@@ -188,6 +188,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body-stack);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow-x: hidden;
@@ -337,9 +338,10 @@
   /* Hero visual — orbit variant */
   .hero-visual {
     position: relative;
-    aspect-ratio: 1 / 1.02;
+    aspect-ratio: 1 / 0.85;
     display: flex; align-items: center; justify-content: center;
   }
+  @media (max-width: 900px) { .hero-visual { aspect-ratio: 1 / 0.7; } }
   .hero-backdrop {
     position: absolute; inset: 0;
     background:
@@ -381,15 +383,15 @@
   .dark .orbit-tile.up .p { color: var(--brand); }
   .orbit-tile.dn .p { color: #c44545; }
   .dark .orbit-tile.dn .p { color: #ff8080; }
-  .orbit-tile.t1 { top: 8%; left: -2%; }
-  .orbit-tile.t2 { top: 22%; right: -4%; }
-  .orbit-tile.t3 { bottom: 20%; left: -6%; }
-  .orbit-tile.t4 { bottom: 8%; right: 0%; }
+  .orbit-tile.t1 { top: 2%; left: -2%; }
+  .orbit-tile.t2 { top: 18%; right: -4%; }
+  .orbit-tile.t3 { bottom: 12%; left: -6%; }
+  .orbit-tile.t4 { bottom: 0%; right: 0%; }
 
   /* Insight float card */
   .insight-float {
     position: absolute; z-index: 3;
-    width: 260px; left: -5%; top: 16%;
+    width: 260px; left: -5%; top: 20%;
     background: var(--bg-raised);
     border: 1px solid var(--line-2);
     border-radius: 14px; padding: 14px;
