@@ -338,10 +338,10 @@
   /* Hero visual — orbit variant */
   .hero-visual {
     position: relative;
-    aspect-ratio: 1 / 0.85;
+    aspect-ratio: 1 / 1.02;
     display: flex; align-items: center; justify-content: center;
   }
-  @media (max-width: 900px) { .hero-visual { aspect-ratio: 1 / 0.7; } }
+  @media (max-width: 900px) { .hero-visual { aspect-ratio: 1 / 0.75; } }
   .hero-backdrop {
     position: absolute; inset: 0;
     background:
@@ -383,15 +383,16 @@
   .dark .orbit-tile.up .p { color: var(--brand); }
   .orbit-tile.dn .p { color: #c44545; }
   .dark .orbit-tile.dn .p { color: #ff8080; }
-  .orbit-tile.t1 { top: 2%; left: 18%; }
-  .orbit-tile.t2 { top: 12%; right: 2%; }
-  .orbit-tile.t3 { bottom: 8%; left: 10%; }
-  .orbit-tile.t4 { bottom: 2%; right: 6%; }
+  .orbit-tile.t1 { top: 8%; left: -2%; }
+  .orbit-tile.t2 { top: 22%; right: -4%; }
+  .orbit-tile.t3 { bottom: 20%; left: -6%; }
+  .orbit-tile.t4 { bottom: 8%; right: 0%; }
 
   /* Insight float card */
   .insight-float {
     position: absolute; z-index: 3;
-    width: 260px; left: 15%; top: 24%;
+    width: 260px; left: 8%; top: 28%;
+    transform: rotate(-2deg);
     background: var(--bg-raised);
     border: 1px solid var(--line-2);
     border-radius: 14px; padding: 14px;
