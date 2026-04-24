@@ -171,18 +171,6 @@ export function PricingContent({ prices }: Props) {
                 </tbody>
               </table>
             </div>
-            <div className="mt-10 text-center">
-              <Button asChild className="gap-2">
-                <a
-                  href={TELEGRAM_BOT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Send className="h-4 w-4" />
-                  {tPage("ctas.startLearning")}
-                </a>
-              </Button>
-            </div>
           </div>
         </div>
       </section>
