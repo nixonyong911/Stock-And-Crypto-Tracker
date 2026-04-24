@@ -602,20 +602,20 @@
       "subtitle": "从免费版开始。当简报证明有用时再升级。"
     },
     "benefits": {
-      "title": "投资者为何信赖SCT",
+      "title": "SCT实际为你做什么",
       "cta": "在Telegram上免费试用",
       "items": {
         "reduceNoise": {
-          "title": "更少噪音，更多清晰度",
-          "description": "只有当市场状况值得关注时，SCT才会发送简报。没有垃圾信息，没有多余内容。"
+          "title": "一份简报，替代十个标签页",
+          "description": "SCT监控你的股票代码，在有值得了解的事情时发送一条简洁的更新。不会因为每次数字波动就发提醒。"
         },
         "marketContext": {
-          "title": "快速获取可行动的背景",
-          "description": "用通俗语言总结你关注列表中的重要动态 — 几秒钟内即可了解，无需花费数小时。"
+          "title": "关于你关注列表的通俗语言分析",
+          "description": "每份简报涵盖发生了什么变化、为什么重要、以及接下来要关注什么 — 基于SCT自有数据，而非模型猜测。"
         },
         "learnFromAlerts": {
-          "title": "逐步建立投资信心",
-          "description": "每份简报都解释市场状况背后的原因，让你的理解随每次阅读而加深。"
+          "title": "直接在Telegram中追问",
+          "description": "回复任何简报即可提问。无需切换应用，无需仪表盘 — 直接在你常用的地方继续对话。"
         }
       }
     },
@@ -624,45 +624,44 @@
       "startLearning": "获取你的第一份简报"
     },
     "comparison": {
-      "title": "功能对比",
-      "feature": "功能",
+      "title": "免费版 vs Pro版",
+      "feature": "",
       "features": {
-        "dailyAnalysis": "每日分析",
-        "alertSpeed": "提醒速度",
-        "stockCoverage": "股票覆盖",
-        "cryptoCoverage": "加密货币覆盖",
-        "signalConfidence": "信号置信度标签",
-        "priorityProcessing": "优先处理",
-        "educationalInsights": "教育性洞察",
-        "telegramAccess": "Telegram访问"
+        "assetCoverage": "资产覆盖范围",
+        "briefingDepth": "简报深度",
+        "deliveryPriority": "发送优先级",
+        "signalLabels": "信号类型与置信度标签",
+        "telegramFollowUps": "在Telegram中追问",
+        "educationalContext": "简报中的教育性分析",
+        "telegramDelivery": "Telegram推送"
       }
     },
     "faq": {
-      "title": "定价常见问题",
+      "title": "常见问题",
       "questions": {
         "cancelAnytime": {
-          "question": "我可以随时取消订阅吗？",
-          "answer": "是的，您可以随时取消Pro订阅。您的访问权限将持续到当前计费周期结束。"
+          "question": "可以随时取消吗？",
+          "answer": "可以。随时取消 — Pro访问权限会保持到计费周期结束。"
         },
         "paymentMethods": {
-          "question": "你们接受哪些付款方式？",
-          "answer": "我们通过安全的支付处理器Stripe接受所有主要信用卡（Visa、Mastercard、American Express）。"
+          "question": "如何付款？",
+          "answer": "通过Stripe接受主要信用卡和借记卡。暂不支持加密货币支付。"
         },
         "refundPolicy": {
-          "question": "你们的退款政策是什么？",
-          "answer": "我们为新Pro订阅用户提供7天退款保证。如果您不满意，请在7天内联系我们全额退款。"
+          "question": "对Pro不满意怎么办？",
+          "answer": "订阅后7天内联系我们，全额退款，无需理由。"
         },
         "upgradeDowngrade": {
-          "question": "我可以在计划之间切换吗？",
-          "answer": "是的，您可以随时从免费升级到Pro。降级时，您的Pro功能将保持活跃直到计费周期结束。"
+          "question": "可以在免费版和Pro版之间切换吗？",
+          "answer": "可以。随时升级。降级后，Pro功能保持到计费周期结束。"
         },
         "trialPeriod": {
-          "question": "Pro有免费试用吗？",
-          "answer": "是的 — Pro包含7天免费试用，无需信用卡。无论如何您都可以保留账户；如果不订阅，Pro功能将暂停。"
+          "question": "有免费试用吗？",
+          "answer": "有 — 7天Pro试用，无需信用卡。试用结束后不订阅，账户自动切换为免费版。"
         },
         "affiliateDiscount": {
-          "question": "什么是推荐折扣？",
-          "answer": "如果您有推广者的推荐码，在结账前输入即可享受首月订阅 $5 折扣。此折扣仅适用于首次订阅者。"
+          "question": "有推荐码怎么用？",
+          "answer": "结账前输入推荐码，首月立减$5。每个账户限用一次，仅限首次订阅。"
         }
       }
     }

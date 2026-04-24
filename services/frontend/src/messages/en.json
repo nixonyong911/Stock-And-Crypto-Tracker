@@ -602,20 +602,20 @@
       "subtitle": "Start with the free plan. Upgrade when the briefings prove useful."
     },
     "benefits": {
-      "title": "Why investors stay with SCT",
+      "title": "What SCT actually does for you",
       "cta": "Try it free on Telegram",
       "items": {
         "reduceNoise": {
-          "title": "Less noise, more clarity",
-          "description": "You only hear from SCT when market conditions are worth your attention. No spam, no filler."
+          "title": "One briefing, not ten tabs",
+          "description": "SCT watches your tickers and sends one calm update when something is worth knowing. No alerts every time a number twitches."
         },
         "marketContext": {
-          "title": "Context you can act on quickly",
-          "description": "Plain-language summaries of what matters on your watchlist — ready in seconds, not hours."
+          "title": "Plain-English context on your watchlist",
+          "description": "Each briefing covers what changed, why it matters, and what to watch next — grounded in SCT's own data, not a model guessing."
         },
         "learnFromAlerts": {
-          "title": "Build confidence over time",
-          "description": "Every briefing explains the why behind market conditions, so your understanding grows with each one."
+          "title": "Ask follow-ups right in Telegram",
+          "description": "Reply to any briefing to ask questions. No app-switching, no dashboards — just continue the conversation where you already are."
         }
       }
     },
@@ -624,45 +624,44 @@
       "startLearning": "Get your first briefing"
     },
     "comparison": {
-      "title": "Feature Comparison",
-      "feature": "Feature",
+      "title": "Free vs Pro",
+      "feature": "",
       "features": {
-        "dailyAnalysis": "Daily Analysis",
-        "alertSpeed": "Alert Speed",
-        "stockCoverage": "Stock Coverage",
-        "cryptoCoverage": "Crypto Coverage",
-        "signalConfidence": "Signal Confidence Labels",
-        "priorityProcessing": "Priority Processing",
-        "educationalInsights": "Educational Insights",
-        "telegramAccess": "Telegram Access"
+        "assetCoverage": "Asset coverage",
+        "briefingDepth": "Briefing depth",
+        "deliveryPriority": "Delivery priority",
+        "signalLabels": "Signal type & confidence labels",
+        "telegramFollowUps": "Follow-up questions in Telegram",
+        "educationalContext": "Educational context in briefings",
+        "telegramDelivery": "Telegram delivery"
       }
     },
     "faq": {
-      "title": "Pricing FAQ",
+      "title": "Common questions",
       "questions": {
         "cancelAnytime": {
-          "question": "Can I cancel my subscription anytime?",
-          "answer": "Yes, you can cancel your Pro subscription at any time. Your access will continue until the end of your current billing period."
+          "question": "Can I cancel anytime?",
+          "answer": "Yes. Cancel whenever you like — your Pro access stays active until the end of your billing period."
         },
         "paymentMethods": {
-          "question": "What payment methods do you accept?",
-          "answer": "We accept all major credit cards (Visa, Mastercard, American Express) through our secure payment processor, Stripe."
+          "question": "How do I pay?",
+          "answer": "We accept major credit and debit cards through Stripe. No crypto payments at this time."
         },
         "refundPolicy": {
-          "question": "What is your refund policy?",
-          "answer": "We offer a 7-day money-back guarantee for new Pro subscribers. If you're not satisfied, contact us within 7 days for a full refund."
+          "question": "What if I'm not happy with Pro?",
+          "answer": "Contact us within 7 days of subscribing for a full refund. No questions."
         },
         "upgradeDowngrade": {
-          "question": "Can I switch between plans?",
-          "answer": "Yes, you can upgrade from Free to Pro anytime. When downgrading, your Pro features remain active until the end of your billing period."
+          "question": "Can I switch between Free and Pro?",
+          "answer": "Yes. Upgrade anytime. If you downgrade, Pro features stay active until the end of your billing period."
         },
         "trialPeriod": {
-          "question": "Is there a free trial for Pro?",
-          "answer": "Yes — Pro includes a 7-day free trial, no credit card required. You keep your account either way; Pro features pause if you don't subscribe."
+          "question": "Is there a free trial?",
+          "answer": "Yes — 7 days of Pro, no credit card required. If you don't subscribe after, your account stays on Free."
         },
         "affiliateDiscount": {
-          "question": "What is the referral discount?",
-          "answer": "If you have a referral code from an affiliate, enter it before checkout to get $5 off your first monthly subscription. This discount is for first-time subscribers only."
+          "question": "I have a referral code — how does it work?",
+          "answer": "Enter it before checkout to get $5 off your first month. One per account, first-time subscribers only."
         }
       }
     }
