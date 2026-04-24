@@ -611,7 +611,7 @@
         },
         "marketContext": {
           "title": "Plain-English context on your watchlist",
-          "description": "Each briefing covers what changed, why it matters, and what to watch next — grounded in SCT's own data, not a model guessing."
+          "description": "It tells you what changed, why it matters, and what to watch next — with context, not guesswork."
         },
         "learnFromAlerts": {
           "title": "Ask follow-ups right in Telegram",

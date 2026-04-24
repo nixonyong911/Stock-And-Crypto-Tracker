@@ -611,7 +611,7 @@
         },
         "marketContext": {
           "title": "关于你关注列表的通俗语言分析",
-          "description": "每份简报涵盖发生了什么变化、为什么重要、以及接下来要关注什么 — 基于SCT自有数据，而非模型猜测。"
+          "description": "它告诉你发生了什么变化、为什么重要、以及接下来要关注什么 — 有依据，不靠猜。"
         },
         "learnFromAlerts": {
           "title": "直接在Telegram中追问",
