@@ -1,6 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useAuth } from "@clerk/nextjs";
+import { Link } from "@/lib/i18n/routing";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,6 +15,7 @@ import {
 import { Check, Send } from "lucide-react";
 
 const TELEGRAM_BOT_URL = "https://t.me/StockAndCryptoAdvisorBot?start=register";
+const isClerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 const freeFeatures = ["stockCoverage", "alerts", "insights", "telegram"] as const;
 
@@ -47,17 +50,47 @@ export function FreePricingCard({ cta }: FreePricingCardProps) {
         </ul>
       </CardContent>
       <CardFooter>
-        <Button asChild variant="outline" className="w-full gap-2">
-          <a
-            href={TELEGRAM_BOT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Send className="h-4 w-4" />
-            {cta ?? t("free.cta")}
-          </a>
-        </Button>
+        <FreeCta label={cta ?? t("free.cta")} />
       </CardFooter>
     </Card>
+  );
+}
+
+function FreeCta({ label }: { label: string }) {
+  if (!isClerkConfigured) {
+    return (
+      <Button asChild variant="outline" className="w-full gap-2">
+        <a href={TELEGRAM_BOT_URL} target="_blank" rel="noopener noreferrer">
+          <Send className="h-4 w-4" />
+          {label}
+        </a>
+      </Button>
+    );
+  }
+
+  return <FreeCtaAuth label={label} />;
+}
+
+function FreeCtaAuth({ label }: { label: string }) {
+  const { isSignedIn, isLoaded } = useAuth();
+
+  if (!isLoaded || isSignedIn) {
+    return (
+      <Button asChild variant="outline" className="w-full gap-2">
+        <a href={TELEGRAM_BOT_URL} target="_blank" rel="noopener noreferrer">
+          <Send className="h-4 w-4" />
+          {label}
+        </a>
+      </Button>
+    );
+  }
+
+  return (
+    <Button asChild variant="outline" className="w-full gap-2">
+      <Link href="/sign-up">
+        <Send className="h-4 w-4" />
+        {label}
+      </Link>
+    </Button>
   );
 }
