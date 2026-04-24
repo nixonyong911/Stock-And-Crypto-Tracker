@@ -3,47 +3,46 @@ export function NewTestimonialsSection() {
     <section id="voices" className="voices sct-section">
       <div className="wrap">
         <div className="section-head reveal">
-          <span className="eyebrow">What readers say</span>
-          <h2>Quietly replacing five tabs and a group chat.</h2>
-          <p>Early users who now get their market update from Telegram, before their first coffee.</p>
+          <span className="eyebrow">From real users</span>
+          <h2>One message, and I move on with my day.</h2>
+          <p>People who stopped tab-hopping and started reading one briefing instead.</p>
         </div>
 
         <div className="voices-grid reveal">
           <div className="quote-card hero-quote">
             <div className="quote-mark">&ldquo;</div>
             <p className="quote-body">
-              I used to start every morning bouncing between CNBC, four Discord
-              servers, and a Bloomberg terminal I don&apos;t need. Now I read one
-              Telegram message and I&apos;m <em>actually more informed</em> than
-              I was doing the whole ritual.
+              I used to open CNBC, Discord, and Twitter before work just to feel
+              caught up. Now I read one Telegram message over coffee and I
+              honestly know <em>more than I did before</em>.
             </p>
             <div className="quote-who">
               <div className="quote-avatar">MK</div>
               <div className="quote-meta">
                 <b>Marcus K.</b>
-                <span>SWING TRADER · 2 YRS</span>
+                <span>HOLDS LONG-TERM · 2 YRS</span>
               </div>
             </div>
           </div>
 
           <QuoteCard initials="SA" name="Sarah A." role="PART-TIME INVESTOR">
-            The difference from a generic AI bot is obvious — it{" "}
-            <em>actually knows</em> what happened on my tickers yesterday.
+            It actually knows my tickers — not just generic market stuff.
+            That&apos;s the part I didn&apos;t expect.
           </QuoteCard>
 
-          <QuoteCard initials="DR" name="Daniel R." role="BEGINNER · 8 MONTHS">
-            First investing tool that made me feel <em>less anxious</em>, not
-            more. One message, once a day.
+          <QuoteCard initials="DR" name="Daniel R." role="NEWER INVESTOR">
+            I don&apos;t feel anxious checking my portfolio anymore.
+            I just read the brief and get on with my morning.
           </QuoteCard>
 
-          <QuoteCard initials="PL" name="Priya L." role="AMATEUR · CRYPTO + ETFS">
-            I stopped setting price alerts entirely. The morning brief catches
-            everything that <em>actually matters</em>.
+          <QuoteCard initials="PL" name="Priya L." role="CRYPTO + ETFS">
+            I turned off all my price alerts. The morning briefing
+            catches everything I actually need to know.
           </QuoteCard>
 
           <QuoteCard initials="JT" name="James T." role="RETAIL · 5 YRS">
-            Feels like a quiet analyst in my pocket. No hype, no moonshots —
-            just <em>what moved and why</em>.
+            No hype, no moonshots. Just <em>what moved and why</em>.
+            That&apos;s all I wanted.
           </QuoteCard>
         </div>
       </div>

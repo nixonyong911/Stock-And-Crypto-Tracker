@@ -14,7 +14,7 @@
     "faq": "FAQ",
     "features": "Features",
     "smartDigest": "Smart Digest",
-    "smartDigestDesc": "AI-powered watchlist insights"
+    "smartDigestDesc": "Watchlist briefings explained"
   },
   "hero": {
     "eyebrow": "Built for busy investors",
@@ -64,22 +64,22 @@
     "tagline": "No dashboards. No new habit to build. Just your list, summarized."
   },
   "howItWorks": {
-    "heading": "How it works",
+    "heading": "From signup to first briefing",
     "step1": {
-      "title": "Add your watchlist",
-      "description": "Tell us the stocks and crypto you care about. That's the center of everything we send you."
+      "title": "Sign up and add your tickers",
+      "description": "Email only. Add the stocks and crypto you care about — that's the only setup."
     },
     "step2": {
-      "title": "We watch the market for you",
-      "description": "Our system tracks price action, setups, and narrative so you don't have to hunt across sites."
+      "title": "Link Telegram",
+      "description": "One tap to connect. SCT opens a private chat with you."
     },
     "step3": {
-      "title": "You get a short, clear update",
-      "description": "When something matters: what's happening, what to watch, horizon, confidence, and risk—explained plainly."
+      "title": "Get your first briefing",
+      "description": "Tomorrow morning: what changed on your watchlist, explained in plain English."
     },
     "step4": {
-      "title": "It shows up in Telegram",
-      "description": "No extra app. Open Telegram and read your briefing when you have a minute."
+      "title": "Ask follow-ups right there",
+      "description": "Reply to any briefing in Telegram. No new tab, no context-switching."
     }
   },
   "features": {
@@ -96,36 +96,36 @@
     "tagline": "Built for busy people who still want to stay informed."
   },
   "testimonials": {
-    "heading": "What people say",
-    "subheading": "Short notes from people who wanted less noise and a faster catch-up.",
+    "heading": "From real users",
+    "subheading": "People who stopped tab-hopping and started reading one briefing instead.",
     "items": {
       "one": {
-        "quote": "I'd have six tabs open before work. Now I skim one message and I'm done.",
+        "quote": "Six tabs before work — that was my old routine. Now it's one Telegram message and I'm done.",
         "name": "Alex",
         "role": "Engineer"
       },
       "two": {
-        "quote": "I don't have time for Discord and Twitter drama. This is just my list, summarized.",
+        "quote": "I don't have the energy for Discord and Twitter. This just tells me what happened on my list.",
         "name": "Chris",
         "role": "Night shift"
       },
       "three": {
-        "quote": "No chart walls. It tells me what changed and what to watch. That's enough for me.",
+        "quote": "It tells me what changed and what to watch. No chart walls. That's enough for me.",
         "name": "Marcus",
         "role": "Busy parent"
       },
       "four": {
-        "quote": "Telegram was already on my home screen. I didn't want another app to learn.",
+        "quote": "Telegram was already on my phone. I didn't want to learn another app just to stay informed.",
         "name": "Sam",
         "role": "Works full-time"
       },
       "five": {
-        "quote": "I still make my own calls—but I'm not guessing what I missed overnight.",
+        "quote": "I still make my own decisions — but I'm not guessing what I missed overnight anymore.",
         "name": "Jordan",
         "role": "Retail investor"
       },
       "six": {
-        "quote": "It doesn't tell me what to do. It tells me what's going on. That's the right line for me.",
+        "quote": "It doesn't tell me what to do. It just tells me what's going on. That's the right line.",
         "name": "Riley",
         "role": "Pro member"
       }
@@ -186,12 +186,12 @@
   },
   "smartDigestPage": {
     "meta": {
-      "title": "Smart Digest - AI-Powered Watchlist Insights",
-      "description": "Get plain-English market analysis for your watchlist, delivered to Telegram. Multi-timeframe signals with confidence and risk levels."
+      "title": "Smart Digest - Watchlist Briefings in Plain English",
+      "description": "Get plain-English market analysis for your watchlist, delivered to Telegram. Multi-timeframe context with confidence and risk levels."
     },
     "hero": {
       "title": "Smart Digest",
-      "subtitle": "AI-powered market insights, delivered to your Telegram. No noise. No jargon. Just clarity."
+      "subtitle": "Your watchlist, summarized in plain English and delivered to Telegram. No noise. No jargon."
     },
     "howItWorks": {
       "heading": "How Smart Digest Works",
@@ -281,28 +281,28 @@
     }
   },
   "pricing": {
-    "heading": "Simple pricing. No lock-in.",
+    "heading": "Try it free. Upgrade when it proves useful.",
     "free": {
       "name": "Free",
       "price": "$0",
       "features": {
         "stockCoverage": "Stock coverage",
-        "alerts": "Delayed alerts",
-        "insights": "Educational insights",
+        "alerts": "Daily briefings",
+        "insights": "Educational context",
         "telegram": "Telegram access"
       },
       "cta": "Start Free"
     },
     "pro": {
       "name": "Pro",
-      "badge": "Recommended",
+      "badge": "Full experience",
       "price": "$19.99",
       "period": "/ month",
       "features": {
-        "coverage": "Stocks + crypto coverage",
-        "signals": "Signal type & confidence labels",
+        "coverage": "Stocks + crypto in one briefing",
+        "signals": "Confidence & risk on every update",
         "priority": "Priority processing",
-        "telegram": "Full Telegram access"
+        "telegram": "Follow-up questions in Telegram"
       },
       "cta": "Get Pro"
     },
@@ -595,74 +595,74 @@
   "pricingPage": {
     "meta": {
       "title": "Pricing - Stock And Crypto Tracker",
-      "description": "Simple, transparent pricing for AI-powered stock and crypto market analysis. Start free or upgrade to Pro for full coverage."
+      "description": "Start free, upgrade when the briefings prove useful. Simple pricing for watchlist briefings delivered in Telegram."
     },
     "hero": {
-      "title": "Simple, Transparent Pricing",
-      "subtitle": "Start free and upgrade when you're ready. No hidden fees, cancel anytime."
+      "title": "Try it free. Upgrade when it earns it.",
+      "subtitle": "No commitment, no card upfront. Start reading briefings and decide later."
     },
     "benefits": {
-      "title": "Why traders choose us",
-      "cta": "See it in action",
+      "title": "What you actually get",
+      "cta": "Try it in Telegram",
       "items": {
         "reduceNoise": {
-          "title": "Reduce noise and wasted trades",
-          "description": "Cut through market chaos with AI-filtered signals that matter"
+          "title": "Less noise, more signal",
+          "description": "One briefing replaces the tab-hopping routine — only what matters on your watchlist"
         },
         "marketContext": {
-          "title": "Understand market context in seconds",
-          "description": "Get instant clarity on price action with pattern recognition"
+          "title": "Context you can read in a minute",
+          "description": "Plain-English summaries with what moved, why, and what to watch next"
         },
         "learnFromAlerts": {
-          "title": "Learn from every alert",
-          "description": "Educational insights help you grow as a trader over time"
+          "title": "Built to teach, not just alert",
+          "description": "Each briefing explains the setup so you understand the reasoning, not just the outcome"
         }
       }
     },
     "ctas": {
-      "tryFree": "Try free in Telegram",
+      "tryFree": "Start free in Telegram",
       "startLearning": "Start learning now"
     },
     "comparison": {
-      "title": "Feature Comparison",
+      "title": "Free vs. Pro at a glance",
       "feature": "Feature",
       "features": {
-        "dailyAnalysis": "Daily Analysis",
-        "alertSpeed": "Alert Speed",
+        "dailyAnalysis": "Daily Briefings",
+        "alertSpeed": "Briefing Timing",
         "stockCoverage": "Stock Coverage",
         "cryptoCoverage": "Crypto Coverage",
-        "signalConfidence": "Signal Confidence Labels",
+        "signalConfidence": "Confidence & Risk Labels",
         "priorityProcessing": "Priority Processing",
-        "educationalInsights": "Educational Insights",
+        "educationalInsights": "Educational Context",
         "telegramAccess": "Telegram Access"
       }
     },
     "faq": {
-      "title": "Pricing FAQ",
+      "title": "Pricing questions",
       "questions": {
         "cancelAnytime": {
-          "question": "Can I cancel my subscription anytime?",
-          "answer": "Yes, you can cancel your Pro subscription at any time. Your access will continue until the end of your current billing period."
+          "question": "Can I cancel anytime?",
+          "answer": "Yes. One tap in your dashboard or in Telegram. No lock-in, no fees. Your access stays active until the end of the billing period you already paid for."
         },
         "paymentMethods": {
-          "question": "What payment methods do you accept?",
-          "answer": "We accept all major credit cards (Visa, Mastercard, American Express) through our secure payment processor, Stripe."
+          "question": "What payment methods work?",
+          "answer": "Visa, Mastercard, and American Express — processed securely through Stripe. We never see your full card details."
         },
         "refundPolicy": {
-          "question": "What is your refund policy?",
-          "answer": "We offer a 7-day money-back guarantee for new Pro subscribers. If you're not satisfied, contact us within 7 days for a full refund."
+          "question": "What if I'm not happy with Pro?",
+          "answer": "Reach out within 7 days and we'll refund you in full — no questions, no forms."
         },
         "upgradeDowngrade": {
-          "question": "Can I switch between plans?",
-          "answer": "Yes, you can upgrade from Free to Pro anytime. When downgrading, your Pro features remain active until the end of your billing period."
+          "question": "Can I switch plans?",
+          "answer": "Upgrade to Pro anytime and it activates immediately. If you downgrade, your Pro features stay on until the current billing period ends."
         },
         "trialPeriod": {
-          "question": "Is there a free trial for Pro?",
-          "answer": "Yes — Pro includes a 7-day free trial, no credit card required. You keep your account either way; Pro features pause if you don't subscribe."
+          "question": "Is the Pro trial really free?",
+          "answer": "Yes. Seven days of Pro, no credit card required. After the trial you can subscribe or stay on the Free plan — your watchlist and account stay either way."
         },
         "affiliateDiscount": {
-          "question": "What is the referral discount?",
-          "answer": "If you have a referral code from an affiliate, enter it before checkout to get $5 off your first monthly subscription. This discount is for first-time subscribers only."
+          "question": "I have a referral code — how does it work?",
+          "answer": "Enter it before checkout and you'll get $5 off your first month of Pro. The discount applies to first-time subscribers only."
         }
       }
     }
@@ -720,11 +720,11 @@
   "aboutPage": {
     "meta": {
       "title": "About Us - Stock And Crypto Tracker",
-      "description": "Learn about Stock And Crypto Tracker - our mission to bring clarity to stock and crypto markets through AI-powered analysis."
+      "description": "Learn about Stock And Crypto Tracker — a watchlist briefing tool built to help busy investors stay informed without the noise."
     },
     "hero": {
       "title": "About Us",
-      "subtitle": "Bringing clarity to markets through AI-powered analysis"
+      "subtitle": "Helping busy investors stay informed — without the noise."
     },
     "mission": {
       "title": "Our Mission",
@@ -766,8 +766,8 @@
       "conclusion": "We're here to provide educational market context—nothing more, nothing less."
     },
     "cta": {
-      "title": "Ready to Experience Market Clarity?",
-      "description": "Join thousands of investors who've chosen clarity over noise.",
+      "title": "Worth trying — it takes 60 seconds.",
+      "description": "Set up your watchlist and see your first briefing tomorrow morning.",
       "primary": "Start Free on Telegram",
       "secondary": "Contact Us"
     }
@@ -775,11 +775,11 @@
   "faqPage": {
     "meta": {
       "title": "FAQ - Stock And Crypto Tracker",
-      "description": "Frequently asked questions about Stock And Crypto Tracker. Find answers about our service, pricing, features, and more."
+      "description": "Common questions about SCT — what it does, how briefings work, pricing, Telegram setup, and your account."
     },
     "hero": {
-      "title": "Frequently Asked Questions",
-      "subtitle": "Find answers to common questions about Stock And Crypto Tracker"
+      "title": "Questions, answered",
+      "subtitle": "Everything you'd want to know before (or after) getting started."
     },
     "categories": {
       "general": {
@@ -787,19 +787,19 @@
         "questions": {
           "q1": {
             "question": "What is Stock And Crypto Tracker?",
-            "answer": "Stock And Crypto Tracker is an AI-powered market analysis service that monitors stocks and cryptocurrencies 24/7 and delivers clear, contextual insights directly to your Telegram account."
+            "answer": "SCT is a watchlist briefing tool that runs in Telegram. You add the stocks and crypto you follow, and every morning you get a short, plain-English summary of what changed, what it means, and what to watch — built from real market data, not generic web scraping."
           },
           "q2": {
             "question": "How does it work?",
-            "answer": "Our AI continuously analyzes market data, identifies meaningful technical patterns, and sends you alerts when conditions are noteworthy. Each alert includes the signal type, time horizon, confidence level, and risks to watch."
+            "answer": "You build a watchlist. SCT tracks daily price action, indicators, earnings, and relevant news for those tickers. When something is worth knowing, you get a briefing in Telegram — with outlook, confidence, risk level, and a plain-English explanation. You can reply to ask follow-up questions."
           },
           "q3": {
             "question": "Is this financial advice?",
-            "answer": "No. Stock And Crypto Tracker provides educational market analysis only. We do not provide financial advice, portfolio recommendations, or guarantees. Always consult a licensed financial advisor before making investment decisions."
+            "answer": "No. SCT provides educational market context only — it helps you understand what's happening on your watchlist, but it does not tell you what to buy or sell. Always consult a licensed financial advisor for investment decisions."
           },
           "q4": {
-            "question": "What makes you different from other services?",
-            "answer": "We focus on clarity over complexity. Instead of overwhelming you with charts and indicators, we explain market conditions in plain language and deliver insights where you already are—Telegram."
+            "question": "What makes SCT different from other tools?",
+            "answer": "Most tools either give you raw alerts without context, or generic AI answers without your watchlist. SCT is built around the tickers you care about, delivers in Telegram where you already are, and explains things plainly — no dashboard to check, no new app to learn."
           }
         }
       },
@@ -808,36 +808,36 @@
         "questions": {
           "q1": {
             "question": "Is there a free plan?",
-            "answer": "Yes. The Free plan includes stock coverage, delayed alerts, and educational insights. It's a good way to understand the flow before deciding on Pro."
+            "answer": "Yes. The Free plan gives you stock briefings with daily delivery and educational context. It's a real way to try the workflow — not a stripped-down demo."
           },
           "q2": {
-            "question": "What does Pro include?",
-            "answer": "Pro ($19.99/month) includes unlimited analysis, end-of-day alerts, full stock and crypto coverage, signal confidence and risk labels, and priority processing."
+            "question": "What does Pro add?",
+            "answer": "Pro ($19.99/month or $167.99/year) adds crypto coverage, confidence and risk labels on every update, priority processing, and the full briefing experience. It's the version built for daily use."
           },
           "q3": {
-            "question": "Is there a free trial for Pro?",
-            "answer": "Yes. New users can start a 7-day Pro trial with no card required, as long as Telegram is linked and phone is verified. After the trial, add a payment method to continue on Pro or stay on the Free plan."
+            "question": "Is the Pro trial really free?",
+            "answer": "Yes. Seven full days of Pro, no credit card needed — just link Telegram and verify your phone. After the trial you can subscribe or stay on Free. Your watchlist and account stay either way."
           },
           "q4": {
             "question": "Can I cancel anytime?",
-            "answer": "Yes. Cancel your Pro subscription at any time with no penalty. Your access stays active until the end of the current billing period."
+            "answer": "Yes. One tap in your dashboard or in Telegram. No lock-in, no fees, no phone call. Your access stays active until the end of the period you already paid for."
           }
         }
       },
       "technical": {
-        "title": "Technical",
+        "title": "Setup & Coverage",
         "questions": {
           "q1": {
             "question": "How do I get started?",
-            "answer": "Simply message our Telegram bot @StockAndCryptoAdvisorBot and follow the setup instructions. No app downloads or account creation required—just your Telegram account."
+            "answer": "Sign up on the website, link your Telegram account, add a few tickers, and you'll get your first briefing the next morning. The whole setup takes about 60 seconds."
           },
           "q2": {
             "question": "What markets do you cover?",
-            "answer": "We cover major US stocks (NYSE, NASDAQ) and popular cryptocurrencies (BTC, ETH, and more). Pro users get expanded coverage across more assets."
+            "answer": "US-listed stocks and ETFs (NYSE, NASDAQ) plus major cryptocurrencies. Pro users get full crypto coverage alongside stocks in a single briefing."
           },
           "q3": {
-            "question": "How often do I receive alerts?",
-            "answer": "Alert frequency depends on market conditions. We only send alerts when there's something meaningful—not constant notifications. You can also customize your alert preferences."
+            "question": "How often will I hear from SCT?",
+            "answer": "Daily morning briefings before market open. Pro users also get midday and close-of-day updates. SCT only sends when there's something worth reading — it's not a notification firehose."
           }
         }
       },
@@ -846,43 +846,43 @@
         "questions": {
           "q1": {
             "question": "How do I upgrade to Pro?",
-            "answer": "Message the bot with /upgrade and follow the payment link. Once payment is confirmed, your Pro features activate immediately."
+            "answer": "Use the /upgrade command in Telegram or visit your dashboard. Payment is handled through Stripe, and Pro activates immediately."
           },
           "q2": {
-            "question": "How do I change my settings?",
-            "answer": "Use the /settings command in the Telegram bot to customize your preferences, including alert types, asset coverage, and notification frequency."
+            "question": "How do I adjust my settings?",
+            "answer": "Use /settings in the Telegram bot to change your watchlist, briefing preferences, and notification timing."
           },
           "q3": {
-            "question": "Can I use the service on multiple devices?",
-            "answer": "Yes! Since everything runs through Telegram, you can access the service on any device where you have Telegram installed—phone, tablet, or desktop."
+            "question": "Does it work on multiple devices?",
+            "answer": "Yes. Everything runs through Telegram, so it works anywhere Telegram does — phone, tablet, desktop. No separate app needed."
           }
         }
       },
       "affiliate": {
-        "title": "Affiliate Program",
+        "title": "Referrals",
         "questions": {
           "q1": {
-            "question": "What is the affiliate program?",
-            "answer": "Our affiliate program lets verified users earn rewards by referring friends. Join the program to get a unique referral code, then share it with others."
+            "question": "What is the referral program?",
+            "answer": "Verified users can get a unique referral code and share it with friends. When someone subscribes using your code, they get $5 off their first month."
           },
           "q2": {
-            "question": "How does the $5 referral discount work?",
-            "answer": "New users who enter a valid referral code before subscribing to a monthly plan get $5 off their first month. The discount only applies to first-time subscribers who have never had a subscription before."
+            "question": "How does the $5 discount work?",
+            "answer": "New users enter a referral code before checkout and get $5 off their first monthly Pro subscription. The discount is for first-time subscribers only."
           },
           "q3": {
-            "question": "Can I use my own referral code?",
-            "answer": "No, self-referral is not allowed. The system will detect and reject attempts to use your own referral code."
+            "question": "Can I use my own code?",
+            "answer": "No — self-referral isn't allowed. The system will detect and block it."
           },
           "q4": {
-            "question": "How do I join the affiliate program?",
-            "answer": "Link your Telegram account and verify your phone number, then visit the Affiliate page or your Dashboard to join and get your unique code."
+            "question": "How do I join?",
+            "answer": "Link Telegram, verify your phone, then visit the Affiliate page or your Dashboard to get your code."
           }
         }
       }
     },
     "contact": {
-      "title": "Still Have Questions?",
-      "description": "Can't find what you're looking for? Our team is here to help.",
+      "title": "Something else on your mind?",
+      "description": "We're a small team and we actually read every message.",
       "telegram": "Ask on Telegram",
       "email": "Contact Us"
     }

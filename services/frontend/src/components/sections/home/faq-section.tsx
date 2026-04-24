@@ -5,32 +5,32 @@ import { Link } from "@/lib/i18n/routing";
 
 const FAQ_ITEMS = [
   {
-    q: "How is this different from generic ChatGPT?",
-    a: "SCT is grounded in its own market data and your specific watchlist. A generic chatbot guesses from stale web text; SCT briefs from computed daily indicators, earnings context, and recent news already cross-referenced for your tickers.",
+    q: "How is this different from ChatGPT or a generic AI?",
+    a: "SCT already knows your watchlist and pulls from its own daily market data — indicators, earnings, news. You don't have to prompt it or paste context. It just briefs you on what changed for your tickers.",
   },
   {
     q: "Which tickers can I track?",
-    a: "Any US stock, ETF, or major cryptocurrency. If it trades on a major exchange, you can add it to your watchlist.",
+    a: "Any US-listed stock, ETF, or major cryptocurrency. If it has a ticker on a major exchange, you can add it.",
   },
   {
     q: "How often do briefings arrive?",
-    a: "Once every morning, before market open. Pro users also get midday check-ins and a close summary. You can reply to any brief at any time to ask follow-ups.",
+    a: "Every morning before the market opens. Pro users also get midday and close-of-day updates. You can reply to any briefing to ask follow-ups whenever you want.",
   },
   {
-    q: "Does SCT connect to my brokerage?",
-    a: "No. SCT is read-only and never touches your accounts. It sees the tickers you add and nothing else — no balances, no positions, no order history.",
+    q: "Does SCT access my brokerage or portfolio?",
+    a: "No. SCT is completely read-only. It only knows the tickers you add — no balances, no positions, no order history, no brokerage connection.",
   },
   {
     q: "Can I ask follow-up questions?",
-    a: "Yes. Just reply to any briefing in Telegram. SCT answers from the same grounded context it used to write the brief — not a generic search.",
+    a: "Yes — reply to any briefing right inside Telegram. SCT answers using the same watchlist context it used to write the brief, not a web search.",
   },
   {
     q: "What happens after the 7-day trial?",
-    a: "You keep your account either way. Pro features pause if you don't subscribe; the Free plan keeps running with a smaller watchlist and daily briefings.",
+    a: "You keep your account and watchlist. If you don't subscribe, Pro features pause and you stay on the Free plan with daily briefings.",
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. No lock-in, no phone calls, no cancellation fees. One tap inside the dashboard or in Telegram.",
+    a: "Yes. One tap in Telegram or your dashboard. No lock-in, no fees, no calls.",
   },
 ];
 

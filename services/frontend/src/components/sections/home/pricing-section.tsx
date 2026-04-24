@@ -36,9 +36,9 @@ export function NewPricingSection() {
           style={{ alignItems: "center", textAlign: "center", margin: "0 auto 32px" }}
         >
           <span className="eyebrow">Pricing</span>
-          <h2 style={{ textWrap: "balance" }}>Simple pricing. No lock-in.</h2>
+          <h2 style={{ textWrap: "balance" }}>Try it free. Upgrade when it proves useful.</h2>
           <p style={{ margin: "0 auto" }}>
-            Start free. Upgrade when the briefings have earned your trust.
+            No card, no commitment. Read a week of briefings, then decide.
           </p>
         </div>
 
@@ -62,7 +62,7 @@ export function NewPricingSection() {
             <div>
               <div className="price-name">Free</div>
               <p className="price-desc" style={{ marginTop: 6 }}>
-                Get a feel for SCT — set it up and read a week of briefings.
+                Set up your watchlist and try the daily workflow — see if it fits.
               </p>
             </div>
             <div className="price-amt">
@@ -87,7 +87,7 @@ export function NewPricingSection() {
             <div>
               <div className="price-name">Pro</div>
               <p className="price-desc" style={{ marginTop: 6 }}>
-                Full coverage, signals, and priority processing.
+                The full briefing experience — stocks, crypto, confidence labels, and priority delivery.
               </p>
             </div>
             <div className="price-amt">
@@ -104,10 +104,10 @@ export function NewPricingSection() {
               <span>No card required</span>
             </div>
             <ul className="price-list">
-              <li><span className="c">✓</span>Stocks + crypto coverage</li>
-              <li><span className="c">✓</span>Signal type &amp; confidence labels</li>
+              <li><span className="c">✓</span>Stocks + crypto in one briefing</li>
+              <li><span className="c">✓</span>Confidence &amp; risk on every update</li>
               <li><span className="c">✓</span>Priority processing</li>
-              <li><span className="c">✓</span>Full Telegram access</li>
+              <li><span className="c">✓</span>Follow-up questions in Telegram</li>
             </ul>
             <div className="btn-pair">
               <SmartCtaLink className="sct-btn" style={{ justifyContent: "center" }}>
