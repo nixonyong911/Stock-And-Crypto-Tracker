@@ -787,19 +787,19 @@
         "questions": {
           "q1": {
             "question": "What is Stock And Crypto Tracker?",
-            "answer": "Stock And Crypto Tracker is an AI-powered market analysis service that monitors stocks and cryptocurrencies 24/7 and delivers clear, contextual insights directly to your Telegram account."
+            "answer": "Stock And Crypto Tracker is a Telegram-first watchlist briefing tool for people who want to stay on top of stocks and crypto without constantly checking charts, alerts, Discord, or news tabs. It turns market moves into concise, plain-English briefings focused on the tickers you actually care about."
           },
           "q2": {
             "question": "How does it work?",
-            "answer": "Our AI continuously analyzes market data, identifies meaningful technical patterns, and sends you alerts when conditions are noteworthy. Each alert includes the signal type, time horizon, confidence level, and risks to watch."
+            "answer": "You sign up, link Telegram, add the stocks and crypto you want to track, and SCT starts sending you structured briefings there. Instead of firing a stream of raw alerts, it sends useful context: what changed, why it matters, and what to watch next."
           },
           "q3": {
             "question": "Is this financial advice?",
-            "answer": "No. Stock And Crypto Tracker provides educational market analysis only. We do not provide financial advice, portfolio recommendations, or guarantees. Always consult a licensed financial advisor before making investment decisions."
+            "answer": "No. SCT is an educational market briefing product, not financial advice. It does not tell you what to buy or sell, and it does not guarantee outcomes. Always make your own decisions and speak to a licensed advisor if you need personal financial advice."
           },
           "q4": {
-            "question": "What makes you different from other services?",
-            "answer": "We focus on clarity over complexity. Instead of overwhelming you with charts and indicators, we explain market conditions in plain language and deliver insights where you already are—Telegram."
+            "question": "What makes SCT different from other services?",
+            "answer": "Most market tools either overwhelm you with charts or send raw alerts without context. SCT is built around your watchlist and delivers plain-English briefings in Telegram, so you can understand what happened without opening five tabs. It is designed to reduce noise, not create more of it."
           }
         }
       },
@@ -807,20 +807,28 @@
         "title": "Pricing & Billing",
         "questions": {
           "q1": {
-            "question": "Is there a free plan?",
-            "answer": "Yes. The Free plan includes stock coverage, delayed alerts, and educational insights. It's a good way to understand the flow before deciding on Pro."
+            "question": "Is there a free trial for Pro?",
+            "answer": "Yes. Pro includes a 7-day free trial, and no credit card is required to start. You can use the product, see how it fits your routine, and decide after you've experienced the workflow."
           },
           "q2": {
-            "question": "What does Pro include?",
-            "answer": "Pro ($19.99/month) includes unlimited analysis, end-of-day alerts, full stock and crypto coverage, signal confidence and risk labels, and priority processing."
+            "question": "What happens if I don't subscribe after the trial?",
+            "answer": "Your account stays active, but Pro features stop. You can still keep your account and return later if you want to upgrade."
           },
           "q3": {
-            "question": "Is there a free trial for Pro?",
-            "answer": "Yes. New users can start a 7-day Pro trial with no card required, as long as Telegram is linked and phone is verified. After the trial, add a payment method to continue on Pro or stay on the Free plan."
+            "question": "Can I cancel anytime?",
+            "answer": "Yes. If you subscribe to Pro, you can cancel anytime. Your access continues until the end of the current billing period."
           },
           "q4": {
-            "question": "Can I cancel anytime?",
-            "answer": "Yes. Cancel your Pro subscription at any time with no penalty. Your access stays active until the end of the current billing period."
+            "question": "Do I need a credit card to start?",
+            "answer": "No. You can start the free trial without entering a credit card."
+          },
+          "q5": {
+            "question": "What payment methods do you accept?",
+            "answer": "We accept major credit and debit cards through Stripe, our payment provider."
+          },
+          "q6": {
+            "question": "Do you offer refunds?",
+            "answer": "If you subscribed to Pro and something went wrong, contact us and we'll review it fairly. Keep the refund policy aligned with the actual policy shown elsewhere on the site and in your billing terms."
           }
         }
       },
@@ -828,16 +836,20 @@
         "title": "Technical",
         "questions": {
           "q1": {
-            "question": "How do I get started?",
-            "answer": "Simply message our Telegram bot @StockAndCryptoAdvisorBot and follow the setup instructions. No app downloads or account creation required—just your Telegram account."
+            "question": "Do I need Telegram to use SCT?",
+            "answer": "Yes. SCT is built around Telegram delivery. That's where your briefings arrive and where you can ask follow-up questions."
           },
           "q2": {
-            "question": "What markets do you cover?",
-            "answer": "We cover major US stocks (NYSE, NASDAQ) and popular cryptocurrencies (BTC, ETH, and more). Pro users get expanded coverage across more assets."
+            "question": "Do I need to install another app?",
+            "answer": "No. That's part of the point. SCT works through Telegram, so there's no separate dashboard you need to constantly check just to stay informed."
           },
           "q3": {
-            "question": "How often do I receive alerts?",
-            "answer": "Alert frequency depends on market conditions. We only send alerts when there's something meaningful—not constant notifications. You can also customize your alert preferences."
+            "question": "What assets can I track?",
+            "answer": "SCT supports stocks and crypto. The product is designed around the watchlist you set up."
+          },
+          "q4": {
+            "question": "Does SCT send alerts all day?",
+            "answer": "Not in the usual noisy way. The goal is not to flood you with notifications every time a number twitches. SCT is designed to send useful briefings and context when it actually has something worth saying."
           }
         }
       },
@@ -845,16 +857,16 @@
         "title": "Account",
         "questions": {
           "q1": {
-            "question": "How do I upgrade to Pro?",
-            "answer": "Message the bot with /upgrade and follow the payment link. Once payment is confirmed, your Pro features activate immediately."
+            "question": "How long does setup take?",
+            "answer": "Usually about a minute. Sign up, link Telegram, add your tickers, and you're ready to receive your first briefing."
           },
           "q2": {
-            "question": "How do I change my settings?",
-            "answer": "Use the /settings command in the Telegram bot to customize your preferences, including alert types, asset coverage, and notification frequency."
+            "question": "Can I change my watchlist later?",
+            "answer": "Yes. Your watchlist is meant to be flexible. You can update the names you track as your interests change."
           },
           "q3": {
-            "question": "Can I use the service on multiple devices?",
-            "answer": "Yes! Since everything runs through Telegram, you can access the service on any device where you have Telegram installed—phone, tablet, or desktop."
+            "question": "Can I ask follow-up questions?",
+            "answer": "Yes. One of the advantages of SCT is that you can ask follow-up questions right inside Telegram instead of switching to another tool."
           }
         }
       },
@@ -862,20 +874,12 @@
         "title": "Affiliate Program",
         "questions": {
           "q1": {
-            "question": "What is the affiliate program?",
-            "answer": "Our affiliate program lets verified users earn rewards by referring friends. Join the program to get a unique referral code, then share it with others."
+            "question": "Do you have an affiliate program?",
+            "answer": "Yes. If you want to refer users to SCT, check the affiliate page for the latest details."
           },
           "q2": {
-            "question": "How does the $5 referral discount work?",
-            "answer": "New users who enter a valid referral code before subscribing to a monthly plan get $5 off their first month. The discount only applies to first-time subscribers who have never had a subscription before."
-          },
-          "q3": {
-            "question": "Can I use my own referral code?",
-            "answer": "No, self-referral is not allowed. The system will detect and reject attempts to use your own referral code."
-          },
-          "q4": {
-            "question": "How do I join the affiliate program?",
-            "answer": "Link your Telegram account and verify your phone number, then visit the Affiliate page or your Dashboard to join and get your unique code."
+            "question": "How does the referral discount work?",
+            "answer": "If you have a valid referral code, enter it before subscribing to get a discount on your first month."
           }
         }
       }

@@ -41,19 +41,19 @@ export default async function FaqPage({ params }: Props) {
   const t = await getTranslations({ locale, namespace: "faqPage" });
 
   // Build FAQ schema dynamically from translations
-  const faqCategories = ["general", "pricing", "technical", "account"] as const;
+  const faqCategories = ["general", "pricing", "technical", "account", "affiliate"] as const;
   const faqItems: { question: string; answer: string }[] = [];
 
-  // Collect all FAQ items for schema
+  const questionsCounts: Record<string, number> = {
+    general: 4,
+    pricing: 6,
+    technical: 4,
+    account: 3,
+    affiliate: 2,
+  };
+
   faqCategories.forEach((category) => {
-    const questionsCount =
-      category === "general"
-        ? 4
-        : category === "pricing"
-          ? 4
-          : category === "technical"
-            ? 3
-            : 3;
+    const questionsCount = questionsCounts[category];
 
     for (let i = 1; i <= questionsCount; i++) {
       faqItems.push({

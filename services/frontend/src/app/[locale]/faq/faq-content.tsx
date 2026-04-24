@@ -11,10 +11,10 @@ const TELEGRAM_BOT_URL =
 
 const faqCategories = [
   { key: "general", questionsCount: 4 },
-  { key: "pricing", questionsCount: 4 },
-  { key: "technical", questionsCount: 3 },
+  { key: "pricing", questionsCount: 6 },
+  { key: "technical", questionsCount: 4 },
   { key: "account", questionsCount: 3 },
-  { key: "affiliate", questionsCount: 4 },
+  { key: "affiliate", questionsCount: 2 },
 ] as const;
 
 type CategoryKey = (typeof faqCategories)[number]["key"];
