@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Check, X, Send, Filter, Zap, GraduationCap } from "lucide-react";
+import { Check, X, Send, Filter, BookOpen, MessageCircle } from "lucide-react";
 import { PricingSection } from "@/components/pricing";
 import type { StripePrices } from "@/lib/stripe/prices";
 
@@ -11,14 +11,13 @@ const TELEGRAM_BOT_URL =
 
 // Feature comparison data
 const comparisonFeatures = [
-  { key: "dailyAnalysis", free: "Limited", pro: "Unlimited" },
-  { key: "alertSpeed", free: "Delayed", pro: "End of day" },
-  { key: "stockCoverage", free: true, pro: true },
-  { key: "cryptoCoverage", free: false, pro: true },
-  { key: "signalConfidence", free: false, pro: true },
-  { key: "priorityProcessing", free: false, pro: true },
-  { key: "educationalInsights", free: true, pro: true },
-  { key: "telegramAccess", free: true, pro: true },
+  { key: "assetCoverage", free: "Stocks only", pro: "Stocks + crypto" },
+  { key: "briefingDepth", free: "Key highlights", pro: "Full context with reasoning" },
+  { key: "deliveryPriority", free: "Standard", pro: "Priority" },
+  { key: "signalLabels", free: false, pro: true },
+  { key: "telegramFollowUps", free: false, pro: true },
+  { key: "educationalContext", free: true, pro: true },
+  { key: "telegramDelivery", free: true, pro: true },
 ] as const;
 
 // Pricing FAQs
@@ -34,8 +33,8 @@ const pricingFaqs = [
 // Benefits data with icons
 const benefits = [
   { key: "reduceNoise", icon: Filter },
-  { key: "marketContext", icon: Zap },
-  { key: "learnFromAlerts", icon: GraduationCap },
+  { key: "marketContext", icon: BookOpen },
+  { key: "learnFromAlerts", icon: MessageCircle },
 ] as const;
 
 interface Props {

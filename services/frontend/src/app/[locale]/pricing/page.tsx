@@ -69,7 +69,7 @@ export default async function PricingPage({ params }: Props) {
         price: "0",
         priceCurrency: "USD",
         availability: "https://schema.org/InStock",
-        description: "Stock coverage with delayed alerts",
+        description: "Stock watchlist briefings via Telegram with educational context",
       },
       {
         "@type": "Offer",
@@ -79,7 +79,7 @@ export default async function PricingPage({ params }: Props) {
         priceValidUntil: "2026-12-31",
         availability: "https://schema.org/InStock",
         description:
-          "Full stocks and crypto coverage with priority processing and real-time alerts",
+          "Full stocks and crypto watchlist briefings with signal labels, priority delivery, and Telegram follow-ups",
       },
       {
         "@type": "Offer",
@@ -89,7 +89,7 @@ export default async function PricingPage({ params }: Props) {
         priceValidUntil: "2026-12-31",
         availability: "https://schema.org/InStock",
         description:
-          "Full stocks and crypto coverage with priority processing and real-time alerts - Annual billing",
+          "Full stocks and crypto watchlist briefings with signal labels, priority delivery, and Telegram follow-ups - Annual billing",
       },
     ],
   };
