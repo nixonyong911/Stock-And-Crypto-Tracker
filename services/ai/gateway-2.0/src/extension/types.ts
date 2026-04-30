@@ -61,6 +61,15 @@ export interface IChannelExtension {
     platformChatId: string;
   }): Promise<{ messageId?: string }>;
 
+  /** Send a photo (image buffer) to a chat on this channel */
+  sendPhoto?(params: {
+    platformChatId: string;
+    photo: Buffer;
+    caption?: string;
+    parseMode?: string;
+    replyMarkup?: unknown;
+  }): Promise<{ ok: boolean }>;
+
   /** Delete a message on this channel */
   deleteMessage?(params: {
     platformChatId: string;

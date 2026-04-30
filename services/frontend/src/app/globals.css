@@ -689,63 +689,97 @@
     letter-spacing: -0.015em; color: var(--ink); margin: 0;
   }
   .ana-head .date { font-family: var(--font-mono-stack); font-size: 11px; color: var(--ink-4); letter-spacing: .04em; }
-  .ana-line {
-    position: relative; padding: 18px 0; border-top: 1px solid var(--line);
-    display: grid; grid-template-columns: auto 1fr; gap: 14px;
+  .ana-ticker-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 12px;
   }
-  .ana-line:first-of-type { border-top: 0; padding-top: 4px; }
-  .ana-line:last-of-type { padding-bottom: 4px; }
   .ana-tk {
     font-family: var(--font-mono-stack); font-weight: 700; color: var(--ink);
     font-size: 13px; letter-spacing: 0;
     background: var(--bg-sunken); border: 1px solid var(--line);
-    padding: 4px 8px; border-radius: 6px;
-    height: fit-content; min-width: 56px; text-align: center;
+    padding: 4px 10px; border-radius: 6px;
   }
-  .ana-body { min-width: 0; }
+  .ana-price {
+    font-size: 22px; font-weight: 600; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .ana-ticker-row .delta {
+    font-family: var(--font-mono-stack); font-size: 14px; font-weight: 500;
+    color: var(--brand-ink);
+  }
+  .dark .ana-ticker-row .delta { color: var(--brand); }
+  .ana-sep { color: var(--ink-4); font-size: 13px; }
+  .ana-5d {
+    font-family: var(--font-mono-stack); font-size: 13px; color: var(--ink-3);
+  }
   .ana-signal {
     display: inline-flex; align-items: center; gap: 6px;
     font-family: var(--font-mono-stack); font-size: 10.5px; font-weight: 600;
     letter-spacing: .06em; text-transform: uppercase;
     color: var(--brand-ink);
-    padding: 3px 8px; border-radius: 5px;
-    background: var(--brand-soft);
-    margin-bottom: 8px;
+    margin-bottom: 16px;
   }
-  .dark .ana-signal { color: var(--brand); background: color-mix(in srgb, var(--brand) 16%, transparent); }
-  .ana-signal.neutral { color: var(--ink-2); background: var(--bg-sunken); border: 1px solid var(--line); }
-  .dark .ana-signal.neutral { color: var(--ink-2); background: color-mix(in srgb, #fff 4%, transparent); }
-  .ana-signal .d { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
-  .ana-text { font-size: 14px; line-height: 1.55; color: var(--ink); margin: 0; }
+  .dark .ana-signal { color: var(--brand); }
+  .ana-signal .d { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .ana-headline {
+    font-family: var(--font-display-stack); font-weight: 700;
+    font-size: 18px; letter-spacing: -0.015em;
+    color: var(--ink); margin: 0 0 12px; line-height: 1.35;
+  }
+  .ana-text { font-size: 14px; line-height: 1.55; color: var(--ink-2); margin: 0 0 20px; }
   .ana-text .hl { color: var(--ink); font-weight: 600; }
-  .ana-meta {
-    display: flex; gap: 14px; margin-top: 8px;
-    font-family: var(--font-mono-stack); font-size: 11px; color: var(--ink-4); letter-spacing: .01em;
+  .ana-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
   }
-  .ana-meta .delta { color: var(--brand-ink); font-weight: 600; }
-  .dark .ana-meta .delta { color: var(--brand); }
-  .ana-meta .delta.dn { color: #c44545; }
-  .dark .ana-meta .delta.dn { color: #ff8080; }
-  .ana-annot {
-    position: absolute;
-    font-family: var(--font-mono-stack); font-size: 10.5px; font-weight: 600;
-    letter-spacing: .08em; text-transform: uppercase;
-    color: var(--ink-3);
-    background: var(--bg); border: 1px solid var(--line-2);
-    padding: 4px 9px; border-radius: 999px;
-    white-space: nowrap; display: flex; align-items: center; gap: 8px;
+  .ana-grid-cell {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 14px 0;
   }
-  .ana-annot::before { content: ""; width: 14px; height: 1px; background: var(--line-2); }
-  .ana-annot.right { right: -14px; transform: translateX(100%); }
-  @media (max-width: 1200px) { .ana-annot { display: none; } }
-  .ana-footer {
-    margin-top: 20px; padding-top: 16px;
-    border-top: 1px dashed var(--line);
-    display: flex; justify-content: space-between; align-items: center;
-    font-family: var(--font-mono-stack); font-size: 11px; color: var(--ink-4); letter-spacing: .04em;
+  .ana-grid-cell:nth-child(odd) { padding-right: 20px; border-right: 1px solid var(--line); }
+  .ana-grid-cell:nth-child(even) { padding-left: 20px; }
+  .ana-grid-cell:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .ana-grid-label {
+    font-family: var(--font-mono-stack); font-size: 10px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--ink-4);
   }
-  .ana-reply { display: inline-flex; align-items: center; gap: 6px; color: var(--brand-ink); font-weight: 600; }
-  .dark .ana-reply { color: var(--brand); }
+  .ana-grid-value {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 14px; color: var(--ink); line-height: 1.4;
+  }
+  .ana-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--line); flex-shrink: 0;
+  }
+  .ana-dot.filled { background: var(--brand); }
+  .ana-reply-section {
+    display: flex; flex-direction: column; gap: 8px;
+    padding-top: 16px; margin-top: 0;
+  }
+  .ana-reply-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+  }
+  .ana-reply-icon {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: color-mix(in srgb, var(--brand) 12%, transparent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--brand-ink);
+  }
+  .dark .ana-reply-icon { color: var(--brand); }
+  .ana-reply-label {
+    font-family: var(--font-mono-stack); font-size: 10px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--ink-4);
+  }
+  .ana-reply-pill {
+    padding: 10px 14px;
+    background: var(--bg-sunken); border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 13px; color: var(--ink-2);
+  }
+  .dark .ana-reply-pill {
+    background: color-mix(in srgb, #fff 3%, transparent);
+    border-color: var(--line-2);
+  }
   .ana-legend { display: flex; flex-direction: column; gap: 0; list-style: none; padding: 0; margin: 0; position: sticky; top: 80px; }
   @media (max-width: 900px) { .ana-legend { position: static; } }
   .ana-legend li {

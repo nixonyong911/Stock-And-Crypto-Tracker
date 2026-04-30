@@ -1,4 +1,4 @@
-import { Bot, webhookCallback as _webhookCallback } from "grammy";
+import { Bot, InputFile, webhookCallback as _webhookCallback } from "grammy";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { IChannelExtension, GatewayAPI } from "../../extension/types.js";
 import { getTelegramConfig, type TelegramConfig } from "./config.js";
@@ -44,7 +44,7 @@ export function createTelegramExtension(): IChannelExtension {
     },
     capabilities: {
       chatTypes: ["direct"],
-      media: false,
+      media: true,
       streaming: false,
     },
 
@@ -198,6 +198,28 @@ export function createTelegramExtension(): IChannelExtension {
         api?.logger.error(
           { err, chatId: params.platformChatId },
           "Failed to send Telegram message"
+        );
+        return { ok: false };
+      }
+    },
+
+    async sendPhoto(params): Promise<{ ok: boolean }> {
+      if (!bot) return { ok: false };
+      try {
+        await bot.api.sendPhoto(
+          Number(params.platformChatId),
+          new InputFile(params.photo as Buffer),
+          {
+            caption: params.caption,
+            parse_mode: (params.parseMode as "Markdown" | "HTML") ?? undefined,
+            reply_markup: params.replyMarkup as undefined,
+          },
+        );
+        return { ok: true };
+      } catch (err) {
+        api?.logger.error(
+          { err, chatId: params.platformChatId },
+          "Failed to send Telegram photo",
         );
         return { ok: false };
       }
