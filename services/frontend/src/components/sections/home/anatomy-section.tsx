@@ -2,16 +2,6 @@ export function AnatomySection() {
   return (
     <section id="anatomy" className="sct-section">
       <div className="wrap">
-        <div className="section-head reveal">
-          <span className="eyebrow">Smart digest</span>
-          <h2>The brief, not the noise.</h2>
-          <p>
-            A structured read for every name on your watchlist — what&apos;s
-            happening, what to watch, and why it matters. Delivered in Telegram,
-            ready to act on.
-          </p>
-        </div>
-
         <div className="anatomy reveal">
           {/* Brief card */}
           <div className="anatomy-card">
@@ -139,26 +129,25 @@ export function AnatomySection() {
             </div>
           </div>
 
-          {/* Right-side explainer */}
+          {/* Right-side: title + subtitle + points */}
           <div className="ana-aside">
-            <h3 className="ana-aside-title">
-              Built to make the next move obvious.
-            </h3>
-            <p className="ana-aside-lead">
-              Every brief tells you the same three things — fast, in plain
-              English, before you open another tab.
+            <span className="eyebrow">Smart digest</span>
+            <h2 className="ana-aside-title">The brief, not the noise.</h2>
+            <p className="lead ana-aside-lead">
+              Built to make the next move obvious — with a clear stance, the
+              reason behind the move, and the one level to watch next.
             </p>
 
             <ul className="ana-points">
-              <AnatomyPoint title="Clear stance first.">
+              <AnatomyPoint num="01" title="Clear stance first.">
                 See whether SCT reads strength, weakness, or a wait-and-watch
                 setup.
               </AnatomyPoint>
-              <AnatomyPoint title="Reason, not just noise.">
+              <AnatomyPoint num="02" title="Reason, not just noise.">
                 Get the main driver behind the move without opening charts,
                 headlines, and five tabs.
               </AnatomyPoint>
-              <AnatomyPoint title="A level to watch next.">
+              <AnatomyPoint num="03" title="A level to watch next.">
                 Know what matters next so the brief feels actionable, not
                 random.
               </AnatomyPoint>
@@ -171,15 +160,17 @@ export function AnatomySection() {
 }
 
 function AnatomyPoint({
+  num,
   title,
   children,
 }: {
+  num: string;
   title: string;
   children: React.ReactNode;
 }) {
   return (
     <li className="ana-point">
-      <span className="ana-point-dot" aria-hidden="true" />
+      <span className="ana-point-num">{num}</span>
       <div>
         <h4>{title}</h4>
         <p>{children}</p>

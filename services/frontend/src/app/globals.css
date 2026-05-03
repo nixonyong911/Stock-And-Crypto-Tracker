@@ -657,25 +657,17 @@
   .quote-meta span { font-size: 12px; color: var(--ink-3); font-family: var(--font-mono-stack); letter-spacing: .02em; margin-top: 2px; }
 
   /* ── ANATOMY (Smart digest) ──────────────────────────────────────────── */
-  /* Scoped section-head: tighter rhythm, stronger breathing into the card */
-  #anatomy .section-head {
-    max-width: 620px;
-    gap: 10px;
-    margin-bottom: clamp(56px, 8vw, 96px);
-  }
-  #anatomy .section-head p { max-width: 52ch; }
-
   .anatomy {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
-    gap: clamp(40px, 5.5vw, 88px);
-    align-items: center;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: clamp(40px, 5.5vw, 80px);
+    align-items: start;
   }
   @media (max-width: 1024px) {
-    .anatomy { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr); gap: clamp(32px, 4vw, 56px); }
+    .anatomy { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(32px, 4vw, 56px); }
   }
   @media (max-width: 900px) {
-    .anatomy { grid-template-columns: 1fr; align-items: start; gap: 48px; }
+    .anatomy { grid-template-columns: 1fr; gap: 48px; }
   }
   .anatomy-card {
     background: var(--bg-raised);
@@ -857,42 +849,39 @@
     letter-spacing: .02em;
   }
 
-  /* Right-side aside — editorial support for the card, not a competing block */
+  /* Right-side aside — eyebrow + title + subtitle + points (proof-section pattern) */
   .ana-aside {
     display: flex; flex-direction: column;
-    gap: 10px;
-    padding: 4px 0;
-    max-width: 440px;
+    position: sticky; top: 100px;
+    padding: 8px 0;
   }
-  @media (max-width: 900px) { .ana-aside { max-width: none; } }
-  .ana-aside-title {
-    font-family: var(--font-display-stack); font-weight: 600;
-    font-size: clamp(20px, 1.8vw, 26px); letter-spacing: -0.018em;
-    color: var(--ink); margin: 0; line-height: 1.25; text-wrap: balance;
-  }
+  @media (max-width: 900px) { .ana-aside { position: static; } }
+  .ana-aside .eyebrow { margin-bottom: 20px; display: inline-flex; }
+  .ana-aside-title { margin: 0 0 16px; }
   .ana-aside-lead {
-    font-size: 14.5px; line-height: 1.6;
-    color: var(--ink-3); margin: 0 0 20px; max-width: 42ch;
+    font-size: clamp(17px, 1.6vw, 20px); line-height: 1.45;
+    color: var(--ink-3); margin: 0 0 32px; max-width: 52ch;
   }
   .ana-points {
-    display: flex; flex-direction: column; gap: 22px;
+    display: flex; flex-direction: column; gap: 8px;
     list-style: none; padding: 0; margin: 0;
   }
   .ana-point {
-    display: grid; grid-template-columns: 14px 1fr; gap: 14px; align-items: start;
+    display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: start;
+    padding: 18px 0; border-top: 1px solid var(--line);
   }
-  .ana-point-dot {
-    width: 7px; height: 7px; border-radius: 50%; background: var(--brand);
-    margin-top: 9px;
+  .ana-point:last-child { border-bottom: 1px solid var(--line); }
+  .ana-point-num {
+    font-family: var(--font-mono-stack); font-size: 11px; color: var(--ink-4);
+    letter-spacing: .06em; padding-top: 4px;
   }
   .ana-point h4 {
-    font-family: var(--font-display-stack); font-weight: 600;
-    font-size: 15.5px; letter-spacing: -0.01em;
-    color: var(--ink); margin: 0 0 4px; line-height: 1.35;
+    font-size: clamp(18px, 2vw, 22px); line-height: 1.25; letter-spacing: -0.015em;
+    color: var(--ink); margin: 0 0 4px;
   }
   .ana-point p {
-    font-size: 13.5px; color: var(--ink-3); line-height: 1.55; margin: 0;
-    max-width: 38ch;
+    font-size: 14.5px; color: var(--ink-3); line-height: 1.55; margin: 0;
+    max-width: 48ch;
   }
 
   /* ── HOW IT WORKS ────────────────────────────────────────────────────── */
