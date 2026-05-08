@@ -50,6 +50,9 @@ COPY --from=builder /app/package.json ./
 # Bake agent-context into the image (rebuild to update)
 COPY agent-context/ /app/agent-context/
 
+# Bake renderer assets (Inter fonts used by card-renderer.ts) into the image
+COPY assets/ /app/assets/
+
 # Bake generated tier-homes from builder stage (per-tier MCP configs)
 COPY --from=builder /app/tier-homes /app/tier-homes
 
