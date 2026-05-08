@@ -779,25 +779,11 @@
     white-space: nowrap;
   }
 
-  /* Meta grid (4 columns) */
-  .ana-meta-grid {
-    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0;
+  /* Single-line meta band (Confidence) */
+  .ana-meta-line {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 0;
     border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
-    margin-bottom: 0;
-  }
-  .ana-meta-cell {
-    display: flex; flex-direction: column; gap: 4px;
-    padding: 14px 14px 14px 0; min-width: 0;
-  }
-  .ana-meta-cell + .ana-meta-cell {
-    padding-left: 14px; border-left: 1px solid var(--line);
-  }
-  @media (max-width: 520px) {
-    .ana-meta-grid { grid-template-columns: repeat(2, 1fr); }
-    .ana-meta-cell + .ana-meta-cell { border-left: 0; padding-left: 0; }
-    .ana-meta-cell:nth-child(even) { padding-left: 14px; border-left: 1px solid var(--line); }
-    .ana-meta-cell:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   }
   .ana-meta-label {
     font-family: var(--font-mono-stack); font-size: 10px; font-weight: 700;
@@ -816,17 +802,6 @@
   .ana-bars span:nth-child(1) { height: 5px; }
   .ana-bars span:nth-child(2) { height: 8px; }
   .ana-bars span:nth-child(3) { height: 12px; }
-
-  /* Context tags */
-  .ana-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .ana-tag {
-    display: inline-block;
-    font-family: var(--font-mono-stack); font-size: 11px; font-weight: 500;
-    letter-spacing: .02em;
-    color: var(--ink-3);
-    background: var(--bg-sunken); border: 1px solid var(--line);
-    padding: 2px 8px; border-radius: 5px;
-  }
 
   /* Card footer */
   .ana-card-foot {

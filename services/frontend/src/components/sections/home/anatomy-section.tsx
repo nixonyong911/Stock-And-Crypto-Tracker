@@ -66,31 +66,17 @@ export function AnatomySection() {
               </p>
             </div>
 
-            {/* 4-column metadata */}
-            <div className="ana-meta-grid">
-              <div className="ana-meta-cell">
-                <span className="ana-meta-label">Confidence</span>
-                <span className="ana-meta-value">
-                  High
-                  <span className="ana-bars" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
+            {/* Confidence (single-line meta band) */}
+            <div className="ana-meta-line">
+              <span className="ana-meta-label">Confidence</span>
+              <span className="ana-meta-value">
+                High
+                <span className="ana-bars" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
                 </span>
-              </div>
-              <div className="ana-meta-cell">
-                <span className="ana-meta-label">Horizon</span>
-                <span className="ana-meta-value">Swing · 1–3w</span>
-              </div>
-              <div className="ana-meta-cell">
-                <span className="ana-meta-label">Bias</span>
-                <span className="ana-meta-value">Neutral-bull</span>
-              </div>
-              <div className="ana-meta-cell">
-                <span className="ana-meta-label">Key level</span>
-                <span className="ana-meta-value">256.8</span>
-              </div>
+              </span>
             </div>
 
             {/* Context */}
@@ -100,10 +86,6 @@ export function AnatomySection() {
                 Stronger services guidance at last week&apos;s analyst day;
                 mega-cap tech is catching a bid as rate-cut odds firm.
               </p>
-              <div className="ana-tags">
-                <span className="ana-tag">Earnings cadence</span>
-                <span className="ana-tag">Sector rotation</span>
-              </div>
             </div>
 
             {/* Footer */}
