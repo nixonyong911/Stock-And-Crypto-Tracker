@@ -132,35 +132,6 @@
     }
   },
   "smartDigest": {
-    "eyebrow": "See what a briefing actually looks like",
-    "headingPrefix": "Not a raw alert. A ",
-    "headingAccent": "Smart Digest",
-    "headingSuffix": ".",
-    "subheading": "Each update is written to be read in under a minute, with just enough context to keep you oriented.",
-    "tabs": {
-      "bullish": "Bullish example",
-      "bearish": "Risk warning",
-      "crypto": "Crypto example"
-    },
-    "anatomy": {
-      "heading": "What every briefing includes",
-      "items": {
-        "signal": "Outlook and confidence labels",
-        "happening": "What's happening in plain English",
-        "watch": "What to watch next (invalidation, levels, catalysts)",
-        "news": "Why the news or market context matters",
-        "actions": "Quick commands to view watchlist or pause alerts"
-      }
-    },
-    "bullets": {
-      "multiTimeframe": "Watchlist-first summary so you see your names—not the whole market firehose.",
-      "plainEnglish": "Curated context and narrative in plain English, alongside technical notes when they matter.",
-      "noSpam": "We only reach out when there's something worth your attention."
-    },
-    "tagline": "Add your tickers once. We handle the scanning and summarizing.",
-    "cta": "Start free in Telegram",
-    "ctaTelegram": "Open Telegram bot",
-    "learnMore": "Learn more",
     "messageLabels": {
       "whatsHappening": "What's happening:",
       "whatToWatch": "What to watch:",
@@ -170,18 +141,6 @@
       "disclaimer": "Educational market analysis, not financial advice.",
       "viewWatchlist": "View watchlist: /watchlist",
       "pauseAlerts": "Pause alerts: /alert off"
-    },
-    "mockMessage": {
-      "ticker": "META",
-      "outlook": "Bullish",
-      "horizon": "Swing (3-6 weeks)",
-      "confidence": "Medium-High",
-      "risk": "Medium",
-      "summary": "META is holding a post-earnings trend that has paced the Magnificent Seven over the past month.",
-      "whatsHappening": "Price has stair-stepped higher with pullbacks finding buyers near the rising short-term averages. Volume on up-days has outweighed down-days, and momentum remains constructive though extended versus the last minor reset.",
-      "whatToWatch": "Ad revenue and impression trends on the next read; tone on 2025 capex; regulatory headlines (privacy, antitrust). Technically, a weekly close below the last higher low would suggest this leg is exhausted.",
-      "newsFactor": "A stronger-than-expected quarter and a clearer story that AI and infrastructure spend is feeding ad relevance and engagement across Facebook, Instagram, Threads, and WhatsApp. Investors also favored Meta’s visible profit path versus heavier capex debates elsewhere in the mega-cap group.",
-      "timestamp": "8:05 AM"
     }
   },
   "smartDigestPage": {

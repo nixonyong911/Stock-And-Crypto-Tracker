@@ -132,35 +132,6 @@
     }
   },
   "smartDigest": {
-    "eyebrow": "看看一份简报长什么样",
-    "headingPrefix": "不是粗糙的警报，是一份 ",
-    "headingAccent": "智能摘要",
-    "headingSuffix": "。",
-    "subheading": "每条更新写给你在一分钟内读完，给到刚好够用的背景，让你不掉线。",
-    "tabs": {
-      "bullish": "看涨示例",
-      "bearish": "风险提醒",
-      "crypto": "加密示例"
-    },
-    "anatomy": {
-      "heading": "每条简报包含什么",
-      "items": {
-        "signal": "方向与置信度标签",
-        "happening": "正在发生什么——通俗中文",
-        "watch": "接下来要留意什么（失效条件、关键位、催化剂）",
-        "news": "为什么新闻或市场背景很重要",
-        "actions": "一键查看自选股或暂停提醒的指令"
-      }
-    },
-    "bullets": {
-      "multiTimeframe": "以自选股为主，只看你在意的名字，而不是全市场信息流。",
-      "plainEnglish": "在重要时提供精选背景与叙事，并用通俗话配合技术要点。",
-      "noSpam": "只有当你真的值得知道时，我们才会发消息。"
-    },
-    "tagline": "自选股添加一次。扫描和归纳交给我们。",
-    "cta": "在 Telegram 免费开始",
-    "ctaTelegram": "打开 Telegram 机器人",
-    "learnMore": "了解更多",
     "messageLabels": {
       "whatsHappening": "正在发生：",
       "whatToWatch": "需要关注：",
@@ -170,18 +141,6 @@
       "disclaimer": "教育性市场分析，不构成投资建议。",
       "viewWatchlist": "查看自选股：/watchlist",
       "pauseAlerts": "暂停提醒：/alert off"
-    },
-    "mockMessage": {
-      "ticker": "META",
-      "outlook": "看涨",
-      "horizon": "波段（3-6周）",
-      "confidence": "中高",
-      "risk": "中等",
-      "summary": "META 正延续财报后的上行结构，近一个月在「科技七巨头」中走势领先。",
-      "whatsHappening": "价格呈阶梯抬高，回调往往在走高的短期均线附近获得承接；上涨日成交量整体大于下跌日，动能仍偏强，但相对上一轮小幅整理已略显延伸。",
-      "whatToWatch": "关注下一期广告收入与展示量、2025 年资本开支口风，以及监管与隐私、反垄断类消息。技术上若周线收在上一关键低点之下，可能意味本轮上攻阶段接近尾声。",
-      "newsFactor": "季报盈利好于预期，且市场更愿意相信人工智能与基础设施投入正在提升广告相关性与各应用互动（Facebook、Instagram、Threads、WhatsApp）。相较部分 capex 争议更大的超大市值标的，Meta 盈利路径更可见，因而更受资金偏好。",
-      "timestamp": "8:05"
     }
   },
   "smartDigestPage": {

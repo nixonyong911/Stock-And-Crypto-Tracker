@@ -3,7 +3,6 @@ export { ProblemSection } from "./problem";
 export { SolutionSection } from "./solution";
 export { HowItWorksSection } from "./how-it-works";
 export { FeaturesSection } from "./features";
-export { SmartDigestSection } from "./smart-digest";
 export { DifferentiationSection } from "./differentiation";
 export { WhoItsForSection } from "./who-its-for";
 export { TestimonialsSection } from "./testimonials";
