@@ -145,7 +145,7 @@
     "anatomy": {
       "heading": "What every briefing includes",
       "items": {
-        "signal": "Outlook, horizon, confidence, and risk labels",
+        "signal": "Outlook and confidence labels",
         "happening": "What's happening in plain English",
         "watch": "What to watch next (invalidation, levels, catalysts)",
         "news": "Why the news or market context matters",

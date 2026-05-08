@@ -56,20 +56,18 @@ export function DigestPreviewCard({
       )}
 
       <div className="space-y-3.5 p-5 font-mono text-sm leading-relaxed">
-        <p className="font-semibold text-foreground">
-          {t("ticker")} <span className="text-muted-foreground">|</span>{" "}
-          {t("outlook")}{" "}
-          <span className="text-muted-foreground">|</span> {t("horizon")}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {l("confidence")}{" "}
-          <span className="font-medium text-foreground">
-            {t("confidence")}
-          </span>
-          <span className="mx-1.5 text-muted-foreground/60">|</span>
-          {l("risk")}{" "}
-          <span className="font-medium text-foreground">{t("risk")}</span>
-        </p>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="font-semibold text-foreground">
+            {t("ticker")} <span className="text-muted-foreground">|</span>{" "}
+            {t("outlook")}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {l("confidence")}{" "}
+            <span className="font-medium text-foreground">
+              {t("confidence")}
+            </span>
+          </p>
+        </div>
 
         <p className="border-t border-border pt-3 text-[13px] text-foreground/90">
           {t("summary")}
@@ -87,13 +85,6 @@ export function DigestPreviewCard({
             {l("whatToWatch")}
           </span>{" "}
           <span className="text-muted-foreground">{t("whatToWatch")}</span>
-        </div>
-
-        <div>
-          <span className="font-semibold text-foreground">
-            {l("newsFactor")}
-          </span>{" "}
-          <span className="text-muted-foreground">{t("newsFactor")}</span>
         </div>
 
         <p className="border-t border-border pt-3 text-xs italic text-muted-foreground">

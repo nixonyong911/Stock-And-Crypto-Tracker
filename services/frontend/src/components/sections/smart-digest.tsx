@@ -8,7 +8,6 @@ import { GradientText } from "@/components/ui/gradient-text";
 import {
   CheckCircle2,
   MessageSquareText,
-  Newspaper,
   Send,
   ShieldAlert,
   Tag,
@@ -31,7 +30,6 @@ const anatomyItems = [
   { key: "signal", icon: Tag },
   { key: "happening", icon: MessageSquareText },
   { key: "watch", icon: Target },
-  { key: "news", icon: Newspaper },
   { key: "actions", icon: ShieldAlert },
 ] as const;
 
