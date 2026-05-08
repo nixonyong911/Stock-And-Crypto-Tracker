@@ -6,13 +6,11 @@ import type { ExtensionRegistry } from "../extension/registry.js";
 import {
   detectSignals,
   detectSignalsForTicker,
-  resolveNewsOneLiner,
   type TickerSignal,
   type MacroContext,
 } from "../core/analysis/recommendation-engine.js";
 import { broadcastDailyOverview } from "../core/analysis/daily-overview-broadcaster.js";
-import { generateExplanation } from "../core/analysis/explanation-generator.js";
-import { formatRecommendation } from "../core/analysis/digest-formatter.js";
+import { generateDigestBrief } from "../core/analysis/digest-brief-generator.js";
 import { secondsUntilMidnightUTC } from "../core/analysis/wishlist-calculator.js";
 import { processUnfilteredNews } from "../core/analysis/news-processor.js";
 import { curateMarketMemory } from "../core/analysis/memory-curator.js";
@@ -229,7 +227,11 @@ export function registerRecommendationRoutes(
       clerkUserId: string;
       symbol: string;
       assetType?: "stock" | "crypto";
-      /** If true (default), Telegram a short note when there are no technical signals */
+      /**
+       * Reserved flag for future card-renderer wiring. Currently ignored —
+       * the endpoint never sends Telegram messages itself; it generates the
+       * `DigestBrief` and returns it in the response.
+       */
       notifyOnNoSignals?: boolean;
     };
   }>(
@@ -248,7 +250,6 @@ export function registerRecommendationRoutes(
       const rawSym = request.body?.symbol?.trim();
       const symbol = rawSym ? rawSym.toUpperCase() : "";
       const assetType = request.body?.assetType === "crypto" ? "crypto" : "stock";
-      const notifyOnNoSignals = request.body?.notifyOnNoSignals !== false;
 
       if (!clerkUserId || !symbol) {
         return reply.status(400).send({ error: "clerkUserId and symbol required" });
@@ -277,12 +278,6 @@ export function registerRecommendationRoutes(
           });
         }
 
-        const platformUserId = rows[0]!.platform_user_id;
-        const telegram = extensions.get("telegram");
-        if (!telegram) {
-          return reply.status(503).send({ error: "Telegram extension not configured" });
-        }
-
         const { signals, macroContext, newsOneLinerMap } = await detectSignalsForTicker(
           db,
           symbol,
@@ -290,42 +285,22 @@ export function registerRecommendationRoutes(
         );
 
         if (signals.length === 0) {
-          if (notifyOnNoSignals) {
-            await telegram.sendText({
-              platformChatId: platformUserId,
-              text:
-                `*Manual pipeline test*\nNo digest-worthy technical signals for **${symbol}** right now (entry zone / patterns / etc.).\n` +
-                `Run \`/internal/process-news\` then retry after memory updates.`,
-              parseMode: "Markdown",
-            });
-          }
           return reply.send({
             ok: true,
-            sent: notifyOnNoSignals,
+            generated: false,
             reason: "no_signals_for_symbol",
             symbol,
             assetType,
           });
         }
 
-        const explanation = await generateExplanation(signals, app.log, redis, macroContext);
-        const primary = signals[0]!;
-        if (primary.type !== "news_sentiment" && newsOneLinerMap) {
-          const oneLiner = resolveNewsOneLiner(symbol, newsOneLinerMap);
-          if (oneLiner) explanation.newsOneLiner = oneLiner;
-        }
-
-        const message = formatRecommendation(
-          primary.symbol,
-          primary.headline,
-          explanation,
-        );
-
-        await telegram.sendText({
-          platformChatId: platformUserId,
-          text: message,
-          parseMode: "Markdown",
+        const brief = generateDigestBrief({
+          signals,
+          symbol,
+          macroContext,
+          newsOneLinerMap,
         });
+        const primary = signals[0]!;
 
         await db
           .query(
@@ -338,7 +313,7 @@ export function registerRecommendationRoutes(
               primary.type,
               primary.priority,
               primary.headline,
-              message,
+              JSON.stringify(brief),
               primary.timeframeAlignment,
             ],
           )
@@ -346,10 +321,11 @@ export function registerRecommendationRoutes(
 
         return reply.send({
           ok: true,
-          sent: true,
+          generated: true,
           symbol: primary.symbol,
           signalType: primary.type,
           headline: primary.headline,
+          brief,
         });
       } catch (err) {
         app.log.error({ err }, "Error in force-send-digest");
@@ -388,6 +364,10 @@ async function fanOutToWatchers(
   macroContext: MacroContext,
   newsOneLinerMap?: Map<string, string>,
 ): Promise<number> {
+  // `extensions` is no longer used to deliver text; reserved for future
+  // card-renderer wiring. Reference it explicitly to keep the signature stable.
+  void extensions;
+
   const watchers = await db.query<{
     clerk_user_id: string;
     platform_user_id: string;
@@ -404,24 +384,16 @@ async function fanOutToWatchers(
 
   if (watchers.rows.length === 0) return 0;
 
-  const telegram = extensions.get("telegram");
-  if (!telegram) return 0;
-
-  const explanation = await generateExplanation(signals, log, redis, macroContext);
+  const brief = generateDigestBrief({
+    signals,
+    symbol,
+    macroContext,
+    newsOneLinerMap,
+  });
+  const briefJson = JSON.stringify(brief);
   const primary = signals[0]!;
 
-  if (primary.type !== "news_sentiment" && newsOneLinerMap) {
-    const oneLiner = resolveNewsOneLiner(symbol, newsOneLinerMap);
-    if (oneLiner) explanation.newsOneLiner = oneLiner;
-  }
-
-  const message = formatRecommendation(
-    primary.symbol,
-    primary.headline,
-    explanation,
-  );
-
-  let sent = 0;
+  let recorded = 0;
   const ttl = secondsUntilMidnightUTC();
 
   for (const watcher of watchers.rows) {
@@ -438,12 +410,9 @@ async function fanOutToWatchers(
       );
       if (prefResult.rows[0]?.is_enabled === false) continue;
 
-      await telegram.sendText({
-        platformChatId: watcher.platform_user_id,
-        text: message,
-        parseMode: "Markdown",
-      });
-
+      // No text delivery during this rollout — the card renderer will be
+      // wired in a follow-up plan. Per-user dedup/cap accounting still
+      // applies so the existing throttling behaviour is preserved.
       await redis.incr(capKey);
       const ttlExists = await redis.ttl(capKey);
       if (ttlExists < 0) await redis.expire(capKey, ttl);
@@ -459,22 +428,22 @@ async function fanOutToWatchers(
             primary.type,
             primary.priority,
             primary.headline,
-            message,
+            briefJson,
             primary.timeframeAlignment,
           ],
         )
         .catch((err) => log.error({ err }, "Failed to log recommendation"));
 
-      sent++;
+      recorded++;
     } catch (err) {
       log.error(
         { err, clerkUserId: watcher.clerk_user_id, symbol },
-        "Failed to send recommendation",
+        "Failed to record digest brief",
       );
     }
   }
 
-  return sent;
+  return recorded;
 }
 
 function buildTelegramNotify(

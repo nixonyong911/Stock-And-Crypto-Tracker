@@ -16,6 +16,7 @@ export interface TickerSignal {
   headline: string;
   rawData: {
     close: number;
+    latestOpen?: number;
     daySignal: string;
     swingSignal: string;
     longTermSignal: string;
@@ -50,6 +51,7 @@ export interface PriceTargetRow {
   trader_type: string;
   analysis_date: string;
   latest_close: string;
+  latest_open: string | null;
   entry_price_low: string | null;
   entry_price_high: string | null;
   target_price: string | null;
@@ -218,7 +220,7 @@ async function fetchPriceTargets(
 
   const { rows } = await db.query<PriceTargetRow>(
     `SELECT ticker_symbol, asset_type, trader_type, analysis_date::text,
-            latest_close::text,
+            latest_close::text, latest_open::text,
             entry_price_low::text, entry_price_high::text,
             target_price::text, stop_loss::text,
             signal_summary, confidence::text, metadata
@@ -475,6 +477,7 @@ export interface TickerCtx {
   symbol: string;
   assetType: "stock" | "crypto";
   close: number;
+  latestOpen?: number;
   daySignal: SignalDir;
   swingSignal: SignalDir;
   longTermSignal: SignalDir;
@@ -530,6 +533,7 @@ export function buildContexts(
 
     const close = toNum(primary.latest_close);
     if (close == null) continue;
+    const latestOpen = toNum(primary.latest_open);
 
     const alignment = computeAlignment(daySignal, swingSignal, longTermSignal);
 
@@ -551,6 +555,7 @@ export function buildContexts(
       symbol,
       assetType,
       close,
+      latestOpen,
       daySignal,
       swingSignal,
       longTermSignal,
@@ -584,6 +589,8 @@ function makeRawData(ctx: TickerCtx): TickerSignal["rawData"] {
     swingSignal: ctx.swingSignal,
     longTermSignal: ctx.longTermSignal,
   };
+
+  if (ctx.latestOpen != null) raw.latestOpen = ctx.latestOpen;
 
   if (ctx.swing) {
     raw.entryLow = toNum(ctx.swing.entry_price_low);

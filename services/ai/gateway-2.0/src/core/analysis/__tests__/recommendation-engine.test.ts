@@ -20,6 +20,7 @@ function makePriceTargetRow(
     trader_type: "swing",
     analysis_date: "2026-03-10",
     latest_close: "150",
+    latest_open: "148",
     entry_price_low: "145",
     entry_price_high: "155",
     target_price: "180",

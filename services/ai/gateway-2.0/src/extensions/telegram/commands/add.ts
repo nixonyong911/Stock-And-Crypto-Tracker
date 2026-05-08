@@ -2,12 +2,6 @@ import { Composer } from "grammy";
 import type { TelegramBotContext } from "../bot.js";
 import { Tier } from "../../../extension/types.js";
 import {
-  detectSignalsForTicker,
-  resolveNewsOneLiner,
-} from "../../../core/analysis/recommendation-engine.js";
-import { generateExplanation } from "../../../core/analysis/explanation-generator.js";
-import { formatRecommendation } from "../../../core/analysis/digest-formatter.js";
-import {
   parseAddArgs,
   buildSuggestion,
   getDisplayName,
@@ -204,32 +198,6 @@ composer.command("add", async (ctx) => {
       );
     } else {
       await ctx.reply(`${displaySymbol} has been added to your watchlist.`);
-
-      try {
-        const signalAssetType = assetType === "crypto" ? "crypto" as const : "stock" as const;
-        const { signals, macroContext, newsOneLinerMap } = await detectSignalsForTicker(db, symbol, signalAssetType);
-        if (signals.length > 0) {
-          const explanation = await generateExplanation(
-            signals,
-            logger,
-            ctx.gatewayAPI.redis,
-            macroContext,
-          );
-          const primary = signals[0]!;
-          if (primary.type !== "news_sentiment") {
-            const oneLiner = resolveNewsOneLiner(symbol, newsOneLinerMap);
-            if (oneLiner) explanation.newsOneLiner = oneLiner;
-          }
-          const message = formatRecommendation(
-            primary.symbol,
-            primary.headline,
-            explanation,
-          );
-          await ctx.reply(message, { parse_mode: "Markdown" });
-        }
-      } catch (insightErr) {
-        logger.warn({ err: insightErr, symbol }, "Failed to send welcome insight");
-      }
     }
   } catch (err) {
     logger.error({ err, symbol, userId }, "Error in /add command");
