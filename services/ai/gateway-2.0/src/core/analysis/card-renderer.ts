@@ -1,8 +1,11 @@
 /**
- * Reusable card renderer for Telegram morning briefs / Smart Digest.
+ * Reusable card renderer for Telegram Smart Digest briefs.
  *
- * Uses Satori (JSX → SVG) + @resvg/resvg-js (SVG → PNG) to produce
+ * Uses Satori (JSX-like → SVG) + @resvg/resvg-js (SVG → PNG) to produce
  * a self-contained PNG buffer from structured signal data.
+ *
+ * Visual reference: services/frontend/src/components/sections/home/anatomy-section.tsx
+ * (.ana-* classes in services/frontend/src/app/globals.css).
  *
  * Zero external API calls — everything runs locally in Node.js.
  */
@@ -15,19 +18,18 @@ import { fileURLToPath } from "node:url";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
+export type StatusTone = "watch" | "trigger" | "neutral";
+
 export interface CardData {
   ticker: string;
+  status: { label: string; tone: StatusTone };
   price: number;
   changePercent: number;
-  change5dPercent?: number;
-  signalLabel: string;
-  signalSentiment: "bullish" | "bearish" | "neutral";
-  headline: string;
-  narrative: string;
   confidence: "High" | "Medium" | "Low";
-  risk: string;
-  watchNext: string;
-  timestamp: Date;
+  updatedAt: Date;
+  whatHappening: string;
+  whatToWatch: { holdAbove: string; breakBelowTarget: string };
+  context: string;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────
@@ -36,19 +38,22 @@ const CARD_WIDTH = 600;
 
 const COLORS = {
   cardBg: "#FFFFFF",
-  headerBg: "#FAFAFA",
-  border: "#E5E5E5",
-  textPrimary: "#1A1A1A",
-  textSecondary: "#6B7280",
-  textMuted: "#9CA3AF",
-  bullish: "#16A34A",
-  bearish: "#DC2626",
-  neutral: "#D97706",
-  tickerBadgeBg: "#F3F4F6",
-  gridSep: "#E5E5E5",
+  border: "#E5E7EB",
+  lineSoft: "#EEF0F2",
+  ink: "#0E0E0C",
+  ink2: "#3F4147",
+  ink3: "#6B7280",
+  ink4: "#9AA0A6",
+  brand: "#16A34A",
+  brandTintBg: "#ECFDF5",
+  brandPillBg: "#DCFCE7",
+  watchYellow: "#EAB308",
+  watchYellowBg: "rgba(234,179,8,0.16)",
+  watchYellowBorder: "rgba(234,179,8,0.28)",
+  neutralBg: "#F3F4F6",
 };
 
-// ── Element helper (no JSX needed) ────────────────────────────────────
+// ── Element helper (avoids JSX dependency) ────────────────────────────
 
 type SatoriNode =
   | { type: string; props: Record<string, unknown>; key?: string | null }
@@ -69,7 +74,8 @@ function h(
     type,
     props: {
       ...(props ?? {}),
-      children: flatChildren.length === 1 ? flatChildren[0] : flatChildren.length === 0 ? undefined : flatChildren,
+      children:
+        flatChildren.length === 1 ? flatChildren[0] : flatChildren.length === 0 ? undefined : flatChildren,
     },
   };
 }
@@ -79,30 +85,30 @@ function h(
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FONTS_DIR = join(__dirname, "..", "..", "..", "assets", "fonts");
 
-let fontsLoaded: { name: string; data: ArrayBuffer; weight: 400 | 700 }[] | null = null;
+let fontsLoaded:
+  | { name: string; data: ArrayBuffer; weight: 400 | 700 }[]
+  | null = null;
 
 async function loadFonts() {
   if (fontsLoaded) return fontsLoaded;
-  const [regular, bold] = await Promise.all([
-    readFile(join(FONTS_DIR, "Inter-Regular.ttf")),
-    readFile(join(FONTS_DIR, "Inter-Bold.ttf")),
-  ]);
-  fontsLoaded = [
-    { name: "Inter", data: regular.buffer as ArrayBuffer, weight: 400 },
-    { name: "Inter", data: bold.buffer as ArrayBuffer, weight: 700 },
-  ];
-  return fontsLoaded;
+  try {
+    const [regular, bold] = await Promise.all([
+      readFile(join(FONTS_DIR, "Inter-Regular.ttf")),
+      readFile(join(FONTS_DIR, "Inter-Bold.ttf")),
+    ]);
+    fontsLoaded = [
+      { name: "Inter", data: regular.buffer as ArrayBuffer, weight: 400 },
+      { name: "Inter", data: bold.buffer as ArrayBuffer, weight: 700 },
+    ];
+    return fontsLoaded;
+  } catch (err) {
+    throw new Error(
+      `Failed to load Inter fonts from ${FONTS_DIR}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────
-
-function sentimentColor(s: CardData["signalSentiment"]): string {
-  return s === "bullish" ? COLORS.bullish : s === "bearish" ? COLORS.bearish : COLORS.neutral;
-}
-
-function changeColor(pct: number): string {
-  return pct >= 0 ? COLORS.bullish : COLORS.bearish;
-}
+// ── Formatting helpers ────────────────────────────────────────────────
 
 function fmtPrice(n: number): string {
   if (n >= 10000) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -111,278 +117,492 @@ function fmtPrice(n: number): string {
   return n.toPrecision(4);
 }
 
-function fmtChange(pct: number): string {
-  return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+function fmtChangePct(pct: number): string {
+  return `${Math.abs(pct).toFixed(2)}%`;
 }
 
-function confidenceDots(level: CardData["confidence"]): SatoriNode {
+function changeArrow(pct: number): string {
+  return pct >= 0 ? "\u25B2" : "\u25BC";
+}
+
+function changeColor(pct: number): string {
+  return pct >= 0 ? COLORS.brand : "#DC2626";
+}
+
+/** Produces "7:32 AM ET" from a Date (interpreted in America/New_York). */
+function formatUpdatedAt(d: Date): string {
+  try {
+    const t = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "America/New_York",
+      hour12: true,
+    });
+    return `${t} ET`;
+  } catch {
+    return d.toUTCString();
+  }
+}
+
+// ── Sub-components ────────────────────────────────────────────────────
+
+function watchPillColors(tone: StatusTone): { bg: string; border: string; dot: string } {
+  if (tone === "watch") {
+    return { bg: COLORS.watchYellowBg, border: COLORS.watchYellowBorder, dot: COLORS.watchYellow };
+  }
+  if (tone === "trigger") {
+    return { bg: COLORS.brandPillBg, border: "rgba(22,163,74,0.36)", dot: COLORS.brand };
+  }
+  return { bg: COLORS.neutralBg, border: COLORS.border, dot: COLORS.ink4 };
+}
+
+function statusPill(status: CardData["status"]): SatoriNode {
+  const c = watchPillColors(status.tone);
+  return h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "2px 10px 3px",
+        borderRadius: "999px",
+        backgroundColor: c.bg,
+        border: `1px solid ${c.border}`,
+        fontSize: "12px",
+        fontWeight: 500,
+        color: COLORS.ink2,
+        lineHeight: 1.5,
+      },
+    },
+    h("div", {
+      style: {
+        width: "6px",
+        height: "6px",
+        borderRadius: "50%",
+        backgroundColor: c.dot,
+      },
+    }),
+    status.label,
+  );
+}
+
+function confidenceBars(level: CardData["confidence"]): SatoriNode {
   const filled = level === "High" ? 3 : level === "Medium" ? 2 : 1;
-  const dots: SatoriNode[] = [];
+  const heights = [5, 8, 12];
+  const bars: SatoriNode[] = [];
   for (let i = 0; i < 3; i++) {
-    dots.push(
+    bars.push(
       h("div", {
         key: String(i),
         style: {
-          width: "8px",
-          height: "8px",
-          borderRadius: "50%",
-          backgroundColor: i < filled ? COLORS.bullish : COLORS.border,
-          marginRight: "3px",
+          width: "3px",
+          height: `${heights[i]}px`,
+          backgroundColor: i < filled ? COLORS.brand : COLORS.border,
+          borderRadius: "1px",
         },
       }),
     );
   }
-  return h("div", { style: { display: "flex", alignItems: "center" } }, ...dots);
-}
-
-function formatTimestamp(d: Date): string {
-  const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-  const day = days[d.getDay()]!;
-  const month = months[d.getMonth()]!;
-  const date = d.getDate();
-  return `${day} \u00B7 ${month} ${date}`;
-}
-
-/**
- * Parse **bold** markers into Satori text elements.
- * Returns a single wrapping div with display:flex + flexWrap:wrap.
- */
-function parseNarrative(text: string): SatoriNode {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  const children = parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return h("span", { key: `b${i}`, style: { fontWeight: 700, color: COLORS.textPrimary } }, part.slice(2, -2));
-    }
-    return part;
-  });
-  return h("span", { style: { display: "flex", flexWrap: "wrap" } }, ...children);
-}
-
-// ── Card builder ──────────────────────────────────────────────────────
-
-function buildCard(data: CardData): SatoriNode {
-  const color = sentimentColor(data.signalSentiment);
-
-  return h("div", {
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      width: `${CARD_WIDTH}px`,
-      backgroundColor: COLORS.cardBg,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: "16px",
-      overflow: "hidden",
-      fontFamily: "Inter",
+  return h(
+    "div",
+    {
+      style: { display: "flex", alignItems: "flex-end", gap: "2px", height: "12px" },
     },
-  },
-    // ── Header ──
-    h("div", {
+    ...bars,
+  );
+}
+
+function deltaPill(pct: number): SatoriNode {
+  const positive = pct >= 0;
+  return h(
+    "div",
+    {
       style: {
         display: "flex",
-        justifyContent: "space-between",
         alignItems: "center",
-        padding: "14px 24px",
-        backgroundColor: COLORS.headerBg,
-        borderBottom: `1px solid ${COLORS.border}`,
+        gap: "4px",
+        padding: "2px 8px",
+        borderRadius: "6px",
+        backgroundColor: positive ? COLORS.brandPillBg : "#FEE2E2",
+        fontSize: "12px",
+        fontWeight: 500,
+        color: changeColor(pct),
       },
     },
-      h("div", {
-        style: {
-          display: "flex",
-          alignItems: "center",
-          fontSize: "13px",
-          fontWeight: 700,
-          color: COLORS.textPrimary,
-        },
-      },
-        h("div", {
-          style: {
-            width: "4px",
-            height: "20px",
-            backgroundColor: color,
-            borderRadius: "2px",
-            marginRight: "10px",
-          },
-        }),
-        `Morning brief \u00B7 ${data.ticker}`,
-      ),
-      h("span", {
-        style: {
-          fontSize: "11px",
-          color: COLORS.textMuted,
-          letterSpacing: "0.5px",
-        },
-      }, formatTimestamp(data.timestamp)),
-    ),
+    changeArrow(pct),
+    fmtChangePct(pct),
+  );
+}
 
-    // ── Body ──
-    h("div", {
+function levelChip(value: string): SatoriNode {
+  return h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        backgroundColor: COLORS.cardBg,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: "5px",
+        padding: "1px 7px",
+        margin: "0 4px",
+        fontSize: "13px",
+        color: COLORS.ink,
+        letterSpacing: "0.02em",
+        whiteSpace: "nowrap",
+      },
+    },
+    value,
+  );
+}
+
+function clockIcon(): SatoriNode {
+  return h(
+    "svg",
+    {
+      width: 12,
+      height: 12,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: COLORS.brand,
+      strokeWidth: 2.5,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+    },
+    h("circle", { cx: 12, cy: 12, r: 10 }),
+    h("polyline", { points: "12 6 12 12 16 14" }),
+  );
+}
+
+function checkIcon(): SatoriNode {
+  return h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "20px",
+        height: "20px",
+        borderRadius: "50%",
+        backgroundColor: COLORS.brand,
+      },
+    },
+    h(
+      "svg",
+      {
+        width: 10,
+        height: 10,
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "#FFFFFF",
+        strokeWidth: 3.5,
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+      },
+      h("polyline", { points: "20 6 9 17 4 12" }),
+    ),
+  );
+}
+
+function sectionLabel(text: string, accent = false): SatoriNode {
+  return h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        fontSize: "10px",
+        fontWeight: 700,
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        color: accent ? COLORS.brand : COLORS.ink4,
+      },
+    },
+    accent ? clockIcon() : null,
+    text,
+  );
+}
+
+function paragraph(text: string, opts?: { color?: string }): SatoriNode {
+  return h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        fontSize: "14px",
+        lineHeight: 1.55,
+        color: opts?.color ?? COLORS.ink2,
+      },
+    },
+    text,
+  );
+}
+
+// ── Main builder ──────────────────────────────────────────────────────
+
+function buildCard(data: CardData): SatoriNode {
+  return h(
+    "div",
+    {
       style: {
         display: "flex",
         flexDirection: "column",
-        padding: "20px 24px",
+        width: `${CARD_WIDTH}px`,
+        backgroundColor: COLORS.cardBg,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: "16px",
+        padding: "28px 28px 22px",
+        fontFamily: "Inter",
+        color: COLORS.ink,
       },
     },
-      // Ticker + price
-      h("div", {
+
+    // ── Header row ──────────────────────────────────────────────
+    h(
+      "div",
+      {
         style: {
           display: "flex",
           alignItems: "center",
-          gap: "12px",
-          marginBottom: "12px",
+          justifyContent: "space-between",
+          gap: "16px",
+          marginBottom: "14px",
         },
       },
-        h("span", {
-          style: {
-            padding: "4px 10px",
-            backgroundColor: COLORS.tickerBadgeBg,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: "6px",
-            fontSize: "13px",
-            fontWeight: 700,
-            color: COLORS.textPrimary,
+      // Left: ticker + status pill
+      h(
+        "div",
+        {
+          style: { display: "flex", alignItems: "center", gap: "10px" },
+        },
+        h(
+          "div",
+          {
+            style: {
+              fontSize: "14px",
+              fontWeight: 700,
+              color: COLORS.ink,
+              letterSpacing: "0.04em",
+            },
           },
-        }, data.ticker),
-        h("span", {
-          style: { fontSize: "22px", fontWeight: 600, color: COLORS.textPrimary },
-        }, `$${fmtPrice(data.price)}`),
-        h("span", {
-          style: { fontSize: "14px", fontWeight: 500, color: changeColor(data.changePercent) },
-        }, fmtChange(data.changePercent)),
-        data.change5dPercent !== undefined
-          ? h("span", {
-              style: { fontSize: "13px", color: COLORS.textSecondary },
-            }, `\u00B7 5d ${fmtChange(data.change5dPercent)}`)
-          : null,
+          data.ticker,
+        ),
+        statusPill(data.status),
       ),
 
-      // Signal tag: "AAPL — MOMENTUM CONTINUATION"
-      h("div", {
-        style: {
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          marginBottom: "16px",
-        },
-      },
-        h("div", {
-          style: {
-            width: "8px",
-            height: "8px",
-            borderRadius: "50%",
-            backgroundColor: color,
-          },
-        }),
-        h("span", {
-          style: {
-            fontSize: "11px",
-            fontWeight: 700,
-            color: color,
-            letterSpacing: "1px",
-            textTransform: "uppercase" as const,
-          },
-        }, `${data.ticker} \u2014 ${data.signalLabel}`),
-      ),
-
-      // Headline
-      h("div", {
-        style: {
-          fontSize: "18px",
-          fontWeight: 700,
-          color: COLORS.textPrimary,
-          lineHeight: "1.35",
-          marginBottom: "12px",
-        },
-      }, data.headline),
-
-      // Narrative
-      h("div", {
-        style: {
-          display: "flex",
-          fontSize: "14px",
-          lineHeight: "1.55",
-          color: COLORS.textSecondary,
-          marginBottom: "20px",
-        },
-      }, parseNarrative(data.narrative)),
-    ),
-
-    // ── 2x2 Grid ──
-    h("div", {
-      style: {
-        display: "flex",
-        flexWrap: "wrap",
-        borderTop: `1px solid ${COLORS.gridSep}`,
-        borderBottom: `1px solid ${COLORS.gridSep}`,
-      },
-    },
-      ...[
-        { label: "SIGNAL", value: data.signalLabel.split(/\s*[\u00B7\u2014]\s*/).map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()).join(" ") },
-        { label: "CONFIDENCE", value: data.confidence, dots: true },
-        { label: "RISK", value: data.risk },
-        { label: "WATCH NEXT", value: data.watchNext },
-      ].map((cell, i) =>
-        h("div", {
-          key: String(i),
+      // Right: confidence + UPDATED chip
+      h(
+        "div",
+        {
           style: {
             display: "flex",
-            flexDirection: "column",
-            width: "50%",
-            padding: "14px 24px",
-            borderRight: i % 2 === 0 ? `1px solid ${COLORS.gridSep}` : "none",
-            borderBottom: i < 2 ? `1px solid ${COLORS.gridSep}` : "none",
+            alignItems: "center",
+            gap: "8px",
+            fontSize: "10.5px",
+            fontWeight: 500,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: COLORS.ink4,
           },
         },
-          h("span", {
-            style: {
-              fontSize: "10px",
-              fontWeight: 700,
-              color: COLORS.textMuted,
-              letterSpacing: "1px",
-              textTransform: "uppercase" as const,
-              marginBottom: "4px",
-            },
-          }, cell.label),
-          h("div", {
+        h(
+          "div",
+          {
             style: {
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              fontSize: "14px",
-              color: COLORS.textPrimary,
-              lineHeight: "1.4",
+              fontSize: "10px",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
             },
           },
-            cell.dots ? confidenceDots(data.confidence) : null,
-            cell.value,
+          "Confidence",
+          confidenceBars(data.confidence),
+          h(
+            "div",
+            {
+              style: {
+                fontSize: "11px",
+                fontWeight: 700,
+                color: COLORS.ink2,
+                letterSpacing: "0.08em",
+              },
+            },
+            data.confidence.toUpperCase(),
           ),
         ),
+        h("div", { style: { color: COLORS.ink4 } }, "\u00B7"),
+        h("div", null, `Updated ${formatUpdatedAt(data.updatedAt)}`),
       ),
     ),
 
+    // ── Price row ───────────────────────────────────────────────
+    h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          alignItems: "baseline",
+          gap: "14px",
+          marginBottom: "22px",
+        },
+      },
+      h(
+        "div",
+        {
+          style: {
+            fontSize: "44px",
+            fontWeight: 700,
+            color: COLORS.ink,
+            letterSpacing: "-0.02em",
+            lineHeight: 1,
+          },
+        },
+        `$${fmtPrice(data.price)}`,
+      ),
+      deltaPill(data.changePercent),
+      h(
+        "div",
+        {
+          style: {
+            fontSize: "10.5px",
+            fontWeight: 500,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: COLORS.ink4,
+          },
+        },
+        "Today",
+      ),
+    ),
+
+    // ── What's happening ────────────────────────────────────────
+    h(
+      "div",
+      {
+        style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "18px" },
+      },
+      sectionLabel("What's happening"),
+      paragraph(data.whatHappening),
+    ),
+
+    // ── What to watch (accent panel) ────────────────────────────
+    h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          padding: "12px 14px",
+          backgroundColor: COLORS.brandTintBg,
+          borderRadius: "10px",
+          borderLeft: `3px solid ${COLORS.brand}`,
+          marginBottom: "18px",
+        },
+      },
+      sectionLabel("What to watch", true),
+      h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "baseline",
+            fontSize: "14px",
+            lineHeight: 1.7,
+            color: COLORS.ink2,
+          },
+        },
+        "Hold above ",
+        levelChip(data.whatToWatch.holdAbove),
+        " keeps the setup constructive. A daily close below opens room toward ",
+        levelChip(data.whatToWatch.breakBelowTarget),
+        ".",
+      ),
+    ),
+
+    // ── Context ─────────────────────────────────────────────────
+    h(
+      "div",
+      {
+        style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "18px" },
+      },
+      sectionLabel("Context"),
+      paragraph(data.context),
+    ),
+
+    // ── Footer ──────────────────────────────────────────────────
+    h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+          paddingTop: "16px",
+          borderTop: `1px solid ${COLORS.lineSoft}`,
+        },
+      },
+      h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontSize: "13px",
+            color: COLORS.ink2,
+          },
+        },
+        checkIcon(),
+        "Reply for more",
+      ),
+      h(
+        "div",
+        {
+          style: {
+            fontSize: "12px",
+            color: COLORS.ink4,
+            letterSpacing: "0.02em",
+          },
+        },
+        "/watchlist",
+      ),
+    ),
   );
 }
 
-// ── Public API ─────────────────────────────────────────────────────────
+// ── Public API ────────────────────────────────────────────────────────
 
 export async function renderCard(data: CardData): Promise<Buffer> {
-  const fonts = await loadFonts();
-  const element = buildCard(data);
+  try {
+    const fonts = await loadFonts();
+    const element = buildCard(data);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const svg = await satori(element as any, {
-    width: CARD_WIDTH,
-    fonts,
-  });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const svg = await satori(element as any, {
+      width: CARD_WIDTH,
+      fonts,
+    });
 
-  const resvg = new Resvg(svg, {
-    fitTo: { mode: "width", value: CARD_WIDTH * 2 },
-  });
-  const pngData = resvg.render();
-  return Buffer.from(pngData.asPng());
+    const resvg = new Resvg(svg, {
+      fitTo: { mode: "width", value: CARD_WIDTH * 2 },
+    });
+    return Buffer.from(resvg.render().asPng());
+  } catch (err) {
+    throw new Error(
+      `Failed to render card for ${data.ticker}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 export function buildCardCaption(data: CardData): string {
-  return `Morning brief \u00B7 ${data.ticker} \u00B7 $${fmtPrice(data.price)} (${fmtChange(data.changePercent)})`;
+  const arrow = changeArrow(data.changePercent);
+  return `${data.ticker} \u00B7 $${fmtPrice(data.price)} (${arrow} ${fmtChangePct(data.changePercent)}) \u2014 ${data.status.label}`;
 }
