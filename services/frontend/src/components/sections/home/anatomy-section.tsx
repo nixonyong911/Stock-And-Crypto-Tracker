@@ -15,7 +15,16 @@ export function AnatomySection() {
                 </span>
               </div>
               <div className="ana-card-head-right">
-                <span className="ana-status-dot" />
+                <span className="ana-conf">
+                  <span className="ana-conf-label">Confidence</span>
+                  <span className="ana-bars" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  <span className="ana-conf-value">High</span>
+                </span>
+                <span className="ana-conf-sep" aria-hidden="true">·</span>
                 <span className="ana-updated">Updated 7:32 AM ET</span>
               </div>
             </div>
@@ -64,19 +73,6 @@ export function AnatomySection() {
                 constructive. A daily close below opens room toward{" "}
                 <span className="ana-lvl">248</span>.
               </p>
-            </div>
-
-            {/* Confidence (single-line meta band) */}
-            <div className="ana-meta-line">
-              <span className="ana-meta-label">Confidence</span>
-              <span className="ana-meta-value">
-                High
-                <span className="ana-bars" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-              </span>
             </div>
 
             {/* Context */}

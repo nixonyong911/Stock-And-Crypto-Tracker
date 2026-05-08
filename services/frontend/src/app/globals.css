@@ -689,7 +689,8 @@
 
   /* Card header */
   .ana-card-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px 12px; flex-wrap: wrap;
     margin-bottom: 10px;
   }
   .ana-card-head-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -715,9 +716,11 @@
     letter-spacing: .08em; text-transform: uppercase; color: var(--ink-4);
     white-space: nowrap;
   }
-  .ana-status-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--brand);
+  .ana-conf {
+    display: inline-flex; align-items: center; gap: 6px;
   }
+  .ana-conf-value { color: var(--ink); }
+  .ana-conf-sep { color: var(--ink-4); opacity: .55; }
 
   /* Price row */
   .ana-price-row {
@@ -779,20 +782,6 @@
     white-space: nowrap;
   }
 
-  /* Single-line meta band (Confidence) */
-  .ana-meta-line {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 14px 0;
-    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
-  }
-  .ana-meta-label {
-    font-family: var(--font-mono-stack); font-size: 10px; font-weight: 700;
-    letter-spacing: .1em; text-transform: uppercase; color: var(--ink-4);
-  }
-  .ana-meta-value {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 14px; color: var(--ink); line-height: 1.35;
-  }
   .ana-bars {
     display: inline-flex; align-items: flex-end; gap: 2px; height: 12px;
   }
