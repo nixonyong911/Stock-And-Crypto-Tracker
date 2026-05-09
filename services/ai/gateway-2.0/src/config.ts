@@ -45,6 +45,14 @@ export interface GatewayConfig {
   readonly curatorMaxStoriesPerBatch: number;
   /** Whether CURSOR_API_KEY is set (for readiness / ops; value is never stored). */
   readonly cursorApiKeyConfigured: boolean;
+  /**
+   * Smart Digest brief composition mode.
+   *  - `false` (default): strict — `whatHappening` only quotes signal-derived facts.
+   *  - `true`: blended — may append a short DB-backed phrase from
+   *    `analysis_market_memory.summary` when impact/affected-tickers gates pass.
+   *  Sourced from env `SMART_DIGEST_BRIEF_BLEND`.
+   */
+  readonly smartDigestBriefBlend: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,5 +154,6 @@ export function loadConfig(): GatewayConfig {
       Math.max(3, envInt("CURATOR_MAX_STORIES_PER_BATCH", 10)),
     ),
     cursorApiKeyConfigured: Boolean(envOptional("CURSOR_API_KEY")),
+    smartDigestBriefBlend: envBool("SMART_DIGEST_BRIEF_BLEND", false),
   };
 }

@@ -1,5 +1,21 @@
 import type { Pool } from "pg";
 
+/**
+ * Per-ticker text loaded from `analysis_market_memory` for a single
+ * symbol. Owned by the engine because this is a DB-backed shape; consumed
+ * by `digest-brief-truth.ts` where it is treated as truth input.
+ */
+export interface TickerMemoryText {
+  newsOneLiner?: string;
+  summary?: string;
+  keyFacts?: string[];
+  marketImplications?: string;
+  impactLevel?: "critical" | "high" | "medium" | "low";
+  relevanceScore?: number;
+  sentimentScore?: number;
+  lastUpdated?: string;
+}
+
 export interface TickerSignal {
   symbol: string;
   assetType: "stock" | "crypto";
@@ -410,6 +426,144 @@ async function fetchNewsHeadlines(
   return { headlineMap, oneLinerMap };
 }
 
+// ── Per-ticker memory text ──────────────────────────────────────────
+
+interface MemoryTextRow {
+  affected_tickers: string[];
+  news_one_liner: string | null;
+  summary: string | null;
+  key_facts: string[] | null;
+  market_implications: string | null;
+  impact_level: string | null;
+  relevance_score: string | null;
+  sentiment_score: string | null;
+  last_updated: string | null;
+}
+
+const IMPACT_RANK: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+function rowImpactRank(row: MemoryTextRow): number {
+  const lvl = (row.impact_level ?? "").toLowerCase();
+  return IMPACT_RANK[lvl] ?? 9;
+}
+
+function rowRelevance(row: MemoryTextRow): number {
+  const n = toNum(row.relevance_score);
+  return n ?? 0;
+}
+
+function normalizeImpact(
+  v: string | null,
+): TickerMemoryText["impactLevel"] | undefined {
+  const lvl = (v ?? "").toLowerCase();
+  if (lvl === "critical" || lvl === "high" || lvl === "medium" || lvl === "low") {
+    return lvl;
+  }
+  return undefined;
+}
+
+function rowToMemoryText(row: MemoryTextRow): TickerMemoryText {
+  const out: TickerMemoryText = {};
+  if (row.news_one_liner && row.news_one_liner.trim().length > 0) {
+    out.newsOneLiner = row.news_one_liner.trim();
+  }
+  if (row.summary && row.summary.trim().length > 0) {
+    out.summary = row.summary.trim();
+  }
+  if (Array.isArray(row.key_facts) && row.key_facts.length > 0) {
+    out.keyFacts = row.key_facts;
+  }
+  if (row.market_implications && row.market_implications.trim().length > 0) {
+    out.marketImplications = row.market_implications.trim();
+  }
+  const impact = normalizeImpact(row.impact_level);
+  if (impact) out.impactLevel = impact;
+  const relevance = toNum(row.relevance_score);
+  if (relevance != null) out.relevanceScore = relevance;
+  const sentiment = toNum(row.sentiment_score);
+  if (sentiment != null) out.sentimentScore = sentiment;
+  if (row.last_updated) out.lastUpdated = row.last_updated;
+  return out;
+}
+
+/**
+ * Load per-ticker curated text from `analysis_market_memory` for the
+ * given digest symbols, keyed by the **digest symbol** the caller asked
+ * for (i.e. index aliases like `SPX500 -> SPY` are resolved here using
+ * `newsLookupCandidateSymbols`).
+ *
+ * For each digest symbol, returns the highest-impact-then-highest-relevance
+ * memory row whose `affected_tickers` overlaps the candidate set. Returns
+ * `undefined` for symbols with no qualifying row — never invents.
+ *
+ * Filters: `status IN ('active','fading')` to mirror the rest of the
+ * Smart Digest data flow.
+ */
+export async function fetchTickerMemoryText(
+  db: Pool,
+  symbols: string[],
+): Promise<Map<string, TickerMemoryText>> {
+  const out = new Map<string, TickerMemoryText>();
+  if (symbols.length === 0) return out;
+
+  // Build the union of candidate symbols (incl. crypto base + index aliases)
+  // so the SQL filter is a single `&&` against `affected_tickers`.
+  const candidatesUnion = new Set<string>();
+  const candidatesPerDigest = new Map<string, string[]>();
+  for (const s of symbols) {
+    const cands = newsLookupCandidateSymbols(s).map((c) => c.toUpperCase());
+    candidatesPerDigest.set(s.toUpperCase(), cands);
+    for (const c of cands) candidatesUnion.add(c);
+  }
+
+  const { rows } = await db.query<MemoryTextRow>(
+    `SELECT affected_tickers, news_one_liner, summary, key_facts,
+            market_implications, impact_level,
+            relevance_score::text, sentiment_score::text,
+            last_updated::text
+     FROM analysis_market_memory
+     WHERE status IN ('active', 'fading')
+       AND affected_tickers && $1::text[]`,
+    [Array.from(candidatesUnion)],
+  );
+
+  if (rows.length === 0) return out;
+
+  // For each digest symbol, pick the best-ranked row whose affected_tickers
+  // intersects the digest's candidate set. "Best" = lowest IMPACT_RANK, then
+  // highest relevance_score.
+  for (const [digestSym, cands] of candidatesPerDigest) {
+    const candSet = new Set(cands);
+    let bestRow: MemoryTextRow | undefined;
+    for (const row of rows) {
+      const tickers = row.affected_tickers ?? [];
+      const hit = tickers.some((t) => candSet.has((t ?? "").toUpperCase()));
+      if (!hit) continue;
+      if (!bestRow) {
+        bestRow = row;
+        continue;
+      }
+      const a = rowImpactRank(row);
+      const b = rowImpactRank(bestRow);
+      if (a < b) {
+        bestRow = row;
+      } else if (a === b && rowRelevance(row) > rowRelevance(bestRow)) {
+        bestRow = row;
+      }
+    }
+    if (bestRow) {
+      out.set(digestSym, rowToMemoryText(bestRow));
+    }
+  }
+
+  return out;
+}
+
 // ── Macro context ────────────────────────────────────────────────────
 
 export interface MacroContext {
@@ -489,6 +643,10 @@ export interface TickerCtx {
   patterns: Array<{ pattern: string; confidence: number; signal: string }>;
   meta?: PriceTargetMeta;
   confidence?: number;
+  /** ISO YYYY-MM-DD analysis_date from the swing/long-term price target row. */
+  analysisDate?: string;
+  /** Per-ticker memory text loaded by `fetchTickerMemoryText`. */
+  memoryText?: TickerMemoryText;
 }
 
 export function buildContexts(
@@ -551,6 +709,11 @@ export function buildContexts(
       | null
       | undefined;
 
+    // analysisDate sourced from whichever row drove `primary` so the
+    // brief footer can show "data as of <trading day>" rather than a
+    // wall-clock send time.
+    const analysisDate = primary.analysis_date;
+
     ctxs.push({
       symbol,
       assetType,
@@ -571,6 +734,7 @@ export function buildContexts(
       confidence: toNum(
         swingSlot?.today?.confidence ?? longSlot?.today?.confidence,
       ),
+      analysisDate: analysisDate && analysisDate.length > 0 ? analysisDate : undefined,
     });
   }
 
@@ -782,6 +946,10 @@ export interface DetectSignalsResult {
   signals: TickerSignal[];
   macroContext: MacroContext;
   newsOneLinerMap: Map<string, string>;
+  /** Per-digest-symbol curated memory text from `analysis_market_memory`. */
+  memoryTextMap: Map<string, TickerMemoryText>;
+  /** Per-symbol ISO YYYY-MM-DD analysis_date driving the price truth. */
+  analysisDateMap: Map<string, string>;
 }
 
 export async function detectSignals(
@@ -809,6 +977,19 @@ export async function detectSignals(
   } catch { /* non-critical: news table may not exist or be inaccessible */ }
 
   const contexts = buildContexts(assetType, targets, indicators, candles);
+
+  let memoryTextMap = new Map<string, TickerMemoryText>();
+  try {
+    memoryTextMap = await fetchTickerMemoryText(
+      db,
+      contexts.map((c) => c.symbol),
+    );
+    for (const c of contexts) {
+      const m = memoryTextMap.get(c.symbol.toUpperCase());
+      if (m) c.memoryText = m;
+    }
+  } catch { /* non-critical: missing memory rows degrade context to empty */ }
+
   const technicalSignals = contexts.flatMap(detectForTicker);
 
   const ctxBySymbol = new Map<string, TickerCtx>();
@@ -821,7 +1002,18 @@ export async function detectSignals(
     ctxBySymbol,
   );
 
-  return { signals: [...technicalSignals, ...newsSignals], macroContext, newsOneLinerMap: oneLinerMap };
+  const analysisDateMap = new Map<string, string>();
+  for (const c of contexts) {
+    if (c.analysisDate) analysisDateMap.set(c.symbol.toUpperCase(), c.analysisDate);
+  }
+
+  return {
+    signals: [...technicalSignals, ...newsSignals],
+    macroContext,
+    newsOneLinerMap: oneLinerMap,
+    memoryTextMap,
+    analysisDateMap,
+  };
 }
 
 export async function detectSignalsForTicker(
@@ -851,6 +1043,18 @@ export async function detectSignalsForTicker(
   } catch { /* non-critical */ }
 
   const contexts = buildContexts(assetType, targets, indicators, candles);
+
+  let memoryTextMap = new Map<string, TickerMemoryText>();
+  try {
+    memoryTextMap = await fetchTickerMemoryText(db, [symbol]);
+    for (const c of contexts) {
+      const m =
+        memoryTextMap.get(c.symbol.toUpperCase()) ??
+        memoryTextMap.get(symbol.toUpperCase());
+      if (m) c.memoryText = m;
+    }
+  } catch { /* non-critical */ }
+
   const technicalSignals = contexts.flatMap(detectForTicker);
 
   const ctxBySymbol = new Map<string, TickerCtx>();
@@ -863,5 +1067,16 @@ export async function detectSignalsForTicker(
     ctxBySymbol,
   );
 
-  return { signals: [...technicalSignals, ...newsSignals], macroContext, newsOneLinerMap: oneLinerMap };
+  const analysisDateMap = new Map<string, string>();
+  for (const c of contexts) {
+    if (c.analysisDate) analysisDateMap.set(c.symbol.toUpperCase(), c.analysisDate);
+  }
+
+  return {
+    signals: [...technicalSignals, ...newsSignals],
+    macroContext,
+    newsOneLinerMap: oneLinerMap,
+    memoryTextMap,
+    analysisDateMap,
+  };
 }

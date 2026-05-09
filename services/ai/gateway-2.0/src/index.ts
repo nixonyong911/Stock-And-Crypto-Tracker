@@ -102,6 +102,7 @@ async function main(): Promise<void> {
       redis: redis.redis,
       extensions: result.extensions,
       log: app.log,
+      briefMode: config.smartDigestBriefBlend ? "blended" : "strict",
     });
     closePipelineConsumer = consumer.close;
 

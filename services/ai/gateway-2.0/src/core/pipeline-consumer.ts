@@ -8,6 +8,7 @@ import {
   processRecommendations,
   type ProcessRecommendationsDeps,
 } from "./analysis/digest-pipeline.js";
+import type { BriefMode } from "./analysis/digest-brief-truth.js";
 
 const QUEUE_NAME = "pipeline-analysis-complete";
 const RECONNECT_DELAY_MS = 10_000;
@@ -17,6 +18,7 @@ export interface PipelineConsumerDeps {
   redis: Redis;
   extensions: ExtensionRegistry;
   log: FastifyBaseLogger;
+  briefMode?: BriefMode;
 }
 
 interface PipelineMessage {
@@ -26,7 +28,7 @@ interface PipelineMessage {
 export async function startPipelineConsumer(
   deps: PipelineConsumerDeps,
 ): Promise<{ close: () => Promise<void> }> {
-  const { db, redis, extensions, log } = deps;
+  const { db, redis, extensions, log, briefMode } = deps;
   const url =
     process.env["RABBITMQ_URL"] ??
     "amqp://stocktracker:guest@rabbitmq:5672";
@@ -35,7 +37,13 @@ export async function startPipelineConsumer(
   let ch: Channel | null = null;
   let stopping = false;
 
-  const recDeps: ProcessRecommendationsDeps = { db, redis, extensions, log };
+  const recDeps: ProcessRecommendationsDeps = {
+    db,
+    redis,
+    extensions,
+    log,
+    briefMode: briefMode ?? "strict",
+  };
 
   async function connect(): Promise<void> {
     if (stopping) return;

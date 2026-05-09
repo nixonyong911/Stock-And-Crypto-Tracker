@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
+import type { Pool, QueryResult, QueryResultRow } from "pg";
 import {
   computeAlignment,
   detectForTicker,
   buildContexts,
   detectNewsSentimentSignals,
+  fetchTickerMemoryText,
   type TickerCtx,
   type PriceTargetRow,
   type IndicatorRow,
@@ -584,5 +586,155 @@ describe("detectNewsSentimentSignals", () => {
 
     expect(signals).toHaveLength(1);
     expect(signals[0]!.priority).toBe("medium");
+  });
+});
+
+// ── fetchTickerMemoryText ───────────────────────────────────────────────
+
+interface MemoryRow {
+  affected_tickers: string[];
+  news_one_liner: string | null;
+  summary: string | null;
+  key_facts: string[] | null;
+  market_implications: string | null;
+  impact_level: string | null;
+  relevance_score: string | null;
+  sentiment_score: string | null;
+  last_updated: string | null;
+}
+
+function makeMemoryRow(overrides: Partial<MemoryRow> = {}): MemoryRow {
+  return {
+    affected_tickers: ["AAPL"],
+    news_one_liner: "Default one-liner about AAPL.",
+    summary: "Default summary about AAPL movement.",
+    key_facts: ["Fact A", "Fact B"],
+    market_implications: "Default implications.",
+    impact_level: "medium",
+    relevance_score: "0.7",
+    sentiment_score: "0.3",
+    last_updated: "2026-05-08T12:00:00Z",
+    ...overrides,
+  };
+}
+
+/**
+ * Minimal `Pool` mock that returns the provided rows for any query.
+ * The fetcher only fires one SQL statement so this is sufficient.
+ */
+function makeMockPool(rows: MemoryRow[]): Pool {
+  const pool = {
+    query: async <R extends QueryResultRow>(): Promise<QueryResult<R>> => ({
+      rows: rows as unknown as R[],
+      rowCount: rows.length,
+      command: "SELECT",
+      oid: 0,
+      fields: [],
+    }),
+  };
+  return pool as unknown as Pool;
+}
+
+describe("fetchTickerMemoryText", () => {
+  it("returns an empty map when no symbols are requested", async () => {
+    const pool = makeMockPool([]);
+    const out = await fetchTickerMemoryText(pool, []);
+    expect(out.size).toBe(0);
+  });
+
+  it("returns an empty map when no rows match", async () => {
+    const pool = makeMockPool([]);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.size).toBe(0);
+  });
+
+  it("returns the highest-impact-then-highest-relevance row for a ticker", async () => {
+    const rows = [
+      makeMemoryRow({
+        impact_level: "medium",
+        relevance_score: "0.9",
+        news_one_liner: "Medium-impact line",
+      }),
+      makeMemoryRow({
+        impact_level: "high",
+        relevance_score: "0.5",
+        news_one_liner: "High-impact line",
+      }),
+      makeMemoryRow({
+        impact_level: "high",
+        relevance_score: "0.85",
+        news_one_liner: "Best high-impact line",
+      }),
+      makeMemoryRow({
+        impact_level: "low",
+        relevance_score: "0.99",
+        news_one_liner: "Low-impact line",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    const apple = out.get("AAPL");
+    expect(apple).toBeDefined();
+    expect(apple!.impactLevel).toBe("high");
+    expect(apple!.relevanceScore).toBe(0.85);
+    expect(apple!.newsOneLiner).toBe("Best high-impact line");
+  });
+
+  it("respects `critical` as the top impact bucket", async () => {
+    const rows = [
+      makeMemoryRow({
+        impact_level: "critical",
+        relevance_score: "0.4",
+        news_one_liner: "Critical line",
+      }),
+      makeMemoryRow({
+        impact_level: "high",
+        relevance_score: "0.99",
+        news_one_liner: "Highest-relevance high",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")?.newsOneLiner).toBe("Critical line");
+  });
+
+  it("matches via crypto base alias (BTC/USD <-> BTC)", async () => {
+    const rows = [
+      makeMemoryRow({
+        affected_tickers: ["BTC"],
+        news_one_liner: "BTC-base hit",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["BTC/USD"]);
+    expect(out.get("BTC/USD")?.newsOneLiner).toBe("BTC-base hit");
+  });
+
+  it("matches via index ETF alias (SPX500 <-> SPY)", async () => {
+    const rows = [
+      makeMemoryRow({
+        affected_tickers: ["SPY"],
+        news_one_liner: "SPY-key memory",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["SPX500"]);
+    expect(out.get("SPX500")?.newsOneLiner).toBe("SPY-key memory");
+  });
+
+  it("normalizes impact_level capitalization and unknown values", async () => {
+    const rows = [
+      makeMemoryRow({ impact_level: "HIGH" }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")?.impactLevel).toBe("high");
+  });
+
+  it("omits whitespace-only news_one_liner", async () => {
+    const rows = [makeMemoryRow({ news_one_liner: "   " })];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")?.newsOneLiner).toBeUndefined();
   });
 });

@@ -2,16 +2,51 @@
  * Smart Digest brief generator — produces a compact, card-shaped object
  * (`DigestBrief`) that maps 1:1 onto `CardData` in `card-renderer.ts`.
  *
- * Template-first and fully deterministic. No LLM call. Each field has a
- * concrete derivation rule; missing inputs fall through to safe defaults.
+ * Deterministic, no LLM call. Internally delegates to the three-stage
+ * truth layer in `digest-brief-truth.ts`:
+ *
+ *   1. `gatherTruth(...)` — DB-backed facts
+ *   2. `deriveSignals(...)` — code-derived signals (stance / confidence /
+ *      level cascade / context resolution)
+ *   3. `composeBrief(...)` — interpretation seam (whatHappening + updatedAt)
+ *
+ * This file remains the public surface that the pipeline calls. Public
+ * helper exports (`deriveStance`, `deriveConfidence`, `buildWhatHappening`,
+ * `buildWhatToWatch`, `buildContext`) are preserved as thin wrappers over
+ * the truth layer so existing call sites and unit tests do not need to
+ * change.
+ *
+ * Behavior changes in this revision (intentional):
+ *
+ *   - `whatToWatch.holdAbove`: returns `—` when entry/period/EMA all
+ *     missing. The legacy `close` fallback is removed (price ≠ level).
+ *   - `whatToWatch.breakBelowTarget`: returns `—` when `stop_loss` is
+ *     missing. The legacy `*0.97` invented fallback is removed.
+ *   - `context`: returns `""` unless `analysis_market_memory.news_one_liner`
+ *     passes the impact/relevance gate or macro is strongly signed.
+ *   - `updatedAt`: defaults to `BriefTruth.dataAsOf` (driven by
+ *     `analysis_ticker_price_targets.analysis_date`); `args.now` still
+ *     overrides for test determinism.
  *
  * Replaces the old long-form `explanation-generator.ts` for the digest
  * pipeline. The legacy module remains on disk but is no longer imported
  * by the digest flow.
  */
 
-import type { TickerSignal, MacroContext } from "./recommendation-engine.js";
+import type {
+  TickerSignal,
+  MacroContext,
+  TickerMemoryText,
+} from "./recommendation-engine.js";
 import type { CardData, StatusTone } from "./card-renderer.js";
+import {
+  gatherTruth,
+  deriveSignals,
+  composeBrief,
+  type BriefTruth,
+  type BriefDerived,
+  type BriefMode,
+} from "./digest-brief-truth.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -61,193 +96,93 @@ function displaySymbol(symbol: string): string {
   return slash !== -1 ? symbol.slice(0, slash) : symbol;
 }
 
-function fmtPrice(n: number): string {
-  if (n >= 1) return n.toFixed(2);
-  if (n >= 0.01) return n.toFixed(4);
-  return n.toPrecision(4);
-}
+// ── Backward-compatible helper exports ────────────────────────────────
+//
+// These wrappers preserve the surface that `__tests__/digest-brief-generator.test.ts`
+// and other call sites already depend on. Each one routes through the
+// truth layer so behavior is identical to `generateDigestBrief`.
 
-function capitalize(s: string): string {
-  if (s.length === 0) return s;
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-// ── Stance ────────────────────────────────────────────────────────────
-
-/**
- * Map signal type + alignment + direction to a small, stable stance vocab.
- * Renderer tones are constrained to `watch | trigger | neutral`.
- */
+/** Map a single signal onto a stance label/tone (truth-layer routing). */
 export function deriveStance(s: TickerSignal): {
   label: DigestStanceLabel;
   tone: DigestStanceTone;
 } {
-  const alignment = s.timeframeAlignment;
-  const swing = s.rawData.swingSignal;
-
-  if (alignment === "conflict") {
-    return { label: "Caution", tone: "watch" };
-  }
-
-  switch (s.type) {
-    case "entry_zone":
-    case "notable_pattern":
-    case "news_sentiment":
-      return { label: "Watch zone", tone: "watch" };
-
-    case "stop_loss_warning":
-      return { label: "Caution", tone: "watch" };
-
-    case "target_reached":
-      return { label: "Constructive", tone: "trigger" };
-
-    case "signal_change": {
-      const next = s.rawData.currentSignal ?? swing;
-      if (next === "bullish") return { label: "Constructive", tone: "trigger" };
-      if (next === "bearish") return { label: "Caution", tone: "watch" };
-      return { label: "Neutral", tone: "neutral" };
-    }
-
-    case "momentum_shift": {
-      const hist = s.rawData.macdHistogram;
-      if (hist != null && hist > 0) return { label: "Constructive", tone: "trigger" };
-      if (hist != null && hist < 0) return { label: "Caution", tone: "watch" };
-      return { label: "Neutral", tone: "neutral" };
-    }
-
-    default:
-      return { label: "Neutral", tone: "neutral" };
-  }
+  const truth = gatherTruth({ signal: s });
+  const derived = deriveSignals(truth);
+  return derived.stance;
 }
 
-// ── Confidence ────────────────────────────────────────────────────────
-
-/** Three-bucket confidence (High / Medium / Low). */
+/** Map a single signal onto a coarse confidence bucket. */
 export function deriveConfidence(s: TickerSignal): DigestBrief["confidence"] {
-  if (s.type === "news_sentiment") {
-    const count = s.rawData.newsArticleCount ?? 0;
-    if (count >= 7) return "Medium";
-    return "Low";
-  }
-
-  if (s.timeframeAlignment === "conflict") return "Low";
-
-  const conf = s.rawData.confidence;
-  if (conf != null && conf < 0.4) return "Low";
-  if (conf != null && conf >= 0.7 && s.timeframeAlignment === "full") return "High";
-  return "Medium";
+  const truth = gatherTruth({ signal: s });
+  return deriveSignals(truth).confidence;
 }
-
-// ── What's happening ──────────────────────────────────────────────────
-
-/** One short, plain-English sentence keyed off the dominant signal. */
-export function buildWhatHappening(s: TickerSignal): string {
-  const sym = displaySymbol(s.symbol);
-  const d = s.rawData;
-
-  switch (s.type) {
-    case "entry_zone":
-      return `${sym} has pulled back into its prior breakout zone with buyers stepping in at recent lows.`;
-
-    case "target_reached":
-      return `${sym} is pushing into projected resistance as buyers stay engaged.`;
-
-    case "stop_loss_warning":
-      return `${sym} is testing the lower edge of its recent range.`;
-
-    case "signal_change": {
-      const prev = d.previousSignal ?? "neutral";
-      const curr = d.currentSignal ?? d.swingSignal;
-      return `Trend has flipped from ${prev} to ${curr} on the swing timeframe.`;
-    }
-
-    case "momentum_shift": {
-      const hist = d.macdHistogram;
-      const dir = hist != null && hist > 0 ? "positive" : "negative";
-      return `Short-term momentum has rolled ${dir}.`;
-    }
-
-    case "notable_pattern": {
-      const p = d.patterns?.[0];
-      if (!p) return `${sym} formed a notable candlestick pattern today.`;
-      const pretty = p.pattern.replace(/_/g, " ");
-      return `${capitalize(pretty)} pattern formed today, often a ${p.signal} reversal cue.`;
-    }
-
-    case "news_sentiment": {
-      const label = d.newsSentimentLabel ?? "mixed";
-      const count = d.newsArticleCount ?? 0;
-      return `Recent coverage has skewed ${label} across ${count} ${count === 1 ? "story" : "stories"}.`;
-    }
-
-    default:
-      return `${sym} is trading at $${fmtPrice(d.close)}.`;
-  }
-}
-
-// ── What to watch ─────────────────────────────────────────────────────
 
 /**
- * Derive two anchor levels for the renderer's "What to watch" block.
- * `holdAbove`         entryLow → periodLow → ema20 → close
- * `breakBelowTarget`  stopLoss → periodLow * 0.97 → entryLow * 0.97 → close * 0.97
+ * Backward-compatible `buildWhatHappening`. Defaults to strict mode (no
+ * memory text injection); pass `mode: 'blended'` to allow a memory phrase.
+ */
+export function buildWhatHappening(
+  s: TickerSignal,
+  opts?: { mode?: BriefMode; memoryText?: TickerMemoryText },
+): string {
+  const truth = gatherTruth({ signal: s, memoryText: opts?.memoryText });
+  const derived = deriveSignals(truth);
+  return composeBrief({ truth, derived, mode: opts?.mode ?? "strict" })
+    .whatHappening;
+}
+
+/**
+ * Backward-compatible `buildWhatToWatch`. Levels are sourced from DB only;
+ * missing truth -> em-dash (no invented `*0.97` fallback, no `close`
+ * fallback for `holdAbove`).
  */
 export function buildWhatToWatch(s: TickerSignal): {
   holdAbove: string;
   breakBelowTarget: string;
 } {
-  const d = s.rawData;
-  const close = d.close;
-
-  const holdRaw =
-    d.entryLow ?? d.periodLow ?? d.ema20 ?? close;
-
-  const breakRaw =
-    d.stopLoss ??
-    (d.periodLow != null ? d.periodLow * 0.97 : undefined) ??
-    (d.entryLow != null ? d.entryLow * 0.97 : undefined) ??
-    close * 0.97;
-
+  const truth = gatherTruth({ signal: s });
+  const derived = deriveSignals(truth);
   return {
-    holdAbove: fmtPrice(holdRaw),
-    breakBelowTarget: fmtPrice(breakRaw),
+    holdAbove: derived.holdAbove,
+    breakBelowTarget: derived.breakBelowTarget,
   };
 }
 
-// ── Context (optional) ────────────────────────────────────────────────
-
 /**
- * Optional one-liner. Returns `{ context: "", hasMaterialContext: false }`
- * when nothing material is available — `context: ""` is permitted by the
- * renderer.
- *
- * Priority: per-ticker news one-liner → strong macro theme → none.
+ * Backward-compatible `buildContext`. Now strict: only fires when memory
+ * passes the impact/relevance gate or macro is strongly signed.
  */
 export function buildContext(
   s: TickerSignal,
   macroContext: MacroContext | undefined,
   newsOneLiner: string | undefined,
+  memoryText?: TickerMemoryText,
 ): { context: string; hasMaterialContext: boolean } {
-  if (newsOneLiner && newsOneLiner.trim().length > 0) {
-    return { context: newsOneLiner.trim(), hasMaterialContext: true };
-  }
-
-  if (
-    macroContext &&
-    macroContext.dominantTheme &&
-    Math.abs(macroContext.overallSentiment) >= 0.2
-  ) {
-    const sentiment =
-      macroContext.overallSentiment >= 0.2 ? "supportive" : "cautious";
-    return {
-      context: `Broader ${macroContext.dominantTheme} backdrop is ${sentiment}.`,
-      hasMaterialContext: true,
+  // Backwards-compat: prior callers pass `newsOneLiner` as a bare string.
+  // Promote it into a synthetic `TickerMemoryText` only when the caller
+  // hasn't supplied a richer `memoryText` object — when they have, that
+  // object's gates are authoritative.
+  let synthetic: TickerMemoryText | undefined = memoryText;
+  if (!synthetic && newsOneLiner && newsOneLiner.trim().length > 0) {
+    synthetic = {
+      newsOneLiner: newsOneLiner.trim(),
+      // Promote to a passing impact/relevance so legacy callers that have
+      // already pre-vetted the one-liner don't get silently dropped.
+      impactLevel: "high",
+      relevanceScore: 1,
     };
   }
-
-  // Fallback when an `s` is provided but no material context is available.
-  void s;
-  return { context: "", hasMaterialContext: false };
+  const truth = gatherTruth({
+    signal: s,
+    macroContext,
+    memoryText: synthetic,
+  });
+  const derived = deriveSignals(truth);
+  return {
+    context: derived.context,
+    hasMaterialContext: derived.hasMaterialContext,
+  };
 }
 
 // ── Public entry point ────────────────────────────────────────────────
@@ -257,73 +192,111 @@ export interface GenerateDigestBriefArgs {
   symbol: string;
   macroContext?: MacroContext;
   newsOneLinerMap?: Map<string, string>;
+  /** Per-digest-symbol curated memory text from `fetchTickerMemoryText`. */
+  memoryTextMap?: Map<string, TickerMemoryText>;
+  /** Per-digest-symbol ISO YYYY-MM-DD analysis_date from price targets. */
+  analysisDateMap?: Map<string, string>;
+  /** Test/script override for `updatedAt`. */
   now?: Date;
+  /** strict (default) | blended. Falls back to `strict` if undefined. */
+  mode?: BriefMode;
 }
 
 /**
- * Build a `DigestBrief` for a single ticker. Always returns a valid object
- * — even when `signals` is empty (Neutral / safe defaults).
+ * Build a `DigestBrief` for a single ticker. Three-stage flow:
  *
- * Throws are not used; missing inputs collapse to safe defaults so the
- * digest pipeline cannot be derailed by sparse data.
+ *   gatherTruth -> deriveSignals -> composeBrief
+ *
+ * Always returns a valid object. Sparse data degrades to safe defaults
+ * (em-dash levels, empty context, neutral stance) — never invents.
  */
 export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief {
-  const { signals, symbol, macroContext, newsOneLinerMap, now } = args;
+  const { signals, symbol, macroContext, mode = "strict", now } = args;
   const ticker = displaySymbol(symbol);
-  const updatedAt = now ?? new Date();
 
   const primary = selectPrimary(signals);
-
   if (!primary) {
-    return {
-      ticker,
-      status: { label: "Neutral", tone: "neutral" },
-      price: 0,
-      changePercent: 0,
-      confidence: "Low",
-      updatedAt,
-      whatHappening: "No actionable technical signals right now.",
-      whatToWatch: { holdAbove: "—", breakBelowTarget: "—" },
-      context: "",
-      hasMaterialContext: false,
-    };
+    // Empty-signal path: keep the legacy "Neutral with safe defaults" output.
+    return neutralFallbackBrief({ ticker, now });
   }
 
-  const d = primary.rawData;
-  const close = d.close;
-  const open = d.latestOpen;
+  // Resolve per-symbol memory + analysisDate. We honor either the new
+  // typed `memoryTextMap` or the legacy `newsOneLinerMap` (string-only)
+  // so call sites can be migrated piecemeal.
+  const upper = symbol.toUpperCase();
+  let memoryText: TickerMemoryText | undefined =
+    args.memoryTextMap?.get(upper);
+  if (!memoryText) {
+    // Legacy path: only the per-ticker one-liner was available. Treat it
+    // as a passing memory row so existing callers continue to render the
+    // context line (test fixtures rely on this).
+    if (primary.type !== "news_sentiment") {
+      const legacyOneLiner = args.newsOneLinerMap?.get(upper);
+      if (legacyOneLiner && legacyOneLiner.trim().length > 0) {
+        memoryText = {
+          newsOneLiner: legacyOneLiner.trim(),
+          impactLevel: "high",
+          relevanceScore: 1,
+        };
+      }
+    }
+  }
 
-  // Sparse-data guard: if `close` is missing or non-positive, the signal
-  // arrived without real price/level numerics (legacy news stub, partial
-  // upstream data, etc.). Degrade gracefully to em-dash levels and zero
-  // price/delta rather than rendering misleading "0.000" formatted output.
-  const hasValidClose = Number.isFinite(close) && close > 0;
-  const changePercent =
-    hasValidClose && open != null && open > 0
-      ? ((close - open) / open) * 100
-      : 0;
+  // For news_sentiment signals the news content is already in the signal
+  // body, so we deliberately skip the per-ticker memoryText to avoid
+  // double-stating the same news in both `whatHappening` and `context`.
+  if (primary.type === "news_sentiment") {
+    memoryText = undefined;
+  }
 
-  const newsOneLiner =
-    primary.type === "news_sentiment"
-      ? undefined
-      : newsOneLinerMap?.get(symbol.toUpperCase());
+  const analysisDate = args.analysisDateMap?.get(upper);
 
-  const ctx = buildContext(primary, macroContext, newsOneLiner);
+  const truth: BriefTruth = gatherTruth({
+    signal: primary,
+    macroContext,
+    memoryText,
+    analysisDate,
+  });
+  const derived: BriefDerived = deriveSignals(truth);
+  const composed = composeBrief({ truth, derived, mode, now });
 
-  const whatToWatch = hasValidClose
-    ? buildWhatToWatch(primary)
-    : { holdAbove: "—", breakBelowTarget: "—" };
+  // Sparse-data guard: if the price is missing/non-positive, the upstream
+  // signal arrived without real numerics. The truth layer already returns
+  // em-dash for levels in that case; render `0` for price/changePercent
+  // so the renderer's number formatting does not surface "0.000".
+  const safePrice = typeof truth.price === "number" ? truth.price : 0;
 
   return {
     ticker,
-    status: deriveStance(primary),
-    price: hasValidClose ? close : 0,
-    changePercent,
-    confidence: deriveConfidence(primary),
-    updatedAt,
-    whatHappening: buildWhatHappening(primary),
-    whatToWatch,
-    context: ctx.context,
-    hasMaterialContext: ctx.hasMaterialContext,
+    status: derived.stance,
+    price: safePrice,
+    changePercent: derived.changePercent,
+    confidence: derived.confidence,
+    updatedAt: composed.updatedAt,
+    whatHappening: composed.whatHappening,
+    whatToWatch: {
+      holdAbove: derived.holdAbove,
+      breakBelowTarget: derived.breakBelowTarget,
+    },
+    context: derived.context,
+    hasMaterialContext: derived.hasMaterialContext,
+  };
+}
+
+function neutralFallbackBrief(args: {
+  ticker: string;
+  now?: Date;
+}): DigestBrief {
+  return {
+    ticker: args.ticker,
+    status: { label: "Neutral", tone: "neutral" },
+    price: 0,
+    changePercent: 0,
+    confidence: "Low",
+    updatedAt: args.now ?? new Date(),
+    whatHappening: "No actionable technical signals right now.",
+    whatToWatch: { holdAbove: "—", breakBelowTarget: "—" },
+    context: "",
+    hasMaterialContext: false,
   };
 }

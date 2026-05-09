@@ -281,7 +281,7 @@ describe("buildWhatToWatch", () => {
     expect(buildWhatToWatch(s).holdAbove).toBe("168.00");
   });
 
-  it("falls back to periodLow * 0.97 for breakBelowTarget when stopLoss missing", () => {
+  it("returns em-dash for breakBelowTarget when stopLoss missing (no *0.97 invention)", () => {
     const s = makeSignal({
       rawData: {
         close: 175,
@@ -291,10 +291,10 @@ describe("buildWhatToWatch", () => {
         periodLow: 168,
       },
     });
-    expect(buildWhatToWatch(s).breakBelowTarget).toBe((168 * 0.97).toFixed(2));
+    expect(buildWhatToWatch(s).breakBelowTarget).toBe("—");
   });
 
-  it("falls back to close when no levels are available", () => {
+  it("returns em-dash for both when no DB levels are available (no close fallback)", () => {
     const s = makeSignal({
       rawData: {
         close: 175,
@@ -304,8 +304,8 @@ describe("buildWhatToWatch", () => {
       },
     });
     const out = buildWhatToWatch(s);
-    expect(out.holdAbove).toBe("175.00");
-    expect(out.breakBelowTarget).toBe((175 * 0.97).toFixed(2));
+    expect(out.holdAbove).toBe("—");
+    expect(out.breakBelowTarget).toBe("—");
   });
 });
 
@@ -492,6 +492,162 @@ describe("generateDigestBrief", () => {
       expect(brief.price).toBe(175);
       expect(brief.whatToWatch.holdAbove).toBe("168.00");
       expect(brief.whatToWatch.breakBelowTarget).toBe("162.00");
+    });
+  });
+
+  describe("DB-truth-driven updatedAt", () => {
+    it("uses analysisDateMap value when supplied", () => {
+      const s = makeSignal();
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        analysisDateMap: new Map([["AAPL", "2026-05-08"]]),
+      });
+      expect(brief.updatedAt.toISOString().slice(0, 10)).toBe("2026-05-08");
+    });
+
+    it("now arg overrides analysisDateMap", () => {
+      const fixed = new Date("2026-01-01T00:00:00Z");
+      const s = makeSignal();
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        analysisDateMap: new Map([["AAPL", "2026-05-08"]]),
+        now: fixed,
+      });
+      expect(brief.updatedAt.toISOString()).toBe(fixed.toISOString());
+    });
+  });
+
+  describe("memoryTextMap and strict context gating", () => {
+    it("emits context when memoryTextMap row passes impact/relevance gate", () => {
+      const s = makeSignal({ type: "entry_zone" });
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        memoryTextMap: new Map([
+          [
+            "AAPL",
+            {
+              newsOneLiner: "Strong services guidance.",
+              impactLevel: "high",
+              relevanceScore: 0.8,
+            },
+          ],
+        ]),
+      });
+      expect(brief.context).toBe("Strong services guidance.");
+      expect(brief.hasMaterialContext).toBe(true);
+    });
+
+    it("omits context when memoryTextMap row has impactLevel='low'", () => {
+      const s = makeSignal({ type: "entry_zone" });
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        memoryTextMap: new Map([
+          [
+            "AAPL",
+            {
+              newsOneLiner: "Should be omitted",
+              impactLevel: "low",
+              relevanceScore: 0.95,
+            },
+          ],
+        ]),
+      });
+      expect(brief.context).toBe("");
+      expect(brief.hasMaterialContext).toBe(false);
+    });
+
+    it("ignores memory for news_sentiment signals (news already in whatHappening)", () => {
+      const s = makeSignal({
+        type: "news_sentiment",
+        rawData: {
+          close: 175,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+          newsArticleCount: 6,
+          newsSentimentLabel: "bullish",
+        },
+      });
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        memoryTextMap: new Map([
+          [
+            "AAPL",
+            {
+              newsOneLiner: "Should be ignored",
+              impactLevel: "high",
+              relevanceScore: 0.9,
+            },
+          ],
+        ]),
+      });
+      expect(brief.context).not.toBe("Should be ignored");
+    });
+  });
+
+  describe("strict vs blended whatHappening modes", () => {
+    it("strict (default) does not surface memory.summary in whatHappening", () => {
+      const s = makeSignal({ type: "entry_zone" });
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        memoryTextMap: new Map([
+          [
+            "AAPL",
+            {
+              summary: "Distinct memory phrase about Apple analyst day.",
+              impactLevel: "high",
+              relevanceScore: 0.8,
+            },
+          ],
+        ]),
+      });
+      expect(brief.whatHappening).not.toContain("analyst day");
+    });
+
+    it("blended appends memory.summary phrase when impact gate passes", () => {
+      const s = makeSignal({ type: "entry_zone" });
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        mode: "blended",
+        memoryTextMap: new Map([
+          [
+            "AAPL",
+            {
+              summary: "Distinct memory phrase about Apple analyst day.",
+              impactLevel: "high",
+              relevanceScore: 0.8,
+            },
+          ],
+        ]),
+      });
+      expect(brief.whatHappening).toContain("analyst day");
+    });
+
+    it("blended skips append when impact is medium (gate requires high+)", () => {
+      const s = makeSignal({ type: "entry_zone" });
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        mode: "blended",
+        memoryTextMap: new Map([
+          [
+            "AAPL",
+            {
+              summary: "Distinct memory phrase about Apple analyst day.",
+              impactLevel: "medium",
+              relevanceScore: 0.8,
+            },
+          ],
+        ]),
+      });
+      expect(brief.whatHappening).not.toContain("analyst day");
     });
   });
 });

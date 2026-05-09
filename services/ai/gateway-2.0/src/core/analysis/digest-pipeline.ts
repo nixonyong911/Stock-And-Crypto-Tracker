@@ -20,8 +20,10 @@ import {
   detectSignals,
   type TickerSignal,
   type MacroContext,
+  type TickerMemoryText,
 } from "./recommendation-engine.js";
 import { generateDigestBrief } from "./digest-brief-generator.js";
+import type { BriefMode } from "./digest-brief-truth.js";
 import { secondsUntilMidnightUTC } from "./wishlist-calculator.js";
 import {
   listDigestWatchersForSymbol,
@@ -40,6 +42,12 @@ export interface ProcessRecommendationsDeps {
   redis: Redis;
   extensions: ExtensionRegistry;
   log: FastifyBaseLogger;
+  /**
+   * Brief composition mode (`strict` default, `blended` allows DB-backed
+   * memory text to enrich `whatHappening`). Optional — falls back to
+   * `strict` when missing so the legacy callers do not break.
+   */
+  briefMode?: BriefMode;
 }
 
 // ── Entry point ───────────────────────────────────────────────────────
@@ -57,10 +65,13 @@ export async function processRecommendations(
   let totalSent = 0;
 
   for (const type of types) {
-    const { signals, macroContext, newsOneLinerMap } = await detectSignals(
-      db,
-      type,
-    );
+    const {
+      signals,
+      macroContext,
+      newsOneLinerMap,
+      memoryTextMap,
+      analysisDateMap,
+    } = await detectSignals(db, type);
     if (signals.length === 0) continue;
 
     log.info(
@@ -90,6 +101,8 @@ export async function processRecommendations(
         tickerSignals,
         macroContext,
         newsOneLinerMap,
+        memoryTextMap,
+        analysisDateMap,
       );
       totalSent += sent;
     }
@@ -146,6 +159,8 @@ async function fanOutToWatchers(
   signals: TickerSignal[],
   macroContext: MacroContext,
   newsOneLinerMap?: Map<string, string>,
+  memoryTextMap?: Map<string, TickerMemoryText>,
+  analysisDateMap?: Map<string, string>,
 ): Promise<number> {
   const { db, redis, extensions, log } = deps;
 
@@ -157,6 +172,9 @@ async function fanOutToWatchers(
     symbol,
     macroContext,
     newsOneLinerMap,
+    memoryTextMap,
+    analysisDateMap,
+    mode: deps.briefMode ?? "strict",
   });
   const rendered = await renderSmartDigestCard(brief, log);
   const primary = signals[0]!;

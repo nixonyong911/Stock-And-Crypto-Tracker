@@ -6,6 +6,10 @@ import type { ExtensionRegistry } from "../extension/registry.js";
 import { detectSignalsForTicker } from "../core/analysis/recommendation-engine.js";
 import { broadcastDailyOverview } from "../core/analysis/daily-overview-broadcaster.js";
 import { generateDigestBrief } from "../core/analysis/digest-brief-generator.js";
+import {
+  gatherTruth,
+  deriveSignals,
+} from "../core/analysis/digest-brief-truth.js";
 import { processUnfilteredNews } from "../core/analysis/news-processor.js";
 import { curateMarketMemory } from "../core/analysis/memory-curator.js";
 import { processRecommendations } from "../core/analysis/digest-pipeline.js";
@@ -48,7 +52,13 @@ export function registerRecommendationRoutes(
 
       try {
         const result = await processRecommendations(
-          { db, redis, extensions, log: app.log },
+          {
+            db,
+            redis,
+            extensions,
+            log: app.log,
+            briefMode: config.smartDigestBriefBlend ? "blended" : "strict",
+          },
           request.body?.assetType,
         );
         return reply.send({ ok: true, ...result });
@@ -168,6 +178,13 @@ export function registerRecommendationRoutes(
        * `{ ok: true, generated: false, reason: "no_signals_for_symbol" }`.
        */
       notifyOnNoSignals?: boolean;
+      /**
+       * When `true`, returns `{ ok, generated, brief, truth }` and skips
+       * `deliverSmartDigest` entirely — no Telegram send, no
+       * `user_recommendation_log` insert. Eligibility is still checked so
+       * the dry-run mirrors the real flow's gating.
+       */
+      dryRun?: boolean;
     };
   }>(
     "/internal/force-send-digest",
@@ -185,6 +202,8 @@ export function registerRecommendationRoutes(
       const rawSym = request.body?.symbol?.trim();
       const symbol = rawSym ? rawSym.toUpperCase() : "";
       const assetType = request.body?.assetType === "crypto" ? "crypto" : "stock";
+      const dryRun = request.body?.dryRun === true;
+      const briefMode = config.smartDigestBriefBlend ? "blended" : "strict";
 
       if (!clerkUserId || !symbol) {
         return reply.status(400).send({ error: "clerkUserId and symbol required" });
@@ -208,8 +227,13 @@ export function registerRecommendationRoutes(
           });
         }
 
-        const { signals, macroContext, newsOneLinerMap } =
-          await detectSignalsForTicker(db, symbol, assetType);
+        const {
+          signals,
+          macroContext,
+          newsOneLinerMap,
+          memoryTextMap,
+          analysisDateMap,
+        } = await detectSignalsForTicker(db, symbol, assetType);
 
         if (signals.length === 0) {
           return reply.send({
@@ -226,9 +250,41 @@ export function registerRecommendationRoutes(
           symbol,
           macroContext,
           newsOneLinerMap,
+          memoryTextMap,
+          analysisDateMap,
+          mode: briefMode,
         });
-        const rendered = await renderSmartDigestCard(brief, app.log);
         const primary = signals[0]!;
+
+        // Build a `truth` projection for DB-source-of-truth verification.
+        // This is the same `BriefTruth` the generator consumed internally —
+        // returning it makes manual cross-checks against pgAdmin trivial.
+        const memoryText = memoryTextMap.get(symbol.toUpperCase());
+        const analysisDate = analysisDateMap.get(symbol.toUpperCase());
+        const truth = gatherTruth({
+          signal: primary,
+          macroContext,
+          memoryText:
+            primary.type === "news_sentiment" ? undefined : memoryText,
+          analysisDate,
+        });
+        const derived = deriveSignals(truth);
+
+        if (dryRun) {
+          return reply.send({
+            ok: true,
+            generated: true,
+            dryRun: true,
+            symbol: primary.symbol,
+            signalType: primary.type,
+            headline: primary.headline,
+            brief,
+            truth,
+            derived,
+          });
+        }
+
+        const rendered = await renderSmartDigestCard(brief, app.log);
         const delivery = await deliverSmartDigest(
           { db, extensions, log: app.log },
           eligibility.target,
