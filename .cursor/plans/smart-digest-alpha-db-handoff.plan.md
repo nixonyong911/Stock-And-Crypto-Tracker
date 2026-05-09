@@ -26,7 +26,7 @@ Alpha runs `ssh -N -L 5433:127.0.0.1:5432 alpha_tunnel@20.17.176.1` from their m
 
 Why this over pgAdmin (now demoted to fallback):
 
-- **Two independent enforcement layers.** Read-only is enforced at the Postgres role (`alpha_readonly`: SELECT-only, `default_transaction_read_only=on`); the SSH user (`alpha_tunnel`) is enforced to be tunnel-only at both `authorized_keys` (`restrict,permitopen=127.0.0.1:5432,command="/usr/sbin/nologin"`) and `sshd_config.d` (`Match User alpha_tunnel`). Either layer alone denies abuse; together they survive accidental misedits.
+- **Two independent enforcement layers.** Read-only is enforced at the Postgres role (`alpha_readonly`: SELECT-only, `default_transaction_read_only=on`); the SSH user (`alpha_tunnel`) is enforced to be tunnel-only at both `authorized_keys` (`no-agent-forwarding,no-X11-forwarding,no-pty,no-user-rc,permitopen="127.0.0.1:5432",command="/usr/sbin/nologin"`) and `sshd_config.d` (`Match User alpha_tunnel`). Either layer alone denies abuse; together they survive accidental misedits. Note: we deliberately enumerate the `no-*` options instead of using the umbrella `restrict` keyword, because `restrict` includes `no-port-forwarding` which cannot be re-narrowed by `permitopen=` — they don't compose, and `restrict` wins, blocking all forwarding.
 - **No shell, no extra forwards, no agent.** `alpha_tunnel` cannot `docker exec`, cannot `sudo`, cannot forward to Redis or any other internal port, cannot get a PTY, cannot bounce traffic onward via gateway forwarding.
 - **No new public network surface.** Postgres is bound to `127.0.0.1:5432` on the VM host (loopback only). Public Azure interface is unchanged; an external `nc -zv 20.17.176.1 5432` should fail.
 - **Standard tooling.** psql / DBeaver / pgcli / pg_dump all work without any pgAdmin abstraction. Alpha can script queries, save results, run EXPLAIN, etc.
@@ -50,7 +50,7 @@ Why this over pgAdmin (now demoted to fallback):
    - System account, `--shell /usr/sbin/nologin`
    - `~/.ssh/authorized_keys` line:
      ```
-     restrict,permitopen="127.0.0.1:5432",command="/usr/sbin/nologin" ssh-ed25519 AAAA... alpha-tunnel
+     no-agent-forwarding,no-X11-forwarding,no-pty,no-user-rc,permitopen="127.0.0.1:5432",command="/usr/sbin/nologin" ssh-ed25519 AAAA... alpha-tunnel
      ```
 
 4. **sshd `Match` block** ([`deployment/vm/sshd/alpha_tunnel.conf`](deployment/vm/sshd/alpha_tunnel.conf), installed at `/etc/ssh/sshd_config.d/alpha_tunnel.conf`):

@@ -64,16 +64,21 @@ fi
 
 # ===========================================
 # 2. authorized_keys with hard restrictions
-#    `restrict` disables agent/X11/pty/port/streamlocal forwarding by default;
-#    `permitopen=` re-allows ONLY 127.0.0.1:5432; `command=` makes any shell
-#    attempt land in /usr/sbin/nologin instead of bash.
+#    Enumerate restrictions explicitly instead of using `restrict`: the
+#    umbrella `restrict` keyword adds `no-port-forwarding` which CANNOT be
+#    re-narrowed by `permitopen=` (they don't compose; `restrict` wins and
+#    blocks all forwarding entirely). So we list the no-* options we actually
+#    want and rely on `permitopen=` to constrain forwarding to 127.0.0.1:5432.
+#    `command=` makes any shell attempt land in /usr/sbin/nologin instead of
+#    bash. Server-side `Match User alpha_tunnel` block (sshd_config drop-in)
+#    enforces the same constraints independently for defence-in-depth.
 # ===========================================
 SSH_DIR="$HOME_DIR/.ssh"
 AUTH_KEYS="$SSH_DIR/authorized_keys"
 
 install -d -o "$USER_NAME" -g "$USER_NAME" -m 700 "$SSH_DIR"
 
-RESTRICTIONS='restrict,permitopen="127.0.0.1:5432",command="/usr/sbin/nologin"'
+RESTRICTIONS='no-agent-forwarding,no-X11-forwarding,no-pty,no-user-rc,permitopen="127.0.0.1:5432",command="/usr/sbin/nologin"'
 
 # Atomic write: build new content in a temp file, then mv into place
 TMP_AUTH="$(mktemp)"
