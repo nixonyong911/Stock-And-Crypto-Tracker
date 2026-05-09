@@ -351,11 +351,11 @@ function buildCard(data: CardData): SatoriNode {
         "div",
         {
           style: {
-            fontSize: "10px",
+            fontSize: "11.5px",
             fontWeight: 700,
-            letterSpacing: "0.14em",
+            letterSpacing: "0.12em",
             textTransform: "uppercase",
-            color: COLORS.ink4,
+            color: COLORS.brand,
           },
         },
         "Smart Digest",
@@ -546,7 +546,7 @@ function buildCard(data: CardData): SatoriNode {
             letterSpacing: "0.02em",
           },
         },
-        "stocktracker.com",
+        "/watchlist",
       ),
     ),
   );

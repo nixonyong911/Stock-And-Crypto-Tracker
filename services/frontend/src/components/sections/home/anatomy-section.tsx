@@ -7,7 +7,7 @@ export function AnatomySection() {
           <div className="anatomy-card">
             {/* Eyebrow bar: Smart Digest left, Confidence right */}
             <div className="ana-eyebrow-bar">
-              <span className="ana-eyebrow-label">Smart Digest</span>
+              <span className="ana-eyebrow-label ana-eyebrow-brand">Smart Digest</span>
               <span className="ana-conf">
                 <span className="ana-bars" aria-hidden="true">
                   <span />
@@ -85,7 +85,7 @@ export function AnatomySection() {
             {/* Footer */}
             <div className="ana-card-foot">
               <span className="ana-foot-updated">Updated May 9, 7:32 AM ET</span>
-              <span className="ana-foot-brand">stocktracker.com</span>
+              <span className="ana-foot-cmd">/watchlist</span>
             </div>
           </div>
 
