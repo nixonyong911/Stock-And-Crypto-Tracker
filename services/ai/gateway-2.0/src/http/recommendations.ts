@@ -11,6 +11,10 @@ import {
 } from "../core/analysis/recommendation-engine.js";
 import { broadcastDailyOverview } from "../core/analysis/daily-overview-broadcaster.js";
 import { generateDigestBrief } from "../core/analysis/digest-brief-generator.js";
+import {
+  renderCard,
+  buildCardCaption,
+} from "../core/analysis/card-renderer.js";
 import { secondsUntilMidnightUTC } from "../core/analysis/wishlist-calculator.js";
 import { processUnfilteredNews } from "../core/analysis/news-processor.js";
 import { curateMarketMemory } from "../core/analysis/memory-curator.js";
@@ -228,9 +232,10 @@ export function registerRecommendationRoutes(
       symbol: string;
       assetType?: "stock" | "crypto";
       /**
-       * Reserved flag for future card-renderer wiring. Currently ignored —
-       * the endpoint never sends Telegram messages itself; it generates the
-       * `DigestBrief` and returns it in the response.
+       * Reserved flag retained for backward compatibility. Currently ignored —
+       * when signals are present the endpoint always renders the card and
+       * delivers it via Telegram; when no signals exist it returns
+       * `{ ok: true, generated: false, reason: "no_signals_for_symbol" }`.
        */
       notifyOnNoSignals?: boolean;
     };
@@ -301,6 +306,7 @@ export function registerRecommendationRoutes(
           newsOneLinerMap,
         });
         const primary = signals[0]!;
+        const chatId = rows[0]!.platform_user_id;
 
         await db
           .query(
@@ -319,6 +325,31 @@ export function registerRecommendationRoutes(
           )
           .catch((err) => app.log.error({ err }, "Failed to log recommendation"));
 
+        const telegram = extensions.get("telegram");
+        let delivery: { ok: boolean; reason?: string } = {
+          ok: false,
+          reason: "telegram_unavailable",
+        };
+        if (telegram?.sendPhoto) {
+          try {
+            const png = await renderCard(brief);
+            const r = await telegram.sendPhoto({
+              platformChatId: chatId,
+              photo: png,
+              caption: buildCardCaption(brief),
+            });
+            delivery = r.ok
+              ? { ok: true }
+              : { ok: false, reason: "send_failed" };
+          } catch (err) {
+            app.log.error(
+              { err, clerkUserId, symbol },
+              "force-send-digest render/send failed",
+            );
+            delivery = { ok: false, reason: "render_or_send_error" };
+          }
+        }
+
         return reply.send({
           ok: true,
           generated: true,
@@ -326,6 +357,7 @@ export function registerRecommendationRoutes(
           signalType: primary.type,
           headline: primary.headline,
           brief,
+          delivery,
         });
       } catch (err) {
         app.log.error({ err }, "Error in force-send-digest");
@@ -364,10 +396,6 @@ async function fanOutToWatchers(
   macroContext: MacroContext,
   newsOneLinerMap?: Map<string, string>,
 ): Promise<number> {
-  // `extensions` is no longer used to deliver text; reserved for future
-  // card-renderer wiring. Reference it explicitly to keep the signature stable.
-  void extensions;
-
   const watchers = await db.query<{
     clerk_user_id: string;
     platform_user_id: string;
@@ -393,6 +421,21 @@ async function fanOutToWatchers(
   const briefJson = JSON.stringify(brief);
   const primary = signals[0]!;
 
+  // Render once per ticker — the brief is the same for every watcher, so a
+  // single PNG is reused for the whole fan-out. If render fails we fall back
+  // to log-only mode for this ticker so the brief is still recorded.
+  let pngBuffer: Buffer | null = null;
+  try {
+    pngBuffer = await renderCard(brief);
+  } catch (err) {
+    log.error(
+      { err, symbol },
+      "Failed to render Smart Digest card; logging brief only",
+    );
+  }
+  const caption = buildCardCaption(brief);
+  const telegram = extensions.get("telegram");
+
   let recorded = 0;
   const ttl = secondsUntilMidnightUTC();
 
@@ -410,12 +453,30 @@ async function fanOutToWatchers(
       );
       if (prefResult.rows[0]?.is_enabled === false) continue;
 
-      // No text delivery during this rollout — the card renderer will be
-      // wired in a follow-up plan. Per-user dedup/cap accounting still
-      // applies so the existing throttling behaviour is preserved.
       await redis.incr(capKey);
       const ttlExists = await redis.ttl(capKey);
       if (ttlExists < 0) await redis.expire(capKey, ttl);
+
+      if (pngBuffer && telegram?.sendPhoto) {
+        try {
+          const r = await telegram.sendPhoto({
+            platformChatId: watcher.platform_user_id,
+            photo: pngBuffer,
+            caption,
+          });
+          if (!r.ok) {
+            log.warn(
+              { clerkUserId: watcher.clerk_user_id, symbol },
+              "Telegram sendPhoto returned ok=false",
+            );
+          }
+        } catch (err) {
+          log.error(
+            { err, clerkUserId: watcher.clerk_user_id, symbol },
+            "Failed to send Smart Digest card",
+          );
+        }
+      }
 
       await db
         .query(
