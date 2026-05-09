@@ -113,20 +113,25 @@ Why this over pgAdmin (now demoted to fallback):
 | Default transaction mode | `READ ONLY` (pre-set on role) |
 | Statement timeout | `60s` (pre-set on role) |
 
-## Validation results (post-deploy)
+## Validation results (post-deploy, all green)
 
-To be filled in after the SSH-VM-apply + verification run completes. Expected matrix:
+Verified end-to-end against production on 2026-05-09:
 
 | Check | Expected | Result |
 |---|---|---|
-| Tunnel up + `SELECT count(*) FROM analysis_ticker_price_targets` | returns ~9k | _to fill_ |
-| `INSERT INTO user_watchlist …` via tunnel | `ERROR ... read-only transaction` | _to fill_ |
-| `ssh alpha_tunnel@vm` (no `-N`, expect shell) | exits, no shell | _to fill_ |
-| `ssh -L 6379:127.0.0.1:6379 alpha_tunnel@vm -N` | `administratively prohibited` | _to fill_ |
-| `ssh -L 5432:8.8.8.8:53 alpha_tunnel@vm -N` | `administratively prohibited` | _to fill_ |
-| `ssh alpha_tunnel@vm 'docker ps'` | rejected by ForceCommand | _to fill_ |
-| `sudo ss -tlnp \| grep 5432` on VM | `127.0.0.1:5432` (NOT `0.0.0.0`) | _to fill_ |
-| External `nc -zv 20.17.176.1 5432` | refused/timeout | _to fill_ |
+| Tunnel up + `SELECT count(*) FROM analysis_ticker_price_targets` | returns ~9k | **PASS** — 9288 rows |
+| Per-table SELECT: `analysis_ticker_price_targets / analysis_market_memory / user_watchlist / user_recommendation_log / channel_accounts / gateway_sessions` | all return counts | **PASS** — 9288 / 305 / 30 / 358 / 6 / 1 |
+| `default_transaction_read_only` for role | `on` | **PASS** |
+| `INSERT INTO user_watchlist ...` via tunnel | rejected | **PASS** — `ERROR: cannot execute INSERT in a read-only transaction` |
+| `BEGIN; SET TRANSACTION READ WRITE; INSERT ...` | rejected at table grant | **PASS** — `ERROR: permission denied for table user_watchlist` |
+| `DROP TABLE user_watchlist` | rejected | **PASS** — `ERROR: cannot execute DROP TABLE in a read-only transaction` |
+| `ssh alpha_tunnel@vm` (try interactive shell) | denied by nologin | **PASS** — `This account is currently not available.` (exit 1) |
+| `ssh alpha_tunnel@vm 'docker ps'` (remote exec) | denied by ForceCommand | **PASS** — same nologin message, exit 1 |
+| `ssh -t alpha_tunnel@vm` (PTY request) | denied | **PASS** — `PermitTTY no` enforces |
+| `ssh -L 6379:127.0.0.1:6379 alpha_tunnel@vm -N`, then connect | channel rejected | **PASS** — `channel: open failed: administratively prohibited` |
+| `ssh -L 7777:8.8.8.8:53 alpha_tunnel@vm -N`, then connect | channel rejected | **PASS** — `channel: open failed: administratively prohibited` |
+| `sudo ss -tlnp \| grep 5432` on VM | `127.0.0.1:5432` (NOT `0.0.0.0`) | **PASS** — `127.0.0.1:5432 ... docker-proxy` |
+| External `nc -zv 20.17.176.1 5432` from this workspace | refused/timeout | **PASS** — connection timed out (Azure NSG closed) |
 
 ## Caveats / operational notes
 
