@@ -5,28 +5,26 @@ export function AnatomySection() {
         <div className="anatomy reveal">
           {/* Brief card */}
           <div className="anatomy-card">
-            {/* Card header */}
-            <div className="ana-card-head">
-              <div className="ana-card-head-left">
-                <span className="ana-tk-plain">AAPL</span>
-                <span className="ana-pill-watch">
-                  <span className="d" />
-                  Watch zone
+            {/* Eyebrow bar: Smart Digest left, Confidence right */}
+            <div className="ana-eyebrow-bar">
+              <span className="ana-eyebrow-label">Smart Digest</span>
+              <span className="ana-conf">
+                <span className="ana-bars" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
                 </span>
-              </div>
-              <div className="ana-card-head-right">
-                <span className="ana-conf">
-                  <span className="ana-conf-label">Confidence</span>
-                  <span className="ana-bars" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                  <span className="ana-conf-value">High</span>
-                </span>
-                <span className="ana-conf-sep" aria-hidden="true">·</span>
-                <span className="ana-updated">Updated 7:32 AM ET</span>
-              </div>
+                <span className="ana-conf-value">High</span>
+              </span>
+            </div>
+
+            {/* Ticker row */}
+            <div className="ana-ticker-row">
+              <span className="ana-tk-plain">AAPL</span>
+              <span className="ana-pill-watch">
+                <span className="d" />
+                Watch zone
+              </span>
             </div>
 
             {/* Price row */}
@@ -86,24 +84,8 @@ export function AnatomySection() {
 
             {/* Footer */}
             <div className="ana-card-foot">
-              <div className="ana-reply-cta">
-                <span className="ana-reply-check" aria-hidden="true">
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </span>
-                Reply for more
-              </div>
-              <span className="ana-slash-cmd">/watchlist</span>
+              <span className="ana-foot-updated">Updated May 9, 7:32 AM ET</span>
+              <span className="ana-foot-brand">stocktracker.com</span>
             </div>
           </div>
 

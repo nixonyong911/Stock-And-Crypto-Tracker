@@ -129,16 +129,23 @@ function changeColor(pct: number): string {
   return pct >= 0 ? COLORS.brand : "#DC2626";
 }
 
-/** Produces "7:32 AM ET" from a Date (interpreted in America/New_York). */
+/** Produces "May 9, 7:32 AM ET" from a Date (interpreted in America/New_York). */
 function formatUpdatedAt(d: Date): string {
   try {
-    const t = d.toLocaleTimeString("en-US", {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
       hour: "numeric",
       minute: "2-digit",
       timeZone: "America/New_York",
       hour12: true,
-    });
-    return `${t} ET`;
+    }).formatToParts(d);
+    const month = parts.find((p) => p.type === "month")?.value ?? "";
+    const day = parts.find((p) => p.type === "day")?.value ?? "";
+    const hour = parts.find((p) => p.type === "hour")?.value ?? "";
+    const minute = parts.find((p) => p.type === "minute")?.value ?? "";
+    const dp = parts.find((p) => p.type === "dayPeriod")?.value ?? "";
+    return `${month} ${day}, ${hour}:${minute} ${dp} ET`;
   } catch {
     return d.toUTCString();
   }
@@ -275,37 +282,6 @@ function clockIcon(): SatoriNode {
   );
 }
 
-function checkIcon(): SatoriNode {
-  return h(
-    "div",
-    {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "20px",
-        height: "20px",
-        borderRadius: "50%",
-        backgroundColor: COLORS.brand,
-      },
-    },
-    h(
-      "svg",
-      {
-        width: 10,
-        height: 10,
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "#FFFFFF",
-        strokeWidth: 3.5,
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-      },
-      h("polyline", { points: "20 6 9 17 4 12" }),
-    ),
-  );
-}
-
 function sectionLabel(text: string, accent = false): SatoriNode {
   return h(
     "div",
@@ -360,7 +336,7 @@ function buildCard(data: CardData): SatoriNode {
       },
     },
 
-    // ── Header row ──────────────────────────────────────────────
+    // ── Eyebrow bar: "Smart Digest" left, Confidence right ──────
     h(
       "div",
       {
@@ -368,76 +344,76 @@ function buildCard(data: CardData): SatoriNode {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: "16px",
           marginBottom: "14px",
         },
       },
-      // Left: ticker + status pill
       h(
         "div",
         {
-          style: { display: "flex", alignItems: "center", gap: "10px" },
-        },
-        h(
-          "div",
-          {
-            style: {
-              fontSize: "14px",
-              fontWeight: 700,
-              color: COLORS.ink,
-              letterSpacing: "0.04em",
-            },
+          style: {
+            fontSize: "10px",
+            fontWeight: 700,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            color: COLORS.ink4,
           },
-          data.ticker,
-        ),
-        statusPill(data.status),
+        },
+        "Smart Digest",
       ),
-
-      // Right: confidence + UPDATED chip
       h(
         "div",
         {
           style: {
             display: "flex",
             alignItems: "center",
-            gap: "8px",
-            fontSize: "10.5px",
-            fontWeight: 500,
-            letterSpacing: "0.08em",
+            gap: "5px",
+            fontSize: "10px",
+            fontWeight: 700,
+            letterSpacing: "0.1em",
             textTransform: "uppercase",
             color: COLORS.ink4,
           },
         },
+        confidenceBars(data.confidence),
         h(
           "div",
           {
             style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
               fontSize: "10px",
               fontWeight: 700,
-              letterSpacing: "0.1em",
+              color: COLORS.ink3,
+              letterSpacing: "0.08em",
             },
           },
-          "Confidence",
-          confidenceBars(data.confidence),
-          h(
-            "div",
-            {
-              style: {
-                fontSize: "11px",
-                fontWeight: 700,
-                color: COLORS.ink2,
-                letterSpacing: "0.08em",
-              },
-            },
-            data.confidence.toUpperCase(),
-          ),
+          data.confidence.toUpperCase(),
         ),
-        h("div", { style: { color: COLORS.ink4 } }, "\u00B7"),
-        h("div", null, `Updated ${formatUpdatedAt(data.updatedAt)}`),
       ),
+    ),
+
+    // ── Ticker row ──────────────────────────────────────────────
+    h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          marginBottom: "6px",
+        },
+      },
+      h(
+        "div",
+        {
+          style: {
+            fontSize: "14px",
+            fontWeight: 700,
+            color: COLORS.ink,
+            letterSpacing: "0.04em",
+          },
+        },
+        data.ticker,
+      ),
+      statusPill(data.status),
     ),
 
     // ── Price row ───────────────────────────────────────────────
@@ -526,15 +502,17 @@ function buildCard(data: CardData): SatoriNode {
       ),
     ),
 
-    // ── Context ─────────────────────────────────────────────────
-    h(
-      "div",
-      {
-        style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "18px" },
-      },
-      sectionLabel("Context"),
-      paragraph(data.context),
-    ),
+    // ── Context (only if present) ───────────────────────────────
+    data.context
+      ? h(
+          "div",
+          {
+            style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "18px" },
+          },
+          sectionLabel("Context"),
+          paragraph(data.context),
+        )
+      : false,
 
     // ── Footer ──────────────────────────────────────────────────
     h(
@@ -544,8 +522,7 @@ function buildCard(data: CardData): SatoriNode {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: "12px",
-          paddingTop: "16px",
+          paddingTop: "14px",
           borderTop: `1px solid ${COLORS.lineSoft}`,
         },
       },
@@ -553,26 +530,23 @@ function buildCard(data: CardData): SatoriNode {
         "div",
         {
           style: {
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontSize: "13px",
-            color: COLORS.ink2,
+            fontSize: "11px",
+            color: COLORS.ink4,
+            letterSpacing: "0.02em",
           },
         },
-        checkIcon(),
-        "Reply for more",
+        `Updated ${formatUpdatedAt(data.updatedAt)}`,
       ),
       h(
         "div",
         {
           style: {
-            fontSize: "12px",
+            fontSize: "11px",
             color: COLORS.ink4,
             letterSpacing: "0.02em",
           },
         },
-        "/watchlist",
+        "stocktracker.com",
       ),
     ),
   );
