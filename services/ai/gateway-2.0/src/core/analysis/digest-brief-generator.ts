@@ -292,8 +292,16 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
   const d = primary.rawData;
   const close = d.close;
   const open = d.latestOpen;
+
+  // Sparse-data guard: if `close` is missing or non-positive, the signal
+  // arrived without real price/level numerics (legacy news stub, partial
+  // upstream data, etc.). Degrade gracefully to em-dash levels and zero
+  // price/delta rather than rendering misleading "0.000" formatted output.
+  const hasValidClose = Number.isFinite(close) && close > 0;
   const changePercent =
-    open != null && open > 0 ? ((close - open) / open) * 100 : 0;
+    hasValidClose && open != null && open > 0
+      ? ((close - open) / open) * 100
+      : 0;
 
   const newsOneLiner =
     primary.type === "news_sentiment"
@@ -302,15 +310,19 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
 
   const ctx = buildContext(primary, macroContext, newsOneLiner);
 
+  const whatToWatch = hasValidClose
+    ? buildWhatToWatch(primary)
+    : { holdAbove: "—", breakBelowTarget: "—" };
+
   return {
     ticker,
     status: deriveStance(primary),
-    price: close,
+    price: hasValidClose ? close : 0,
     changePercent,
     confidence: deriveConfidence(primary),
     updatedAt,
     whatHappening: buildWhatHappening(primary),
-    whatToWatch: buildWhatToWatch(primary),
+    whatToWatch,
     context: ctx.context,
     hasMaterialContext: ctx.hasMaterialContext,
   };

@@ -3,10 +3,12 @@ import {
   computeAlignment,
   detectForTicker,
   buildContexts,
+  detectNewsSentimentSignals,
   type TickerCtx,
   type PriceTargetRow,
   type IndicatorRow,
   type CandlestickRow,
+  type NewsSentimentRow,
 } from "../recommendation-engine.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -484,5 +486,103 @@ describe("buildContexts", () => {
 
     expect(ctxs[0]!.patterns).toHaveLength(1);
     expect(ctxs[0]!.patterns[0]!.pattern).toBe("engulfing");
+  });
+});
+
+// ── detectNewsSentimentSignals ──────────────────────────────────────────
+
+describe("detectNewsSentimentSignals", () => {
+  function makeNewsRow(overrides: Partial<NewsSentimentRow> = {}): NewsSentimentRow {
+    return {
+      symbol: "AAPL",
+      article_count: 6,
+      avg_sentiment: "0.55",
+      ...overrides,
+    };
+  }
+
+  it("merges technical numerics from TickerCtx into news_sentiment rawData", () => {
+    const ctx = makeCtx({
+      symbol: "AAPL",
+      close: 293.86,
+      latestOpen: 279.52,
+      alignment: "partial",
+      swing: makePriceTargetRow({
+        latest_close: "293.86",
+        latest_open: "279.52",
+        entry_price_low: "259.68",
+        entry_price_high: "270.43",
+        stop_loss: "241.50",
+        target_price: "320.00",
+      }),
+      meta: { ema_20: 285.0, low_period: 250.0 },
+    });
+    const ctxBySymbol = new Map<string, TickerCtx>([["AAPL", ctx]]);
+
+    const signals = detectNewsSentimentSignals(
+      [makeNewsRow({ article_count: 6, avg_sentiment: "-0.55" })],
+      new Map([["AAPL", ["Headline A", "Headline B"]]]),
+      "stock",
+      ctxBySymbol,
+    );
+
+    expect(signals).toHaveLength(1);
+    const s = signals[0]!;
+    expect(s.type).toBe("news_sentiment");
+    expect(s.priority).toBe("high");
+    expect(s.timeframeAlignment).toBe("partial");
+    expect(s.rawData.close).toBe(293.86);
+    expect(s.rawData.latestOpen).toBe(279.52);
+    expect(s.rawData.entryLow).toBe(259.68);
+    expect(s.rawData.stopLoss).toBe(241.5);
+    expect(s.rawData.ema20).toBe(285.0);
+    expect(s.rawData.periodLow).toBe(250.0);
+    expect(s.rawData.newsArticleCount).toBe(6);
+    expect(s.rawData.newsSentimentLabel).toBe("bearish");
+    expect(s.rawData.newsHeadlines).toEqual(["Headline A", "Headline B"]);
+  });
+
+  it("skips news rows with no matching technical context", () => {
+    const ctxBySymbol = new Map<string, TickerCtx>();
+
+    const signals = detectNewsSentimentSignals(
+      [makeNewsRow()],
+      new Map(),
+      "stock",
+      ctxBySymbol,
+    );
+
+    expect(signals).toEqual([]);
+  });
+
+  it("skips news rows whose avg_sentiment is between -0.3 and 0.3", () => {
+    const ctxBySymbol = new Map<string, TickerCtx>([
+      ["AAPL", makeCtx({ swing: makePriceTargetRow() })],
+    ]);
+
+    const signals = detectNewsSentimentSignals(
+      [makeNewsRow({ avg_sentiment: "0.1" })],
+      new Map(),
+      "stock",
+      ctxBySymbol,
+    );
+
+    expect(signals).toEqual([]);
+  });
+
+  it("assigns medium priority for article_count < 5", () => {
+    const ctxBySymbol = new Map<string, TickerCtx>([
+      ["AAPL", makeCtx({ swing: makePriceTargetRow() })],
+    ]);
+
+    const signals = detectNewsSentimentSignals(
+      [makeNewsRow({ article_count: 3, avg_sentiment: "-0.45" })],
+      new Map(),
+      "stock",
+      ctxBySymbol,
+    );
+
+    expect(signals).toHaveLength(1);
+    expect(signals[0]!.priority).toBe("medium");
   });
 });

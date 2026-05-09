@@ -435,4 +435,63 @@ describe("generateDigestBrief", () => {
     });
     expect(brief.context).not.toBe("should be ignored");
   });
+
+  describe("sparse-data defensive fallback", () => {
+    it("renders em-dash levels and zero price when rawData.close is 0 (legacy stub)", () => {
+      const s = makeSignal({
+        type: "news_sentiment",
+        rawData: {
+          close: 0,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+          newsArticleCount: 3,
+          newsSentimentLabel: "bearish",
+        },
+      });
+      const brief = generateDigestBrief({ signals: [s], symbol: "AAPL" });
+
+      expect(brief.price).toBe(0);
+      expect(brief.changePercent).toBe(0);
+      expect(brief.whatToWatch.holdAbove).toBe("—");
+      expect(brief.whatToWatch.breakBelowTarget).toBe("—");
+      expect(brief.whatHappening).toMatch(/coverage/i);
+      expect(brief.status.label).toBe("Watch zone");
+    });
+
+    it("renders em-dash levels when close is non-finite (NaN)", () => {
+      const s = makeSignal({
+        rawData: {
+          close: Number.NaN,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+        },
+      });
+      const brief = generateDigestBrief({ signals: [s], symbol: "AAPL" });
+
+      expect(brief.price).toBe(0);
+      expect(brief.whatToWatch.holdAbove).toBe("—");
+      expect(brief.whatToWatch.breakBelowTarget).toBe("—");
+    });
+
+    it("uses real values when close is a positive finite number", () => {
+      const s = makeSignal({
+        rawData: {
+          close: 175,
+          latestOpen: 170,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          stopLoss: 162,
+        },
+      });
+      const brief = generateDigestBrief({ signals: [s], symbol: "AAPL" });
+
+      expect(brief.price).toBe(175);
+      expect(brief.whatToWatch.holdAbove).toBe("168.00");
+      expect(brief.whatToWatch.breakBelowTarget).toBe("162.00");
+    });
+  });
 });

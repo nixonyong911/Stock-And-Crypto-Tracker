@@ -732,14 +732,20 @@ export function detectForTicker(ctx: TickerCtx): TickerSignal[] {
 
 // ── Public API ──────────────────────────────────────────────────────────
 
-function detectNewsSentimentSignals(
+export function detectNewsSentimentSignals(
   newsRows: NewsSentimentRow[],
   headlineMap: Map<string, string[]>,
   assetType: "stock" | "crypto",
+  ctxBySymbol: Map<string, TickerCtx>,
 ): TickerSignal[] {
   const signals: TickerSignal[] = [];
 
   for (const row of newsRows) {
+    const ctx = ctxBySymbol.get(row.symbol);
+    // Without a technical context for this symbol, the news signal would
+    // ship with no price/levels and be filtered out downstream anyway.
+    if (!ctx) continue;
+
     const avg = toNum(row.avg_sentiment);
     if (avg == null) continue;
     const count = Number(row.article_count);
@@ -750,19 +756,17 @@ function detectNewsSentimentSignals(
     if (!direction) continue;
 
     const headlines = headlineMap.get(row.symbol) ?? [];
+    const baseRaw = makeRawData(ctx);
 
     signals.push({
       symbol: row.symbol,
       assetType,
       type: "news_sentiment",
       priority: count >= 5 ? "high" : "medium",
-      timeframeAlignment: "partial",
+      timeframeAlignment: ctx.alignment,
       headline: `${row.symbol} has ${direction} news sentiment (${count} articles, avg ${avg.toFixed(2)})`,
       rawData: {
-        close: 0,
-        daySignal: "neutral",
-        swingSignal: "neutral",
-        longTermSignal: "neutral",
+        ...baseRaw,
         newsArticleCount: count,
         newsAvgSentiment: avg,
         newsSentimentLabel: direction,
@@ -807,9 +811,15 @@ export async function detectSignals(
   const contexts = buildContexts(assetType, targets, indicators, candles);
   const technicalSignals = contexts.flatMap(detectForTicker);
 
-  const technicalSymbols = new Set(contexts.map((c) => c.symbol));
-  const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap, assetType)
-    .filter((s) => technicalSymbols.has(s.symbol));
+  const ctxBySymbol = new Map<string, TickerCtx>();
+  for (const c of contexts) ctxBySymbol.set(c.symbol, c);
+
+  const newsSignals = detectNewsSentimentSignals(
+    newsRows,
+    headlineMap,
+    assetType,
+    ctxBySymbol,
+  );
 
   return { signals: [...technicalSignals, ...newsSignals], macroContext, newsOneLinerMap: oneLinerMap };
 }
@@ -843,9 +853,15 @@ export async function detectSignalsForTicker(
   const contexts = buildContexts(assetType, targets, indicators, candles);
   const technicalSignals = contexts.flatMap(detectForTicker);
 
-  const technicalSymbols = new Set(contexts.map((c) => c.symbol));
-  const newsSignals = detectNewsSentimentSignals(newsRows, headlineMap, assetType)
-    .filter((s) => technicalSymbols.has(s.symbol));
+  const ctxBySymbol = new Map<string, TickerCtx>();
+  for (const c of contexts) ctxBySymbol.set(c.symbol, c);
+
+  const newsSignals = detectNewsSentimentSignals(
+    newsRows,
+    headlineMap,
+    assetType,
+    ctxBySymbol,
+  );
 
   return { signals: [...technicalSignals, ...newsSignals], macroContext, newsOneLinerMap: oneLinerMap };
 }
