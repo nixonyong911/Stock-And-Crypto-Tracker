@@ -7,7 +7,7 @@ import type { ExtensionRegistry } from "../extension/registry.js";
 import {
   processRecommendations,
   type ProcessRecommendationsDeps,
-} from "../http/recommendations.js";
+} from "./analysis/digest-pipeline.js";
 
 const QUEUE_NAME = "pipeline-analysis-complete";
 const RECONNECT_DELAY_MS = 10_000;

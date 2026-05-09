@@ -1,0 +1,192 @@
+/**
+ * Smart Digest pipeline orchestrator.
+ *
+ * Composes the four Smart Digest layers in a top-down read:
+ *   1. signal detection + Redis dedup     (this module)
+ *   2. eligibility (watchers + throttle)  (`digest-eligibility.ts`)
+ *   3. brief generation                    (`digest-brief-generator.ts`)
+ *   4. card render                         (`digest-delivery.ts`)
+ *   5. delivery + log                      (`digest-delivery.ts`)
+ *
+ * `processRecommendations` is the entry point used by both
+ * `/internal/check-recommendations` and the RabbitMQ pipeline consumer.
+ */
+
+import type { Pool } from "pg";
+import type { Redis } from "ioredis";
+import type { FastifyBaseLogger } from "fastify";
+import type { ExtensionRegistry } from "../../extension/registry.js";
+import {
+  detectSignals,
+  type TickerSignal,
+  type MacroContext,
+} from "./recommendation-engine.js";
+import { generateDigestBrief } from "./digest-brief-generator.js";
+import { secondsUntilMidnightUTC } from "./wishlist-calculator.js";
+import {
+  listDigestWatchersForSymbol,
+  checkDigestThrottle,
+  recordDigestSent,
+} from "./digest-eligibility.js";
+import {
+  renderSmartDigestCard,
+  deliverSmartDigest,
+} from "./digest-delivery.js";
+
+// ── Types ─────────────────────────────────────────────────────────────
+
+export interface ProcessRecommendationsDeps {
+  db: Pool;
+  redis: Redis;
+  extensions: ExtensionRegistry;
+  log: FastifyBaseLogger;
+}
+
+// ── Entry point ───────────────────────────────────────────────────────
+
+export async function processRecommendations(
+  deps: ProcessRecommendationsDeps,
+  assetType?: "stock" | "crypto",
+): Promise<{ signals: number; sent: number }> {
+  const { db, log } = deps;
+  const types: Array<"stock" | "crypto"> = assetType
+    ? [assetType]
+    : ["stock", "crypto"];
+
+  let totalSignals = 0;
+  let totalSent = 0;
+
+  for (const type of types) {
+    const { signals, macroContext, newsOneLinerMap } = await detectSignals(
+      db,
+      type,
+    );
+    if (signals.length === 0) continue;
+
+    log.info(
+      { assetType: type, signalCount: signals.length },
+      "Signals detected",
+    );
+
+    const newSignals = await filterDedupSignals(deps.redis, signals);
+    if (newSignals.length === 0) continue;
+
+    totalSignals += newSignals.length;
+
+    const bySymbol = new Map<string, TickerSignal[]>();
+    for (const s of newSignals) {
+      let arr = bySymbol.get(s.symbol);
+      if (!arr) {
+        arr = [];
+        bySymbol.set(s.symbol, arr);
+      }
+      arr.push(s);
+    }
+
+    for (const [symbol, tickerSignals] of bySymbol) {
+      const sent = await fanOutToWatchers(
+        deps,
+        symbol,
+        tickerSignals,
+        macroContext,
+        newsOneLinerMap,
+      );
+      totalSent += sent;
+    }
+  }
+
+  return { signals: totalSignals, sent: totalSent };
+}
+
+// ── Pipeline-level signal dedup ───────────────────────────────────────
+
+/**
+ * Drop signals that have already been seen for the current UTC day. The
+ * `digest:signal:<symbol>:<type>` key is set with TTL until midnight UTC.
+ *
+ * This is a pipeline concern (which signals to process), not eligibility
+ * (which users may receive them), so it stays here rather than in
+ * `digest-eligibility.ts`.
+ */
+async function filterDedupSignals(
+  redis: Redis,
+  signals: TickerSignal[],
+): Promise<TickerSignal[]> {
+  const ttl = secondsUntilMidnightUTC();
+  const result: TickerSignal[] = [];
+
+  for (const s of signals) {
+    const key = `digest:signal:${s.symbol}:${s.type}`;
+    const exists = await redis.exists(key);
+    if (exists) continue;
+
+    await redis.set(
+      key,
+      JSON.stringify({ direction: s.rawData.swingSignal }),
+      "EX",
+      ttl,
+    );
+    result.push(s);
+  }
+
+  return result;
+}
+
+// ── Per-symbol fan-out ────────────────────────────────────────────────
+
+/**
+ * For one symbol with one or more signals, render the card once and deliver
+ * it to every eligible watcher. Eligibility (session + paired Telegram +
+ * watchlist + prefs + cap) is fully owned by `digest-eligibility.ts`;
+ * delivery (sendPhoto + log INSERT) is fully owned by `digest-delivery.ts`.
+ */
+async function fanOutToWatchers(
+  deps: ProcessRecommendationsDeps,
+  symbol: string,
+  signals: TickerSignal[],
+  macroContext: MacroContext,
+  newsOneLinerMap?: Map<string, string>,
+): Promise<number> {
+  const { db, redis, extensions, log } = deps;
+
+  const watchers = await listDigestWatchersForSymbol({ db, redis }, symbol);
+  if (watchers.length === 0) return 0;
+
+  const brief = generateDigestBrief({
+    signals,
+    symbol,
+    macroContext,
+    newsOneLinerMap,
+  });
+  const rendered = await renderSmartDigestCard(brief, log);
+  const primary = signals[0]!;
+
+  let sent = 0;
+  for (const target of watchers) {
+    try {
+      const throttle = await checkDigestThrottle({ db, redis }, target.clerkUserId);
+      if (!throttle.ok) continue;
+
+      // Increment cap before delivery — matches legacy ordering so that a
+      // burst of failed sends still consumes the daily slot exactly as it
+      // did before this refactor.
+      await recordDigestSent({ db, redis }, target.clerkUserId);
+
+      await deliverSmartDigest(
+        { db, extensions, log },
+        target,
+        brief,
+        primary,
+        rendered,
+      );
+      sent++;
+    } catch (err) {
+      log.error(
+        { err, clerkUserId: target.clerkUserId, symbol },
+        "Failed to record digest brief",
+      );
+    }
+  }
+
+  return sent;
+}

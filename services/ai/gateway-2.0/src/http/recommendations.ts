@@ -1,92 +1,22 @@
-import type { FastifyInstance, FastifyBaseLogger } from "fastify";
+import type { FastifyInstance } from "fastify";
 import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import type { GatewayConfig } from "../config.js";
 import type { ExtensionRegistry } from "../extension/registry.js";
-import {
-  detectSignals,
-  detectSignalsForTicker,
-  type TickerSignal,
-  type MacroContext,
-} from "../core/analysis/recommendation-engine.js";
+import { detectSignalsForTicker } from "../core/analysis/recommendation-engine.js";
 import { broadcastDailyOverview } from "../core/analysis/daily-overview-broadcaster.js";
 import { generateDigestBrief } from "../core/analysis/digest-brief-generator.js";
-import {
-  renderCard,
-  buildCardCaption,
-} from "../core/analysis/card-renderer.js";
-import { secondsUntilMidnightUTC } from "../core/analysis/wishlist-calculator.js";
 import { processUnfilteredNews } from "../core/analysis/news-processor.js";
 import { curateMarketMemory } from "../core/analysis/memory-curator.js";
+import { processRecommendations } from "../core/analysis/digest-pipeline.js";
+import { canReceiveSmartDigest } from "../core/analysis/digest-eligibility.js";
+import {
+  renderSmartDigestCard,
+  deliverSmartDigest,
+} from "../core/analysis/digest-delivery.js";
 
 interface CheckRecommendationsBody {
   assetType?: "stock" | "crypto";
-}
-
-const MAX_DAILY_SENDS = 6;
-
-// ---------------------------------------------------------------------------
-// Shared logic: signal detection → dedup → fan-out
-// ---------------------------------------------------------------------------
-
-export interface ProcessRecommendationsDeps {
-  db: Pool;
-  redis: Redis;
-  extensions: ExtensionRegistry;
-  log: FastifyBaseLogger;
-}
-
-export async function processRecommendations(
-  deps: ProcessRecommendationsDeps,
-  assetType?: "stock" | "crypto",
-): Promise<{ signals: number; sent: number }> {
-  const { db, redis, extensions, log } = deps;
-  const types: Array<"stock" | "crypto"> =
-    assetType ? [assetType] : ["stock", "crypto"];
-
-  let totalSignals = 0;
-  let totalSent = 0;
-
-  for (const type of types) {
-    const { signals, macroContext, newsOneLinerMap } = await detectSignals(db, type);
-    if (signals.length === 0) continue;
-
-    log.info(
-      { assetType: type, signalCount: signals.length },
-      "Signals detected",
-    );
-
-    const newSignals = await filterDedupSignals(redis, signals);
-    if (newSignals.length === 0) continue;
-
-    totalSignals += newSignals.length;
-
-    const bySymbol = new Map<string, TickerSignal[]>();
-    for (const s of newSignals) {
-      let arr = bySymbol.get(s.symbol);
-      if (!arr) {
-        arr = [];
-        bySymbol.set(s.symbol, arr);
-      }
-      arr.push(s);
-    }
-
-    for (const [symbol, tickerSignals] of bySymbol) {
-      const sent = await fanOutToWatchers(
-        db,
-        redis,
-        log,
-        extensions,
-        symbol,
-        tickerSignals,
-        macroContext,
-        newsOneLinerMap,
-      );
-      totalSent += sent;
-    }
-  }
-
-  return { signals: totalSignals, sent: totalSent };
 }
 
 // ---------------------------------------------------------------------------
@@ -261,33 +191,25 @@ export function registerRecommendationRoutes(
       }
 
       try {
-        const { rows } = await db.query<{ platform_user_id: string }>(
-          `SELECT ca.platform_user_id
-           FROM channel_accounts ca
-           JOIN gateway_sessions gs
-             ON gs.clerk_user_id = ca.clerk_user_id
-             AND gs.channel_type = 'telegram'
-             AND gs.expires_at > NOW()
-           JOIN user_watchlist uw
-             ON uw.clerk_user_id = ca.clerk_user_id
-             AND UPPER(uw.ticker_symbol) = UPPER($2)
-           WHERE ca.clerk_user_id = $1 AND ca.channel_type = 'telegram'
-           LIMIT 1`,
-          [clerkUserId, symbol],
+        // Force-send deliberately bypasses the throttle gate (prefs + cap):
+        // this is the manual verification path, and we keep the legacy
+        // semantics where `/internal/force-send-digest` always sends if the
+        // user has an active session, paired Telegram, and watches the symbol.
+        const eligibility = await canReceiveSmartDigest(
+          { db, redis },
+          clerkUserId,
+          symbol,
+          { applyThrottle: false },
         );
-
-        if (rows.length === 0) {
+        if (!eligibility.ok) {
           return reply.status(404).send({
             error:
               "No Telegram session or symbol not on watchlist for this clerk user",
           });
         }
 
-        const { signals, macroContext, newsOneLinerMap } = await detectSignalsForTicker(
-          db,
-          symbol,
-          assetType,
-        );
+        const { signals, macroContext, newsOneLinerMap } =
+          await detectSignalsForTicker(db, symbol, assetType);
 
         if (signals.length === 0) {
           return reply.send({
@@ -305,50 +227,15 @@ export function registerRecommendationRoutes(
           macroContext,
           newsOneLinerMap,
         });
+        const rendered = await renderSmartDigestCard(brief, app.log);
         const primary = signals[0]!;
-        const chatId = rows[0]!.platform_user_id;
-
-        await db
-          .query(
-            `INSERT INTO user_recommendation_log
-             (clerk_user_id, ticker_symbol, recommendation_type, priority, headline, message_body, timeframe_alignment)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [
-              clerkUserId,
-              primary.symbol,
-              primary.type,
-              primary.priority,
-              primary.headline,
-              JSON.stringify(brief),
-              primary.timeframeAlignment,
-            ],
-          )
-          .catch((err) => app.log.error({ err }, "Failed to log recommendation"));
-
-        const telegram = extensions.get("telegram");
-        let delivery: { ok: boolean; reason?: string } = {
-          ok: false,
-          reason: "telegram_unavailable",
-        };
-        if (telegram?.sendPhoto) {
-          try {
-            const png = await renderCard(brief);
-            const r = await telegram.sendPhoto({
-              platformChatId: chatId,
-              photo: png,
-              caption: buildCardCaption(brief),
-            });
-            delivery = r.ok
-              ? { ok: true }
-              : { ok: false, reason: "send_failed" };
-          } catch (err) {
-            app.log.error(
-              { err, clerkUserId, symbol },
-              "force-send-digest render/send failed",
-            );
-            delivery = { ok: false, reason: "render_or_send_error" };
-          }
-        }
+        const delivery = await deliverSmartDigest(
+          { db, extensions, log: app.log },
+          eligibility.target,
+          brief,
+          primary,
+          rendered,
+        );
 
         return reply.send({
           ok: true,
@@ -365,146 +252,6 @@ export function registerRecommendationRoutes(
       }
     },
   );
-}
-
-async function filterDedupSignals(
-  redis: Redis,
-  signals: TickerSignal[],
-): Promise<TickerSignal[]> {
-  const ttl = secondsUntilMidnightUTC();
-  const result: TickerSignal[] = [];
-
-  for (const s of signals) {
-    const key = `digest:signal:${s.symbol}:${s.type}`;
-    const exists = await redis.exists(key);
-    if (exists) continue;
-
-    await redis.set(key, JSON.stringify({ direction: s.rawData.swingSignal }), "EX", ttl);
-    result.push(s);
-  }
-
-  return result;
-}
-
-async function fanOutToWatchers(
-  db: Pool,
-  redis: Redis,
-  log: FastifyInstance["log"],
-  extensions: ExtensionRegistry,
-  symbol: string,
-  signals: TickerSignal[],
-  macroContext: MacroContext,
-  newsOneLinerMap?: Map<string, string>,
-): Promise<number> {
-  const watchers = await db.query<{
-    clerk_user_id: string;
-    platform_user_id: string;
-  }>(
-    `SELECT DISTINCT ON (uw.clerk_user_id) uw.clerk_user_id, ca.platform_user_id
-     FROM user_watchlist uw
-     JOIN channel_accounts ca
-       ON ca.clerk_user_id = uw.clerk_user_id AND ca.channel_type = 'telegram'
-     JOIN gateway_sessions gs
-       ON gs.clerk_user_id = uw.clerk_user_id AND gs.channel_type = 'telegram' AND gs.expires_at > NOW()
-     WHERE uw.ticker_symbol = $1`,
-    [symbol],
-  );
-
-  if (watchers.rows.length === 0) return 0;
-
-  const brief = generateDigestBrief({
-    signals,
-    symbol,
-    macroContext,
-    newsOneLinerMap,
-  });
-  const briefJson = JSON.stringify(brief);
-  const primary = signals[0]!;
-
-  // Render once per ticker — the brief is the same for every watcher, so a
-  // single PNG is reused for the whole fan-out. If render fails we fall back
-  // to log-only mode for this ticker so the brief is still recorded.
-  let pngBuffer: Buffer | null = null;
-  try {
-    pngBuffer = await renderCard(brief);
-  } catch (err) {
-    log.error(
-      { err, symbol },
-      "Failed to render Smart Digest card; logging brief only",
-    );
-  }
-  const caption = buildCardCaption(brief);
-  const telegram = extensions.get("telegram");
-
-  let recorded = 0;
-  const ttl = secondsUntilMidnightUTC();
-
-  for (const watcher of watchers.rows) {
-    try {
-      const capKey = `digest:count:${watcher.clerk_user_id}`;
-      const currentCount = await redis.get(capKey);
-      if (currentCount != null && parseInt(currentCount, 10) >= MAX_DAILY_SENDS) {
-        continue;
-      }
-
-      const prefResult = await db.query<{ is_enabled: boolean }>(
-        "SELECT is_enabled FROM user_digest_preferences WHERE clerk_user_id = $1",
-        [watcher.clerk_user_id],
-      );
-      if (prefResult.rows[0]?.is_enabled === false) continue;
-
-      await redis.incr(capKey);
-      const ttlExists = await redis.ttl(capKey);
-      if (ttlExists < 0) await redis.expire(capKey, ttl);
-
-      if (pngBuffer && telegram?.sendPhoto) {
-        try {
-          const r = await telegram.sendPhoto({
-            platformChatId: watcher.platform_user_id,
-            photo: pngBuffer,
-            caption,
-          });
-          if (!r.ok) {
-            log.warn(
-              { clerkUserId: watcher.clerk_user_id, symbol },
-              "Telegram sendPhoto returned ok=false",
-            );
-          }
-        } catch (err) {
-          log.error(
-            { err, clerkUserId: watcher.clerk_user_id, symbol },
-            "Failed to send Smart Digest card",
-          );
-        }
-      }
-
-      await db
-        .query(
-          `INSERT INTO user_recommendation_log
-           (clerk_user_id, ticker_symbol, recommendation_type, priority, headline, message_body, timeframe_alignment)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [
-            watcher.clerk_user_id,
-            primary.symbol,
-            primary.type,
-            primary.priority,
-            primary.headline,
-            briefJson,
-            primary.timeframeAlignment,
-          ],
-        )
-        .catch((err) => log.error({ err }, "Failed to log recommendation"));
-
-      recorded++;
-    } catch (err) {
-      log.error(
-        { err, clerkUserId: watcher.clerk_user_id, symbol },
-        "Failed to record digest brief",
-      );
-    }
-  }
-
-  return recorded;
 }
 
 function buildTelegramNotify(
