@@ -292,7 +292,8 @@ services:
 
   # ===========================================
   # PostgreSQL 17 - Self-hosted Database (migrated from Supabase)
-  # Internal only (not exposed to host)
+  # Bound to VM loopback only (127.0.0.1:5432) for the alpha_tunnel SSH-forward
+  # read-only review path. Public Azure interface remains closed.
   # pg_net extension compiled from source for trigger HTTP calls
   # ===========================================
   postgres:
@@ -313,6 +314,8 @@ services:
       - POSTGRES_DB=stocktracker
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - postgres-backups:/backups
