@@ -64,7 +64,12 @@ export interface DigestBrief {
   price: number;
   changePercent: number;
   confidence: "High" | "Medium" | "Low";
-  updatedAt: Date;
+  /**
+   * Source-derived timestamp (e.g. price target `analysis_date`). `null`
+   * when no DB column supplied a timestamp; the renderer surfaces this
+   * as `"data unavailable"` rather than substituting wall clock time.
+   */
+  updatedAt: Date | null;
   whatHappening: string;
   whatToWatch: { holdAbove: string; breakBelowTarget: string };
   context: string;
@@ -84,11 +89,43 @@ const PRIORITY_ORDER: Record<TickerSignal["priority"], number> = {
   low: 2,
 };
 
+/**
+ * Deterministic intra-priority ordering used as the secondary key in
+ * `selectPrimary`. Lower number wins.
+ *
+ * Rationale: when two signals share the same `priority` (e.g. two
+ * `medium` ones), the previous implementation depended on
+ * `Array.prototype.sort` stability + input order, which made identical
+ * inputs across two pipeline runs pick different "primaries". The
+ * ordering below mirrors Smart Digest's editorial intent:
+ *   1. price-action-confirmed targets (most actionable) win first
+ *   2. then risk-side warnings (must surface before bullish ones)
+ *   3. then trend-state changes
+ *   4. then directional shifts
+ *   5. then setups (entry/notable patterns)
+ *   6. news_sentiment last — least technical of the bucket
+ */
+const TYPE_RANK: Record<TickerSignal["type"], number> = {
+  target_reached: 0,
+  stop_loss_warning: 1,
+  signal_change: 2,
+  momentum_shift: 3,
+  entry_zone: 4,
+  notable_pattern: 5,
+  news_sentiment: 6,
+};
+
 function selectPrimary(signals: TickerSignal[]): TickerSignal | undefined {
   if (signals.length === 0) return undefined;
-  return [...signals].sort(
-    (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
-  )[0];
+  return [...signals].sort((a, b) => {
+    const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+    if (p !== 0) return p;
+    const t = TYPE_RANK[a.type] - TYPE_RANK[b.type];
+    if (t !== 0) return t;
+    if (a.symbol < b.symbol) return -1;
+    if (a.symbol > b.symbol) return 1;
+    return 0;
+  })[0];
 }
 
 function displaySymbol(symbol: string): string {
@@ -171,6 +208,10 @@ export function buildContext(
       // already pre-vetted the one-liner don't get silently dropped.
       impactLevel: "high",
       relevanceScore: 1,
+      // Legacy `newsOneLinerMap` callers vouch for the one-liner being
+      // current at call time; mark it fresh so the B1 freshness gate
+      // does not silently reject it.
+      lastUpdated: new Date().toISOString(),
     };
   }
   const truth = gatherTruth({
@@ -237,6 +278,9 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
           newsOneLiner: legacyOneLiner.trim(),
           impactLevel: "high",
           relevanceScore: 1,
+          // Legacy callers vouch for freshness at call time; mark
+          // explicitly so the B1 gate does not drop the line.
+          lastUpdated: new Date().toISOString(),
         };
       }
     }
@@ -293,7 +337,9 @@ function neutralFallbackBrief(args: {
     price: 0,
     changePercent: 0,
     confidence: "Low",
-    updatedAt: args.now ?? new Date(),
+    // No source-derived timestamp exists in the empty-signal path. We
+    // intentionally do NOT substitute wall clock time here — see A5.
+    updatedAt: args.now ?? null,
     whatHappening: "No actionable technical signals right now.",
     whatToWatch: { holdAbove: "—", breakBelowTarget: "—" },
     context: "",

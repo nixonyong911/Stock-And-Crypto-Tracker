@@ -6,6 +6,7 @@ import {
   buildContexts,
   detectNewsSentimentSignals,
   fetchTickerMemoryText,
+  fetchMacroContext,
   type TickerCtx,
   type PriceTargetRow,
   type IndicatorRow,
@@ -592,6 +593,7 @@ describe("detectNewsSentimentSignals", () => {
 // ── fetchTickerMemoryText ───────────────────────────────────────────────
 
 interface MemoryRow {
+  theme: string | null;
   affected_tickers: string[];
   news_one_liner: string | null;
   summary: string | null;
@@ -605,6 +607,7 @@ interface MemoryRow {
 
 function makeMemoryRow(overrides: Partial<MemoryRow> = {}): MemoryRow {
   return {
+    theme: "Default AAPL theme",
     affected_tickers: ["AAPL"],
     news_one_liner: "Default one-liner about AAPL.",
     summary: "Default summary about AAPL movement.",
@@ -738,3 +741,211 @@ describe("fetchTickerMemoryText", () => {
     expect(out.get("AAPL")?.newsOneLiner).toBeUndefined();
   });
 });
+
+// ── Affinity gate (step 3) ─────────────────────────────────────────────
+
+describe("fetchTickerMemoryText — affinity-aware ranking and rejection", () => {
+  it("rejects an ETH-primary row that lists BTC at position 2 with no BTC token", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "Ethereum analyst-day setup",
+        // No "BTC" / "Bitcoin" token anywhere in text.
+        news_one_liner: "Ethereum's $3,000 target gains analyst consensus.",
+        affected_tickers: ["ETH", "BTC", "COIN", "IBIT"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["BTC/USD"]);
+    expect(out.get("BTC/USD")).toBeUndefined();
+  });
+
+  it("prefers a BTC-primary row over an ETH-primary BTC-listed row even when ETH is fresher", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "Ethereum analyst-day setup",
+        news_one_liner: "Ethereum's $3,000 target gains analyst consensus.",
+        affected_tickers: ["ETH", "BTC", "COIN", "IBIT"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        // Fresher than the BTC row below — pre-affinity, this would win.
+        last_updated: "2026-05-09T20:00:00Z",
+      }),
+      makeMemoryRow({
+        theme: "Bitcoin Custodial Censorship-Resistance Myth",
+        news_one_liner:
+          "US seizure of Iranian crypto assets proves state actors can restrict BTC access at scale.",
+        affected_tickers: ["BTC", "ETH", "COIN"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T08:00:00Z",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["BTC/USD"]);
+    const picked = out.get("BTC/USD");
+    expect(picked).toBeDefined();
+    expect(picked!.newsOneLiner).toMatch(/seizure of Iranian crypto/);
+  });
+
+  it("returns no memory when every candidate fails the affinity gate", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "PLA Leadership Purge Escalation",
+        news_one_liner:
+          "Tail-risk premiums rise for Taiwan-exposed tech and semiconductor names.",
+        affected_tickers: ["FXI", "SPX500", "NSDQ100", "NVDA", "AAPL"],
+        impact_level: "medium",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+      }),
+      makeMemoryRow({
+        theme: "Big Tech AI litigation wave",
+        // No 'AAPL' token, no 'Apple' token; AAPL at position 3, n=5.
+        news_one_liner: "Sector compliance costs rise across mega-caps.",
+        affected_tickers: ["MSFT", "GOOGL", "AAPL", "META", "NSDQ100"],
+        impact_level: "medium",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T19:00:00Z",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")).toBeUndefined();
+  });
+
+  it("alias-position hit accepts BTC-only row for BTC/USD digest", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "Bitcoin Quantum Computing Vulnerability",
+        news_one_liner:
+          "Galaxy Digital flags Bitcoin's quantum risk for ETF issuers and BTC custody providers.",
+        affected_tickers: ["BTC"],
+        impact_level: "low",
+        relevance_score: "1.000",
+        last_updated: "2026-05-04T12:00:00Z",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["BTC/USD"]);
+    expect(out.get("BTC/USD")?.newsOneLiner).toMatch(/quantum risk/);
+  });
+
+  it("affinity outranks freshness within the same impact bucket", async () => {
+    const rows: MemoryRow[] = [
+      // High affinity (text + position + narrow), but older.
+      makeMemoryRow({
+        theme: "AAPL services revenue beat",
+        news_one_liner: "AAPL services revenue ahead of estimates.",
+        affected_tickers: ["AAPL"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-08T08:00:00Z",
+      }),
+      // Same impact, lower affinity (no text token), but newer.
+      makeMemoryRow({
+        theme: "Mega-cap basket rebalance ahead of quarterly close",
+        news_one_liner:
+          "Index funds rebalancing flows tilt against the largest names.",
+        affected_tickers: ["AAPL", "MSFT", "GOOGL"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T20:00:00Z",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")?.newsOneLiner).toMatch(/services revenue/);
+  });
+});
+
+// ── fetchMacroContext (B2) ─────────────────────────────────────────────
+
+interface MacroRow {
+  title: string;
+  description: string | null;
+  category: string;
+  sentiment_score: string | null;
+}
+
+function makeMacroRow(overrides: Partial<MacroRow> = {}): MacroRow {
+  return {
+    title: "Default macro headline",
+    description: null,
+    category: "macro",
+    sentiment_score: "0.4",
+    ...overrides,
+  };
+}
+
+function makeMacroPool(rows: MacroRow[]): Pool {
+  const pool = {
+    query: async <R extends QueryResultRow>(): Promise<QueryResult<R>> => ({
+      rows: rows as unknown as R[],
+      rowCount: rows.length,
+      command: "SELECT",
+      oid: 0,
+      fields: [],
+    }),
+  };
+  return pool as unknown as Pool;
+}
+
+describe("fetchMacroContext — B2 dominantTheme agreement gate", () => {
+  it("returns dominantTheme when ≥3 rows agree on a single category", async () => {
+    const rows = [
+      makeMacroRow({ category: "macro", title: "row 1" }),
+      makeMacroRow({ category: "macro", title: "row 2" }),
+      makeMacroRow({ category: "macro", title: "row 3" }),
+      makeMacroRow({ category: "policy", title: "row 4" }),
+    ];
+    const pool = makeMacroPool(rows);
+    const out = await fetchMacroContext(pool);
+    expect(out.dominantTheme).toBe("macro");
+    expect(out.headlines).toHaveLength(4);
+  });
+
+  it("emits null dominantTheme when no category clears the agreement floor (1+1+1 split)", async () => {
+    const rows = [
+      makeMacroRow({ category: "macro", title: "row 1" }),
+      makeMacroRow({ category: "policy", title: "row 2" }),
+      makeMacroRow({ category: "geopolitical", title: "row 3" }),
+    ];
+    const pool = makeMacroPool(rows);
+    const out = await fetchMacroContext(pool);
+    expect(out.dominantTheme).toBeNull();
+  });
+
+  it("emits null dominantTheme when leading category has only 2 supporters", async () => {
+    const rows = [
+      makeMacroRow({ category: "macro", title: "row 1" }),
+      makeMacroRow({ category: "macro", title: "row 2" }),
+      makeMacroRow({ category: "policy", title: "row 3" }),
+      makeMacroRow({ category: "policy", title: "row 4" }),
+    ];
+    const pool = makeMacroPool(rows);
+    const out = await fetchMacroContext(pool);
+    expect(out.dominantTheme).toBeNull();
+  });
+
+  it("still averages sentiment across every fresh row even when the theme is null", async () => {
+    const rows = [
+      makeMacroRow({ category: "macro", sentiment_score: "0.5" }),
+      makeMacroRow({ category: "policy", sentiment_score: "-0.1" }),
+      makeMacroRow({ category: "geopolitical", sentiment_score: "0.2" }),
+    ];
+    const pool = makeMacroPool(rows);
+    const out = await fetchMacroContext(pool);
+    expect(out.dominantTheme).toBeNull();
+    expect(out.overallSentiment).toBeCloseTo((0.5 - 0.1 + 0.2) / 3, 5);
+  });
+
+  it("returns the empty contract when the DB returns no rows", async () => {
+    const pool = makeMacroPool([]);
+    const out = await fetchMacroContext(pool);
+    expect(out).toEqual({ headlines: [], dominantTheme: null, overallSentiment: 0 });
+  });
+});
+

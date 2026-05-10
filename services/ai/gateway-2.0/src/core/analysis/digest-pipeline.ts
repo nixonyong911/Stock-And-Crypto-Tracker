@@ -117,11 +117,16 @@ export async function processRecommendations(
  * Drop signals that have already been seen for the current UTC day. The
  * `digest:signal:<symbol>:<type>` key is set with TTL until midnight UTC.
  *
+ * Uses a single atomic `SET NX EX` so that two concurrent pipeline
+ * triggers can never both win the dedup for the same `(symbol, type)`.
+ * The legacy `EXISTS` + `SET` pair was racy under concurrent RabbitMQ +
+ * HTTP triggers and produced duplicate sends in production.
+ *
  * This is a pipeline concern (which signals to process), not eligibility
  * (which users may receive them), so it stays here rather than in
  * `digest-eligibility.ts`.
  */
-async function filterDedupSignals(
+export async function filterDedupSignals(
   redis: Redis,
   signals: TickerSignal[],
 ): Promise<TickerSignal[]> {
@@ -130,15 +135,14 @@ async function filterDedupSignals(
 
   for (const s of signals) {
     const key = `digest:signal:${s.symbol}:${s.type}`;
-    const exists = await redis.exists(key);
-    if (exists) continue;
-
-    await redis.set(
+    const acquired = await redis.set(
       key,
       JSON.stringify({ direction: s.rawData.swingSignal }),
       "EX",
       ttl,
+      "NX",
     );
+    if (acquired === null) continue;
     result.push(s);
   }
 

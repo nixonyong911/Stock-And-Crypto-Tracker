@@ -53,6 +53,14 @@ export interface GatewayConfig {
    *  Sourced from env `SMART_DIGEST_BRIEF_BLEND`.
    */
   readonly smartDigestBriefBlend: boolean;
+  /**
+   * Maximum age (hours) for `analysis_market_memory` rows to be eligible
+   * as Smart Digest context or blend material. Both the SQL fetchers and
+   * the in-process `memoryPasses*Gate` checks consume this value through
+   * `getMemoryFreshnessHours()`. Default 72; clamped 1–720 (30 days).
+   * Sourced from env `SMART_DIGEST_MEMORY_FRESHNESS_HOURS`.
+   */
+  readonly smartDigestMemoryFreshnessHours: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,5 +163,9 @@ export function loadConfig(): GatewayConfig {
     ),
     cursorApiKeyConfigured: Boolean(envOptional("CURSOR_API_KEY")),
     smartDigestBriefBlend: envBool("SMART_DIGEST_BRIEF_BLEND", false),
+    smartDigestMemoryFreshnessHours: Math.min(
+      720,
+      Math.max(1, envInt("SMART_DIGEST_MEMORY_FRESHNESS_HOURS", 72)),
+    ),
   };
 }

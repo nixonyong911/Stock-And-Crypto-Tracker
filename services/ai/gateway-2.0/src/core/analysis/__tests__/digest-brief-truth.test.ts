@@ -308,6 +308,69 @@ describe("gatherTruth — missing-data omission", () => {
   });
 });
 
+// ── A4 sanity guards ────────────────────────────────────────────────
+
+describe("gatherTruth — sanity guards (A4)", () => {
+  it("omits truth.open and flags 'open_close_unit_mismatch' for the captured GOLD row (close 46.056, open 4613.35)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        symbol: "GOLD",
+        rawData: {
+          close: 46.056,
+          latestOpen: 4613.35,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+        },
+      }),
+    });
+    expect(truth.price).toBe(46.056);
+    expect(truth.open).toBeUndefined();
+    expect(truth.truthFlags).toContain("open_close_unit_mismatch");
+  });
+
+  it("omits an out-of-band level and flags 'level_out_of_band:entryLow' (close 1.5 vs entryLow 168)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 1.5,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          stopLoss: 1.2,
+        },
+      }),
+    });
+    expect(truth.levels.entryLow).toBeUndefined();
+    expect(truth.levels.stopLoss).toBe(1.2);
+    expect(truth.truthFlags).toContain("level_out_of_band:entryLow");
+  });
+
+  it("does not flag when open and close are within the sane band", () => {
+    const truth = gatherTruth({ signal: makeStockSignal() });
+    expect(truth.open).toBe(170);
+    expect(truth.truthFlags).toBeUndefined();
+  });
+
+  it("propagates the omitted open into changePercent = 0 (no -99% leakage)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        symbol: "GOLD",
+        rawData: {
+          close: 46.056,
+          latestOpen: 4613.35,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+        },
+      }),
+    });
+    const derived = deriveSignals(truth);
+    expect(derived.changePercent).toBe(0);
+  });
+});
+
 describe("gatherTruth — asset coverage", () => {
   it("works for stock fixtures with full DB truth", () => {
     const truth = gatherTruth({ signal: makeStockSignal() });
@@ -513,6 +576,152 @@ describe("deriveSignals — confidence and stance", () => {
     });
     expect(deriveSignals(truth).confidence).toBe("Medium");
   });
+
+  // ── B3 confidence bucketing ────────────────────────────────────
+
+  it("news_sentiment: count*|avg| >= 6 -> High (count_avg source)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "news_sentiment",
+        rawData: {
+          close: 175,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+          newsArticleCount: 8,
+          newsAvgSentiment: 0.8,
+          newsSentimentLabel: "bullish",
+        },
+      }),
+    });
+    const out = deriveSignals(truth);
+    expect(out.confidence).toBe("High");
+    expect(out.confidenceSource).toBe("news_count_avg");
+  });
+
+  it("news_sentiment: count*|avg| in [4, 6) -> Medium (count_avg source)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "news_sentiment",
+        rawData: {
+          close: 175,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+          newsArticleCount: 10,
+          newsAvgSentiment: 0.5,
+          newsSentimentLabel: "bullish",
+        },
+      }),
+    });
+    const out = deriveSignals(truth);
+    expect(out.confidence).toBe("Medium");
+    expect(out.confidenceSource).toBe("news_count_avg");
+  });
+
+  it("news_sentiment: count*|avg| < 4 -> Low even with many articles (count_avg source)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "news_sentiment",
+        rawData: {
+          close: 175,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+          newsArticleCount: 12,
+          newsAvgSentiment: 0.3,
+          newsSentimentLabel: "bullish",
+        },
+      }),
+    });
+    const out = deriveSignals(truth);
+    expect(out.confidence).toBe("Low");
+    expect(out.confidenceSource).toBe("news_count_avg");
+  });
+
+  it("news_sentiment without avg -> falls back to count_only (legacy path)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "news_sentiment",
+        rawData: {
+          close: 175,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+          newsArticleCount: 8,
+          newsSentimentLabel: "bullish",
+        },
+      }),
+    });
+    expect(deriveSignals(truth).confidenceSource).toBe("news_count_only");
+  });
+
+  it("rawConfidence == 1.0 is treated as degenerate and downgraded to Medium (degenerate_default source)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          confidence: 1.0,
+        },
+      }),
+    });
+    const out = deriveSignals(truth);
+    expect(out.confidence).toBe("Medium");
+    expect(out.confidenceSource).toBe("degenerate_default");
+  });
+
+  it("non-degenerate rawConfidence still drives High when alignment is full (raw_confidence source)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          confidence: 0.85,
+        },
+      }),
+    });
+    const out = deriveSignals(truth);
+    expect(out.confidence).toBe("High");
+    expect(out.confidenceSource).toBe("raw_confidence");
+  });
+
+  it("conflict alignment surfaces alignment_only source", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        timeframeAlignment: "conflict",
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bearish",
+          longTermSignal: "neutral",
+          confidence: 0.95,
+        },
+      }),
+    });
+    const out = deriveSignals(truth);
+    expect(out.confidence).toBe("Low");
+    expect(out.confidenceSource).toBe("alignment_only");
+  });
+
+  it("missing rawConfidence falls through to alignment_only Medium", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+        },
+      }),
+    });
+    const out = deriveSignals(truth);
+    expect(out.confidenceSource).toBe("alignment_only");
+  });
 });
 
 // ── composeBrief (interpretation seam) ──────────────────────────────
@@ -523,7 +732,8 @@ describe("composeBrief — interpretation seam contract", () => {
     const derived = deriveSignals(truth);
     const out = composeBrief({ truth, derived });
     expect(typeof out.whatHappening).toBe("string");
-    expect(out.updatedAt).toBeInstanceOf(Date);
+    // No analysisDate and no `now` override -> updatedAt is null per A5.
+    expect(out.updatedAt).toBeNull();
   });
 
   it("strict mode: never appends memory text to whatHappening", () => {

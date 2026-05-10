@@ -18,6 +18,8 @@ import {
   renderSmartDigestCard,
   deliverSmartDigest,
 } from "../core/analysis/digest-delivery.js";
+import { buildDigestDebugReport } from "../core/analysis/digest-debug.js";
+import type { BriefMode } from "../core/analysis/digest-brief-truth.js";
 
 interface CheckRecommendationsBody {
   assetType?: "stock" | "crypto";
@@ -308,6 +310,66 @@ export function registerRecommendationRoutes(
       }
     },
   );
+
+  // ---------------------------------------------------------------------
+  // Smart Digest debug inspection
+  //
+  // Returns the full structured `DigestDebugReport` for a single symbol —
+  // raw truth, all candidate signals + ranking mechanics, every
+  // `analysis_market_memory` candidate considered for context (not just
+  // the chosen one), source freshness, fallback flags, and the final
+  // `DigestBrief`.
+  //
+  // Side effects: none. Does NOT send Telegram, does NOT write to
+  // `user_recommendation_log`, does NOT mutate Redis. Auth via the same
+  // `x-service-key` the other `/internal/*` routes use. Symbol-only:
+  // no `clerkUserId` required, so any symbol can be inspected without a
+  // real watcher.
+  // ---------------------------------------------------------------------
+  app.post<{
+    Body: {
+      symbol: string;
+      assetType?: "stock" | "crypto";
+      mode?: BriefMode;
+    };
+  }>("/internal/debug-digest", async (request, reply) => {
+    const serviceKey = request.headers["x-service-key"] as string | undefined;
+    if (
+      !config.internalServiceKey ||
+      !serviceKey ||
+      serviceKey !== config.internalServiceKey
+    ) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const rawSym = request.body?.symbol?.trim();
+    if (!rawSym) {
+      return reply.status(400).send({ error: "symbol required" });
+    }
+    const symbol = rawSym.toUpperCase();
+    const assetType = request.body?.assetType === "crypto" ? "crypto" : "stock";
+    const requestedMode = request.body?.mode;
+    const mode: BriefMode =
+      requestedMode === "blended" || requestedMode === "strict"
+        ? requestedMode
+        : config.smartDigestBriefBlend
+          ? "blended"
+          : "strict";
+
+    try {
+      const report = await buildDigestDebugReport(
+        { db, log: app.log },
+        { symbol, assetType, mode },
+      );
+      return reply.send({ ok: true, ...report });
+    } catch (err) {
+      app.log.error(
+        { err, symbol, assetType },
+        "Error building debug-digest report",
+      );
+      return reply.status(500).send({ error: "Internal server error" });
+    }
+  });
 }
 
 function buildTelegramNotify(

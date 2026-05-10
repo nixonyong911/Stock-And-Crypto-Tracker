@@ -26,7 +26,13 @@ export interface CardData {
   price: number;
   changePercent: number;
   confidence: "High" | "Medium" | "Low";
-  updatedAt: Date;
+  /**
+   * Timestamp of the underlying DB truth (e.g. price targets analysis_date).
+   * `null` means no source-derived timestamp was available; the renderer
+   * shows `"data unavailable"` in that case rather than substituting wall
+   * clock time.
+   */
+  updatedAt: Date | null;
   whatHappening: string;
   whatToWatch: { holdAbove: string; breakBelowTarget: string };
   context: string;
@@ -129,8 +135,13 @@ function changeColor(pct: number): string {
   return pct >= 0 ? COLORS.brand : "#DC2626";
 }
 
-/** Produces "May 9, 7:32 AM ET" from a Date (interpreted in America/New_York). */
-function formatUpdatedAt(d: Date): string {
+/**
+ * Produces "May 9, 7:32 AM ET" from a Date (interpreted in
+ * America/New_York). Returns `"data unavailable"` when no source-derived
+ * timestamp exists — the renderer never substitutes wall clock time.
+ */
+function formatUpdatedAt(d: Date | null): string {
+  if (d == null) return "data unavailable";
   try {
     const parts = new Intl.DateTimeFormat("en-US", {
       month: "short",

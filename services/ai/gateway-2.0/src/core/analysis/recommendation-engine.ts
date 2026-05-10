@@ -1,4 +1,10 @@
 import type { Pool } from "pg";
+import { getMemoryFreshnessHours } from "./digest-brief-truth.js";
+import {
+  computeSymbolAffinity,
+  getAffinityMin,
+  type AffinityResult,
+} from "./digest-symbol-affinity.js";
 
 /**
  * Per-ticker text loaded from `analysis_market_memory` for a single
@@ -400,19 +406,40 @@ async function fetchNewsHeadlines(
     params.push(newsLookupCandidateSymbols(symbolFilter));
   }
 
+  const freshHours = getMemoryFreshnessHours();
   const { rows } = await db.query<NewsHeadlineRow>(
     `SELECT theme AS headline, affected_tickers, news_one_liner
      FROM analysis_market_memory
-     WHERE status IN ('active', 'fading')${symbolClause}
-     ORDER BY relevance_score DESC
+     WHERE status IN ('active', 'fading')
+       AND last_updated >= NOW() - ($1::int * INTERVAL '1 hour')${symbolClause.replace("$1", "$2")}
+     ORDER BY relevance_score DESC, last_updated DESC
      LIMIT 50`,
-    params,
+    [freshHours, ...params],
   );
 
   const headlineMap = new Map<string, string[]>();
   const oneLinerMap = new Map<string, string>();
+  const affinityMin = getAffinityMin();
   for (const row of rows) {
     for (const ticker of row.affected_tickers ?? []) {
+      // Per-(row, ticker) affinity: the same row may legitimately be on-symbol
+      // for one ticker in `affected_tickers` and contaminated for another.
+      // We use the bare ticker as the digest symbol and derive its alias set
+      // (crypto base, index ETF) so SPX500's SPY-tagged rows still hit.
+      const tickerUpper = (ticker ?? "").toUpperCase();
+      if (!tickerUpper) continue;
+      const aliases = newsLookupCandidateSymbols(tickerUpper).map((c) =>
+        c.toUpperCase(),
+      );
+      const affinity = computeSymbolAffinity({
+        theme: row.headline,
+        newsOneLiner: row.news_one_liner,
+        affectedTickers: row.affected_tickers ?? [],
+        symbolUpper: tickerUpper,
+        aliases,
+        threshold: affinityMin,
+      });
+      if (!affinity.passed) continue;
       const existing = headlineMap.get(ticker) ?? [];
       if (existing.length < 3) {
         existing.push(row.headline);
@@ -429,6 +456,12 @@ async function fetchNewsHeadlines(
 // ── Per-ticker memory text ──────────────────────────────────────────
 
 interface MemoryTextRow {
+  /**
+   * `theme` is loaded so the affinity scorer can match the digest symbol's
+   * tokens against it (alongside `news_one_liner`). It is NOT persisted on
+   * the returned `TickerMemoryText` — the brief composer never reads it.
+   */
+  theme: string | null;
   affected_tickers: string[];
   news_one_liner: string | null;
   summary: string | null;
@@ -455,6 +488,12 @@ function rowImpactRank(row: MemoryTextRow): number {
 function rowRelevance(row: MemoryTextRow): number {
   const n = toNum(row.relevance_score);
   return n ?? 0;
+}
+
+function rowLastUpdatedMs(row: MemoryTextRow): number {
+  if (!row.last_updated) return 0;
+  const t = Date.parse(row.last_updated);
+  return Number.isFinite(t) ? t : 0;
 }
 
 function normalizeImpact(
@@ -497,9 +536,17 @@ function rowToMemoryText(row: MemoryTextRow): TickerMemoryText {
  * for (i.e. index aliases like `SPX500 -> SPY` are resolved here using
  * `newsLookupCandidateSymbols`).
  *
- * For each digest symbol, returns the highest-impact-then-highest-relevance
- * memory row whose `affected_tickers` overlaps the candidate set. Returns
- * `undefined` for symbols with no qualifying row — never invents.
+ * Step-3 contamination defence: every candidate row is scored against the
+ * digest symbol via `computeSymbolAffinity` (theme + news_one_liner only).
+ * Rows below `getAffinityMin()` are excluded so a row whose
+ * `affected_tickers` membership is incidental (e.g. an Ethereum-primary
+ * theme that lists BTC) cannot win the per-symbol slot.
+ *
+ * Ranking among rows that pass affinity:
+ *   1. lowest IMPACT_RANK (critical < high < medium < low)
+ *   2. highest affinity score (more on-symbol wins)
+ *   3. freshest `last_updated`
+ *   4. highest `relevance_score` (kept as last tiebreak; degenerate today)
  *
  * Filters: `status IN ('active','fading')` to mirror the rest of the
  * Smart Digest data flow.
@@ -521,39 +568,54 @@ export async function fetchTickerMemoryText(
     for (const c of cands) candidatesUnion.add(c);
   }
 
+  const freshHours = getMemoryFreshnessHours();
   const { rows } = await db.query<MemoryTextRow>(
-    `SELECT affected_tickers, news_one_liner, summary, key_facts,
+    `SELECT theme, affected_tickers, news_one_liner, summary, key_facts,
             market_implications, impact_level,
             relevance_score::text, sentiment_score::text,
             last_updated::text
      FROM analysis_market_memory
      WHERE status IN ('active', 'fading')
+       AND last_updated >= NOW() - ($2::int * INTERVAL '1 hour')
        AND affected_tickers && $1::text[]`,
-    [Array.from(candidatesUnion)],
+    [Array.from(candidatesUnion), freshHours],
   );
 
   if (rows.length === 0) return out;
 
-  // For each digest symbol, pick the best-ranked row whose affected_tickers
-  // intersects the digest's candidate set. "Best" = lowest IMPACT_RANK, then
-  // highest relevance_score.
+  const affinityMin = getAffinityMin();
+
   for (const [digestSym, cands] of candidatesPerDigest) {
     const candSet = new Set(cands);
     let bestRow: MemoryTextRow | undefined;
+    let bestAffinity: AffinityResult | undefined;
     for (const row of rows) {
       const tickers = row.affected_tickers ?? [];
       const hit = tickers.some((t) => candSet.has((t ?? "").toUpperCase()));
       if (!hit) continue;
-      if (!bestRow) {
+      const affinity = computeSymbolAffinity({
+        theme: row.theme,
+        newsOneLiner: row.news_one_liner,
+        affectedTickers: tickers,
+        symbolUpper: digestSym,
+        aliases: cands,
+        threshold: affinityMin,
+      });
+      if (!affinity.passed) continue;
+      if (!bestRow || !bestAffinity) {
         bestRow = row;
+        bestAffinity = affinity;
         continue;
       }
-      const a = rowImpactRank(row);
-      const b = rowImpactRank(bestRow);
-      if (a < b) {
+      const cmp = compareMemoryCandidates(
+        row,
+        affinity,
+        bestRow,
+        bestAffinity,
+      );
+      if (cmp < 0) {
         bestRow = row;
-      } else if (a === b && rowRelevance(row) > rowRelevance(bestRow)) {
-        bestRow = row;
+        bestAffinity = affinity;
       }
     }
     if (bestRow) {
@@ -564,6 +626,32 @@ export async function fetchTickerMemoryText(
   return out;
 }
 
+/**
+ * Compare two memory candidates by the step-3 ranking key:
+ *   1. lowest IMPACT_RANK
+ *   2. highest affinity score
+ *   3. freshest `last_updated`
+ *   4. highest `relevance_score`
+ *
+ * Returns a negative number when `a` should win, positive when `b` should
+ * win, zero on full tie.
+ */
+function compareMemoryCandidates(
+  a: MemoryTextRow,
+  affA: AffinityResult,
+  b: MemoryTextRow,
+  affB: AffinityResult,
+): number {
+  const impactDelta = rowImpactRank(a) - rowImpactRank(b);
+  if (impactDelta !== 0) return impactDelta;
+  const affinityDelta = affB.score - affA.score;
+  if (affinityDelta !== 0) return affinityDelta;
+  const tsA = rowLastUpdatedMs(a);
+  const tsB = rowLastUpdatedMs(b);
+  if (tsA !== tsB) return tsB - tsA;
+  return rowRelevance(b) - rowRelevance(a);
+}
+
 // ── Macro context ────────────────────────────────────────────────────
 
 export interface MacroContext {
@@ -572,7 +660,21 @@ export interface MacroContext {
   overallSentiment: number;
 }
 
+/**
+ * Minimum number of `analysis_market_memory` rows that must agree on a
+ * single `category` for `dominantTheme` to be set. Below this gate the
+ * macro context is too thin to drive a context line and we emit a null
+ * theme. Sentiment averaging still uses every fresh row (so the header
+ * `overallSentiment` remains representative for downstream sanity).
+ *
+ * Empirically chosen to match the digest brief's macro fallback gate
+ * (`MACRO_SENTIMENT_GATE = 0.3`): both gates must clear before macro is
+ * material enough to surface as `context`.
+ */
+const MACRO_DOMINANT_THEME_MIN_AGREEMENT = 3;
+
 export async function fetchMacroContext(db: Pool): Promise<MacroContext> {
+  const freshHours = getMemoryFreshnessHours();
   const { rows } = await db.query<{
     title: string;
     description: string | null;
@@ -584,10 +686,13 @@ export async function fetchMacroContext(db: Pool): Promise<MacroContext> {
      FROM analysis_market_memory
      WHERE status IN ('active', 'fading')
        AND category IN ('macro', 'geopolitical', 'policy')
+       AND last_updated >= NOW() - ($1::int * INTERVAL '1 hour')
      ORDER BY
        CASE impact_level WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
-       relevance_score DESC
+       relevance_score DESC,
+       last_updated DESC
      LIMIT 10`,
+    [freshHours],
   );
 
   if (rows.length === 0) {
@@ -609,6 +714,11 @@ export async function fetchMacroContext(db: Pool): Promise<MacroContext> {
     }
   }
 
+  // B2: Require >= MACRO_DOMINANT_THEME_MIN_AGREEMENT rows on a single
+  // category before we trust a theme. A two-way "split" (e.g. 1 macro + 1
+  // policy + 1 geopolitical) used to silently elect the alphabetically
+  // first one, which produced misleading "Macro headlines lean negative"
+  // strings whenever any one category nudged ahead by a single row.
   let dominantTheme: string | null = null;
   let maxCount = 0;
   for (const [cat, count] of categoryCounts) {
@@ -616,6 +726,9 @@ export async function fetchMacroContext(db: Pool): Promise<MacroContext> {
       maxCount = count;
       dominantTheme = cat;
     }
+  }
+  if (maxCount < MACRO_DOMINANT_THEME_MIN_AGREEMENT) {
+    dominantTheme = null;
   }
 
   return {

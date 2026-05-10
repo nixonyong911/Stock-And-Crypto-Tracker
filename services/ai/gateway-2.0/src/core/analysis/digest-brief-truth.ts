@@ -121,6 +121,12 @@ export interface BriefTruth {
     /** News sentiment — from aggregated `analysis_market_memory`. */
     newsSentimentLabel?: "bullish" | "bearish";
     newsArticleCount?: number;
+    /**
+     * Mean sentiment across the article window (-1..+1). Sourced from
+     * `news_sentiment_history.avg_sentiment` via the engine. Used by the
+     * B3 confidence derivation so we no longer rely on count alone.
+     */
+    newsAvgSentiment?: number;
   };
 
   /** Per-ticker curated text from `analysis_market_memory`. */
@@ -131,6 +137,20 @@ export interface BriefTruth {
     dominantTheme: string;
     overallSentiment: number;
   };
+
+  /**
+   * Records cases where a DB-supplied number failed sanity checks and
+   * was deliberately omitted from `BriefTruth`. Each entry is a stable
+   * machine-readable code so downstream tools can surface the rejection
+   * without re-deriving it. The presence of a flag is the only safe
+   * breadcrumb back to an upstream data-quality regression — without
+   * it, omitted fields look identical to never-populated fields.
+   *
+   * Codes currently emitted by `gatherTruth`:
+   *   - "open_close_unit_mismatch"
+   *   - "level_out_of_band:<field>"
+   */
+  truthFlags?: string[];
 }
 
 /**
@@ -150,6 +170,25 @@ export interface BriefDerived {
   context: string;
   /** Identifies which DB source supplied the context line, for tests. */
   contextSource: "news_one_liner" | "macro" | "none";
+  /**
+   * Names the input that drove the `confidence` bucket so debug tools can
+   * show why a card landed on Low/Medium/High. Sources:
+   *   - "news_count_avg": news_sentiment derived from `count * |avg|`.
+   *   - "raw_confidence": `analysis_ticker_price_targets.confidence` was a
+   *     non-degenerate value (i.e. not 1.0000) and clipped the bucket.
+   *   - "alignment_only": no useful raw confidence; bucket fell out of
+   *     `signals.alignment` (Low on conflict, Medium otherwise).
+   *   - "degenerate_default": rawConfidence was the well-known 1.0000
+   *     constant we observed in production and was deliberately ignored.
+   *   - "news_count_only": news_sentiment without `newsAvgSentiment` —
+   *     fell back to count-based bucketing (legacy path).
+   */
+  confidenceSource:
+    | "news_count_avg"
+    | "news_count_only"
+    | "raw_confidence"
+    | "alignment_only"
+    | "degenerate_default";
 }
 
 export type BriefStanceLabel =
@@ -176,8 +215,49 @@ const MEMORY_RELEVANCE_GATE = 0.5;
 const MEMORY_BLEND_IMPACT_GATE: ReadonlyArray<TickerMemoryText["impactLevel"]> =
   ["critical", "high"];
 
-/** Macro is only material when the aggregated sentiment is meaningfully signed. */
-const MACRO_SENTIMENT_GATE = 0.3;
+/**
+ * Macro is only material when the aggregated sentiment is meaningfully signed.
+ *
+ * Exported so the debug inspection layer (`digest-debug.ts`) can surface this
+ * threshold to reviewers without re-declaring the constant.
+ */
+export const MACRO_SENTIMENT_GATE = 0.3;
+
+/**
+ * Default freshness window for `analysis_market_memory` rows used as
+ * Smart Digest context. Overridable per-process via the
+ * `SMART_DIGEST_MEMORY_FRESHNESS_HOURS` env var. Both the SQL fetchers
+ * (`fetchTickerMemoryText`, `fetchNewsHeadlines`) and the in-process
+ * gate (`memoryPasses*Gate`) read this single helper so the same
+ * threshold applies everywhere.
+ */
+const DEFAULT_MEMORY_FRESHNESS_HOURS = 72;
+const MEMORY_FRESHNESS_HOURS_MIN = 1;
+const MEMORY_FRESHNESS_HOURS_MAX = 720;
+
+export function getMemoryFreshnessHours(): number {
+  const raw = process.env["SMART_DIGEST_MEMORY_FRESHNESS_HOURS"];
+  if (raw === undefined || raw === "") return DEFAULT_MEMORY_FRESHNESS_HOURS;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return DEFAULT_MEMORY_FRESHNESS_HOURS;
+  return Math.min(
+    MEMORY_FRESHNESS_HOURS_MAX,
+    Math.max(MEMORY_FRESHNESS_HOURS_MIN, n),
+  );
+}
+
+function memoryWithinFreshness(
+  lastUpdatedIso: string | undefined,
+  hours: number,
+  now: Date = new Date(),
+): boolean {
+  if (!lastUpdatedIso) return false;
+  const t = Date.parse(lastUpdatedIso);
+  if (!Number.isFinite(t)) return false;
+  const ageMs = now.getTime() - t;
+  if (ageMs < 0) return true;
+  return ageMs <= hours * 3_600_000;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -191,24 +271,82 @@ function isFinitePositive(n: number | undefined): n is number {
   return typeof n === "number" && Number.isFinite(n) && n > 0;
 }
 
-function memoryPassesContextGate(m: TickerMemoryText | undefined): boolean {
+// ── Sanity guards ─────────────────────────────────────────────────────
+//
+// These defend the brief against corrupt upstream rows we have observed
+// in production (e.g. GOLD with `latest_close=46.056` and
+// `latest_open=4613.35`, AAPL stuck for days, levels in different units
+// from price). They do NOT try to fix the upstream problem — they only
+// ensure that obviously-bad numbers never reach the rendered card.
+
+/**
+ * Maximum `Math.abs(Math.log(close/open))` allowed before treating
+ * `latestOpen` as a unit/source mismatch with `latest_close`. Anything
+ * beyond ±2× of the close is rejected. Real intraday moves are far
+ * inside this band.
+ */
+const PRICE_OPEN_SANE_LOG_RATIO = Math.log(2);
+
+/**
+ * Allowed `level / close` ratio for any DB-sourced level
+ * (entry low/high, target, stop_loss, periodLow/High, ema20/50).
+ * 0.05x..20x is wide enough to admit deep stops and far targets while
+ * still rejecting cross-unit smears like a $4613 entry against a $46
+ * close.
+ */
+const LEVEL_PRICE_BAND_LOW = 0.05;
+const LEVEL_PRICE_BAND_HIGH = 20;
+
+function priceOpenSane(close: number, open: number): boolean {
+  if (!isFinitePositive(close) || !isFinitePositive(open)) return false;
+  return Math.abs(Math.log(close / open)) < PRICE_OPEN_SANE_LOG_RATIO;
+}
+
+function levelInPriceBand(level: number, close: number): boolean {
+  if (!isFinitePositive(level) || !isFinitePositive(close)) return false;
+  const ratio = level / close;
+  return ratio >= LEVEL_PRICE_BAND_LOW && ratio <= LEVEL_PRICE_BAND_HIGH;
+}
+
+function pushFlag(flags: string[], code: string): void {
+  if (!flags.includes(code)) flags.push(code);
+}
+
+/**
+ * Exported so the debug inspection layer can re-evaluate the same gate
+ * against arbitrary memory rows and report `gates.contextGatePassed` per
+ * candidate, in lock-step with production.
+ */
+export function memoryPassesContextGate(
+  m: TickerMemoryText | undefined,
+): boolean {
   if (!m) return false;
   if (!m.newsOneLiner || m.newsOneLiner.trim().length === 0) return false;
   if (!m.impactLevel || !MEMORY_IMPACT_GATE.includes(m.impactLevel))
     return false;
   if ((m.relevanceScore ?? 0) < MEMORY_RELEVANCE_GATE) return false;
-  return true;
-}
-
-function memoryPassesBlendGate(m: TickerMemoryText | undefined): boolean {
-  if (!m) return false;
-  if (!m.summary || m.summary.trim().length === 0) return false;
-  if (!m.impactLevel || !MEMORY_BLEND_IMPACT_GATE.includes(m.impactLevel))
+  if (!memoryWithinFreshness(m.lastUpdated, getMemoryFreshnessHours()))
     return false;
   return true;
 }
 
-function macroPassesGate(macro: BriefTruth["macro"] | undefined): boolean {
+/** Exported for the debug inspection layer (mirror of context gate). */
+export function memoryPassesBlendGate(
+  m: TickerMemoryText | undefined,
+): boolean {
+  if (!m) return false;
+  if (!m.summary || m.summary.trim().length === 0) return false;
+  if (!m.impactLevel || !MEMORY_BLEND_IMPACT_GATE.includes(m.impactLevel))
+    return false;
+  if (!memoryWithinFreshness(m.lastUpdated, getMemoryFreshnessHours()))
+    return false;
+  return true;
+}
+
+/** Exported for the debug inspection layer (mirror of memory gates). */
+export function macroPassesGate(
+  macro: BriefTruth["macro"] | undefined,
+): boolean {
   if (!macro) return false;
   if (!macro.dominantTheme || macro.dominantTheme.trim().length === 0)
     return false;
@@ -236,10 +374,15 @@ export interface GatherTruthArgs {
 /**
  * Map raw engine outputs onto a strictly DB-grounded `BriefTruth`.
  * Pure: no I/O, no time references, no hard-coded fallbacks.
+ *
+ * Numeric values that fail sanity guards (open/close ratio, level/price
+ * band) are deliberately omitted and recorded in `truth.truthFlags`
+ * rather than passed through to the renderer.
  */
 export function gatherTruth(args: GatherTruthArgs): BriefTruth {
   const { signal, macroContext, memoryText, analysisDate } = args;
   const d = signal.rawData;
+  const flags: string[] = [];
 
   const truth: BriefTruth = {
     symbol: signal.symbol,
@@ -258,17 +401,36 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
   };
 
   if (isFinitePositive(d.close)) truth.price = d.close;
-  if (isFinitePositive(d.latestOpen)) truth.open = d.latestOpen;
+  if (isFinitePositive(d.latestOpen)) {
+    if (truth.price != null && !priceOpenSane(truth.price, d.latestOpen)) {
+      pushFlag(flags, "open_close_unit_mismatch");
+    } else {
+      truth.open = d.latestOpen;
+    }
+  }
   if (analysisDate && analysisDate.length > 0) truth.dataAsOf = analysisDate;
 
-  if (isFinitePositive(d.entryLow)) truth.levels.entryLow = d.entryLow;
-  if (isFinitePositive(d.entryHigh)) truth.levels.entryHigh = d.entryHigh;
-  if (isFinitePositive(d.targetPrice)) truth.levels.target = d.targetPrice;
-  if (isFinitePositive(d.stopLoss)) truth.levels.stopLoss = d.stopLoss;
-  if (isFinitePositive(d.periodLow)) truth.levels.periodLow = d.periodLow;
-  if (isFinitePositive(d.periodHigh)) truth.levels.periodHigh = d.periodHigh;
-  if (isFinitePositive(d.ema20)) truth.levels.ema20 = d.ema20;
-  if (isFinitePositive(d.ema50)) truth.levels.ema50 = d.ema50;
+  // Level guards. We only reject when truth.price exists; otherwise we
+  // can't compare ratios and the level is the only number we have.
+  const assignLevel = (
+    field: keyof BriefTruth["levels"],
+    raw: number | undefined,
+  ): void => {
+    if (!isFinitePositive(raw)) return;
+    if (truth.price != null && !levelInPriceBand(raw, truth.price)) {
+      pushFlag(flags, `level_out_of_band:${field}`);
+      return;
+    }
+    truth.levels[field] = raw;
+  };
+  assignLevel("entryLow", d.entryLow);
+  assignLevel("entryHigh", d.entryHigh);
+  assignLevel("target", d.targetPrice);
+  assignLevel("stopLoss", d.stopLoss);
+  assignLevel("periodLow", d.periodLow);
+  assignLevel("periodHigh", d.periodHigh);
+  assignLevel("ema20", d.ema20);
+  assignLevel("ema50", d.ema50);
 
   if (typeof d.confidence === "number" && Number.isFinite(d.confidence)) {
     truth.rawConfidence = d.confidence;
@@ -296,6 +458,12 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
   if (typeof d.newsArticleCount === "number" && d.newsArticleCount > 0) {
     truth.signalFacts.newsArticleCount = d.newsArticleCount;
   }
+  if (
+    typeof d.newsAvgSentiment === "number" &&
+    Number.isFinite(d.newsAvgSentiment)
+  ) {
+    truth.signalFacts.newsAvgSentiment = d.newsAvgSentiment;
+  }
 
   if (memoryText) {
     truth.memoryText = memoryText;
@@ -312,6 +480,8 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
     };
   }
 
+  if (flags.length > 0) truth.truthFlags = flags;
+
   return truth;
 }
 
@@ -323,7 +493,7 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
  */
 export function deriveSignals(truth: BriefTruth): BriefDerived {
   const stance = deriveStanceFromTruth(truth);
-  const confidence = deriveConfidenceFromTruth(truth);
+  const { confidence, confidenceSource } = deriveConfidenceFromTruth(truth);
   const { holdAbove, breakBelowTarget } = deriveLevelsFromTruth(truth);
   const changePercent = deriveChangePercentFromTruth(truth);
   const { context, contextSource } = deriveContextFromTruth(truth);
@@ -338,6 +508,7 @@ export function deriveSignals(truth: BriefTruth): BriefDerived {
     hasMaterialContext,
     context,
     contextSource,
+    confidenceSource,
   };
 }
 
@@ -383,27 +554,75 @@ function deriveStanceFromTruth(
   }
 }
 
-function deriveConfidenceFromTruth(
-  truth: BriefTruth,
-): BriefDerived["confidence"] {
+/**
+ * Production observation: `analysis_ticker_price_targets.confidence`
+ * arrives as exactly `1.0000` for the overwhelming majority of rows, so
+ * a strict-equals comparison against any value at or above this floor is
+ * indistinguishable from "the engine has nothing useful to say." We
+ * deliberately ignore those rows when bucketing confidence and surface
+ * the rejection through `confidenceSource = "degenerate_default"` so
+ * debug tools can correlate stale confidence with the upstream issue.
+ */
+const DEGENERATE_RAW_CONFIDENCE = 0.999;
+
+/**
+ * News-sentiment confidence threshold built from `count * |avg|`.
+ *  - >= NEWS_HIGH_SCORE -> High (rare; both volume and conviction).
+ *  - >= NEWS_MEDIUM_SCORE -> Medium.
+ *  - otherwise -> Low.
+ *
+ * Tuned so 7 articles at avg 0.6 (the empirical "noteworthy" threshold)
+ * lands in Medium and 7 articles at avg 1.0 lands in High.
+ */
+const NEWS_MEDIUM_SCORE = 4;
+const NEWS_HIGH_SCORE = 6;
+
+function deriveConfidenceFromTruth(truth: BriefTruth): {
+  confidence: BriefDerived["confidence"];
+  confidenceSource: BriefDerived["confidenceSource"];
+} {
   if (truth.signalFacts.type === "news_sentiment") {
     const count = truth.signalFacts.newsArticleCount ?? 0;
-    if (count >= 7) return "Medium";
-    return "Low";
+    const avg = truth.signalFacts.newsAvgSentiment;
+    if (typeof avg === "number" && Number.isFinite(avg)) {
+      const score = count * Math.abs(avg);
+      if (score >= NEWS_HIGH_SCORE) {
+        return { confidence: "High", confidenceSource: "news_count_avg" };
+      }
+      if (score >= NEWS_MEDIUM_SCORE) {
+        return { confidence: "Medium", confidenceSource: "news_count_avg" };
+      }
+      return { confidence: "Low", confidenceSource: "news_count_avg" };
+    }
+    if (count >= 7) {
+      return { confidence: "Medium", confidenceSource: "news_count_only" };
+    }
+    return { confidence: "Low", confidenceSource: "news_count_only" };
   }
 
-  if (truth.signals.alignment === "conflict") return "Low";
+  if (truth.signals.alignment === "conflict") {
+    return { confidence: "Low", confidenceSource: "alignment_only" };
+  }
 
   const conf = truth.rawConfidence;
-  if (conf != null && conf < 0.4) return "Low";
+  if (conf != null && conf >= DEGENERATE_RAW_CONFIDENCE) {
+    // The well-known constant — fall back to alignment-only bucketing.
+    return { confidence: "Medium", confidenceSource: "degenerate_default" };
+  }
+  if (conf != null && conf < 0.4) {
+    return { confidence: "Low", confidenceSource: "raw_confidence" };
+  }
   if (
     conf != null &&
     conf >= 0.7 &&
     truth.signals.alignment === "full"
   ) {
-    return "High";
+    return { confidence: "High", confidenceSource: "raw_confidence" };
   }
-  return "Medium";
+  if (conf != null) {
+    return { confidence: "Medium", confidenceSource: "raw_confidence" };
+  }
+  return { confidence: "Medium", confidenceSource: "alignment_only" };
 }
 
 function deriveLevelsFromTruth(truth: BriefTruth): {
@@ -466,7 +685,12 @@ export interface ComposeBriefArgs {
   derived: BriefDerived;
   /** strict (default): no memory text. blended: may append memory phrase. */
   mode?: BriefMode;
-  /** Test/scripted override. Defaults to `truth.dataAsOf` then wall clock. */
+  /**
+   * Test/scripted override. When omitted, `updatedAt` is derived from
+   * `truth.dataAsOf` only; if that is also missing, `updatedAt` is
+   * `null` and the renderer shows `"data unavailable"`. Wall-clock
+   * fallback was deliberately removed to keep the footer truth-only.
+   */
   now?: Date;
 }
 
@@ -479,10 +703,11 @@ export interface ComposeBriefArgs {
  *   - reads only `truth`, `derived`, `mode`, `now`
  *   - never invents facts or numbers
  *   - degrades to safe defaults when truth is sparse
+ *   - `updatedAt` is `null` when no source-derived timestamp exists
  */
 export function composeBrief(args: ComposeBriefArgs): {
   whatHappening: string;
-  updatedAt: Date;
+  updatedAt: Date | null;
 } {
   const { truth, derived, mode = "strict" } = args;
   const updatedAt = resolveUpdatedAt(truth, args.now);
@@ -490,7 +715,7 @@ export function composeBrief(args: ComposeBriefArgs): {
   return { whatHappening, updatedAt };
 }
 
-function resolveUpdatedAt(truth: BriefTruth, override?: Date): Date {
+function resolveUpdatedAt(truth: BriefTruth, override?: Date): Date | null {
   if (override) return override;
   if (truth.dataAsOf) {
     // YYYY-MM-DD from `analysis_ticker_price_targets.analysis_date`. Treat
@@ -499,7 +724,7 @@ function resolveUpdatedAt(truth: BriefTruth, override?: Date): Date {
     const parsed = parseAnalysisDateAsEt(truth.dataAsOf);
     if (parsed) return parsed;
   }
-  return new Date();
+  return null;
 }
 
 /**
@@ -531,8 +756,7 @@ function buildWhatHappeningSentence(
   derived: BriefDerived,
   mode: BriefMode,
 ): string {
-  void derived;
-  const base = baseSignalSentence(truth);
+  const base = baseSignalSentence(truth, derived);
   if (mode === "strict") return base;
   const blend = blendedMemoryPhrase(truth);
   if (!blend) return base;
@@ -540,52 +764,123 @@ function buildWhatHappeningSentence(
   return `${trimmedBase} ${blend}`;
 }
 
-function baseSignalSentence(truth: BriefTruth): string {
+/**
+ * Builds the per-signal "what happening" sentence in strict mode.
+ *
+ * Every clause must trace back to a `BriefTruth` field — no invention,
+ * no LLM, no hard-coded numbers. When a fact is missing the clause is
+ * dropped rather than substituted with a placeholder. The result is a
+ * deterministic line that calls out the actual numeric DB truth instead
+ * of the stale generic templates the previous version emitted (e.g.
+ * "AAPL has pulled back into its prior breakout zone").
+ */
+function baseSignalSentence(truth: BriefTruth, derived: BriefDerived): string {
   const sym = displaySymbol(truth.symbol);
   const facts = truth.signalFacts;
+  const price = truth.price;
+  const lvl = truth.levels;
 
   switch (facts.type) {
-    case "entry_zone":
-      return `${sym} has pulled back into its prior breakout zone with buyers stepping in at recent lows.`;
+    case "entry_zone": {
+      const parts: string[] = [];
+      if (isFinitePositive(price)) {
+        parts.push(`${sym} is back inside its entry zone at $${fmtPrice(price)}`);
+      } else {
+        parts.push(`${sym} is back inside its entry zone`);
+      }
+      const range = formatLevelRange(lvl.entryLow, lvl.entryHigh);
+      if (range) parts.push(`(zone ${range})`);
+      const stop = lvl.stopLoss;
+      if (isFinitePositive(stop)) {
+        parts.push(`with a stop at $${fmtPrice(stop)}`);
+      }
+      return `${parts.join(" ")}.`;
+    }
 
-    case "target_reached":
-      return `${sym} is pushing into projected resistance as buyers stay engaged.`;
+    case "target_reached": {
+      const parts: string[] = [];
+      const tgt = lvl.target;
+      if (isFinitePositive(price) && isFinitePositive(tgt)) {
+        parts.push(
+          `${sym} pushed to $${fmtPrice(price)}, into the projected target at $${fmtPrice(tgt)}`,
+        );
+      } else if (isFinitePositive(price)) {
+        parts.push(`${sym} pushed to $${fmtPrice(price)} into projected resistance`);
+      } else {
+        parts.push(`${sym} pushed into its projected target zone`);
+      }
+      return `${parts[0]}.`;
+    }
 
-    case "stop_loss_warning":
+    case "stop_loss_warning": {
+      const stop = lvl.stopLoss;
+      const lo = lvl.periodLow;
+      if (isFinitePositive(price) && isFinitePositive(stop)) {
+        return `${sym} is at $${fmtPrice(price)}, pressing the stop-loss at $${fmtPrice(stop)}.`;
+      }
+      if (isFinitePositive(price) && isFinitePositive(lo)) {
+        return `${sym} is at $${fmtPrice(price)}, testing the lower edge near $${fmtPrice(lo)}.`;
+      }
       return `${sym} is testing the lower edge of its recent range.`;
+    }
 
     case "signal_change": {
       const prev = facts.previousSignal ?? "neutral";
       const curr = facts.currentSignal ?? truth.signals.swing;
-      return `Trend has flipped from ${prev} to ${curr} on the swing timeframe.`;
+      const priceClause = isFinitePositive(price)
+        ? ` (last $${fmtPrice(price)})`
+        : "";
+      return `Trend on the swing timeframe flipped from ${prev} to ${curr}${priceClause}.`;
     }
 
     case "momentum_shift": {
       const hist = facts.macdHistogram;
-      const dir = hist != null && hist > 0 ? "positive" : "negative";
-      return `Short-term momentum has rolled ${dir}.`;
+      if (hist != null && Number.isFinite(hist)) {
+        const dir = hist > 0 ? "positive" : "negative";
+        return `Short-term momentum has rolled ${dir} (MACD histogram ${hist.toFixed(4)}).`;
+      }
+      return `Short-term momentum has shifted on this name.`;
     }
 
     case "notable_pattern": {
       const p = facts.pattern;
       if (!p) return `${sym} formed a notable candlestick pattern today.`;
-      const pretty = p.name.replace(/_/g, " ");
-      return `${capitalize(pretty)} pattern formed today, often a ${p.signal} reversal cue.`;
+      const pretty = capitalize(p.name.replace(/_/g, " "));
+      const conf = derived.confidence; // High/Medium/Low — bucketed in deriveSignals
+      return `${pretty} pattern formed today (${conf.toLowerCase()}-confidence), often a ${p.signal} reversal cue.`;
     }
 
     case "news_sentiment": {
       const label = facts.newsSentimentLabel ?? "mixed";
       const count = facts.newsArticleCount ?? 0;
-      return `Recent coverage has skewed ${label} across ${count} ${count === 1 ? "story" : "stories"}.`;
+      const avg = facts.newsAvgSentiment;
+      const noun = count === 1 ? "story" : "stories";
+      if (typeof avg === "number" && Number.isFinite(avg)) {
+        const sign = avg >= 0 ? "+" : "";
+        return `Recent coverage skewed ${label} across ${count} ${noun} (avg ${sign}${avg.toFixed(2)}).`;
+      }
+      return `Recent coverage skewed ${label} across ${count} ${noun}.`;
     }
 
     default: {
-      if (isFinitePositive(truth.price)) {
-        return `${sym} is trading at $${fmtPrice(truth.price)}.`;
+      if (isFinitePositive(price)) {
+        return `${sym} is trading at $${fmtPrice(price)}.`;
       }
       return `No actionable technical signals right now.`;
     }
   }
+}
+
+function formatLevelRange(
+  low: number | undefined,
+  high: number | undefined,
+): string | null {
+  if (isFinitePositive(low) && isFinitePositive(high)) {
+    return `$${fmtPrice(low)}–$${fmtPrice(high)}`;
+  }
+  if (isFinitePositive(low)) return `from $${fmtPrice(low)}`;
+  if (isFinitePositive(high)) return `up to $${fmtPrice(high)}`;
+  return null;
 }
 
 function blendedMemoryPhrase(truth: BriefTruth): string | null {

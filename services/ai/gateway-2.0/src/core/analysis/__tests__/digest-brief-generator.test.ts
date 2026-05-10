@@ -227,10 +227,28 @@ describe("deriveConfidence", () => {
 });
 
 describe("buildWhatHappening", () => {
-  it("emits a one-line entry-zone sentence", () => {
-    const out = buildWhatHappening(makeSignal({ type: "entry_zone" }));
-    expect(out).toMatch(/pulled back/i);
-    expect(out.split(/[.!?]/).filter((s) => s.trim().length > 0)).toHaveLength(1);
+  it("emits a one-line, fact-rich entry-zone sentence (B5)", () => {
+    const out = buildWhatHappening(
+      makeSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          entryHigh: 178,
+          stopLoss: 162,
+        },
+      }),
+    );
+    expect(out).toMatch(/AAPL is back inside its entry zone at \$175\.00/);
+    expect(out).toMatch(/zone \$168\.00.\$178\.00/);
+    expect(out).toMatch(/stop at \$162\.00/);
+    // One-line semantic: a single trailing terminator, no embedded
+    // sentence breaks (decimal points in prices don't count).
+    expect(out.split(/[.!?]\s/).filter((s) => s.trim().length > 0)).toHaveLength(1);
+    expect(out).not.toContain("\n");
   });
 
   it("never emits the legacy 'across all timeframes' filler", () => {
@@ -246,6 +264,114 @@ describe("buildWhatHappening", () => {
       const out = buildWhatHappening(makeSignal({ type }));
       expect(out).not.toMatch(/across all timeframes/i);
     }
+  });
+
+  // ── B5 fact-rich composition ────────────────────────────────────
+
+  it("target_reached weaves price + target", () => {
+    const out = buildWhatHappening(
+      makeSignal({
+        type: "target_reached",
+        rawData: {
+          close: 195,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          targetPrice: 192,
+        },
+      }),
+    );
+    expect(out).toMatch(/\$195\.00/);
+    expect(out).toMatch(/\$192\.00/);
+  });
+
+  it("stop_loss_warning weaves price + stop level", () => {
+    const out = buildWhatHappening(
+      makeSignal({
+        type: "stop_loss_warning",
+        rawData: {
+          close: 90,
+          daySignal: "bearish",
+          swingSignal: "bearish",
+          longTermSignal: "bearish",
+          stopLoss: 89,
+        },
+      }),
+    );
+    expect(out).toMatch(/\$90\.00/);
+    expect(out).toMatch(/stop-loss at \$89\.00/);
+  });
+
+  it("signal_change includes prev/curr direction and price", () => {
+    const out = buildWhatHappening(
+      makeSignal({
+        type: "signal_change",
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          previousSignal: "bearish",
+          currentSignal: "bullish",
+        },
+      }),
+    );
+    expect(out).toMatch(/from bearish to bullish/);
+    expect(out).toMatch(/\$175\.00/);
+  });
+
+  it("momentum_shift surfaces the macd histogram value", () => {
+    const out = buildWhatHappening(
+      makeSignal({
+        type: "momentum_shift",
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          macdHistogram: 0.0234,
+        },
+      }),
+    );
+    expect(out).toMatch(/positive/);
+    expect(out).toMatch(/0\.0234/);
+  });
+
+  it("notable_pattern includes derived confidence bucket", () => {
+    const out = buildWhatHappening(
+      makeSignal({
+        type: "notable_pattern",
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          confidence: 0.85,
+          patterns: [{ pattern: "bullish_engulfing", signal: "bullish" }],
+        },
+      }),
+    );
+    expect(out).toMatch(/Bullish engulfing/);
+    expect(out).toMatch(/high-confidence/);
+  });
+
+  it("news_sentiment weaves count + average sentiment", () => {
+    const out = buildWhatHappening(
+      makeSignal({
+        type: "news_sentiment",
+        rawData: {
+          close: 175,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+          newsArticleCount: 8,
+          newsAvgSentiment: 0.62,
+          newsSentimentLabel: "bullish",
+        },
+      }),
+    );
+    expect(out).toMatch(/skewed bullish across 8 stories/);
+    expect(out).toMatch(/avg \+0\.62/);
   });
 });
 
@@ -350,7 +476,9 @@ describe("generateDigestBrief", () => {
     expect(brief.price).toBe(175);
     expect(brief.changePercent).toBeCloseTo(((175 - 170) / 170) * 100, 5);
     expect(brief.confidence).toBe("Medium");
-    expect(brief.updatedAt).toBeInstanceOf(Date);
+    // No analysisDateMap and no `now` override -> updatedAt is null per A5
+    // (the renderer surfaces this as "data unavailable").
+    expect(brief.updatedAt).toBeNull();
     expect(brief.whatHappening.length).toBeGreaterThan(0);
     expect(brief.whatToWatch.holdAbove).toBeTruthy();
     expect(brief.whatToWatch.breakBelowTarget).toBeTruthy();
@@ -390,6 +518,88 @@ describe("generateDigestBrief", () => {
     expect(brief.changePercent).toBe(0);
     expect(brief.context).toBe("");
     expect(brief.hasMaterialContext).toBe(false);
+  });
+
+  describe("selectPrimary deterministic tiebreak (B4)", () => {
+    it("prefers stop_loss_warning over entry_zone at equal priority", () => {
+      const stop = makeSignal({
+        type: "stop_loss_warning",
+        priority: "medium",
+        headline: "stop",
+      });
+      const entry = makeSignal({
+        type: "entry_zone",
+        priority: "medium",
+        headline: "entry",
+      });
+      const brief = generateDigestBrief({
+        signals: [entry, stop],
+        symbol: "AAPL",
+      });
+      expect(brief.status.label).toBe("Caution");
+    });
+
+    it("prefers target_reached over stop_loss_warning at equal priority", () => {
+      const stop = makeSignal({
+        type: "stop_loss_warning",
+        priority: "high",
+        headline: "stop",
+      });
+      const target = makeSignal({
+        type: "target_reached",
+        priority: "high",
+        headline: "target",
+      });
+      const brief = generateDigestBrief({
+        signals: [stop, target],
+        symbol: "AAPL",
+      });
+      expect(brief.status.label).toBe("Constructive");
+    });
+
+    it("is order-independent for equal priority + equal type (input order does not change winner)", () => {
+      const a = makeSignal({
+        symbol: "AAPL",
+        type: "entry_zone",
+        priority: "medium",
+        headline: "AAPL entry",
+      });
+      const b = makeSignal({
+        symbol: "MSFT",
+        type: "entry_zone",
+        priority: "medium",
+        headline: "MSFT entry",
+      });
+      const briefAB = generateDigestBrief({ signals: [a, b], symbol: "AAPL" });
+      const briefBA = generateDigestBrief({ signals: [b, a], symbol: "AAPL" });
+      expect(briefAB.ticker).toBe(briefBA.ticker);
+    });
+
+    it("priority still wins over type rank (high signal_change beats medium target_reached)", () => {
+      const lowImpactTarget = makeSignal({
+        type: "target_reached",
+        priority: "medium",
+        headline: "medium target",
+      });
+      const highSignalChange = makeSignal({
+        type: "signal_change",
+        priority: "high",
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          previousSignal: "bearish",
+          currentSignal: "bullish",
+        },
+        headline: "high signal change",
+      });
+      const brief = generateDigestBrief({
+        signals: [lowImpactTarget, highSignalChange],
+        symbol: "AAPL",
+      });
+      expect(brief.status.label).toBe("Constructive");
+    });
   });
 
   it("computes changePercent = 0 when latestOpen is missing", () => {
@@ -532,6 +742,8 @@ describe("generateDigestBrief", () => {
               newsOneLiner: "Strong services guidance.",
               impactLevel: "high",
               relevanceScore: 0.8,
+              // Fresh — passes the B1 freshness gate.
+              lastUpdated: new Date().toISOString(),
             },
           ],
         ]),
@@ -623,11 +835,55 @@ describe("generateDigestBrief", () => {
               summary: "Distinct memory phrase about Apple analyst day.",
               impactLevel: "high",
               relevanceScore: 0.8,
+              // Fresh — passes the B1 freshness gate.
+              lastUpdated: new Date().toISOString(),
             },
           ],
         ]),
       });
       expect(brief.whatHappening).toContain("analyst day");
+    });
+
+    it("rejects memoryTextMap row that is older than 72h (B1 freshness gate)", () => {
+      const s = makeSignal({ type: "entry_zone" });
+      const stale = new Date(Date.now() - 73 * 60 * 60 * 1000).toISOString();
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        memoryTextMap: new Map([
+          [
+            "AAPL",
+            {
+              newsOneLiner: "Stale services guidance.",
+              impactLevel: "high",
+              relevanceScore: 0.95,
+              lastUpdated: stale,
+            },
+          ],
+        ]),
+      });
+      expect(brief.context).toBe("");
+      expect(brief.hasMaterialContext).toBe(false);
+    });
+
+    it("rejects memoryTextMap row with no lastUpdated (B1 freshness gate)", () => {
+      const s = makeSignal({ type: "entry_zone" });
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        memoryTextMap: new Map([
+          [
+            "AAPL",
+            {
+              newsOneLiner: "Undated services guidance.",
+              impactLevel: "high",
+              relevanceScore: 0.95,
+            },
+          ],
+        ]),
+      });
+      expect(brief.context).toBe("");
+      expect(brief.hasMaterialContext).toBe(false);
     });
 
     it("blended skips append when impact is medium (gate requires high+)", () => {
