@@ -523,11 +523,18 @@ describe("generateDigestBrief", () => {
   });
 
   describe("selectPrimary deterministic tiebreak (B4)", () => {
-    it("prefers stop_loss_warning over entry_zone at equal priority", () => {
+    it("prefers higher-strength signal at equal priority (strength tiebreak)", () => {
       const stop = makeSignal({
         type: "stop_loss_warning",
         priority: "medium",
         headline: "stop",
+        rawData: {
+          close: 80,
+          daySignal: "bearish",
+          swingSignal: "bearish",
+          longTermSignal: "bearish",
+          stopLoss: 89,
+        },
       });
       const entry = makeSignal({
         type: "entry_zone",

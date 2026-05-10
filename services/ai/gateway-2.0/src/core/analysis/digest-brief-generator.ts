@@ -42,6 +42,7 @@ import type { CardData, StatusTone } from "./card-renderer.js";
 import {
   gatherTruth,
   deriveSignals,
+  deriveStrengthFromTruth,
   composeBrief,
   type BriefTruth,
   type BriefDerived,
@@ -115,11 +116,21 @@ const TYPE_RANK: Record<TickerSignal["type"], number> = {
   news_sentiment: 6,
 };
 
+function signalStrengthQuick(s: TickerSignal): number {
+  const truth = gatherTruth({ signal: s });
+  return deriveStrengthFromTruth(truth);
+}
+
 function selectPrimary(signals: TickerSignal[]): TickerSignal | undefined {
   if (signals.length === 0) return undefined;
+  const strengths = new Map<TickerSignal, number>();
+  for (const s of signals) strengths.set(s, signalStrengthQuick(s));
   return [...signals].sort((a, b) => {
     const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
     if (p !== 0) return p;
+    const sa = strengths.get(a) ?? 0;
+    const sb = strengths.get(b) ?? 0;
+    if (sa !== sb) return sb - sa;
     const t = TYPE_RANK[a.type] - TYPE_RANK[b.type];
     if (t !== 0) return t;
     if (a.symbol < b.symbol) return -1;

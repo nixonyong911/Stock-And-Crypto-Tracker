@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   gatherTruth,
   deriveSignals,
+  deriveStrengthFromTruth,
   composeBrief,
+  trimContextLine,
   type BriefTruth,
   type TickerMemoryText,
 } from "../digest-brief-truth.js";
@@ -579,7 +581,7 @@ describe("deriveSignals — confidence and stance", () => {
 
   // ── B3 confidence bucketing ────────────────────────────────────
 
-  it("news_sentiment: count*|avg| >= 6 -> High (count_avg source)", () => {
+  it("news_sentiment: count*|avg| >= 6 -> High (news_score source)", () => {
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "news_sentiment",
@@ -596,10 +598,10 @@ describe("deriveSignals — confidence and stance", () => {
     });
     const out = deriveSignals(truth);
     expect(out.confidence).toBe("High");
-    expect(out.confidenceSource).toBe("news_count_avg");
+    expect(out.confidenceSource).toBe("news_score");
   });
 
-  it("news_sentiment: count*|avg| in [4, 6) -> Medium (count_avg source)", () => {
+  it("news_sentiment: count*|avg| in [4, 6) -> Medium (news_score source)", () => {
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "news_sentiment",
@@ -616,10 +618,10 @@ describe("deriveSignals — confidence and stance", () => {
     });
     const out = deriveSignals(truth);
     expect(out.confidence).toBe("Medium");
-    expect(out.confidenceSource).toBe("news_count_avg");
+    expect(out.confidenceSource).toBe("news_score");
   });
 
-  it("news_sentiment: count*|avg| < 4 -> Low even with many articles (count_avg source)", () => {
+  it("news_sentiment: count*|avg| < 4 -> Low even with many articles (news_score source)", () => {
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "news_sentiment",
@@ -636,7 +638,7 @@ describe("deriveSignals — confidence and stance", () => {
     });
     const out = deriveSignals(truth);
     expect(out.confidence).toBe("Low");
-    expect(out.confidenceSource).toBe("news_count_avg");
+    expect(out.confidenceSource).toBe("news_score");
   });
 
   it("news_sentiment without avg -> falls back to count_only (legacy path)", () => {
@@ -656,9 +658,29 @@ describe("deriveSignals — confidence and stance", () => {
     expect(deriveSignals(truth).confidenceSource).toBe("news_count_only");
   });
 
-  it("rawConfidence == 1.0 is treated as degenerate and downgraded to Medium (degenerate_default source)", () => {
+  it("rawConfidence == 1.0 with high strength rescues to High (strength_from_signal source)", () => {
     const truth = gatherTruth({
       signal: makeStockSignal({
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          confidence: 1.0,
+          entryLow: 168,
+          entryHigh: 178,
+        },
+      }),
+    });
+    const out = deriveSignals(truth);
+    expect(out.confidence).toBe("High");
+    expect(out.confidenceSource).toBe("strength_from_signal");
+  });
+
+  it("rawConfidence == 1.0 with low strength stays Medium (degenerate_default source)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
         rawData: {
           close: 175,
           daySignal: "bullish",
@@ -669,6 +691,7 @@ describe("deriveSignals — confidence and stance", () => {
       }),
     });
     const out = deriveSignals(truth);
+    expect(out.signalStrength).toBeLessThan(0.3);
     expect(out.confidence).toBe("Medium");
     expect(out.confidenceSource).toBe("degenerate_default");
   });
@@ -798,7 +821,237 @@ describe("composeBrief — crypto coverage", () => {
     const derived = deriveSignals(truth);
     const out = composeBrief({ truth, derived });
     expect(truth.symbol).toBe("BTC/USD");
-    // baseSignalSentence uses displaySymbol -> BTC.
     expect(out.whatHappening).toContain("BTC ");
+  });
+});
+
+// ── deriveStrengthFromTruth ─────────────────────────────────────────
+
+describe("deriveStrengthFromTruth", () => {
+  it("entry_zone: strength = 1 when price is at zone midpoint", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 173,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          entryHigh: 178,
+        },
+      }),
+    });
+    expect(deriveStrengthFromTruth(truth)).toBeCloseTo(1.0, 1);
+  });
+
+  it("entry_zone: strength decreases toward zone edges", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 178,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          entryHigh: 178,
+        },
+      }),
+    });
+    expect(deriveStrengthFromTruth(truth)).toBeCloseTo(0.0, 1);
+  });
+
+  it("target_reached: strength = 0 when no target level", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
+        rawData: {
+          close: 195,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+        },
+      }),
+    });
+    expect(deriveStrengthFromTruth(truth)).toBe(0);
+  });
+
+  it("target_reached: strength > 0 when price is near target", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
+        rawData: {
+          close: 200,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          targetPrice: 195,
+        },
+      }),
+    });
+    expect(deriveStrengthFromTruth(truth)).toBeGreaterThan(0);
+    expect(deriveStrengthFromTruth(truth)).toBeLessThanOrEqual(1);
+  });
+
+  it("news_sentiment: strength = count*|avg|/8 capped at 1", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "news_sentiment",
+        rawData: {
+          close: 175,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+          newsArticleCount: 8,
+          newsAvgSentiment: 0.8,
+          newsSentimentLabel: "bullish",
+        },
+      }),
+    });
+    expect(deriveStrengthFromTruth(truth)).toBeCloseTo(0.8, 2);
+  });
+
+  it("signal_change: full flip (bearish->bullish) yields strength 1.0", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "signal_change",
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          previousSignal: "bearish",
+          currentSignal: "bullish",
+        },
+      }),
+    });
+    expect(deriveStrengthFromTruth(truth)).toBe(1.0);
+  });
+
+  it("notable_pattern: uses patternConfidence when available", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "notable_pattern",
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          patterns: [
+            { pattern: "bullish_engulfing", confidence: 0.92, signal: "bullish" },
+          ],
+        },
+      }),
+    });
+    expect(deriveStrengthFromTruth(truth)).toBe(0.92);
+  });
+});
+
+// ── trimContextLine ─────────────────────────────────────────────────
+
+describe("trimContextLine", () => {
+  it("returns text unchanged when under 180 chars", () => {
+    const short = "A short context line.";
+    expect(trimContextLine(short)).toEqual({ text: short, trimmed: false });
+  });
+
+  it("trims at a sentence boundary within 180 chars", () => {
+    const first = "First sentence here.";
+    const rest = " " + "X".repeat(200);
+    const long = first + rest;
+    const result = trimContextLine(long);
+    expect(result.trimmed).toBe(true);
+    expect(result.text).toBe(first);
+  });
+
+  it("falls back to hard cut at 160 chars with ellipsis when no sentence boundary", () => {
+    const noStop = "A".repeat(200);
+    const result = trimContextLine(noStop);
+    expect(result.trimmed).toBe(true);
+    expect(result.text).toBe("A".repeat(160) + "…");
+    expect(result.text.length).toBe(161);
+  });
+});
+
+// ── fresh-hit vs materially-beyond copy ─────────────────────────────
+
+describe("composeBrief — target_reached copy adaptation", () => {
+  it("uses 'pushed to' for fresh hit (price within 3% of target)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
+        rawData: {
+          close: 201,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          targetPrice: 200,
+        },
+      }),
+    });
+    const derived = deriveSignals(truth);
+    const out = composeBrief({ truth, derived });
+    expect(out.whatHappening).toMatch(/pushed to/);
+    expect(out.whatHappening).not.toMatch(/above its projected target/);
+  });
+
+  it("uses 'trading at X% above' for materially-beyond (price >3% above target)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
+        rawData: {
+          close: 210,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          targetPrice: 200,
+        },
+      }),
+    });
+    const derived = deriveSignals(truth);
+    const out = composeBrief({ truth, derived });
+    expect(out.whatHappening).toMatch(/above its projected target/);
+    expect(out.whatHappening).toMatch(/~5\.0%/);
+  });
+});
+
+describe("composeBrief — stop_loss_warning copy adaptation", () => {
+  it("uses 'pressing' for price near stop (within 3%)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "stop_loss_warning",
+        rawData: {
+          close: 89,
+          daySignal: "bearish",
+          swingSignal: "bearish",
+          longTermSignal: "bearish",
+          stopLoss: 90,
+        },
+      }),
+    });
+    const derived = deriveSignals(truth);
+    const out = composeBrief({ truth, derived });
+    expect(out.whatHappening).toMatch(/pressing the stop-loss/);
+    expect(out.whatHappening).not.toMatch(/below its stop level/);
+  });
+
+  it("uses 'trading at X% below' for materially-below (price >3% below stop)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "stop_loss_warning",
+        rawData: {
+          close: 85,
+          daySignal: "bearish",
+          swingSignal: "bearish",
+          longTermSignal: "bearish",
+          stopLoss: 100,
+        },
+      }),
+    });
+    const derived = deriveSignals(truth);
+    const out = composeBrief({ truth, derived });
+    expect(out.whatHappening).toMatch(/below its stop level/);
+    expect(out.whatHappening).toMatch(/~15\.0%/);
   });
 });

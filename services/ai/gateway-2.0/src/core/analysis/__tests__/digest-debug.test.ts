@@ -130,7 +130,7 @@ describe("rankCandidates — candidate selection mechanics", () => {
     expect(r.sorted[1]!.rank).toBe(1);
   });
 
-  it("uses stable sort tie-break when two candidates share priority=high", () => {
+  it("uses strength tie-break when two candidates share priority=high", () => {
     const a = makeSignal({ type: "entry_zone", priority: "high" });
     const b = makeSignal({
       type: "target_reached",
@@ -139,12 +139,12 @@ describe("rankCandidates — candidate selection mechanics", () => {
     });
     const r = rankCandidates([a, b]);
     expect(r.tieBreak.used).toBe(true);
-    expect(r.tieBreak.mechanism).toBe("stable-sort-original-order");
-    expect(r.primaryIndexInOriginal).toBe(0);
+    expect(r.tieBreak.mechanism).toBe("strength-tiebreak");
     expect(r.tieGroups).toHaveLength(1);
     expect(r.tieGroups[0]!.indices).toEqual([0, 1]);
     expect(r.rationale).toContain("Tied at priority=high");
     expect(r.rationale).toContain("[0,1]");
+    expect(r.original[0]!.strength).toBeGreaterThanOrEqual(0);
   });
 
   it("ties at medium do not promote a low-priority candidate", () => {
@@ -152,7 +152,8 @@ describe("rankCandidates — candidate selection mechanics", () => {
     const med2 = makeSignal({ type: "notable_pattern", priority: "medium" });
     const low = makeSignal({ type: "news_sentiment", priority: "low" });
     const r = rankCandidates([med1, med2, low]);
-    expect(r.primaryIndexInOriginal).toBe(0);
+    const primary = r.primaryIndexInOriginal!;
+    expect(r.original[primary]!.priority).toBe("medium");
     expect(r.tieBreak.used).toBe(true);
     expect(r.tieGroups.find((g) => g.priority === "medium")?.indices).toEqual([
       0, 1,

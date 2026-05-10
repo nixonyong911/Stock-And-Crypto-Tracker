@@ -45,6 +45,7 @@ import {
 import {
   gatherTruth,
   deriveSignals,
+  deriveStrengthFromTruth,
   memoryPassesContextGate,
   memoryPassesBlendGate,
   macroPassesGate,
@@ -87,6 +88,8 @@ export interface CandidateSummary {
   timeframeAlignment: TickerSignal["timeframeAlignment"];
   /** Names of populated keys on `rawData` (no values, to keep the summary lean). */
   rawDataKeys: string[];
+  /** Per-signal strength [0,1] from `deriveStrengthFromTruth`. */
+  strength: number;
 }
 
 export interface SortedCandidate {
@@ -94,6 +97,8 @@ export interface SortedCandidate {
   index: number;
   type: TickerSignal["type"];
   priority: TickerSignal["priority"];
+  /** Per-signal strength [0,1]. */
+  strength: number;
   /** 0-based position in the sorted list. */
   rank: number;
 }
@@ -104,7 +109,7 @@ export interface CandidateRanking {
   tieGroups: Array<{ priority: TickerSignal["priority"]; indices: number[] }>;
   tieBreak: {
     used: boolean;
-    mechanism: "stable-sort-original-order" | "n/a";
+    mechanism: "strength-tiebreak" | "stable-sort-original-order" | "n/a";
     note: string;
   };
   /** Index in `original` (not `sorted`) of the chosen primary. */
@@ -173,6 +178,8 @@ export interface DebugFallbacks {
   holdAboveSource: "entryLow" | "periodLow" | "ema20" | "none";
   breakBelowSource: "stopLoss" | "none";
   contextSource: "news_one_liner" | "macro" | "none";
+  /** True iff context line was trimmed by the sentence-boundary cap. */
+  contextTrimmed: boolean;
   /** True iff the chosen memory row matched on a non-symbol alias (e.g. BTC for BTC/USD). */
   memoryAliasResolved: boolean;
   /** True iff per-ticker memoryText was suppressed because primary is `news_sentiment`. */
@@ -268,6 +275,11 @@ function isFinitePositive(n: number | undefined): n is number {
  * Pure / no I/O — safe to unit-test directly.
  */
 export function rankCandidates(signals: TickerSignal[]): CandidateRanking {
+  const strengths = signals.map((s) => {
+    const truth = gatherTruth({ signal: s });
+    return deriveStrengthFromTruth(truth);
+  });
+
   const original: CandidateSummary[] = signals.map((s, i) => ({
     index: i,
     type: s.type,
@@ -277,6 +289,7 @@ export function rankCandidates(signals: TickerSignal[]): CandidateRanking {
     rawDataKeys: Object.entries(s.rawData)
       .filter(([, v]) => v !== undefined && v !== null)
       .map(([k]) => k),
+    strength: strengths[i]!,
   }));
 
   if (signals.length === 0) {
@@ -294,18 +307,18 @@ export function rankCandidates(signals: TickerSignal[]): CandidateRanking {
     };
   }
 
-  // Array.prototype.sort is stable in V8 (matches `selectPrimary` in
-  // `digest-brief-generator.ts`), so ties resolve by original detection
-  // order from `detectForTicker`. We mirror that here.
-  const indexed = signals.map((s, i) => ({ s, i }));
-  indexed.sort(
-    (a, b) => PRIORITY_ORDER[a.s.priority] - PRIORITY_ORDER[b.s.priority],
-  );
+  const indexed = signals.map((s, i) => ({ s, i, str: strengths[i]! }));
+  indexed.sort((a, b) => {
+    const p = PRIORITY_ORDER[a.s.priority] - PRIORITY_ORDER[b.s.priority];
+    if (p !== 0) return p;
+    return b.str - a.str;
+  });
 
-  const sorted: SortedCandidate[] = indexed.map(({ s, i }, rank) => ({
+  const sorted: SortedCandidate[] = indexed.map(({ s, i, str }, rank) => ({
     index: i,
     type: s.type,
     priority: s.priority,
+    strength: str,
     rank,
   }));
 
@@ -335,21 +348,21 @@ export function rankCandidates(signals: TickerSignal[]): CandidateRanking {
 
   let rationale: string;
   if (signals.length === 1) {
-    rationale = `primary = candidates[0] (${winner.s.type}, ${winner.s.priority}). Only candidate.`;
+    rationale = `primary = candidates[0] (${winner.s.type}, ${winner.s.priority}, strength=${winner.str.toFixed(3)}). Only candidate.`;
   } else if (tieUsed) {
     rationale =
-      `primary = candidates[${winner.i}] (${winner.s.type}, ${winner.s.priority}). ` +
+      `primary = candidates[${winner.i}] (${winner.s.type}, ${winner.s.priority}, strength=${winner.str.toFixed(3)}). ` +
       `Tied at priority=${winner.s.priority} with indices [${winnerGroup!.indices.join(",")}]; ` +
-      `stable sort kept the earliest-detected (index ${winner.i}).`;
+      `strength tiebreak selected index ${winner.i}.`;
   } else {
     const next = indexed[1]!;
     rationale =
-      `primary = candidates[${winner.i}] (${winner.s.type}, ${winner.s.priority}). ` +
+      `primary = candidates[${winner.i}] (${winner.s.type}, ${winner.s.priority}, strength=${winner.str.toFixed(3)}). ` +
       `Beat ${next.s.type} (${next.s.priority}) on PRIORITY_ORDER (high<medium<low). No ties.`;
   }
 
   const tieBreakNote = tieUsed
-    ? `tied at priority=${winner.s.priority} with indices [${winnerGroup!.indices.join(",")}]; selected index ${winner.i} via stable sort original order`
+    ? `tied at priority=${winner.s.priority} with indices [${winnerGroup!.indices.join(",")}]; selected index ${winner.i} via strength (${winner.str.toFixed(3)})`
     : `no ties: priorities were [${signals.map((s) => s.priority).join(", ")}]`;
 
   return {
@@ -358,7 +371,7 @@ export function rankCandidates(signals: TickerSignal[]): CandidateRanking {
     tieGroups,
     tieBreak: {
       used: tieUsed,
-      mechanism: tieUsed ? "stable-sort-original-order" : "n/a",
+      mechanism: tieUsed ? "strength-tiebreak" : "n/a",
       note: tieBreakNote,
     },
     primaryIndexInOriginal,
@@ -789,6 +802,16 @@ export function buildNotes(report: {
     }
   }
 
+  if (derived?.contextTrimmed) {
+    notes.push("context line was trimmed to fit the sentence-boundary cap");
+  }
+
+  if (derived && derived.confidenceSource === "strength_from_signal") {
+    notes.push(
+      `confidence rescued from degenerate rawConfidence via signal strength (${derived.signalStrength.toFixed(3)})`,
+    );
+  }
+
   if (fallbacks.memoryDroppedForNewsSentiment) {
     notes.push(
       "primary is news_sentiment — per-ticker memoryText deliberately suppressed in truth to avoid double-stating",
@@ -942,6 +965,7 @@ export async function buildDigestDebugReport(
     holdAboveSource: "none",
     breakBelowSource: "none",
     contextSource: derived ? derived.contextSource : "none",
+    contextTrimmed: derived ? derived.contextTrimmed : false,
     memoryAliasResolved:
       !!aliasResolution.chosenHitVia &&
       aliasResolution.chosenHitVia !== aliasResolution.symbolUpper,

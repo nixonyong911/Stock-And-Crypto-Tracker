@@ -1035,11 +1035,15 @@ export function detectNewsSentimentSignals(
     const headlines = headlineMap.get(row.symbol) ?? [];
     const baseRaw = makeRawData(ctx);
 
+    const newsScore = count * Math.abs(avg);
+    const newsPriority: TickerSignal["priority"] =
+      newsScore >= 6 ? "high" : newsScore >= 4 ? "medium" : "low";
+
     signals.push({
       symbol: row.symbol,
       assetType,
       type: "news_sentiment",
-      priority: count >= 5 ? "high" : "medium",
+      priority: newsPriority,
       timeframeAlignment: ctx.alignment,
       headline: `${row.symbol} has ${direction} news sentiment (${count} articles, avg ${avg.toFixed(2)})`,
       rawData: {

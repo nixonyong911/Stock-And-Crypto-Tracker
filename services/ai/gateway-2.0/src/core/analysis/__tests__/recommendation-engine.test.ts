@@ -523,7 +523,7 @@ describe("detectNewsSentimentSignals", () => {
     const ctxBySymbol = new Map<string, TickerCtx>([["AAPL", ctx]]);
 
     const signals = detectNewsSentimentSignals(
-      [makeNewsRow({ article_count: 6, avg_sentiment: "-0.55" })],
+      [makeNewsRow({ article_count: 10, avg_sentiment: "-0.70" })],
       new Map([["AAPL", ["Headline A", "Headline B"]]]),
       "stock",
       ctxBySymbol,
@@ -540,7 +540,7 @@ describe("detectNewsSentimentSignals", () => {
     expect(s.rawData.stopLoss).toBe(241.5);
     expect(s.rawData.ema20).toBe(285.0);
     expect(s.rawData.periodLow).toBe(250.0);
-    expect(s.rawData.newsArticleCount).toBe(6);
+    expect(s.rawData.newsArticleCount).toBe(10);
     expect(s.rawData.newsSentimentLabel).toBe("bearish");
     expect(s.rawData.newsHeadlines).toEqual(["Headline A", "Headline B"]);
   });
@@ -573,13 +573,29 @@ describe("detectNewsSentimentSignals", () => {
     expect(signals).toEqual([]);
   });
 
-  it("assigns medium priority for article_count < 5", () => {
+  it("assigns low priority for score < 4 (count*|avg| = 1.35)", () => {
     const ctxBySymbol = new Map<string, TickerCtx>([
       ["AAPL", makeCtx({ swing: makePriceTargetRow() })],
     ]);
 
     const signals = detectNewsSentimentSignals(
       [makeNewsRow({ article_count: 3, avg_sentiment: "-0.45" })],
+      new Map(),
+      "stock",
+      ctxBySymbol,
+    );
+
+    expect(signals).toHaveLength(1);
+    expect(signals[0]!.priority).toBe("low");
+  });
+
+  it("assigns medium priority for score in [4, 6) (count*|avg| = 5)", () => {
+    const ctxBySymbol = new Map<string, TickerCtx>([
+      ["AAPL", makeCtx({ swing: makePriceTargetRow() })],
+    ]);
+
+    const signals = detectNewsSentimentSignals(
+      [makeNewsRow({ article_count: 10, avg_sentiment: "-0.50" })],
       new Map(),
       "stock",
       ctxBySymbol,

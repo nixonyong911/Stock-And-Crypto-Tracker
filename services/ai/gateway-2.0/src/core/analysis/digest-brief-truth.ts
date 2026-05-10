@@ -118,6 +118,8 @@ export interface BriefTruth {
     currentSignal?: "bullish" | "bearish" | "neutral";
     /** Top candlestick pattern from `analysis_*_candlestick_pattern`. */
     pattern?: { name: string; signal: string };
+    /** Pattern confidence (0-1) from `detected_patterns[0].confidence`. */
+    patternConfidence?: number;
     /** News sentiment — from aggregated `analysis_market_memory`. */
     newsSentimentLabel?: "bullish" | "bearish";
     newsArticleCount?: number;
@@ -170,25 +172,37 @@ export interface BriefDerived {
   context: string;
   /** Identifies which DB source supplied the context line, for tests. */
   contextSource: "news_one_liner" | "macro" | "none";
+  /** True when `context` was trimmed to fit the sentence-boundary cap. */
+  contextTrimmed: boolean;
+  /**
+   * Per-signal strength in [0, 1], derived from current-state truth only.
+   * Used as a tiebreak in `selectPrimary` and to rescue the
+   * `degenerate_default` confidence path.
+   */
+  signalStrength: number;
   /**
    * Names the input that drove the `confidence` bucket so debug tools can
    * show why a card landed on Low/Medium/High. Sources:
-   *   - "news_count_avg": news_sentiment derived from `count * |avg|`.
+   *   - "news_score": news_sentiment derived from `count * |avg|`.
    *   - "raw_confidence": `analysis_ticker_price_targets.confidence` was a
    *     non-degenerate value (i.e. not 1.0000) and clipped the bucket.
    *   - "alignment_only": no useful raw confidence; bucket fell out of
    *     `signals.alignment` (Low on conflict, Medium otherwise).
    *   - "degenerate_default": rawConfidence was the well-known 1.0000
-   *     constant we observed in production and was deliberately ignored.
+   *     constant we observed in production and was deliberately ignored,
+   *     and signal strength was too low to rescue.
    *   - "news_count_only": news_sentiment without `newsAvgSentiment` —
    *     fell back to count-based bucketing (legacy path).
+   *   - "strength_from_signal": rawConfidence was degenerate (1.0000) but
+   *     signal strength was high enough to rescue to a meaningful bucket.
    */
   confidenceSource:
-    | "news_count_avg"
+    | "news_score"
     | "news_count_only"
     | "raw_confidence"
     | "alignment_only"
-    | "degenerate_default";
+    | "degenerate_default"
+    | "strength_from_signal";
 }
 
 export type BriefStanceLabel =
@@ -448,6 +462,9 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
   if (d.patterns && d.patterns.length > 0) {
     const top = d.patterns[0]!;
     truth.signalFacts.pattern = { name: top.pattern, signal: top.signal };
+    if (typeof top.confidence === "number" && Number.isFinite(top.confidence)) {
+      truth.signalFacts.patternConfidence = top.confidence;
+    }
   }
   if (
     d.newsSentimentLabel === "bullish" ||
@@ -493,10 +510,11 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
  */
 export function deriveSignals(truth: BriefTruth): BriefDerived {
   const stance = deriveStanceFromTruth(truth);
-  const { confidence, confidenceSource } = deriveConfidenceFromTruth(truth);
+  const signalStrength = deriveStrengthFromTruth(truth);
+  const { confidence, confidenceSource } = deriveConfidenceFromTruth(truth, signalStrength);
   const { holdAbove, breakBelowTarget } = deriveLevelsFromTruth(truth);
   const changePercent = deriveChangePercentFromTruth(truth);
-  const { context, contextSource } = deriveContextFromTruth(truth);
+  const { context, contextSource, contextTrimmed } = deriveContextFromTruth(truth);
   const hasMaterialContext = context !== "";
 
   return {
@@ -508,8 +526,70 @@ export function deriveSignals(truth: BriefTruth): BriefDerived {
     hasMaterialContext,
     context,
     contextSource,
+    contextTrimmed,
+    signalStrength,
     confidenceSource,
   };
+}
+
+/**
+ * Per-signal strength in [0, 1], derived from current-state truth only.
+ * No temporal claims — strength is a function of how far (in magnitude)
+ * the price sits relative to the level/threshold that triggered the signal.
+ *
+ * Exported for tests and the debug inspection layer.
+ */
+export function deriveStrengthFromTruth(truth: BriefTruth): number {
+  const facts = truth.signalFacts;
+  const price = truth.price;
+  const lvl = truth.levels;
+
+  switch (facts.type) {
+    case "target_reached": {
+      if (!isFinitePositive(price) || !isFinitePositive(lvl.target)) return 0;
+      return Math.min(1, Math.abs(price / lvl.target - 1) * 10);
+    }
+    case "stop_loss_warning": {
+      if (!isFinitePositive(price) || !isFinitePositive(lvl.stopLoss)) return 0;
+      return Math.min(1, Math.abs(price / lvl.stopLoss - 1) * 10);
+    }
+    case "entry_zone": {
+      if (!isFinitePositive(price)) return 0;
+      const lo = lvl.entryLow;
+      const hi = lvl.entryHigh;
+      if (isFinitePositive(lo) && isFinitePositive(hi)) {
+        const mid = (lo + hi) / 2;
+        const halfWidth = (hi - lo) / 2 || 1;
+        return Math.max(0, Math.min(1, 1 - Math.abs(price - mid) / halfWidth));
+      }
+      return 0.5;
+    }
+    case "momentum_shift": {
+      const hist = facts.macdHistogram;
+      if (hist == null || !isFinitePositive(price)) return 0;
+      return Math.min(1, Math.abs(hist) / (price * 0.005));
+    }
+    case "signal_change": {
+      const prev = facts.previousSignal ?? "neutral";
+      const curr = facts.currentSignal ?? truth.signals.swing;
+      if (prev !== "neutral" && curr !== "neutral" && prev !== curr) return 1.0;
+      if (prev !== "neutral" && curr !== "neutral") return 0.7;
+      return 0.4;
+    }
+    case "notable_pattern": {
+      return facts.patternConfidence ?? 0.5;
+    }
+    case "news_sentiment": {
+      const count = facts.newsArticleCount ?? 0;
+      const avg = facts.newsAvgSentiment;
+      if (typeof avg === "number" && Number.isFinite(avg)) {
+        return Math.min(1, (count * Math.abs(avg)) / 8);
+      }
+      return 0;
+    }
+    default:
+      return 0;
+  }
 }
 
 function deriveStanceFromTruth(
@@ -577,7 +657,7 @@ const DEGENERATE_RAW_CONFIDENCE = 0.999;
 const NEWS_MEDIUM_SCORE = 4;
 const NEWS_HIGH_SCORE = 6;
 
-function deriveConfidenceFromTruth(truth: BriefTruth): {
+function deriveConfidenceFromTruth(truth: BriefTruth, signalStrength: number): {
   confidence: BriefDerived["confidence"];
   confidenceSource: BriefDerived["confidenceSource"];
 } {
@@ -587,12 +667,12 @@ function deriveConfidenceFromTruth(truth: BriefTruth): {
     if (typeof avg === "number" && Number.isFinite(avg)) {
       const score = count * Math.abs(avg);
       if (score >= NEWS_HIGH_SCORE) {
-        return { confidence: "High", confidenceSource: "news_count_avg" };
+        return { confidence: "High", confidenceSource: "news_score" };
       }
       if (score >= NEWS_MEDIUM_SCORE) {
-        return { confidence: "Medium", confidenceSource: "news_count_avg" };
+        return { confidence: "Medium", confidenceSource: "news_score" };
       }
-      return { confidence: "Low", confidenceSource: "news_count_avg" };
+      return { confidence: "Low", confidenceSource: "news_score" };
     }
     if (count >= 7) {
       return { confidence: "Medium", confidenceSource: "news_count_only" };
@@ -606,7 +686,12 @@ function deriveConfidenceFromTruth(truth: BriefTruth): {
 
   const conf = truth.rawConfidence;
   if (conf != null && conf >= DEGENERATE_RAW_CONFIDENCE) {
-    // The well-known constant — fall back to alignment-only bucketing.
+    if (signalStrength >= 0.6) {
+      return { confidence: "High", confidenceSource: "strength_from_signal" };
+    }
+    if (signalStrength >= 0.3) {
+      return { confidence: "Medium", confidenceSource: "strength_from_signal" };
+    }
     return { confidence: "Medium", confidenceSource: "degenerate_default" };
   }
   if (conf != null && conf < 0.4) {
@@ -658,10 +743,12 @@ function deriveChangePercentFromTruth(truth: BriefTruth): number {
 function deriveContextFromTruth(truth: BriefTruth): {
   context: string;
   contextSource: BriefDerived["contextSource"];
+  contextTrimmed: boolean;
 } {
   if (memoryPassesContextGate(truth.memoryText)) {
-    const line = truth.memoryText!.newsOneLiner!.trim();
-    return { context: line, contextSource: "news_one_liner" };
+    const raw = truth.memoryText!.newsOneLiner!.trim();
+    const { text, trimmed } = trimContextLine(raw);
+    return { context: text, contextSource: "news_one_liner", contextTrimmed: trimmed };
   }
 
   if (macroPassesGate(truth.macro)) {
@@ -669,13 +756,36 @@ function deriveContextFromTruth(truth: BriefTruth): {
       truth.macro!.overallSentiment >= MACRO_SENTIMENT_GATE
         ? "supportive"
         : "cautious";
-    return {
-      context: `Broader ${truth.macro!.dominantTheme} backdrop is ${sentiment}.`,
-      contextSource: "macro",
-    };
+    const raw = `Broader ${truth.macro!.dominantTheme} backdrop is ${sentiment}.`;
+    const { text, trimmed } = trimContextLine(raw);
+    return { context: text, contextSource: "macro", contextTrimmed: trimmed };
   }
 
-  return { context: "", contextSource: "none" };
+  return { context: "", contextSource: "none", contextTrimmed: false };
+}
+
+const CONTEXT_MAX_CHARS = 180;
+const CONTEXT_HARD_CUT = 160;
+
+/**
+ * Trim a context line to fit within `CONTEXT_MAX_CHARS`, preferring a
+ * sentence boundary (`.`, `!`, `?`). Falls back to a hard cut at
+ * `CONTEXT_HARD_CUT` chars with `"…"` appended.
+ *
+ * Exported for unit tests and the debug inspection layer.
+ */
+export function trimContextLine(line: string): { text: string; trimmed: boolean } {
+  if (line.length <= CONTEXT_MAX_CHARS) return { text: line, trimmed: false };
+  let best = -1;
+  for (let i = 0; i < CONTEXT_MAX_CHARS; i++) {
+    if (line[i] === "." || line[i] === "!" || line[i] === "?") {
+      best = i;
+    }
+  }
+  if (best >= 0) {
+    return { text: line.slice(0, best + 1), trimmed: true };
+  }
+  return { text: `${line.slice(0, CONTEXT_HARD_CUT)}…`, trimmed: true };
 }
 
 // ── Stage 3: composeBrief (interpretation seam) ───────────────────────
@@ -798,24 +908,30 @@ function baseSignalSentence(truth: BriefTruth, derived: BriefDerived): string {
     }
 
     case "target_reached": {
-      const parts: string[] = [];
       const tgt = lvl.target;
       if (isFinitePositive(price) && isFinitePositive(tgt)) {
-        parts.push(
-          `${sym} pushed to $${fmtPrice(price)}, into the projected target at $${fmtPrice(tgt)}`,
-        );
-      } else if (isFinitePositive(price)) {
-        parts.push(`${sym} pushed to $${fmtPrice(price)} into projected resistance`);
-      } else {
-        parts.push(`${sym} pushed into its projected target zone`);
+        const gap = price / tgt - 1;
+        if (gap > 0.03) {
+          const pct = (gap * 100).toFixed(1);
+          return `${sym} is trading at $${fmtPrice(price)}, ~${pct}% above its projected target of $${fmtPrice(tgt)}.`;
+        }
+        return `${sym} pushed to $${fmtPrice(price)}, into the projected target at $${fmtPrice(tgt)}.`;
       }
-      return `${parts[0]}.`;
+      if (isFinitePositive(price)) {
+        return `${sym} pushed to $${fmtPrice(price)} into projected resistance.`;
+      }
+      return `${sym} pushed into its projected target zone.`;
     }
 
     case "stop_loss_warning": {
       const stop = lvl.stopLoss;
       const lo = lvl.periodLow;
       if (isFinitePositive(price) && isFinitePositive(stop)) {
+        const gap = 1 - price / stop;
+        if (gap > 0.03) {
+          const pct = (gap * 100).toFixed(1);
+          return `${sym} is trading at $${fmtPrice(price)}, ~${pct}% below its stop level at $${fmtPrice(stop)}.`;
+        }
         return `${sym} is at $${fmtPrice(price)}, pressing the stop-loss at $${fmtPrice(stop)}.`;
       }
       if (isFinitePositive(price) && isFinitePositive(lo)) {
@@ -855,11 +971,13 @@ function baseSignalSentence(truth: BriefTruth, derived: BriefDerived): string {
       const count = facts.newsArticleCount ?? 0;
       const avg = facts.newsAvgSentiment;
       const noun = count === 1 ? "story" : "stories";
+      const newsStrength = deriveNewsStrength(count, avg);
+      const prefix = newsStrength < 0.3 ? "Limited: " : "";
       if (typeof avg === "number" && Number.isFinite(avg)) {
         const sign = avg >= 0 ? "+" : "";
-        return `Recent coverage skewed ${label} across ${count} ${noun} (avg ${sign}${avg.toFixed(2)}).`;
+        return `${prefix}Recent coverage skewed ${label} across ${count} ${noun} (avg ${sign}${avg.toFixed(2)}).`;
       }
-      return `Recent coverage skewed ${label} across ${count} ${noun}.`;
+      return `${prefix}Recent coverage skewed ${label} across ${count} ${noun}.`;
     }
 
     default: {
@@ -898,6 +1016,13 @@ function blendedMemoryPhrase(truth: BriefTruth): string | null {
   if (phrase.length === 0) return null;
   if (!/[.!?]$/.test(phrase)) phrase = `${phrase}.`;
   return phrase;
+}
+
+function deriveNewsStrength(count: number, avg: number | undefined): number {
+  if (typeof avg === "number" && Number.isFinite(avg)) {
+    return Math.min(1, (count * Math.abs(avg)) / 8);
+  }
+  return 0;
 }
 
 function displaySymbol(symbol: string): string {
