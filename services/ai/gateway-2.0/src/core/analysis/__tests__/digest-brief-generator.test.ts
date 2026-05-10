@@ -347,7 +347,9 @@ describe("buildWhatHappening", () => {
           swingSignal: "bullish",
           longTermSignal: "bullish",
           confidence: 0.85,
-          patterns: [{ pattern: "bullish_engulfing", signal: "bullish" }],
+          patterns: [
+            { pattern: "bullish_engulfing", confidence: 0.85, signal: "bullish" },
+          ],
         },
       }),
     );
@@ -713,7 +715,7 @@ describe("generateDigestBrief", () => {
         symbol: "AAPL",
         analysisDateMap: new Map([["AAPL", "2026-05-08"]]),
       });
-      expect(brief.updatedAt.toISOString().slice(0, 10)).toBe("2026-05-08");
+      expect(brief.updatedAt!.toISOString().slice(0, 10)).toBe("2026-05-08");
     });
 
     it("now arg overrides analysisDateMap", () => {
@@ -725,7 +727,7 @@ describe("generateDigestBrief", () => {
         analysisDateMap: new Map([["AAPL", "2026-05-08"]]),
         now: fixed,
       });
-      expect(brief.updatedAt.toISOString()).toBe(fixed.toISOString());
+      expect(brief.updatedAt!.toISOString()).toBe(fixed.toISOString());
     });
   });
 

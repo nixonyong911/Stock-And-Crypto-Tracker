@@ -774,7 +774,7 @@ describe("composeBrief — interpretation seam contract", () => {
     const derived = deriveSignals(truth);
     const out = composeBrief({ truth, derived });
     // 2026-05-08 21:00 UTC -> still resolves to May 8 in ET formatter
-    const iso = out.updatedAt.toISOString();
+    const iso = out.updatedAt!.toISOString();
     expect(iso.slice(0, 10)).toBe("2026-05-08");
   });
 
@@ -786,7 +786,7 @@ describe("composeBrief — interpretation seam contract", () => {
     });
     const derived = deriveSignals(truth);
     const out = composeBrief({ truth, derived, now: fixed });
-    expect(out.updatedAt.toISOString()).toBe(fixed.toISOString());
+    expect(out.updatedAt!.toISOString()).toBe(fixed.toISOString());
   });
 });
 
