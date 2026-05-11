@@ -4,7 +4,7 @@ import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import type { FastifyBaseLogger } from "fastify";
 import { curateMarketMemory } from "./memory-curator.js";
-import { validateNewsEntries, type ValidatedNewsEntry } from "./llm-schemas.js";
+import { validateNewsEntries } from "./llm-schemas.js";
 import {
   NEWS_PROCESSOR_PROMPT_VERSION,
   NEWS_PROCESSOR_VALIDATOR_VERSION,

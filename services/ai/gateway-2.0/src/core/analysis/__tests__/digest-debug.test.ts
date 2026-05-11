@@ -100,6 +100,13 @@ function memoryCandidate(
       decision: "passed_floor_above_threshold",
       oneLinerOnSymbol: true,
     },
+    provenance: {
+      modelName: null,
+      promptVersion: null,
+      validatorVersion: null,
+      generatedAt: null,
+      tickersUnknown: [],
+    },
     ...overrides,
   };
 }
