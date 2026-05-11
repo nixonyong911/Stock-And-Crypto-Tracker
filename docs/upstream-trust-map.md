@@ -156,8 +156,59 @@ The `trustTier` field is the canonical thing a debug reader should key off; the 
 - No negative penalty on a strong-tier mismatch (deferred to Slice 4 after observing real distributions).
 - `WEIGHT_POSITION_PRIMARY` is kept active for the NULL-source fallback path. The old heuristic is not deleted.
 
-### Future work (Slice 4+)
+### Future work (Slice 5+)
 
-- (a) **Negative penalty on strong miss**: if Slice 3 validation shows that `marketaux_entities` mismatch is a reliable contamination signal, add a `-1` penalty on strong miss to further suppress off-symbol rows.
-- (b) **Expand coverage**: deterministic NER on GNews titles (no LLM) to populate `primary_ticker` for GNews-only stories.
-- (c) **Tighten the prompt**: ask the LLM for a `primary_ticker` output field — but only after Slice 2/3 data shows whether the model agrees with the MarketAux-deterministic primary on ground-truth rows.
+- (a) **Expand coverage**: deterministic NER on GNews titles (no LLM) to populate `primary_ticker` for GNews-only stories.
+- (b) **Tighten the prompt**: ask the LLM for a `primary_ticker` output field — but only after Slice 2/3 data shows whether the model agrees with the MarketAux-deterministic primary on ground-truth rows.
+- (c) **Heuristic-tier mismatch penalty**: if future data shows `batch_heuristic` mismatches reliably predict contamination, add a small negative weight. Evidence-based decision to defer: see Slice 4 rationale below.
+
+## Slice 4: trust-aware primary-ticker mismatch penalty
+
+### What changed
+
+Slice 3 introduced trust-tier-aware scoring for `primary_ticker` but treated all mismatches as +0 (no bonus, no penalty). Slice 4 adds a **negative penalty** specifically on **strong-tier mismatches** — cases where `primary_ticker_source = "marketaux_entities"` and `primary_ticker` is non-null but does not match the digest symbol's alias set.
+
+### New constant
+
+`WEIGHT_PRIMARY_TICKER_STRONG_MISS = -2` in `digest-symbol-affinity.ts`.
+
+### Updated scoring table
+
+| Case | Weight | Reason code |
+|---|---|---|
+| Strong primary hit (`marketaux_entities`, ticker matches alias) | `+3` | `primary_ticker_hit:strong:<T>` |
+| Strong primary miss (`marketaux_entities`, ticker != alias, ticker non-null) | **`-2`** | `primary_ticker_miss:strong:<T>` |
+| Strong primary unknown (`marketaux_entities`, ticker is null) | `0` | `primary_ticker_unknown:strong` |
+| Heuristic primary hit (`batch_heuristic`, ticker matches alias) | `+2` | `primary_ticker_hit:heuristic:<T>` |
+| Heuristic primary miss (`batch_heuristic`, ticker != alias, ticker non-null) | `0` | `primary_ticker_miss:heuristic:<T>` |
+| Heuristic primary unknown (`batch_heuristic`, ticker is null) | `0` | `primary_ticker_unknown:heuristic` |
+| NULL source (fallback) | `+2` hit / `0` miss | `position_primary_hit/miss:*` |
+
+### New reason codes
+
+- `primary_ticker_unknown:strong` / `primary_ticker_unknown:heuristic` — upstream tagged itself with a source but produced a null primary ticker. Distinguishes "no data" from "identified a different ticker". No penalty applied; serves as a data-integrity monitoring flag.
+
+### Why -2 for strong miss
+
+The `-2` exactly cancels `WEIGHT_TEXT_TOKEN` (+2). This means a row that incidentally text-mentions a symbol (e.g. "ETH/BTC Ratio" mentioning BTC in a metric name) but whose upstream source-grounded primary is a *different* symbol (ETH) lands at score 0 — below the default threshold of 2. The contamination scenario:
+
+| Signal | Score |
+|---|---|
+| `text_token_hit:BTC` | +2 |
+| `primary_ticker_miss:strong:ETH` | -2 |
+| `normal_tag:n=4` | 0 |
+| **Total** | **0 → rejected** |
+
+Without the penalty (Slice 3), the same row scored 2 and passed — contaminating the BTC digest with an ETH-primary row.
+
+### Why 0 for heuristic miss
+
+Evidence-based decision. Only one `batch_heuristic` mismatch was observed in production data at the time of this decision: NVDA's KOSPI theme with `primary_ticker = "^FCHI"`. That row was already correctly rejected at score 0 without any penalty (text miss + heuristic miss 0 + normal_tag 0 = 0). The heuristic primary itself can be wrong (e.g. `^FCHI` for a Korean equities theme), so penalizing it risks regressing clearly on-symbol rows where the curator's batch vote was inaccurate. Revisit once more heuristic-miss data accumulates.
+
+### Why split _miss vs _unknown
+
+Slice 3 emitted `primary_ticker_miss:strong:null` when `primary_ticker_source` was non-null but `primary_ticker` was null. That conflated two semantically different cases: "upstream positively identified a different ticker" (should penalize) vs "upstream tagged itself but had no data" (data integrity edge case, should not penalize). The `_unknown` code makes this distinction explicit in debug output and ensures the `-2` penalty fires only on positive mismatch.
+
+### Reversibility
+
+Single-line revert of `WEIGHT_PRIMARY_TICKER_STRONG_MISS` from -2 to 0 restores Slice 3 behavior exactly. No migration, no schema change, no upstream layer touched.

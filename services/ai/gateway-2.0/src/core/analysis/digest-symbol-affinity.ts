@@ -65,6 +65,17 @@ const WEIGHT_PRIMARY_TICKER_STRONG = 3;
 const WEIGHT_PRIMARY_TICKER_HEURISTIC = 2;
 
 /**
+ * Slice 4: −2 when `primary_ticker_source` is `"marketaux_entities"`
+ * (strong tier) AND `primary_ticker` is non-null AND does NOT match the
+ * digest symbol's alias set. Exactly cancels WEIGHT_TEXT_TOKEN so that a
+ * row whose upstream subject is deterministically identified as a
+ * *different* symbol cannot pass the affinity gate on a text mention
+ * alone. Heuristic-tier mismatch stays at 0 (evidence-based decision —
+ * see docs/upstream-trust-map.md § Slice 4).
+ */
+const WEIGHT_PRIMARY_TICKER_STRONG_MISS = -2;
+
+/**
  * +1 when the row is narrowly tagged. Narrowly-tagged rows are usually about
  * the few tickers they list rather than co-mentions; the bonus rewards
  * focused themes without making them automatic winners.
@@ -149,9 +160,10 @@ export interface ComputeSymbolAffinityArgs {
    */
   primaryTicker?: string | null;
   /**
-   * Slice 3: trust tier of `primaryTicker`. Determines the weight on
-   * match: `"marketaux_entities"` → +3 (strong), `"batch_heuristic"` → +2
-   * (heuristic), null/undefined → legacy position-primary fallback.
+   * Slice 3/4: trust tier of `primaryTicker`. Determines the weight on
+   * match: `"marketaux_entities"` → +3 hit / −2 miss (strong),
+   * `"batch_heuristic"` → +2 hit / 0 miss (heuristic),
+   * null/undefined → legacy position-primary fallback.
    */
   primarySource?: PrimaryTickerSource;
   /**
@@ -224,16 +236,21 @@ export function computeSymbolAffinity(
 
   if (primarySource === "marketaux_entities" || primarySource === "batch_heuristic") {
     const tier = primarySource === "marketaux_entities" ? "strong" : "heuristic";
-    const weight =
-      primarySource === "marketaux_entities"
-        ? WEIGHT_PRIMARY_TICKER_STRONG
-        : WEIGHT_PRIMARY_TICKER_HEURISTIC;
+    const hitWeight = primarySource === "marketaux_entities"
+      ? WEIGHT_PRIMARY_TICKER_STRONG
+      : WEIGHT_PRIMARY_TICKER_HEURISTIC;
+    const missWeight = primarySource === "marketaux_entities"
+      ? WEIGHT_PRIMARY_TICKER_STRONG_MISS
+      : 0;
     const pt = (args.primaryTicker ?? "").toUpperCase() || null;
-    if (pt && aliasSet.has(pt)) {
-      score += weight;
+    if (pt === null) {
+      reasons.push(`primary_ticker_unknown:${tier}`);
+    } else if (aliasSet.has(pt)) {
+      score += hitWeight;
       reasons.push(`primary_ticker_hit:${tier}:${pt}`);
     } else {
-      reasons.push(`primary_ticker_miss:${tier}:${pt ?? "null"}`);
+      score += missWeight;
+      reasons.push(`primary_ticker_miss:${tier}:${pt}`);
     }
   } else {
     const firstTicker = tickers[0]?.toUpperCase();
