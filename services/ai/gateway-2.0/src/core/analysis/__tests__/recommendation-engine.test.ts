@@ -7,6 +7,8 @@ import {
   detectNewsSentimentSignals,
   fetchTickerMemoryText,
   fetchMacroContext,
+  freshnessDecay,
+  compositeAssociationScore,
   type TickerCtx,
   type PriceTargetRow,
   type IndicatorRow,
@@ -962,6 +964,171 @@ describe("fetchMacroContext — B2 dominantTheme agreement gate", () => {
     const pool = makeMacroPool([]);
     const out = await fetchMacroContext(pool);
     expect(out).toEqual({ headlines: [], dominantTheme: null, overallSentiment: 0 });
+  });
+});
+
+// ── Step-5 association ranking model ─────────────────────────────────
+
+describe("freshnessDecay", () => {
+  it("returns 1.0 at age 0", () => {
+    expect(freshnessDecay(0, 72)).toBe(1);
+  });
+
+  it("returns 0 at the half-life edge", () => {
+    expect(freshnessDecay(72, 72)).toBe(0);
+  });
+
+  it("returns ~0.5 at half the half-life", () => {
+    expect(freshnessDecay(36, 72)).toBeCloseTo(0.5, 5);
+  });
+
+  it("clamps to 0 beyond the half-life", () => {
+    expect(freshnessDecay(200, 72)).toBe(0);
+  });
+
+  it("returns 1 for negative ages (defensive: future timestamps)", () => {
+    expect(freshnessDecay(-5, 72)).toBe(1);
+  });
+
+  it("returns 0 for non-positive half-life (defensive)", () => {
+    expect(freshnessDecay(10, 0)).toBe(0);
+  });
+});
+
+describe("compositeAssociationScore", () => {
+  it("on-symbol bonus pushes a same-relevance row above its peer", () => {
+    const a = compositeAssociationScore({
+      relevance: 1,
+      ageHours: 6,
+      halfLifeHours: 72,
+      oneLinerOnSymbol: true,
+    });
+    const b = compositeAssociationScore({
+      relevance: 1,
+      ageHours: 6,
+      halfLifeHours: 72,
+      oneLinerOnSymbol: false,
+    });
+    expect(a).toBeGreaterThan(b);
+    expect(a - b).toBeCloseTo(0.25, 5);
+  });
+
+  it("freshness decay pulls the score down toward 0 with age", () => {
+    const fresh = compositeAssociationScore({
+      relevance: 1,
+      ageHours: 0,
+      halfLifeHours: 72,
+      oneLinerOnSymbol: false,
+    });
+    const stale = compositeAssociationScore({
+      relevance: 1,
+      ageHours: 60,
+      halfLifeHours: 72,
+      oneLinerOnSymbol: false,
+    });
+    expect(fresh).toBeGreaterThan(stale);
+  });
+});
+
+// Integration tests for `fetchTickerMemoryText`'s ranking. Each test
+// stubs Postgres directly so we can assert which row wins the chosen
+// slot under the new comparator.
+
+interface MemRow {
+  theme: string | null;
+  affected_tickers: string[];
+  news_one_liner: string | null;
+  summary: string | null;
+  key_facts: string[] | null;
+  market_implications: string | null;
+  impact_level: string | null;
+  relevance_score: string | null;
+  sentiment_score: string | null;
+  last_updated: string | null;
+}
+
+function makeMemRow(overrides: Partial<MemRow> = {}): MemRow {
+  return {
+    theme: "Apple guidance reset",
+    affected_tickers: ["AAPL"],
+    news_one_liner: "Apple guidance reset lifts services confidence.",
+    summary: "Apple raised services guidance.",
+    key_facts: null,
+    market_implications: null,
+    impact_level: "high",
+    relevance_score: "0.8",
+    sentiment_score: "0.4",
+    last_updated: new Date(Date.now() - 6 * 3_600_000).toISOString(),
+    ...overrides,
+  };
+}
+
+function makeMemoryPool(rows: MemRow[]): Pool {
+  return {
+    query: async <R extends QueryResultRow>(): Promise<QueryResult<R>> => ({
+      rows: rows as unknown as R[],
+      rowCount: rows.length,
+      command: "SELECT",
+      oid: 0,
+      fields: [],
+    }),
+  } as unknown as Pool;
+}
+
+describe("fetchTickerMemoryText — Step-5 association ranking", () => {
+  it("at equal impact + affinity, fresher row beats stale row", async () => {
+    const stale = makeMemRow({
+      theme: "AAPL stale",
+      news_one_liner: "AAPL stale line.",
+      last_updated: new Date(Date.now() - 60 * 3_600_000).toISOString(),
+    });
+    const fresh = makeMemRow({
+      theme: "AAPL fresh",
+      news_one_liner: "AAPL fresh line.",
+      last_updated: new Date(Date.now() - 6 * 3_600_000).toISOString(),
+    });
+    const pool = makeMemoryPool([stale, fresh]);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")?.newsOneLiner).toBe("AAPL fresh line.");
+  });
+
+  it("at equal impact + affinity + age, on-symbol one-liner beats off-symbol one-liner", async () => {
+    const offSym = makeMemRow({
+      theme: "AAPL competition theme",
+      news_one_liner: "Google Cloud announces partnership.",
+      last_updated: new Date(Date.now() - 6 * 3_600_000).toISOString(),
+    });
+    const onSym = makeMemRow({
+      theme: "AAPL guidance",
+      news_one_liner: "AAPL services guidance lifted.",
+      last_updated: new Date(Date.now() - 6 * 3_600_000).toISOString(),
+    });
+    const pool = makeMemoryPool([offSym, onSym]);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")?.newsOneLiner).toBe(
+      "AAPL services guidance lifted.",
+    );
+  });
+
+  it("impact stays a hard primary: stale critical beats fresh high (Step-5 hypothesis)", async () => {
+    // Recorded in plan as a hypothesis to validate; this test pins the
+    // current behavior so any future change to demote impact to a
+    // graded weight is an explicit, deliberate code+test change.
+    const staleCritical = makeMemRow({
+      theme: "AAPL critical",
+      news_one_liner: "AAPL critical event.",
+      impact_level: "critical",
+      last_updated: new Date(Date.now() - 60 * 3_600_000).toISOString(),
+    });
+    const freshHigh = makeMemRow({
+      theme: "AAPL high",
+      news_one_liner: "AAPL high event.",
+      impact_level: "high",
+      last_updated: new Date(Date.now() - 2 * 3_600_000).toISOString(),
+    });
+    const pool = makeMemoryPool([staleCritical, freshHigh]);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")?.impactLevel).toBe("critical");
   });
 });
 

@@ -539,6 +539,143 @@ describe("deriveSignals — context", () => {
   });
 });
 
+// ── Step-5 surfacing decision (separated from association ranking) ──
+
+describe("deriveSignals — Step-5 surfacing decision", () => {
+  // Recent timestamp so freshness component is meaningful regardless of
+  // when the test runs.
+  const recentIso = (): string =>
+    new Date(Date.now() - 6 * 3_600_000).toISOString();
+
+  it("on-symbol one-liner pushes a fresh, high-impact row above the threshold", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal(),
+      memoryText: {
+        newsOneLiner: "Apple's services beat lifts AAPL guidance.",
+        impactLevel: "high",
+        relevanceScore: 0.8,
+        lastUpdated: recentIso(),
+      },
+      aliasContext: { symbolUpper: "AAPL", aliases: ["AAPL"] },
+    });
+    const d = deriveSignals(truth);
+    expect(d.contextSource).toBe("news_one_liner");
+    expect(d.hasMaterialContext).toBe(true);
+  });
+
+  it("medium-impact row whose one-liner does NOT name the symbol is omitted with omitted_low_score", () => {
+    // MSFT scenario: theme mentions MSFT (carries affinity) but the
+    // one-liner is about Google Cloud. Floor passes; surfacing score
+    // drops below 0.55 because:
+    //   impact(medium=0.5)*0.3 + relevance(0.6)*0.2 + freshness(~1)*0.2 + onSymbol(0)*0.3
+    //   = 0.15 + 0.12 + 0.20 + 0 = 0.47 < 0.55
+    const truth = gatherTruth({
+      signal: makeStockSignal({ symbol: "MSFT" }),
+      memoryText: {
+        newsOneLiner: "Google Cloud and Genpact's agentic AI deal for CFO offices.",
+        impactLevel: "medium",
+        relevanceScore: 0.6,
+        lastUpdated: recentIso(),
+      },
+      aliasContext: { symbolUpper: "MSFT", aliases: ["MSFT"] },
+    });
+    const d = deriveSignals(truth);
+    expect(d.contextSource).toBe("omitted_low_score");
+    expect(d.context).toBe("");
+    expect(d.hasMaterialContext).toBe(false);
+  });
+
+  it("high-impact sector context without on-symbol mention still surfaces (no over-suppression)", () => {
+    // TSLA scenario: a sector-tariff line that does not name TSLA. We
+    // explicitly do NOT want a hard one-liner-mention gate to kill
+    // legitimate indirect context. The score should clear the threshold
+    // on impact + relevance + freshness alone:
+    //   high(0.8)*0.3 + 0.85*0.2 + 1.0*0.2 + 0*0.3 = 0.61 > 0.55
+    const truth = gatherTruth({
+      signal: makeStockSignal({ symbol: "TSLA" }),
+      memoryText: {
+        newsOneLiner:
+          "Trump's 25% auto tariff threat opens a new trade-war front against European manufacturers.",
+        impactLevel: "high",
+        relevanceScore: 0.85,
+        lastUpdated: recentIso(),
+      },
+      aliasContext: { symbolUpper: "TSLA", aliases: ["TSLA"] },
+    });
+    const d = deriveSignals(truth);
+    expect(d.contextSource).toBe("news_one_liner");
+  });
+
+  it("floor still gates: low impact never surfaces regardless of score components", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal(),
+      memoryText: {
+        newsOneLiner: "AAPL antitrust filler.",
+        impactLevel: "low",
+        relevanceScore: 1.0,
+        lastUpdated: recentIso(),
+      },
+      aliasContext: { symbolUpper: "AAPL", aliases: ["AAPL"] },
+    });
+    const d = deriveSignals(truth);
+    // Floor failed -> falls through to macro (none here) -> "none",
+    // NOT omitted_low_score (which is reserved for floor-passing rows).
+    expect(d.contextSource).toBe("none");
+  });
+
+  it("floor still gates: relevance below 0.5 never surfaces", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal(),
+      memoryText: {
+        newsOneLiner: "AAPL filler line.",
+        impactLevel: "high",
+        relevanceScore: 0.3,
+        lastUpdated: recentIso(),
+      },
+      aliasContext: { symbolUpper: "AAPL", aliases: ["AAPL"] },
+    });
+    const d = deriveSignals(truth);
+    expect(d.contextSource).toBe("none");
+  });
+
+  it("backwards compatible: omitted aliasContext falls back to floor-only behavior", () => {
+    // Same fixture as the legacy "omits context when memory has impactLevel='low'"
+    // test, but with a one-liner that doesn't mention the symbol. Without
+    // aliasContext the surfacing layer collapses to floor-only and a
+    // floor-passing row surfaces regardless of one-liner specificity.
+    const truth = gatherTruth({
+      signal: makeStockSignal({ symbol: "MSFT" }),
+      memoryText: {
+        newsOneLiner: "Google Cloud and Genpact's agentic AI deal for CFO offices.",
+        impactLevel: "medium",
+        relevanceScore: 0.6,
+        lastUpdated: recentIso(),
+      },
+      // No aliasContext: legacy callers see no behavior change.
+    });
+    const d = deriveSignals(truth);
+    expect(d.contextSource).toBe("news_one_liner");
+  });
+
+  it("AAPL stale-row scenario: stale chosen row falls below floor freshness, contextSource=none", () => {
+    // Captured live from prod (170h-old Berkshire row). The floor
+    // freshness gate (72h) eliminates it before surfacing is even
+    // evaluated.
+    const truth = gatherTruth({
+      signal: makeStockSignal(),
+      memoryText: {
+        newsOneLiner: "Buffett's 'risky' crypto warning boosts AAPL credibility.",
+        impactLevel: "medium",
+        relevanceScore: 1,
+        lastUpdated: new Date(Date.now() - 170 * 3_600_000).toISOString(),
+      },
+      aliasContext: { symbolUpper: "AAPL", aliases: ["AAPL"] },
+    });
+    const d = deriveSignals(truth);
+    expect(d.contextSource).toBe("none");
+  });
+});
+
 describe("deriveSignals — confidence and stance", () => {
   it("returns High when raw confidence >= 0.7 and alignment is full", () => {
     const truth = gatherTruth({ signal: makeStockSignal() });

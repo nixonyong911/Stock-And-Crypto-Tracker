@@ -73,7 +73,14 @@ function memoryCandidate(
     lastUpdated: "2026-05-08T12:00:00Z",
     newsOneLiner: "Apple guidance beats expectations.",
     summary: "Stronger services guidance lifts mega-cap tech.",
-    rankKey: { impactRank: 1, relevance: 0.82 },
+    rankKey: {
+      impactRank: 1,
+      relevance: 0.82,
+      ageHours: 0,
+      freshnessDecay: 1,
+      oneLinerOnSymbol: true,
+      compositeAssociationScore: 1.07,
+    },
     chosen: true,
     whyLost: null,
     gates: { contextGatePassed: true, blendGatePassed: true },
@@ -86,6 +93,12 @@ function memoryCandidate(
         "narrow_tag_bonus:n=1",
       ],
       passed: true,
+    },
+    surfacing: {
+      score: 0.86,
+      threshold: 0.55,
+      decision: "passed_floor_above_threshold",
+      oneLinerOnSymbol: true,
     },
     ...overrides,
   };
@@ -653,13 +666,16 @@ describe("buildDigestDebugReport — composed envelope", () => {
       assetType: "stock",
     });
     const c = report.memory.candidates;
-    // Chosen = newest high-impact row (freshness tiebreak after impact and
-    // affinity, both equal here).
+    // Chosen = high-impact row that wins the composite key. Both top
+    // rows share impact=high and affinity, so the tertiary composite
+    // (relevance × freshnessDecay + onSymbolBonus) decides.
     expect(c[0]!.chosen).toBe(true);
     expect(c[0]!.whyLost).toBeNull();
-    // Loser at same impact + same affinity, lost on freshness.
+    // Loser at same impact + same affinity, lost on the composite key.
+    // (Step 5 replaced the old freshness-then-relevance lexicographic
+    // tiebreak with a single bounded composite score.)
     expect(c[1]!.whyLost).toMatch(
-      /affinity=\d+ tied with chosen but last_updated older than chosen/,
+      /affinity=\d+ tied with chosen; lost composite by/,
     );
     // Lower-impact row.
     expect(c[2]!.whyLost).toMatch(/ranked behind chosen impact=high/);

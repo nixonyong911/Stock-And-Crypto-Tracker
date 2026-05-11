@@ -49,6 +49,7 @@ import type {
   TickerMemoryText,
 } from "./recommendation-engine.js";
 import type { StatusTone } from "./card-renderer.js";
+import { textMentionsAnyAlias } from "./digest-symbol-affinity.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -153,6 +154,19 @@ export interface BriefTruth {
    *   - "level_out_of_band:<field>"
    */
   truthFlags?: string[];
+
+  /**
+   * Optional alias context used by Step-5 surfacing scoring. When
+   * present, `deriveContextFromTruth` evaluates the on-symbol-mention
+   * signal against `news_one_liner` and combines it with impact /
+   * relevance / freshness into a `surfacingScore`. Absence is
+   * backward-compatible: surfacing falls back to floor-only behavior
+   * (impact + relevance + freshness gates), identical to pre-Step-5.
+   */
+  aliasContext?: {
+    symbolUpper: string;
+    aliases: string[];
+  };
 }
 
 /**
@@ -170,8 +184,18 @@ export interface BriefDerived {
   hasMaterialContext: boolean;
   /** Resolved context line; `""` when no qualifying source. */
   context: string;
-  /** Identifies which DB source supplied the context line, for tests. */
-  contextSource: "news_one_liner" | "macro" | "none";
+  /**
+   * Identifies which DB source supplied the context line, for tests.
+   *
+   *   - "news_one_liner" — chosen memory row's `news_one_liner` cleared
+   *     both the floor gate and the Step-5 surfacing threshold.
+   *   - "macro" — per-symbol surfacing returned no, macro gate passed.
+   *   - "omitted_low_score" — per-symbol memory cleared the floor gate
+   *     but its Step-5 surfacing score landed below `SURFACING_MIN`,
+   *     so context was deliberately omitted (preferred over weak text).
+   *   - "none" — no candidate source qualified at any layer.
+   */
+  contextSource: "news_one_liner" | "macro" | "none" | "omitted_low_score";
   /** True when `context` was trimmed to fit the sentence-boundary cap. */
   contextTrimmed: boolean;
   /**
@@ -367,6 +391,220 @@ export function macroPassesGate(
   return Math.abs(macro.overallSentiment) >= MACRO_SENTIMENT_GATE;
 }
 
+// ── Step-5 surfacing decision (separate from association ranking) ────
+//
+// `memoryPassesContextGate` above is the *floor*: a row must clear
+// impact/relevance/freshness to even be considered. The Step-5 surfacing
+// score is layered on top and decides whether a floor-passing row is
+// strong enough to actually surface as the user-facing context line.
+//
+// Rationale: the floor catches obviously-disqualified rows but is
+// uniform; it cannot distinguish a high-impact row whose one-liner
+// names the symbol from a same-impact row whose one-liner is about a
+// peer company. The surfacing score adds that distinction without
+// hard-suppressing legitimate sector / supply-chain context (which
+// would be gone if we made one-liner-on-symbol a hard gate).
+
+/**
+ * Component weights for the surfacing score. Sum to 1.0 by convention so
+ * the score itself sits in [0, 1] and `SURFACING_MIN` is interpretable
+ * as a fraction of the maximum.
+ */
+const SURFACING_W_IMPACT = 0.3;
+const SURFACING_W_RELEVANCE = 0.2;
+const SURFACING_W_FRESHNESS = 0.2;
+const SURFACING_W_ONELINER = 0.3;
+
+/** Threshold above which a floor-passing row surfaces as `news_one_liner`. */
+const DEFAULT_SURFACING_MIN = 0.55;
+const SURFACING_MIN_FLOOR = 0.0;
+const SURFACING_MIN_CEILING = 1.0;
+
+/**
+ * Read the surfacing threshold from the environment. Mirrors the
+ * `getMemoryFreshnessHours` / `getAffinityMin` pattern. Clamped so a
+ * typo cannot let everything through (`-1`) or hard-suppress everything
+ * (`2`).
+ */
+export function getSurfacingMin(): number {
+  const raw = process.env["SMART_DIGEST_SURFACING_MIN"];
+  if (raw === undefined || raw === "") return DEFAULT_SURFACING_MIN;
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n)) return DEFAULT_SURFACING_MIN;
+  return Math.min(SURFACING_MIN_CEILING, Math.max(SURFACING_MIN_FLOOR, n));
+}
+
+function impactWeight(level: TickerMemoryText["impactLevel"] | undefined): number {
+  switch (level) {
+    case "critical":
+      return 1.0;
+    case "high":
+      return 0.8;
+    case "medium":
+      return 0.5;
+    case "low":
+      return 0.2;
+    default:
+      return 0;
+  }
+}
+
+function ageHoursOf(iso: string | undefined, now: Date = new Date()): number {
+  if (!iso) return Number.POSITIVE_INFINITY;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return Number.POSITIVE_INFINITY;
+  const ms = now.getTime() - t;
+  if (ms < 0) return 0;
+  return ms / 3_600_000;
+}
+
+function linearFreshness(ageHours: number, halfLifeHours: number): number {
+  if (!Number.isFinite(ageHours) || ageHours < 0) return 1;
+  if (!Number.isFinite(halfLifeHours) || halfLifeHours <= 0) return 0;
+  const v = 1 - ageHours / halfLifeHours;
+  if (v <= 0) return 0;
+  if (v >= 1) return 1;
+  return v;
+}
+
+export interface SurfacingScoreInputs {
+  impactLevel: TickerMemoryText["impactLevel"] | undefined;
+  relevanceScore: number | undefined;
+  ageHours: number;
+  halfLifeHours: number;
+  oneLinerOnSymbol: boolean;
+}
+
+/**
+ * Pure surfacing score. Bounded in [0, 1] so the threshold has a
+ * natural interpretation. Exported for tests and the debug envelope.
+ */
+export function computeSurfacingScore(inp: SurfacingScoreInputs): number {
+  const impact = impactWeight(inp.impactLevel);
+  const relevance = Math.max(0, Math.min(1, inp.relevanceScore ?? 0));
+  const freshness = linearFreshness(inp.ageHours, inp.halfLifeHours);
+  const oneliner = inp.oneLinerOnSymbol ? 1 : 0;
+  return (
+    SURFACING_W_IMPACT * impact +
+    SURFACING_W_RELEVANCE * relevance +
+    SURFACING_W_FRESHNESS * freshness +
+    SURFACING_W_ONELINER * oneliner
+  );
+}
+
+export type SurfacingDecision =
+  | "passed_floor_above_threshold"
+  | "passed_floor_below_threshold"
+  | "failed_floor"
+  | "not_evaluated";
+
+export interface SurfacingResult {
+  /** Did the row clear the floor gate? */
+  flooredPassed: boolean;
+  /**
+   * Surfacing score; `null` when the row failed the floor (we do not
+   * pretend a number when the inputs were never combined).
+   */
+  surfacingScore: number | null;
+  /** Threshold the score was compared against. Echoed for debug envelopes. */
+  surfacingMin: number;
+  /** True iff the row should actually surface as the context line. */
+  shouldSurface: boolean;
+  /** Stable code documenting which branch fired. */
+  decision: SurfacingDecision;
+  /** True iff the row's `news_one_liner` mentions any digest-symbol alias. */
+  oneLinerOnSymbol: boolean;
+}
+
+/**
+ * Compute the full surfacing decision for a single memory row against
+ * a digest symbol.
+ *
+ * Two operating modes:
+ *
+ *   - **With `aliasContext`** (production after Step 5): floor + score
+ *     + threshold. Floor-passing rows whose surfacing score lands below
+ *     `SURFACING_MIN` are deliberately omitted with
+ *     `passed_floor_below_threshold`.
+ *   - **Without `aliasContext`** (legacy callers and tests that do not
+ *     plumb aliases): floor-only behavior, identical to the pre-Step-5
+ *     `memoryPassesContextGate` semantics. The score has no on-symbol
+ *     signal to combine, so collapsing to the floor is the honest
+ *     choice rather than scoring against an arbitrary baseline. The
+ *     score itself is still computed and surfaced for inspectability.
+ */
+export function decideSurfacing(
+  m: TickerMemoryText | undefined,
+  aliasContext: BriefTruth["aliasContext"] | undefined,
+): SurfacingResult {
+  const surfacingMin = getSurfacingMin();
+  if (!m) {
+    return {
+      flooredPassed: false,
+      surfacingScore: null,
+      surfacingMin,
+      shouldSurface: false,
+      decision: "not_evaluated",
+      oneLinerOnSymbol: false,
+    };
+  }
+  const flooredPassed = memoryPassesContextGate(m);
+  if (!flooredPassed) {
+    return {
+      flooredPassed,
+      surfacingScore: null,
+      surfacingMin,
+      shouldSurface: false,
+      decision: "failed_floor",
+      oneLinerOnSymbol: false,
+    };
+  }
+  const halfLifeHours = getMemoryFreshnessHours();
+  const ageHours = ageHoursOf(m.lastUpdated);
+  const oneLinerOnSymbol = aliasContext
+    ? textMentionsAnyAlias(m.newsOneLiner, aliasContext.aliases)
+    : false;
+  const surfacingScore = computeSurfacingScore({
+    impactLevel: m.impactLevel,
+    relevanceScore: m.relevanceScore,
+    ageHours,
+    halfLifeHours,
+    oneLinerOnSymbol,
+  });
+
+  // Floor-only mode: no aliases plumbed through, so surface iff floor
+  // passed. Score is informational only.
+  if (!aliasContext) {
+    return {
+      flooredPassed,
+      surfacingScore,
+      surfacingMin,
+      shouldSurface: true,
+      decision: "passed_floor_above_threshold",
+      oneLinerOnSymbol,
+    };
+  }
+
+  if (surfacingScore >= surfacingMin) {
+    return {
+      flooredPassed,
+      surfacingScore,
+      surfacingMin,
+      shouldSurface: true,
+      decision: "passed_floor_above_threshold",
+      oneLinerOnSymbol,
+    };
+  }
+  return {
+    flooredPassed,
+    surfacingScore,
+    surfacingMin,
+    shouldSurface: false,
+    decision: "passed_floor_below_threshold",
+    oneLinerOnSymbol,
+  };
+}
+
 function asTriDir(
   v: string | undefined,
 ): "bullish" | "bearish" | "neutral" {
@@ -383,6 +621,14 @@ export interface GatherTruthArgs {
   memoryText?: TickerMemoryText;
   /** ISO YYYY-MM-DD analysis date sourced from the swing/long-term row. */
   analysisDate?: string;
+  /**
+   * Optional alias context for the digest symbol. When supplied, the
+   * downstream surfacing decision combines impact / relevance /
+   * freshness with whether the memory row's `news_one_liner` actually
+   * names any alias of the symbol. Omitted callers (legacy / tests
+   * not plumbing aliases) get floor-only surfacing semantics.
+   */
+  aliasContext?: BriefTruth["aliasContext"];
 }
 
 /**
@@ -394,7 +640,7 @@ export interface GatherTruthArgs {
  * rather than passed through to the renderer.
  */
 export function gatherTruth(args: GatherTruthArgs): BriefTruth {
-  const { signal, macroContext, memoryText, analysisDate } = args;
+  const { signal, macroContext, memoryText, analysisDate, aliasContext } = args;
   const d = signal.rawData;
   const flags: string[] = [];
 
@@ -413,6 +659,13 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
       priority: signal.priority,
     },
   };
+
+  if (aliasContext && aliasContext.aliases.length > 0) {
+    truth.aliasContext = {
+      symbolUpper: aliasContext.symbolUpper,
+      aliases: aliasContext.aliases,
+    };
+  }
 
   if (isFinitePositive(d.close)) truth.price = d.close;
   if (isFinitePositive(d.latestOpen)) {
@@ -745,12 +998,34 @@ function deriveContextFromTruth(truth: BriefTruth): {
   contextSource: BriefDerived["contextSource"];
   contextTrimmed: boolean;
 } {
-  if (memoryPassesContextGate(truth.memoryText)) {
+  // Step 5: per-symbol surfacing decision is layered on top of the
+  // floor gate. Three branches:
+  //   1. Floor passed AND surfacing score >= threshold -> surface line.
+  //   2. Floor passed AND surfacing score < threshold  -> deliberate
+  //      omission with `omitted_low_score` so debug + tests can tell
+  //      "weak row, omitted" apart from "no row at all".
+  //   3. Floor failed -> fall through to macro / none, same as before.
+  const surfacing = decideSurfacing(truth.memoryText, truth.aliasContext);
+  if (surfacing.shouldSurface) {
     const raw = truth.memoryText!.newsOneLiner!.trim();
     const { text, trimmed } = trimContextLine(raw);
-    return { context: text, contextSource: "news_one_liner", contextTrimmed: trimmed };
+    return {
+      context: text,
+      contextSource: "news_one_liner",
+      contextTrimmed: trimmed,
+    };
+  }
+  if (surfacing.decision === "passed_floor_below_threshold") {
+    return {
+      context: "",
+      contextSource: "omitted_low_score",
+      contextTrimmed: false,
+    };
   }
 
+  // Macro fallback only when no per-symbol surfacing was possible at
+  // all (floor failed or no memory). Macro never overrides a
+  // deliberate `omitted_low_score` — that omission is intentional.
   if (macroPassesGate(truth.macro)) {
     const sentiment =
       truth.macro!.overallSentiment >= MACRO_SENTIMENT_GATE

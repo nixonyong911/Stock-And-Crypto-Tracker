@@ -33,10 +33,11 @@
  * by the digest flow.
  */
 
-import type {
-  TickerSignal,
-  MacroContext,
-  TickerMemoryText,
+import {
+  newsLookupCandidateSymbols,
+  type TickerSignal,
+  type MacroContext,
+  type TickerMemoryText,
 } from "./recommendation-engine.js";
 import type { CardData, StatusTone } from "./card-renderer.js";
 import {
@@ -306,11 +307,25 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
 
   const analysisDate = args.analysisDateMap?.get(upper);
 
+  // Step 5: pass alias context so the truth layer's surfacing decision
+  // can evaluate whether `news_one_liner` actually names the digest
+  // symbol (or any of its aliases). Aliases come from the same helper
+  // production already uses for memory lookup, keeping the two
+  // decisions consistent.
+  const aliases = newsLookupCandidateSymbols(symbol).map((a) =>
+    a.toUpperCase(),
+  );
+  const aliasContext =
+    aliases.length > 0
+      ? { symbolUpper: upper, aliases }
+      : undefined;
+
   const truth: BriefTruth = gatherTruth({
     signal: primary,
     macroContext,
     memoryText,
     analysisDate,
+    aliasContext,
   });
   const derived: BriefDerived = deriveSignals(truth);
   const composed = composeBrief({ truth, derived, mode, now });

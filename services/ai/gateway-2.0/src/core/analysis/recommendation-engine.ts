@@ -3,6 +3,7 @@ import { getMemoryFreshnessHours } from "./digest-brief-truth.js";
 import {
   computeSymbolAffinity,
   getAffinityMin,
+  textMentionsAnyAlias,
   type AffinityResult,
 } from "./digest-symbol-affinity.js";
 
@@ -542,11 +543,13 @@ function rowToMemoryText(row: MemoryTextRow): TickerMemoryText {
  * `affected_tickers` membership is incidental (e.g. an Ethereum-primary
  * theme that lists BTC) cannot win the per-symbol slot.
  *
- * Ranking among rows that pass affinity:
- *   1. lowest IMPACT_RANK (critical < high < medium < low)
- *   2. highest affinity score (more on-symbol wins)
- *   3. freshest `last_updated`
- *   4. highest `relevance_score` (kept as last tiebreak; degenerate today)
+ * Ranking among rows that pass affinity (Step-5 association model — see
+ * `compareMemoryCandidates` for the full rationale):
+ *   1. lowest IMPACT_RANK            (hard primary)
+ *   2. highest affinity score        (hard secondary)
+ *   3. highest composite score
+ *        = relevance * freshnessDecay + ONE_LINER_ON_SYMBOL_BONUS
+ *   4. freshest `last_updated`       (final tiebreak)
  *
  * Filters: `status IN ('active','fading')` to mirror the rest of the
  * Smart Digest data flow.
@@ -587,8 +590,7 @@ export async function fetchTickerMemoryText(
 
   for (const [digestSym, cands] of candidatesPerDigest) {
     const candSet = new Set(cands);
-    let bestRow: MemoryTextRow | undefined;
-    let bestAffinity: AffinityResult | undefined;
+    let best: CandidateInput | undefined;
     for (const row of rows) {
       const tickers = row.affected_tickers ?? [];
       const hit = tickers.some((t) => candSet.has((t ?? "").toUpperCase()));
@@ -602,54 +604,143 @@ export async function fetchTickerMemoryText(
         threshold: affinityMin,
       });
       if (!affinity.passed) continue;
-      if (!bestRow || !bestAffinity) {
-        bestRow = row;
-        bestAffinity = affinity;
-        continue;
-      }
-      const cmp = compareMemoryCandidates(
+      const candidate: CandidateInput = {
         row,
         affinity,
-        bestRow,
-        bestAffinity,
-      );
-      if (cmp < 0) {
-        bestRow = row;
-        bestAffinity = affinity;
+        oneLinerOnSymbol: textMentionsAnyAlias(row.news_one_liner, cands),
+        halfLifeHours: freshHours,
+      };
+      if (!best) {
+        best = candidate;
+        continue;
+      }
+      if (compareMemoryCandidates(candidate, best) < 0) {
+        best = candidate;
       }
     }
-    if (bestRow) {
-      out.set(digestSym, rowToMemoryText(bestRow));
+    if (best) {
+      out.set(digestSym, rowToMemoryText(best.row));
     }
   }
 
   return out;
 }
 
+// ── Step-5 association ranking model ────────────────────────────────
+//
+// Two related decisions live in the digest stack: (1) which memory row
+// is the best ASSOCIATION for a digest symbol, and (2) whether that row
+// is good enough to SURFACE as a user-facing context line. This file
+// owns (1); `digest-brief-truth.ts` owns (2). They share inputs but
+// produce independent outputs.
+//
+// Ordering (top-down, all stable / deterministic / pure):
+//   1. impactRank ASC          (hard primary — curator-stated impact)
+//   2. affinityScore DESC      (hard secondary — Step-3 contamination defence)
+//   3. compositeScore DESC     (graded — collapses three correlated weak
+//                               signals: relevance, freshness decay,
+//                               one-liner-on-symbol bonus)
+//   4. last_updated DESC       (final tiebreak)
+//
+// Why impact stays a hard primary: curator-stated impact has been the
+// most reliable signal for editorial salience. Step 5 keeps it on top
+// as the starting hypothesis. If live validation shows a stale
+// `critical` row producing materially worse user-facing context than a
+// fresh `high` row in a way that harms digest quality, the ranking
+// model can be revised.
+
 /**
- * Compare two memory candidates by the step-3 ranking key:
- *   1. lowest IMPACT_RANK
- *   2. highest affinity score
- *   3. freshest `last_updated`
- *   4. highest `relevance_score`
+ * One-liner-on-symbol bonus added to the composite score so a row whose
+ * `news_one_liner` actually names the digest symbol nudges past an
+ * equally-fresh-and-relevant peer whose line is sector-flavoured. Sized
+ * to clearly outweigh sub-decimal relevance/freshness deltas without
+ * dominating across impact or affinity classes.
+ */
+const ONE_LINER_ON_SYMBOL_BONUS = 0.25;
+
+/**
+ * Linear freshness decay shared with the in-process freshness window
+ * (`getMemoryFreshnessHours()`, default 72h).
  *
- * Returns a negative number when `a` should win, positive when `b` should
- * win, zero on full tie.
+ *   age 0h    -> 1.0
+ *   age 36h   -> 0.5
+ *   age 72h+  -> 0.0
+ *
+ * Linear (not exponential) is intentional: easy to read in the debug
+ * envelope and matches the binary gate's edge so rows that escaped the
+ * SQL filter never multiply against negative weights.
+ */
+export function freshnessDecay(
+  ageHours: number,
+  halfLifeHours: number,
+): number {
+  if (!Number.isFinite(ageHours) || ageHours < 0) return 1;
+  if (!Number.isFinite(halfLifeHours) || halfLifeHours <= 0) return 0;
+  const v = 1 - ageHours / halfLifeHours;
+  if (v <= 0) return 0;
+  if (v >= 1) return 1;
+  return v;
+}
+
+/**
+ * Composite association score — the graded tertiary key in the ranking.
+ * Pure: depends only on relevance, age (vs the half-life), and whether
+ * the one-liner names the symbol. Exported for the debug surface.
+ */
+export function compositeAssociationScore(args: {
+  relevance: number;
+  ageHours: number;
+  halfLifeHours: number;
+  oneLinerOnSymbol: boolean;
+}): number {
+  const decayed = args.relevance * freshnessDecay(args.ageHours, args.halfLifeHours);
+  return decayed + (args.oneLinerOnSymbol ? ONE_LINER_ON_SYMBOL_BONUS : 0);
+}
+
+interface CandidateInput {
+  row: MemoryTextRow;
+  affinity: AffinityResult;
+  oneLinerOnSymbol: boolean;
+  halfLifeHours: number;
+}
+
+/**
+ * Compare two memory candidates by the Step-5 association ranking key.
+ * Returns a negative number when `a` should win, positive when `b`
+ * should win, zero on full tie.
  */
 function compareMemoryCandidates(
-  a: MemoryTextRow,
-  affA: AffinityResult,
-  b: MemoryTextRow,
-  affB: AffinityResult,
+  a: CandidateInput,
+  b: CandidateInput,
 ): number {
-  const impactDelta = rowImpactRank(a) - rowImpactRank(b);
+  const impactDelta = rowImpactRank(a.row) - rowImpactRank(b.row);
   if (impactDelta !== 0) return impactDelta;
-  const affinityDelta = affB.score - affA.score;
+  const affinityDelta = b.affinity.score - a.affinity.score;
   if (affinityDelta !== 0) return affinityDelta;
-  const tsA = rowLastUpdatedMs(a);
-  const tsB = rowLastUpdatedMs(b);
-  if (tsA !== tsB) return tsB - tsA;
-  return rowRelevance(b) - rowRelevance(a);
+  const compositeA = compositeAssociationScore({
+    relevance: rowRelevance(a.row),
+    ageHours: ageHoursFromRow(a.row),
+    halfLifeHours: a.halfLifeHours,
+    oneLinerOnSymbol: a.oneLinerOnSymbol,
+  });
+  const compositeB = compositeAssociationScore({
+    relevance: rowRelevance(b.row),
+    ageHours: ageHoursFromRow(b.row),
+    halfLifeHours: b.halfLifeHours,
+    oneLinerOnSymbol: b.oneLinerOnSymbol,
+  });
+  if (compositeA !== compositeB) return compositeB - compositeA;
+  const tsA = rowLastUpdatedMs(a.row);
+  const tsB = rowLastUpdatedMs(b.row);
+  return tsB - tsA;
+}
+
+function ageHoursFromRow(row: MemoryTextRow): number {
+  const ms = rowLastUpdatedMs(row);
+  if (ms <= 0) return Number.POSITIVE_INFINITY;
+  const ageMs = Date.now() - ms;
+  if (ageMs <= 0) return 0;
+  return ageMs / 3_600_000;
 }
 
 // ── Macro context ────────────────────────────────────────────────────

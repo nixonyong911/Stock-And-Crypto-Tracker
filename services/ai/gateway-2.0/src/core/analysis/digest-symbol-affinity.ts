@@ -212,6 +212,26 @@ export function computeSymbolAffinity(
   };
 }
 
+// ── Public helpers (reused by ranking/surfacing layers) ──────────────
+
+/**
+ * True iff `text` contains any of the digest symbol's aliases as a
+ * whole word, using the same case-aware matching rules as the affinity
+ * scorer. Re-exported so the Step-5 association ranker and surfacing
+ * scorer can ask the same on-symbol question against an arbitrary text
+ * field (typically `news_one_liner`) without duplicating regex logic.
+ *
+ * `aliases` should already be uppercase; pass the same alias list used
+ * for `computeSymbolAffinity`.
+ */
+export function textMentionsAnyAlias(
+  text: string | null | undefined,
+  aliases: string[],
+): boolean {
+  if (!text) return false;
+  return findFirstTokenHit(text, aliases) !== null;
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────
 
 /**

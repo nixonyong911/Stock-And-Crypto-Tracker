@@ -34,6 +34,8 @@ import type { FastifyBaseLogger } from "fastify";
 import {
   detectSignalsForTicker,
   newsLookupCandidateSymbols,
+  freshnessDecay as engineFreshnessDecay,
+  compositeAssociationScore,
   type TickerSignal,
   type MacroContext,
   type TickerMemoryText,
@@ -49,6 +51,8 @@ import {
   memoryPassesContextGate,
   memoryPassesBlendGate,
   macroPassesGate,
+  decideSurfacing,
+  getMemoryFreshnessHours,
   MACRO_SENTIMENT_GATE,
   type BriefTruth,
   type BriefDerived,
@@ -57,6 +61,7 @@ import {
 import {
   computeSymbolAffinity,
   getAffinityMin,
+  textMentionsAnyAlias,
   type AffinityResult,
 } from "./digest-symbol-affinity.js";
 
@@ -142,8 +147,22 @@ export interface DebugMemoryCandidate {
   lastUpdated: string | null;
   newsOneLiner: string | null;
   summary: string | null;
-  /** Numeric ranking key — auditable mirror of the production sort. */
-  rankKey: { impactRank: number; relevance: number };
+  /**
+   * Numeric ranking key — auditable mirror of the production sort.
+   * Step-5 fields:
+   *   - `ageHours` derived from `last_updated`
+   *   - `freshnessDecay` linear decay vs the in-process freshness window
+   *   - `oneLinerOnSymbol` true iff `news_one_liner` names any digest alias
+   *   - `compositeAssociationScore` graded tertiary key
+   */
+  rankKey: {
+    impactRank: number;
+    relevance: number;
+    ageHours: number;
+    freshnessDecay: number;
+    oneLinerOnSymbol: boolean;
+    compositeAssociationScore: number;
+  };
   chosen: boolean;
   whyLost: string | null;
   gates: { contextGatePassed: boolean; blendGatePassed: boolean };
@@ -154,6 +173,26 @@ export interface DebugMemoryCandidate {
    * inspector always echoes the value it used.
    */
   affinity: DebugAffinity;
+  /**
+   * Step-5 surfacing decision for this candidate (only meaningful for
+   * the chosen row in production, but populated for every candidate so
+   * reviewers can compare what each row *would* have produced as a
+   * user-facing context line).
+   *
+   *   - `surfacingScore` — bounded [0,1]; `null` when the floor failed.
+   *   - `surfacingMin` — threshold compared against; echoed for inspection.
+   *   - `decision` — stable code; see `SurfacingDecision`.
+   */
+  surfacing: {
+    score: number | null;
+    threshold: number;
+    decision:
+      | "passed_floor_above_threshold"
+      | "passed_floor_below_threshold"
+      | "failed_floor"
+      | "not_evaluated";
+    oneLinerOnSymbol: boolean;
+  };
 }
 
 export interface DebugMemorySection {
@@ -177,7 +216,7 @@ export interface DebugMacroSection {
 export interface DebugFallbacks {
   holdAboveSource: "entryLow" | "periodLow" | "ema20" | "none";
   breakBelowSource: "stopLoss" | "none";
-  contextSource: "news_one_liner" | "macro" | "none";
+  contextSource: "news_one_liner" | "macro" | "none" | "omitted_low_score";
   /** True iff context line was trimmed by the sentence-boundary cap. */
   contextTrimmed: boolean;
   /** True iff the chosen memory row matched on a non-symbol alias (e.g. BTC for BTC/USD). */
@@ -564,6 +603,8 @@ export async function fetchMemoryCandidatesForDebug(
 
   const symbolUpper = symbol.toUpperCase();
   const affinityThreshold = getAffinityMin();
+  const halfLifeHours = getMemoryFreshnessHours();
+  const nowMs = Date.now();
 
   const enriched = rows.map((row) => {
     const tickers = Array.isArray(row.affected_tickers)
@@ -577,33 +618,76 @@ export async function fetchMemoryCandidatesForDebug(
       aliases: candidatesTried,
       threshold: affinityThreshold,
     });
+    const lastUpdatedMs = row.last_updated ? Date.parse(row.last_updated) : 0;
+    const ageHours =
+      Number.isFinite(lastUpdatedMs) && lastUpdatedMs > 0
+        ? Math.max(0, (nowMs - lastUpdatedMs) / 3_600_000)
+        : Number.POSITIVE_INFINITY;
+    const decay = engineFreshnessDecay(ageHours, halfLifeHours);
+    const oneLinerOnSymbol = textMentionsAnyAlias(
+      row.news_one_liner,
+      candidatesTried,
+    );
+    const relevance = toNum(row.relevance_score) ?? 0;
+    const composite = compositeAssociationScore({
+      relevance,
+      ageHours,
+      halfLifeHours,
+      oneLinerOnSymbol,
+    });
     return {
       row,
       tickers,
       impact: impactRank(row.impact_level),
-      relevance: toNum(row.relevance_score) ?? 0,
-      lastUpdatedMs: row.last_updated ? Date.parse(row.last_updated) : 0,
+      relevance,
+      lastUpdatedMs,
+      ageHours,
+      decay,
+      oneLinerOnSymbol,
+      composite,
       affinity,
     };
   });
 
-  // Production sort: impact ASC, affinity DESC, freshness DESC, relevance DESC.
+  // Step-5 production sort: impact ASC, affinity DESC, composite DESC,
+  // last_updated DESC. Mirrors `compareMemoryCandidates` in the engine.
   enriched.sort((a, b) => {
     if (a.impact !== b.impact) return a.impact - b.impact;
     if (a.affinity.score !== b.affinity.score) {
       return b.affinity.score - a.affinity.score;
     }
+    if (a.composite !== b.composite) return b.composite - a.composite;
     const tsA = Number.isFinite(a.lastUpdatedMs) ? a.lastUpdatedMs : 0;
     const tsB = Number.isFinite(b.lastUpdatedMs) ? b.lastUpdatedMs : 0;
-    if (tsA !== tsB) return tsB - tsA;
-    return b.relevance - a.relevance;
+    return tsB - tsA;
   });
 
   // Chosen = highest-ranked row that passed affinity. May be null if every
   // candidate is contaminated.
   const chosenIdx = enriched.findIndex((e) => e.affinity.passed);
 
-  return enriched.map(({ row, tickers, impact, relevance, affinity }, idx) => {
+  const aliasContextForSurfacing = {
+    symbolUpper,
+    aliases: candidatesTried,
+  };
+
+  return enriched.map((e, idx) => {
+    const { row, tickers, impact, relevance, ageHours, decay, oneLinerOnSymbol, composite, affinity } = e;
+    const memoryText: TickerMemoryText = {};
+    if (row.news_one_liner) memoryText.newsOneLiner = row.news_one_liner;
+    if (row.summary) memoryText.summary = row.summary;
+    if (
+      row.impact_level === "critical" ||
+      row.impact_level === "high" ||
+      row.impact_level === "medium" ||
+      row.impact_level === "low"
+    ) {
+      memoryText.impactLevel = row.impact_level;
+    }
+    if (relevance != null) memoryText.relevanceScore = relevance;
+    if (row.last_updated) memoryText.lastUpdated = row.last_updated;
+    const surfacing = decideSurfacing(memoryText, aliasContextForSurfacing);
+
     const candidate: DebugMemoryCandidate = {
       theme: row.theme,
       category: row.category,
@@ -614,7 +698,14 @@ export async function fetchMemoryCandidatesForDebug(
       lastUpdated: row.last_updated,
       newsOneLiner: row.news_one_liner,
       summary: row.summary,
-      rankKey: { impactRank: impact, relevance },
+      rankKey: {
+        impactRank: impact,
+        relevance,
+        ageHours: Number.isFinite(ageHours) ? ageHours : -1,
+        freshnessDecay: decay,
+        oneLinerOnSymbol,
+        compositeAssociationScore: composite,
+      },
       chosen: idx === chosenIdx,
       whyLost: null,
       gates: { contextGatePassed: false, blendGatePassed: false },
@@ -623,6 +714,12 @@ export async function fetchMemoryCandidatesForDebug(
         threshold: affinity.threshold,
         reasons: affinity.reasons,
         passed: affinity.passed,
+      },
+      surfacing: {
+        score: surfacing.surfacingScore,
+        threshold: surfacing.surfacingMin,
+        decision: surfacing.decision,
+        oneLinerOnSymbol: surfacing.oneLinerOnSymbol,
       },
     };
     candidate.gates = evaluateMemoryGates(candidate);
@@ -653,7 +750,6 @@ function annotateWhyLost(candidates: DebugMemoryCandidate[]): void {
       continue;
     }
     if (!chosen) {
-      // Should be unreachable when affinity passed — kept defensive.
       c.whyLost = "no chosen row to compare against";
       continue;
     }
@@ -666,16 +762,24 @@ function annotateWhyLost(candidates: DebugMemoryCandidate[]): void {
         `impact=${c.impactLevel ?? "unknown"} tied with chosen but affinity ${c.affinity.score} < chosen ${chosen.affinity.score}`;
       continue;
     }
+    if (
+      c.rankKey.compositeAssociationScore !==
+      chosen.rankKey.compositeAssociationScore
+    ) {
+      const delta =
+        chosen.rankKey.compositeAssociationScore -
+        c.rankKey.compositeAssociationScore;
+      c.whyLost =
+        `impact=${c.impactLevel ?? "unknown"} affinity=${c.affinity.score} tied with chosen; ` +
+        `lost composite by ${delta.toFixed(3)} (relevance×freshness+onSymbolBonus: ` +
+        `${c.rankKey.compositeAssociationScore.toFixed(3)} vs chosen ${chosen.rankKey.compositeAssociationScore.toFixed(3)})`;
+      continue;
+    }
     const tsA = c.lastUpdated ? Date.parse(c.lastUpdated) : 0;
     const tsB = chosen.lastUpdated ? Date.parse(chosen.lastUpdated) : 0;
     if (tsA < tsB) {
       c.whyLost =
-        `impact=${c.impactLevel ?? "unknown"} affinity=${c.affinity.score} tied with chosen but last_updated older than chosen`;
-      continue;
-    }
-    if (c.rankKey.relevance < chosen.rankKey.relevance) {
-      c.whyLost =
-        `impact=${c.impactLevel ?? "unknown"} affinity=${c.affinity.score} tied with chosen on impact/affinity/freshness; relevance ${c.rankKey.relevance.toFixed(2)} < chosen ${chosen.rankKey.relevance.toFixed(2)}`;
+        `impact=${c.impactLevel ?? "unknown"} affinity=${c.affinity.score} composite tied; lost on last_updated tiebreak (older)`;
       continue;
     }
     c.whyLost = `tied with chosen on full rank key; lost on first-seen tiebreak`;
@@ -761,14 +865,42 @@ export function buildNotes(report: {
           chosen.relevanceScore != null
             ? chosen.relevanceScore.toFixed(2)
             : "n/a";
+        const surfScore =
+          chosen.surfacing.score != null
+            ? chosen.surfacing.score.toFixed(3)
+            : "n/a";
         notes.push(
-          `context resolved from analysis_market_memory.news_one_liner (impact=${chosen.impactLevel ?? "?"}, relevance=${rel}, affinity=${chosen.affinity.score})${others > 0 ? `; ${others} other candidate${others === 1 ? "" : "s"} considered, see memory.candidates` : ""}`,
+          `context resolved from analysis_market_memory.news_one_liner ` +
+            `(impact=${chosen.impactLevel ?? "?"}, relevance=${rel}, affinity=${chosen.affinity.score}, ` +
+            `surfacingScore=${surfScore}/${chosen.surfacing.threshold.toFixed(2)})` +
+            `${others > 0 ? `; ${others} other candidate${others === 1 ? "" : "s"} considered, see memory.candidates` : ""}`,
         );
       }
     } else if (derived.contextSource === "macro") {
       notes.push(
         `context resolved from macro (dominantTheme=${macro.dominantTheme ?? "?"}, sentiment=${macro.overallSentiment.toFixed(2)})`,
       );
+    } else if (derived.contextSource === "omitted_low_score") {
+      // Step-5 surfacing layer chose to omit a floor-passing row whose
+      // surfacing score landed below threshold. This is a deliberate
+      // "prefer omission over weak context" outcome.
+      const chosen = memory.candidates.find((c) => c.chosen);
+      if (chosen) {
+        const surfScore =
+          chosen.surfacing.score != null
+            ? chosen.surfacing.score.toFixed(3)
+            : "n/a";
+        const onSym = chosen.surfacing.oneLinerOnSymbol ? "yes" : "no";
+        notes.push(
+          `context omitted by surfacing decision: row passed floor but score ${surfScore} ` +
+            `< threshold ${chosen.surfacing.threshold.toFixed(2)} ` +
+            `(impact=${chosen.impactLevel ?? "?"}, oneLinerOnSymbol=${onSym})`,
+        );
+      } else {
+        notes.push(
+          "context omitted by surfacing decision (passed_floor_below_threshold)",
+        );
+      }
     } else {
       // Context omitted. Distinguish between "no candidate passed affinity"
       // (the new step-3 outcome) and "chosen passed affinity but failed the
@@ -952,11 +1084,19 @@ export async function buildDigestDebugReport(
     const memoryForTruth =
       primary.type === "news_sentiment" ? undefined : chosenMemoryText;
     const analysisDate = analysisDateMap.get(symbolUpper);
+    // Step 5: mirror the alias context the production generator uses so
+    // the debug-built truth and brief make the same surfacing decision.
+    const aliasesForTruth = triedAliases;
+    const aliasContextForTruth =
+      aliasesForTruth.length > 0
+        ? { symbolUpper, aliases: aliasesForTruth }
+        : undefined;
     truth = gatherTruth({
       signal: primary,
       macroContext,
       memoryText: memoryForTruth,
       analysisDate,
+      aliasContext: aliasContextForTruth,
     });
     derived = deriveSignals(truth);
   }
