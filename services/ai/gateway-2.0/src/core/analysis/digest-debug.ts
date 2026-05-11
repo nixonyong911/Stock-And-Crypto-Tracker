@@ -64,6 +64,10 @@ import {
   textMentionsAnyAlias,
   type AffinityResult,
 } from "./digest-symbol-affinity.js";
+import {
+  trustTierOf,
+  type PrimaryTickerSource,
+} from "./primary-ticker.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -200,6 +204,20 @@ export interface DebugMemoryCandidate {
     generatedAt: string | null;
     tickersUnknown: string[];
   };
+  /**
+   * Slice 2: deterministic primary-subject ticker, with the trust tier
+   * spelled out so debug readers do NOT have to memorize source values.
+   *   - source = "marketaux_entities" (strong)  → only valid on filtered-news rows.
+   *   - source = "batch_heuristic"   (heuristic)→ only valid on memory rows.
+   *   - source = null                (none)    → no upstream signal available.
+   * `trustTier` is derived from `source` via `trustTierOf` — never set it
+   * independently. The raw `source` is kept for forensic completeness.
+   */
+  primaryTicker: {
+    ticker: string | null;
+    source: PrimaryTickerSource;
+    trustTier: "strong" | "heuristic" | "none";
+  };
 }
 
 export interface DebugMemorySection {
@@ -298,6 +316,8 @@ interface MemoryDebugRow {
   validator_version: string | null;
   generated_at: string | null;
   tickers_unknown: string[] | null;
+  primary_ticker: string | null;
+  primary_ticker_source: string | null;
 }
 
 // ── Pure helpers ──────────────────────────────────────────────────────
@@ -305,6 +325,43 @@ interface MemoryDebugRow {
 function impactRank(level: string | null): number {
   if (!level) return 9;
   return IMPACT_RANK[level.toLowerCase()] ?? 9;
+}
+
+/**
+ * Coerce a raw `primary_ticker_source` DB value into the typed
+ * `PrimaryTickerSource`. Anything we don't recognize collapses to `null`
+ * (i.e. trust tier "none") so future source values can ship to the DB
+ * without crashing the debug surface.
+ *
+ * Invariant: filtered-news rows should never carry `"batch_heuristic"`,
+ * and memory rows should never carry `"marketaux_entities"`. The caller
+ * is responsible for asserting that invariant — this helper does not
+ * enforce it, only normalizes the type.
+ */
+function coercePrimaryTickerSource(raw: string | null): PrimaryTickerSource {
+  if (raw === "marketaux_entities") return "marketaux_entities";
+  if (raw === "batch_heuristic") return "batch_heuristic";
+  return null;
+}
+
+/**
+ * Slice 2 invariant guard for memory rows: log a warning if a row carries
+ * a `marketaux_entities` source value (only valid on filtered-news rows).
+ * Returns the same source unchanged — we never silently mutate stored data,
+ * only flag the surprise for human review.
+ */
+function assertMemorySourceInvariant(
+  source: PrimaryTickerSource,
+  log: FastifyBaseLogger,
+  context: string,
+): PrimaryTickerSource {
+  if (source === "marketaux_entities") {
+    log.warn(
+      { source, context },
+      "Memory row carries marketaux_entities primary_ticker_source — invariant violation",
+    );
+  }
+  return source;
 }
 
 function toNum(val: string | null | undefined): number | null {
@@ -585,6 +642,7 @@ export function buildAliasResolutionTrace(
 export async function fetchMemoryCandidatesForDebug(
   db: Pool,
   symbol: string,
+  log?: FastifyBaseLogger,
 ): Promise<DebugMemoryCandidate[]> {
   const candidatesTried = newsLookupCandidateSymbols(symbol).map((s) =>
     s.toUpperCase(),
@@ -601,7 +659,8 @@ export async function fetchMemoryCandidatesForDebug(
               last_updated::text AS last_updated,
               model_name, prompt_version, validator_version,
               generated_at::text AS generated_at,
-              tickers_unknown
+              tickers_unknown,
+              primary_ticker, primary_ticker_source
          FROM analysis_market_memory
         WHERE status IN ('active', 'fading')
           AND affected_tickers && $1::text[]`,
@@ -703,6 +762,15 @@ export async function fetchMemoryCandidatesForDebug(
     if (row.last_updated) memoryText.lastUpdated = row.last_updated;
     const surfacing = decideSurfacing(memoryText, aliasContextForSurfacing);
 
+    let primarySource = coercePrimaryTickerSource(row.primary_ticker_source);
+    if (log) {
+      primarySource = assertMemorySourceInvariant(
+        primarySource,
+        log,
+        `theme="${row.theme ?? "?"}" affected_tickers=${JSON.stringify(tickers)}`,
+      );
+    }
+
     const candidate: DebugMemoryCandidate = {
       theme: row.theme,
       category: row.category,
@@ -742,6 +810,11 @@ export async function fetchMemoryCandidatesForDebug(
         validatorVersion: row.validator_version ?? null,
         generatedAt: row.generated_at ?? null,
         tickersUnknown: Array.isArray(row.tickers_unknown) ? row.tickers_unknown : [],
+      },
+      primaryTicker: {
+        ticker: row.primary_ticker ?? null,
+        source: primarySource,
+        trustTier: trustTierOf(primarySource),
       },
     };
     candidate.gates = evaluateMemoryGates(candidate);
@@ -1028,7 +1101,7 @@ export async function buildDigestDebugReport(
 
   let memCandidates: DebugMemoryCandidate[] = [];
   try {
-    memCandidates = await fetchMemoryCandidatesForDebug(db, symbolUpper);
+    memCandidates = await fetchMemoryCandidatesForDebug(db, symbolUpper, log);
   } catch (err) {
     log.warn(
       { err, symbol: symbolUpper },

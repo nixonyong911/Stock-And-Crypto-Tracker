@@ -107,6 +107,11 @@ function memoryCandidate(
       generatedAt: null,
       tickersUnknown: [],
     },
+    primaryTicker: {
+      ticker: null,
+      source: null,
+      trustTier: "none",
+    },
     ...overrides,
   };
 }
@@ -513,6 +518,109 @@ describe("fetchMemoryCandidatesForDebug — production-parity ranking", () => {
     } as unknown as Parameters<typeof fetchMemoryCandidatesForDebug>[0];
     const out = await fetchMemoryCandidatesForDebug(pool, "AAPL");
     expect(out).toEqual([]);
+  });
+
+  // ── Slice 2: primaryTicker block with explicit trust tier ──────────
+  it("surfaces primary_ticker with batch_heuristic source mapped to heuristic trust tier", async () => {
+    const pool = makePool([
+      {
+        theme: "iPhone 17 supercycle",
+        category: "earnings",
+        affected_tickers: ["AAPL"],
+        news_one_liner: "Apple guidance beats expectations.",
+        summary: "Apple Inc reports strong guidance.",
+        impact_level: "high",
+        relevance_score: "0.82",
+        sentiment_score: "0.4",
+        last_updated: "2026-05-09T18:32:00Z",
+        primary_ticker: "AAPL",
+        primary_ticker_source: "batch_heuristic",
+      },
+    ]);
+    const out = await fetchMemoryCandidatesForDebug(pool, "AAPL");
+    expect(out).toHaveLength(1);
+    expect(out[0]!.primaryTicker).toEqual({
+      ticker: "AAPL",
+      source: "batch_heuristic",
+      trustTier: "heuristic",
+    });
+  });
+
+  it("surfaces primary_ticker with null source mapped to none trust tier", async () => {
+    const pool = makePool([
+      {
+        theme: "Antitrust pressure",
+        category: "policy",
+        affected_tickers: ["AAPL"],
+        news_one_liner: "Antitrust news.",
+        summary: "Antitrust pressure on big tech.",
+        impact_level: "low",
+        relevance_score: "0.5",
+        sentiment_score: "-0.2",
+        last_updated: "2026-05-09T18:32:00Z",
+        primary_ticker: null,
+        primary_ticker_source: null,
+      },
+    ]);
+    const out = await fetchMemoryCandidatesForDebug(pool, "AAPL");
+    expect(out[0]!.primaryTicker).toEqual({
+      ticker: null,
+      source: null,
+      trustTier: "none",
+    });
+  });
+
+  it("collapses unknown source values to none (forward-compatible)", async () => {
+    const pool = makePool([
+      {
+        theme: "Future source",
+        category: "macro",
+        affected_tickers: ["AAPL"],
+        news_one_liner: "Future.",
+        summary: "Future source.",
+        impact_level: "medium",
+        relevance_score: "0.6",
+        sentiment_score: "0",
+        last_updated: "2026-05-09T18:32:00Z",
+        primary_ticker: "AAPL",
+        primary_ticker_source: "future_unknown_source_v9",
+      },
+    ]);
+    const out = await fetchMemoryCandidatesForDebug(pool, "AAPL");
+    expect(out[0]!.primaryTicker.source).toBeNull();
+    expect(out[0]!.primaryTicker.trustTier).toBe("none");
+    // ticker field still surfaced for forensic visibility
+    expect(out[0]!.primaryTicker.ticker).toBe("AAPL");
+  });
+
+  it("logs an invariant warning when a memory row carries marketaux_entities", async () => {
+    const pool = makePool([
+      {
+        theme: "Invariant violation candidate",
+        category: "market",
+        affected_tickers: ["AAPL"],
+        news_one_liner: "Apple.",
+        summary: "Apple summary.",
+        impact_level: "medium",
+        relevance_score: "0.5",
+        sentiment_score: "0",
+        last_updated: "2026-05-09T18:32:00Z",
+        primary_ticker: "AAPL",
+        primary_ticker_source: "marketaux_entities", // <- should NEVER appear on memory rows
+      },
+    ]);
+    const log = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: () => log,
+    } as never;
+    const out = await fetchMemoryCandidatesForDebug(pool, "AAPL", log);
+    // Source string still passes through (we do not silently mutate stored data).
+    expect(out[0]!.primaryTicker.source).toBe("marketaux_entities");
+    // But the invariant warning fires.
+    expect((log as unknown as { warn: ReturnType<typeof vi.fn> }).warn).toHaveBeenCalledOnce();
   });
 });
 

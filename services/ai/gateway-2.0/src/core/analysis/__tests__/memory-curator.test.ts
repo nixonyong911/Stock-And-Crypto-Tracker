@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   parseCuratorOutput,
   formatCuratorNotification,
@@ -7,6 +7,7 @@ import {
   buildBatchCuratorPrompt,
   mergeBatchResults,
   computeCuratorLockTtlSeconds,
+  applyChanges,
   type CuratorResult,
   type CuratorOutput,
   type MemoryTheme,
@@ -479,7 +480,7 @@ function makeTheme(overrides: Partial<MemoryTheme> = {}): MemoryTheme {
   };
 }
 
-function makeStory(overrides: Partial<{ headline: string; summary: string; category: string; impact_level: string; sentiment: string; sentiment_score: number; key_points: string[]; affected_tickers: string[]; affected_sectors: string[]; market_implications: string; batch_id: string }> = {}) {
+function makeStory(overrides: Partial<{ headline: string; summary: string; category: string; impact_level: string; sentiment: string; sentiment_score: number; key_points: string[]; affected_tickers: string[]; affected_sectors: string[]; market_implications: string; batch_id: string; primary_ticker: string | null }> = {}) {
   return {
     headline: "Fed signals patience on rate cuts",
     summary: "Federal Reserve officials...",
@@ -492,6 +493,7 @@ function makeStory(overrides: Partial<{ headline: string; summary: string; categ
     affected_sectors: ["financials"],
     market_implications: "Rates stay elevated",
     batch_id: "batch-001",
+    primary_ticker: null,
     ...overrides,
   };
 }
@@ -623,6 +625,19 @@ describe("buildBatchCuratorPrompt", () => {
   it("handles empty stories", () => {
     const prompt = buildBatchCuratorPrompt([makeTheme()], []);
     expect(prompt).toContain("[]");
+  });
+
+  // ── Slice 2 invariant: primary_ticker is a DETERMINISTIC upstream signal,
+  // not LLM bookkeeping. It MUST NOT appear in the curator prompt, or we
+  // would be teaching the LLM to emit / reason about it on the next slice.
+  it("does NOT include primary_ticker in the storiesJson sent to the LLM", () => {
+    const story = makeStory({
+      affected_tickers: ["AAPL"],
+      primary_ticker: "AAPL",
+    });
+    const prompt = buildBatchCuratorPrompt([makeTheme()], [story]);
+    const storiesSection = prompt.split("## New Processed Articles")[1] ?? "";
+    expect(storiesSection).not.toContain("primary_ticker");
   });
 });
 
@@ -910,5 +925,140 @@ describe("mergeBatchResults", () => {
 
     mergeBatchResults([batch], [themeA], noopLog);
     expect(update.new_facts).toEqual(["original"]);
+  });
+});
+
+// ── applyChanges: Slice 2 primary_ticker integration ─────────────────
+//
+// applyChanges runs INSERT/UPDATE/decay against a real client. To test
+// without a DB we mock a pg-like client and assert the params passed to
+// each query. The mock distinguishes the INSERT vs UPDATE statements by
+// SQL text so we can introspect each independently.
+
+interface CapturedQuery {
+  sql: string;
+  params?: unknown[];
+}
+
+function makeMockPool(): {
+  pool: never;
+  queries: CapturedQuery[];
+} {
+  const queries: CapturedQuery[] = [];
+  const client = {
+    query: vi.fn(async (sql: string, params?: unknown[]) => {
+      queries.push({ sql, params });
+      // Mimic real return shapes for the two SELECT-like paths used during
+      // applyChanges (UPDATE ... RETURNING id, and decay SELECT).
+      if (typeof sql === "string" && sql.includes("RETURNING id")) {
+        return { rowCount: 1, rows: [{ id: 1 }] };
+      }
+      if (typeof sql === "string" && sql.includes("SELECT last_updated")) {
+        return { rowCount: 0, rows: [] };
+      }
+      return { rowCount: 1, rows: [] };
+    }),
+    release: vi.fn(() => {}),
+  };
+  const pool = {
+    connect: vi.fn(async () => client),
+  } as never;
+  return { pool, queries };
+}
+
+function makeNewTheme(overrides: Partial<NewThemeEntry> = {}): NewThemeEntry {
+  return {
+    theme: "Test Theme",
+    summary: "Test summary",
+    key_facts: ["fact1"],
+    category: "market",
+    impact_level: "medium",
+    affected_sectors: ["tech"],
+    affected_tickers: ["AAPL"],
+    market_implications: "",
+    sentiment: "neutral",
+    sentiment_score: 0,
+    news_one_liner: "Apple ships.",
+    ...overrides,
+  };
+}
+
+function findInsertParams(queries: CapturedQuery[]): unknown[] | undefined {
+  const q = queries.find(
+    (q) => typeof q.sql === "string" && q.sql.includes("INSERT INTO analysis_market_memory"),
+  );
+  return q?.params;
+}
+
+function findUpdateSql(queries: CapturedQuery[]): string | undefined {
+  return queries.find(
+    (q) =>
+      typeof q.sql === "string" &&
+      q.sql.startsWith("UPDATE analysis_market_memory") &&
+      q.sql.includes("model_name"),
+  )?.sql;
+}
+
+describe("applyChanges Slice 2 primary_ticker", () => {
+  const provenance = {
+    modelName: "test-model",
+    generatedAt: "2026-04-01T00:00:00Z",
+    unknownTickerSet: new Set<string>(),
+  };
+
+  it("populates primary_ticker via batch_heuristic when overlapping stories carry a primary", async () => {
+    const { pool, queries } = makeMockPool();
+    const nt = makeNewTheme({ affected_tickers: ["AAPL"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    const batchStories = [
+      makeStory({ affected_tickers: ["AAPL"], primary_ticker: "AAPL" }),
+      makeStory({ affected_tickers: ["AAPL"], primary_ticker: "AAPL" }),
+      makeStory({ affected_tickers: ["NVDA"], primary_ticker: "NVDA" }),
+    ];
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, batchStories);
+
+    const params = findInsertParams(queries);
+    expect(params).toBeDefined();
+    // INSERT order: ..., tickersUnknown ($20), primary_ticker ($21), primary_ticker_source ($22)
+    expect(params![20]).toBe("AAPL");
+    expect(params![21]).toBe("batch_heuristic");
+  });
+
+  it("yields NULL primary_ticker when no overlapping story has a primary", async () => {
+    const { pool, queries } = makeMockPool();
+    const nt = makeNewTheme({ affected_tickers: ["AAPL"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    const batchStories = [
+      makeStory({ affected_tickers: ["AAPL"], primary_ticker: null }),
+      makeStory({ affected_tickers: ["NVDA"], primary_ticker: "NVDA" }),
+    ];
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, batchStories);
+
+    const params = findInsertParams(queries);
+    expect(params).toBeDefined();
+    expect(params![20]).toBeNull();
+    expect(params![21]).toBeNull();
+  });
+
+  it("does NOT mutate primary_ticker on the UPDATE path (anchor invariance)", async () => {
+    const { pool, queries } = makeMockPool();
+    const update: ThemeUpdateEntry = {
+      theme_id: "550e8400-e29b-41d4-a716-446655440000",
+      new_facts: ["new fact"],
+      updated_summary: "updated",
+      updated_impact: "high",
+      updated_relevance: 0.9,
+    };
+    const output: CuratorOutput = { new_themes: [], updates: [update], decay: [] };
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, []);
+
+    const updateSql = findUpdateSql(queries);
+    expect(updateSql).toBeDefined();
+    expect(updateSql).not.toContain("primary_ticker");
   });
 });

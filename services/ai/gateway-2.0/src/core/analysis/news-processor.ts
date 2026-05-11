@@ -10,6 +10,11 @@ import {
   NEWS_PROCESSOR_VALIDATOR_VERSION,
   validateTickersAgainstUniverse,
 } from "./provenance.js";
+import {
+  computeArticlePrimary,
+  computeStoryPrimary,
+  type PrimaryTickerSource,
+} from "./primary-ticker.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -22,6 +27,9 @@ interface RawArticle {
   search_category: string | null;
   sentiment_label: string | null;
   url: string | null;
+  // Slice 2: MarketAux per-article entity JSONB (symbols + match_score).
+  // NULL for GNews and other sources without an entity signal.
+  entities?: unknown;
 }
 
 export interface FilteredNewsEntry {
@@ -42,6 +50,11 @@ export interface FilteredNewsEntry {
     published_at: string;
     url: string | null;
   }>;
+  // Slice 2: deterministic primary-subject ticker derived from MarketAux
+  // entity match_score across the story's contributing articles. NULL when
+  // no contributing article had a usable entity signal (e.g. GNews-only).
+  primary_ticker: string | null;
+  primary_ticker_source: PrimaryTickerSource;
 }
 
 export interface ProcessingResult {
@@ -233,7 +246,8 @@ async function fetchRecentArticles(
 ): Promise<RawArticle[]> {
   const { rows } = await db.query<RawArticle>(
     `SELECT source_api, external_id, title, description,
-            published_at::text, search_category, sentiment_label, url
+            published_at::text, search_category, sentiment_label, url,
+            entities
      FROM unfiltered_news_combined
      WHERE created_at >= NOW() - INTERVAL '${LOOKBACK_HOURS} hours'
      ORDER BY published_at DESC`,
@@ -418,18 +432,26 @@ export function parseLLMOutput(
 
   const results: FilteredNewsEntry[] = [];
   for (const entry of validated) {
-    const sourceArticles = entry.source_article_indices
-      .filter((i) => i >= 1 && i <= articles.length)
-      .map((i) => {
-        const a = articles[i - 1]!;
-        return {
-          source_api: a.source_api,
-          external_id: a.external_id,
-          title: a.title,
-          published_at: a.published_at,
-          url: a.url ?? null,
-        };
-      });
+    const inRange = entry.source_article_indices.filter(
+      (i) => i >= 1 && i <= articles.length,
+    );
+    const contributingArticles = inRange.map((i) => articles[i - 1]!);
+
+    const sourceArticles = contributingArticles.map((a) => ({
+      source_api: a.source_api,
+      external_id: a.external_id,
+      title: a.title,
+      published_at: a.published_at,
+      url: a.url ?? null,
+    }));
+
+    const articlePrimaries = contributingArticles.map((a) =>
+      computeArticlePrimary({
+        source_api: a.source_api,
+        entities: a.entities ?? null,
+      }),
+    );
+    const storyPrimary = computeStoryPrimary(articlePrimaries);
 
     results.push({
       headline: entry.headline,
@@ -443,6 +465,8 @@ export function parseLLMOutput(
       key_points: entry.key_points,
       market_implications: entry.market_implications,
       source_articles: sourceArticles,
+      primary_ticker: storyPrimary.primary_ticker,
+      primary_ticker_source: storyPrimary.primary_ticker_source,
     });
   }
 
@@ -471,9 +495,10 @@ async function insertFilteredNews(
           affected_sectors, affected_tickers, sentiment, sentiment_score,
           key_points, market_implications, source_articles,
           time_range_start, time_range_end,
-          model_name, prompt_version, validator_version, generated_at, tickers_unknown)
+          model_name, prompt_version, validator_version, generated_at, tickers_unknown,
+          primary_ticker, primary_ticker_source)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                 $15, $16, $17, $18, $19)`,
+                 $15, $16, $17, $18, $19, $20, $21)`,
         [
           batchId,
           story.headline,
@@ -494,6 +519,8 @@ async function insertFilteredNews(
           NEWS_PROCESSOR_VALIDATOR_VERSION,
           generatedAt,
           story.tickers_unknown,
+          story.primary_ticker,
+          story.primary_ticker_source,
         ],
       );
     }

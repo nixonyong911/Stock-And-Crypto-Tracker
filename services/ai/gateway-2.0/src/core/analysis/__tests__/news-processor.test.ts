@@ -362,3 +362,163 @@ describe("parseLLMOutput provenance", () => {
     expect(result[0]!.source_articles[0]!.url).toBeNull();
   });
 });
+
+// ── Slice 2: deterministic primary_ticker derivation ─────────────────
+
+const llmEntry = (overrides: Record<string, unknown>) => ({
+  headline: "Test",
+  summary: "Test summary",
+  category: "market",
+  impact_level: "low",
+  sentiment: "neutral",
+  sentiment_score: 0,
+  key_points: ["Point"],
+  source_article_indices: [],
+  ...overrides,
+});
+
+describe("parseLLMOutput primary_ticker (Slice 2)", () => {
+  it("derives primary_ticker from a single MarketAux article's entities", () => {
+    const articles = [
+      {
+        source_api: "marketaux",
+        external_id: "ma-1",
+        title: "Apple beats earnings",
+        description: "",
+        published_at: "2026-04-01T10:00:00Z",
+        search_category: "market",
+        sentiment_label: "positive",
+        url: "https://example.com/apple",
+        entities: [
+          { symbol: "AAPL", match_score: 0.95 },
+          { symbol: "MSFT", match_score: 0.30 },
+        ],
+      },
+    ];
+    const llmOutput = JSON.stringify([llmEntry({ source_article_indices: [1] })]);
+    const result = parseLLMOutput(llmOutput, articles, noopLog);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.primary_ticker).toBe("AAPL");
+    expect(result[0]!.primary_ticker_source).toBe("marketaux_entities");
+  });
+
+  it("yields null/null for a story sourced only from GNews", () => {
+    const articles = [
+      {
+        source_api: "gnews",
+        external_id: "gn-1",
+        title: "Headline",
+        description: "",
+        published_at: "2026-04-01T10:00:00Z",
+        search_category: "market",
+        sentiment_label: null,
+        url: null,
+        entities: null,
+      },
+    ];
+    const llmOutput = JSON.stringify([llmEntry({ source_article_indices: [1] })]);
+    const result = parseLLMOutput(llmOutput, articles, noopLog);
+    expect(result[0]!.primary_ticker).toBeNull();
+    expect(result[0]!.primary_ticker_source).toBeNull();
+  });
+
+  it("ignores GNews contributors when at least one MarketAux contributor has entities", () => {
+    const articles = [
+      {
+        source_api: "marketaux",
+        external_id: "ma-1",
+        title: "MA",
+        description: "",
+        published_at: "2026-04-01T10:00:00Z",
+        search_category: "market",
+        sentiment_label: null,
+        url: null,
+        entities: [{ symbol: "NVDA", match_score: 0.9 }],
+      },
+      {
+        source_api: "gnews",
+        external_id: "gn-1",
+        title: "GN",
+        description: "",
+        published_at: "2026-04-01T09:00:00Z",
+        search_category: "market",
+        sentiment_label: null,
+        url: null,
+        entities: null,
+      },
+    ];
+    const llmOutput = JSON.stringify([llmEntry({ source_article_indices: [1, 2] })]);
+    const result = parseLLMOutput(llmOutput, articles, noopLog);
+    expect(result[0]!.primary_ticker).toBe("NVDA");
+    expect(result[0]!.primary_ticker_source).toBe("marketaux_entities");
+  });
+
+  it("majority-votes across multiple MarketAux contributors", () => {
+    const articles = [
+      {
+        source_api: "marketaux",
+        external_id: "ma-1",
+        title: "A",
+        description: "",
+        published_at: "2026-04-01T10:00:00Z",
+        search_category: "market",
+        sentiment_label: null,
+        url: null,
+        entities: [{ symbol: "AAPL", match_score: 0.9 }],
+      },
+      {
+        source_api: "marketaux",
+        external_id: "ma-2",
+        title: "B",
+        description: "",
+        published_at: "2026-04-01T09:00:00Z",
+        search_category: "market",
+        sentiment_label: null,
+        url: null,
+        entities: [{ symbol: "AAPL", match_score: 0.8 }],
+      },
+      {
+        source_api: "marketaux",
+        external_id: "ma-3",
+        title: "C",
+        description: "",
+        published_at: "2026-04-01T08:00:00Z",
+        search_category: "market",
+        sentiment_label: null,
+        url: null,
+        entities: [{ symbol: "NVDA", match_score: 0.95 }],
+      },
+    ];
+    const llmOutput = JSON.stringify([llmEntry({ source_article_indices: [1, 2, 3] })]);
+    const result = parseLLMOutput(llmOutput, articles, noopLog);
+    expect(result[0]!.primary_ticker).toBe("AAPL");
+    expect(result[0]!.primary_ticker_source).toBe("marketaux_entities");
+  });
+
+  it("handles MarketAux article with empty entities array (null fallback)", () => {
+    const articles = [
+      {
+        source_api: "marketaux",
+        external_id: "ma-1",
+        title: "Empty entities",
+        description: "",
+        published_at: "2026-04-01T10:00:00Z",
+        search_category: "market",
+        sentiment_label: null,
+        url: null,
+        entities: [],
+      },
+    ];
+    const llmOutput = JSON.stringify([llmEntry({ source_article_indices: [1] })]);
+    const result = parseLLMOutput(llmOutput, articles, noopLog);
+    expect(result[0]!.primary_ticker).toBeNull();
+    expect(result[0]!.primary_ticker_source).toBeNull();
+  });
+
+  it("yields null/null when source_article_indices is empty", () => {
+    const llmOutput = JSON.stringify([llmEntry({ source_article_indices: [] })]);
+    const result = parseLLMOutput(llmOutput, mockArticles, noopLog);
+    expect(result[0]!.primary_ticker).toBeNull();
+    expect(result[0]!.primary_ticker_source).toBeNull();
+  });
+});

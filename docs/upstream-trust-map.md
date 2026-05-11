@@ -5,7 +5,7 @@ Field-by-field trust classification for the three analysis tables that feed Smar
 ## `analysis_filtered_news`
 
 Writer: `services/ai/gateway-2.0/src/core/analysis/news-processor.ts`
-Migration: `013_add_filtered_news.sql` + `025_filtered_news_provenance.sql`
+Migration: `013_add_filtered_news.sql` + `025_filtered_news_provenance.sql` + `027_filtered_news_primary_ticker.sql` (+ view extension `029_unfiltered_news_combined_with_entities.sql`)
 
 | Column | Class | Notes |
 |---|---|---|
@@ -28,11 +28,13 @@ Migration: `013_add_filtered_news.sql` + `025_filtered_news_provenance.sql`
 | `validator_version` | deterministic | `"news-processor.zod.v1"` |
 | `generated_at` | deterministic | server timestamp after LLM returns |
 | `tickers_unknown` | deterministic | tickers not found in `stock_tickers` / `crypto_tickers` |
+| `primary_ticker` | **deterministic from source** | Slice 2: single subject ticker derived from MarketAux `entities.match_score`; NULL when no MarketAux entity signal available |
+| `primary_ticker_source` | deterministic | `"marketaux_entities"` (strong tier) or NULL (none tier). `"batch_heuristic"` is invalid on this table |
 
 ## `analysis_market_memory`
 
 Writer: `services/ai/gateway-2.0/src/core/analysis/memory-curator.ts`
-Migration: `015_add_market_memory.sql` + `024_market_memory_news_one_liner.sql` + `026_market_memory_provenance.sql`
+Migration: `015_add_market_memory.sql` + `024_market_memory_news_one_liner.sql` + `026_market_memory_provenance.sql` + `028_market_memory_primary_ticker.sql`
 
 | Column | Class | Notes |
 |---|---|---|
@@ -58,6 +60,8 @@ Migration: `015_add_market_memory.sql` + `024_market_memory_news_one_liner.sql` 
 | `validator_version` | deterministic | `"memory-curator.zod.v1"`, overwritten on update |
 | `generated_at` | deterministic | server timestamp, overwritten on update |
 | `tickers_unknown` | deterministic | set on insert only; not updated since tickers don't change on update |
+| `primary_ticker` | **deterministic but heuristic** | Slice 2: majority-vote primary across filtered-news rows in the same batch whose `affected_tickers` overlap this theme; NULL when no overlap or all overlapping primaries are NULL |
+| `primary_ticker_source` | deterministic | `"batch_heuristic"` (heuristic tier) or NULL (none tier). `"marketaux_entities"` is invalid on this table. **Set on INSERT only — never mutated on UPDATE** (anchor invariance) |
 
 ## `analysis_ticker_price_targets`
 
@@ -87,5 +91,49 @@ Everything downstream of `analysis_market_memory` is template-driven in TS. The 
 
 1. **Ticker hallucination** — `affected_tickers` is the join key for symbol overlap; `tickers_unknown` observability now enables sizing this risk.
 2. **`news_one_liner`** — only LLM string surfaced verbatim on cards; no factuality enforcement.
-3. **No primary-subject vs mentioned-ticker distinction** — deferred.
+3. **No primary-subject vs mentioned-ticker distinction** — Slice 2 lands a deterministic `primary_ticker` on filtered news (strong tier) and a batch-heuristic primary on memory (heuristic tier). Smart Digest does NOT yet consume these — Slice 3 will replace the implicit `affected_tickers[0]` heuristic in `computeSymbolAffinity` once production distributions are observed.
 4. **Memory lineage is batch-coarse** — `source_batch_ids` only, no per-row attribution. Deferred.
+
+## Slice 2: primary subject ticker
+
+### Trust tiers (read this first)
+
+| `primary_ticker_source` value | Trust tier | Appears on | How derived | How a consumer should use it |
+|---|---|---|---|---|
+| `"marketaux_entities"` | **strong** | `analysis_filtered_news` only | Deterministic from MarketAux `entities[].match_score` at news-processor write time. No LLM involved. | Safe to treat as ground truth in downstream gating. |
+| `"batch_heuristic"` | **heuristic** | `analysis_market_memory` only | Deterministic majority vote at curator write time over `primary_ticker` of filtered-news rows whose `affected_tickers` overlap the new theme. Reproducible from the same batch but **not source-grounded** at the memory layer. | Safe as a tie-breaker or weighted signal; **not** safe as ground truth. |
+| `NULL` | **none** | both tables | No deterministic signal available (e.g. GNews-only story, or no overlapping primaried filtered rows). | Fall back to existing logic (`affected_tickers[0]` heuristic + text-token affinity). |
+
+Trust ordering for any future consumer is `strong > heuristic > none`. Slice 3 adoption code must respect that ordering and weight on the source value, not just on non-NULL-ness.
+
+### Derivation rules (copied from `primary-ticker.ts` JSDoc)
+
+- `computeArticlePrimary` (per raw article): only MarketAux articles produce a non-NULL result. Sort entities by `(match_score DESC, symbol ASC)` and take the first; uppercase the symbol.
+- `computeStoryPrimary` (per LLM-grouped story): drop article primaries that are NULL; majority-vote the remainder; break ties alphabetically. Source is `marketaux_entities` whenever the result is non-NULL.
+- `computeMemoryPrimary` (per memory theme at INSERT): consider only contributing filtered-news rows whose `affected_tickers` (uppercased) overlap the theme's `affected_tickers`. Drop those whose `primary_ticker` is NULL. Majority-vote; break ties alphabetically. Source is `batch_heuristic` whenever the result is non-NULL.
+
+All three functions are pure and wrapped in try/catch — on any internal failure they return `{ null, null }` so writes are never blocked.
+
+### Debug surface
+
+Each memory candidate in `digest-debug.ts`'s report carries a `primaryTicker` block:
+
+```ts
+primaryTicker: {
+  ticker: string | null;
+  source: "marketaux_entities" | "batch_heuristic" | null;
+  trustTier: "strong" | "heuristic" | "none";  // derived from source via trustTierOf
+}
+```
+
+The `trustTier` field is the canonical thing a debug reader should key off; the raw `source` is kept for forensic completeness. `fetchMemoryCandidatesForDebug` logs an invariant warning if a memory row carries `marketaux_entities` (only valid on filtered news) — the source is preserved unchanged, only flagged.
+
+### Consumer guidance (Slice 3 hand-off)
+
+Smart Digest does not consume `primary_ticker` in this slice. The next slice may:
+
+- (a) **Adopt the signal in affinity**: replace `WEIGHT_POSITION_PRIMARY` (the `+2` bonus on `affected_tickers[0]`) with a stronger bonus when `row.primary_ticker` matches (or aliases to) the digest symbol, gated on `primary_ticker_source IS NOT NULL`. Fall back to current behavior when NULL. Consider weighting `strong` higher than `heuristic`.
+- (b) **Expand coverage**: deterministic NER on GNews titles (no LLM) to populate `primary_ticker` for GNews-only stories.
+- (c) **Tighten the prompt**: ask the LLM for a primary_ticker output field — but only after Slice 2 data shows whether the model agrees with the MarketAux-deterministic primary on the rows we can ground-truth.
+
+Do not collapse the three trust tiers into a single boolean. The whole point of Slice 2 is making the distinction available to downstream code.

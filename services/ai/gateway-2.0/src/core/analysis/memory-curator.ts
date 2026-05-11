@@ -12,6 +12,7 @@ import {
   MEMORY_CURATOR_VALIDATOR_VERSION,
   validateTickersAgainstUniverse,
 } from "./provenance.js";
+import { computeMemoryPrimary } from "./primary-ticker.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -44,6 +45,11 @@ export interface FilteredStory {
   affected_sectors: string[];
   market_implications: string;
   batch_id: string;
+  // Slice 2: deterministic primary-subject ticker from the upstream story
+  // (filled by news-processor from MarketAux entities). NULL when no signal
+  // was available at story-write time. Used here to derive the theme's
+  // batch_heuristic primary; never re-derived or mutated downstream.
+  primary_ticker: string | null;
 }
 
 export interface CuratorOutput {
@@ -293,6 +299,7 @@ export async function curateMarketMemory(
       const applied = await applyChanges(
         db, curatorOutput, batchIds, priceSnapshot, log,
         { modelName: curatorModel, generatedAt, unknownTickerSet },
+        recentStories,
       );
 
       const archivedFromCap = await enforceThemeCap(db, log);
@@ -354,7 +361,8 @@ async function fetchRecentFilteredNews(
   const { rows } = await db.query<FilteredStory>(
     `SELECT headline, summary, category, impact_level, sentiment,
             sentiment_score, key_points, affected_tickers, affected_sectors,
-            market_implications, batch_id::text
+            market_implications, batch_id::text,
+            primary_ticker
      FROM analysis_filtered_news
      WHERE processed_at >= NOW() - INTERVAL '${FILTERED_LOOKBACK_HOURS} hours'
      ORDER BY processed_at DESC
@@ -708,19 +716,24 @@ async function snapshotTickerPrices(
 
 // ── Apply changes to DB ───────────────────────────────────────────────
 
-interface ProvenanceContext {
+export interface ProvenanceContext {
   modelName: string;
   generatedAt: string;
   unknownTickerSet: Set<string>;
 }
 
-async function applyChanges(
+// Exported for testability. Production callers go through curateMarketMemory.
+export async function applyChanges(
   db: Pool,
   output: CuratorOutput,
   batchIds: string[],
   priceSnapshot: Record<string, number>,
   log: FastifyBaseLogger,
   provenance: ProvenanceContext,
+  // Slice 2: full batch's filtered-news stories (carrying their own
+  // primary_ticker) — used to derive each new theme's batch_heuristic
+  // primary_ticker at INSERT time. Not consumed on the UPDATE / decay paths.
+  batchStories: ReadonlyArray<FilteredStory>,
 ): Promise<{ newThemes: number; updatedThemes: number; decayedThemes: number; archivedThemes: number }> {
   const client = await db.connect();
   let newThemes = 0;
@@ -742,6 +755,14 @@ async function applyChanges(
         provenance.unknownTickerSet.has(t),
       );
 
+      const memoryPrimary = computeMemoryPrimary(
+        nt.affected_tickers,
+        batchStories.map((s) => ({
+          affected_tickers: s.affected_tickers,
+          primary_ticker: s.primary_ticker,
+        })),
+      );
+
       await client.query(
         `INSERT INTO analysis_market_memory
          (theme_id, theme, status, summary, key_facts, category, impact_level,
@@ -749,9 +770,10 @@ async function applyChanges(
           sentiment, sentiment_score,
           first_observed, last_updated, update_count, source_batch_ids,
           price_snapshot_at, ticker_prices_at_creation, news_one_liner,
-          model_name, prompt_version, validator_version, generated_at, tickers_unknown)
+          model_name, prompt_version, validator_version, generated_at, tickers_unknown,
+          primary_ticker, primary_ticker_source)
          VALUES ($1,$2,'active',$3,$4,$5,$6,1.000,$7,$8,$9,$10,$11,$12,$12,1,$13,$12,$14,$15,
-                 $16,$17,$18,$19,$20)`,
+                 $16,$17,$18,$19,$20,$21,$22)`,
         [
           themeId, nt.theme, nt.summary, nt.key_facts, nt.category,
           nt.impact_level, nt.affected_sectors, nt.affected_tickers,
@@ -762,6 +784,8 @@ async function applyChanges(
           MEMORY_CURATOR_VALIDATOR_VERSION,
           provenance.generatedAt,
           tickersUnknown,
+          memoryPrimary.primary_ticker,
+          memoryPrimary.primary_ticker_source,
         ],
       );
       newThemes++;
