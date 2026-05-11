@@ -1,0 +1,79 @@
+{
+  "symbol": "DJ30",
+  "symbolUpper": "DJ30",
+  "aliases": [
+    "DJ30",
+    "DIA"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 2,
+  "passedCount": 0,
+  "chosen": null,
+  "candidates": [
+    {
+      "theme": "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "affected_tickers": [
+        "CL=F",
+        "BNO",
+        "XLE",
+        "USO",
+        "SPY",
+        "QQQ",
+        "DIA",
+        "TLT",
+        "GLD",
+        "LMT",
+        "RTX",
+        "XOM",
+        "CVX",
+        "COP"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "critical",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T10:42:43.279+00:00",
+      "news_one_liner": "Putin's Victory Day ceasefire signal joins Iran's peace demand as a second simultaneous de-escalation hint, but neither is yet a priced probability for energy or defense markets.",
+      "affinity": {
+        "score": -1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=7",
+          "broad_tag_penalty:n=14"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "G7 Synchronized Rate Hold — Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "DJ30",
+        "TLT",
+        "GOLD",
+        "OIL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-05T06:04:19.7+00:00",
+      "news_one_liner": "RBA joins G7 central banks hiking into an energy shock, extending the synchronized monetary paralysis thesis to developed markets beyond the G7 core as ASX rate-sensitive stocks sell off.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "symbol": "NVDA",
+  "symbolUpper": "NVDA",
+  "aliases": [
+    "NVDA"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 3,
+  "passedCount": 1,
+  "chosen": {
+    "theme": "AI Capex Supercycle Redirects Institutional Flows Into Semiconductors — Chip ETFs Dominate 2026 Inflows as Big Tech Loses Narrative Leadership",
+    "news_one_liner": "ARK's top 11 AI and data center picks add a retail flow catalyst layer to the AI capex supercycle, reinforcing NVDA, PLTR, and AMD as dual institutional-retail conviction targets.",
+    "affected_tickers": [
+      "NVDA",
+      "AMD",
+      "SOXX",
+      "NSDQ100",
+      "RTY",
+      "SPX500"
+    ],
+    "tickers_inferred": [],
+    "affinity": {
+      "score": 4,
+      "reasons": [
+        "text_token_hit:NVDA",
+        "position_primary_hit:NVDA",
+        "normal_tag:n=6"
+      ],
+      "passed": true,
+      "threshold": 2,
+      "attachmentKind": "kept"
+    }
+  },
+  "candidates": [
+    {
+      "theme": "AI Capex Supercycle Redirects Institutional Flows Into Semiconductors — Chip ETFs Dominate 2026 Inflows as Big Tech Loses Narrative Leadership",
+      "affected_tickers": [
+        "NVDA",
+        "AMD",
+        "SOXX",
+        "NSDQ100",
+        "RTY",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T06:09:34.505+00:00",
+      "news_one_liner": "ARK's top 11 AI and data center picks add a retail flow catalyst layer to the AI capex supercycle, reinforcing NVDA, PLTR, and AMD as dual institutional-retail conviction targets.",
+      "affinity": {
+        "score": 4,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:NVDA",
+          "position_primary_hit:NVDA",
+          "normal_tag:n=6"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": true
+    },
+    {
+      "theme": "KOSPI Record High Divergence — Samsung and SK Hynix AI Semiconductor Demand Decouples Korean Equities From Global Risk-Off",
+      "affected_tickers": [
+        "KOSPI",
+        "005930.KS",
+        "000660.KS",
+        "SOXX",
+        "NVDA",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T10:42:43.279+00:00",
+      "news_one_liner": "KOSPI hits record high as Samsung and SK Hynix AI chip demand overrides global risk-off, pulling EM fund inflows away from India and China.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "primary_ticker_miss:heuristic:^FCHI",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "PLA Leadership Purge Escalation — Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "affected_tickers": [
+        "FXI",
+        "SPX500",
+        "NSDQ100",
+        "NVDA",
+        "AAPL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T12:09:57.203+00:00",
+      "news_one_liner": "China's death sentences for two ex-defense ministers deepen PLA command uncertainty, raising tail-risk premiums for Taiwan-exposed tech and semiconductor names.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=4",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}

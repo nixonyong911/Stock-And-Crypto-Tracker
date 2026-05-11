@@ -1,0 +1,94 @@
+{
+  "symbol": "SOL/USD",
+  "symbolUpper": "SOL/USD",
+  "aliases": [
+    "SOL/USD",
+    "SOL"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 2,
+  "passedCount": 1,
+  "chosen": {
+    "theme": "Moscow Exchange Altcoin Index Expansion — MOEX Benchmark Suite Addition Signals Emerging Market Institutional Crypto Recognition Beyond BTC/ETH",
+    "news_one_liner": "MOEX adding SOL, TRX, BNB, XRP to its benchmark suite creates structured institutional demand in Russia, broadening altcoin adoption beyond Western markets.",
+    "affected_tickers": [
+      "SOL",
+      "XRP",
+      "BNB",
+      "TRX",
+      "BTC",
+      "ETH"
+    ],
+    "tickers_inferred": [],
+    "affinity": {
+      "score": 4,
+      "reasons": [
+        "text_token_hit:SOL",
+        "position_primary_hit:SOL",
+        "normal_tag:n=6"
+      ],
+      "passed": true,
+      "threshold": 2,
+      "attachmentKind": "kept"
+    }
+  },
+  "candidates": [
+    {
+      "theme": "Crypto Altcoin Infrastructure Maturation — Chainlink Secures $100B TVS While XRP Tests Key $1.45 Resistance Amid Regulatory Tailwind",
+      "affected_tickers": [
+        "LINK",
+        "XRP",
+        "BTC",
+        "ETH",
+        "SOL",
+        "COIN"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T00:04:35.06+00:00",
+      "news_one_liner": "JPMorgan's first cross-border tokenized Treasury on the XRP Ledger is the strongest institutional validation in XRP's history, though the price at $1.42 suggests a re-rating lag that a $1.45 breakout ",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Moscow Exchange Altcoin Index Expansion — MOEX Benchmark Suite Addition Signals Emerging Market Institutional Crypto Recognition Beyond BTC/ETH",
+      "affected_tickers": [
+        "SOL",
+        "XRP",
+        "BNB",
+        "TRX",
+        "BTC",
+        "ETH"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T12:09:55.14+00:00",
+      "news_one_liner": "MOEX adding SOL, TRX, BNB, XRP to its benchmark suite creates structured institutional demand in Russia, broadening altcoin adoption beyond Western markets.",
+      "affinity": {
+        "score": 4,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:SOL",
+          "position_primary_hit:SOL",
+          "normal_tag:n=6"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": true
+    }
+  ]
+}

@@ -1,0 +1,348 @@
+{
+  "symbol": "BTC/USD",
+  "symbolUpper": "BTC/USD",
+  "aliases": [
+    "BTC/USD",
+    "BTC"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 12,
+  "passedCount": 10,
+  "chosen": {
+    "theme": "US Crypto Regulatory Clarity — SEC-CFTC MoU Resolves Jurisdictional Overlap, Completing Institutional Adoption Precondition Stack",
+    "news_one_liner": "ECB Lagarde's stablecoin opposition widens the EU-US regulatory gap, accelerating USDC and USDT global dominance while GENIUS Act cements dollar stablecoin legitimacy.",
+    "affected_tickers": [
+      "BTC",
+      "ETH",
+      "COIN",
+      "HOOD"
+    ],
+    "tickers_inferred": [],
+    "affinity": {
+      "score": 2,
+      "reasons": [
+        "text_token_miss",
+        "position_primary_hit:BTC",
+        "normal_tag:n=4"
+      ],
+      "passed": true,
+      "threshold": 2,
+      "attachmentKind": "kept"
+    }
+  },
+  "candidates": [
+    {
+      "theme": "US Crypto Regulatory Clarity — SEC-CFTC MoU Resolves Jurisdictional Overlap, Completing Institutional Adoption Precondition Stack",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "COIN",
+        "HOOD"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T10:42:43.279+00:00",
+      "news_one_liner": "ECB Lagarde's stablecoin opposition widens the EU-US regulatory gap, accelerating USDC and USDT global dominance while GENIUS Act cements dollar stablecoin legitimacy.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:BTC",
+          "normal_tag:n=4"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": true
+    },
+    {
+      "theme": "Ethereum Relative Outperformance — ETH/BTC Ratio Improvement and Net Taker Volume Inflection Signal Demand Regime Shift",
+      "affected_tickers": [
+        "ETH",
+        "BTC",
+        "COIN",
+        "IBIT"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T00:04:35.06+00:00",
+      "news_one_liner": "ETH tests $2,500 as BNY Mellon opens Abu Dhabi institutional custody, expanding Ethereum's geographic demand base into Middle Eastern sovereign capital ahead of the $3,000 analyst target.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:BTC",
+          "position_primary_miss:position=2",
+          "normal_tag:n=4"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Real-World Asset Tokenization Acceleration — Coinbase On-Chain Credit Fund and Tether's Twenty-One Capital Signal Regulated DeFi-TradFi Convergence",
+      "affected_tickers": [
+        "COIN",
+        "BTC",
+        "USDT"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T00:04:35.06+00:00",
+      "news_one_liner": "JPMorgan, Mastercard and Ripple complete the first cross-border tokenized Treasury settlement on XRP Ledger, validating RWA tokenization at the highest institutional credibility level achieved to date",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Crypto Altcoin Infrastructure Maturation — Chainlink Secures $100B TVS While XRP Tests Key $1.45 Resistance Amid Regulatory Tailwind",
+      "affected_tickers": [
+        "LINK",
+        "XRP",
+        "BTC",
+        "ETH",
+        "SOL",
+        "COIN"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T00:04:35.06+00:00",
+      "news_one_liner": "JPMorgan's first cross-border tokenized Treasury on the XRP Ledger is the strongest institutional validation in XRP's history, though the price at $1.42 suggests a re-rating lag that a $1.45 breakout ",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "DeFi Smart Contract Exploit Cycle — Ekubo Protocol $1.4M EVM Swap Router Breach Extends Cross-Chain Security Risk Pattern",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "COIN"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T06:10:07.415+00:00",
+      "news_one_liner": "Ekubo Protocol's $1.4M EVM router exploit reinforces institutional preference for audited custody over permissionless DeFi, pressuring ETH and BTC DeFi sentiment.",
+      "affinity": {
+        "score": 5,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:BTC",
+          "position_primary_hit:BTC",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Bitcoin Custodial Censorship-Resistance Myth — US Seizure of Iranian Crypto Assets Proves State Actors Can Restrict BTC Access at Scale",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "COIN",
+        "ZEC"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T06:11:23.499+00:00",
+      "news_one_liner": "US seizure of Iranian crypto proves custodied Bitcoin can be frozen by state actors, undermining BTC's safe-haven premium and boosting privacy coin demand.",
+      "affinity": {
+        "score": 4,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:BTC",
+          "position_primary_hit:BTC",
+          "normal_tag:n=4"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Berkshire Annual Meeting Anti-Speculation Signal — Buffett's Crypto Warning and Apple Endorsement Create Bifurcated Retail Sentiment Event",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "AAPL",
+        "BRK.B",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 0.846,
+      "last_updated": "2026-05-04T00:09:06.597+00:00",
+      "news_one_liner": "Buffett's 'risky' crypto warning at Berkshire's annual meeting threatens retail BTC/ETH inflows while boosting AAPL credibility.",
+      "affinity": {
+        "score": 4,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:BTC",
+          "position_primary_hit:BTC",
+          "normal_tag:n=5"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Privacy Coin Institutional Surge — Multicoin Capital ZEC Disclosure and 70% Rally Signal Emerging Demand Bifurcation Between Transparent and Anonymous Crypto Rails",
+      "affected_tickers": [
+        "ZEC",
+        "BTC",
+        "ETH",
+        "COIN"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T06:11:23.499+00:00",
+      "news_one_liner": "US seizure of Iranian BTC and Tether's $515M freeze provide back-to-back proof that custodied crypto can be censored, supercharging ZEC's privacy-demand thesis.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:BTC",
+          "position_primary_miss:position=2",
+          "normal_tag:n=4"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Moscow Exchange Altcoin Index Expansion — MOEX Benchmark Suite Addition Signals Emerging Market Institutional Crypto Recognition Beyond BTC/ETH",
+      "affected_tickers": [
+        "SOL",
+        "XRP",
+        "BNB",
+        "TRX",
+        "BTC",
+        "ETH"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T12:09:55.14+00:00",
+      "news_one_liner": "MOEX adding SOL, TRX, BNB, XRP to its benchmark suite creates structured institutional demand in Russia, broadening altcoin adoption beyond Western markets.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:BTC",
+          "position_primary_miss:position=5",
+          "normal_tag:n=6"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "State-Sponsored Crypto Theft Dominance — North Korea Claims 75%+ of Global Hack Value, Escalating Custody Security and Regulatory Pressure",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "COIN",
+        "PANW",
+        "CRWD"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-05T00:07:17.321+00:00",
+      "news_one_liner": "TRM Labs confirmed North Korea accounts for 76% of 2026 crypto hack losses, making state-sponsored theft the dominant security threat as institutional crypto values surge.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:BTC",
+          "normal_tag:n=5"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Bitcoin Quantum Computing Vulnerability — Galaxy Digital Formalizes Institutional Awareness of Cryptographic Security Risk",
+      "affected_tickers": [
+        "BTC"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-04T18:09:35.489+00:00",
+      "news_one_liner": "Galaxy Digital formally flags Bitcoin's quantum computing vulnerability, putting ETF issuers and BTC custody providers on notice for future protocol governance challenges.",
+      "affinity": {
+        "score": 5,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:BTC",
+          "position_primary_hit:BTC",
+          "narrow_tag_bonus:n=1"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Corporate Bitcoin Treasury Model Under Fire — Schiff's 'Ponzi' Critique Highlights Leveraged Accumulation Risk at Strategy Inc.",
+      "affected_tickers": [
+        "MSTR",
+        "BTC",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-06T00:09:39.906+00:00",
+      "news_one_liner": "Schiff's 'Ponzi' label on Strategy's BTC-funded preferred stock raises regulatory risk for MSTR and the leveraged corporate Bitcoin treasury model more broadly.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:BTC",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}
