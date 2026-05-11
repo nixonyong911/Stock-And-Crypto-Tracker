@@ -193,6 +193,13 @@ export interface DebugMemoryCandidate {
       | "not_evaluated";
     oneLinerOnSymbol: boolean;
   };
+  provenance: {
+    modelName: string | null;
+    promptVersion: string | null;
+    validatorVersion: string | null;
+    generatedAt: string | null;
+    tickersUnknown: string[];
+  };
 }
 
 export interface DebugMemorySection {
@@ -286,6 +293,11 @@ interface MemoryDebugRow {
   relevance_score: string | null;
   sentiment_score: string | null;
   last_updated: string | null;
+  model_name: string | null;
+  prompt_version: string | null;
+  validator_version: string | null;
+  generated_at: string | null;
+  tickers_unknown: string[] | null;
 }
 
 // ── Pure helpers ──────────────────────────────────────────────────────
@@ -586,7 +598,10 @@ export async function fetchMemoryCandidatesForDebug(
               impact_level,
               relevance_score::text AS relevance_score,
               sentiment_score::text AS sentiment_score,
-              last_updated::text AS last_updated
+              last_updated::text AS last_updated,
+              model_name, prompt_version, validator_version,
+              generated_at::text AS generated_at,
+              tickers_unknown
          FROM analysis_market_memory
         WHERE status IN ('active', 'fading')
           AND affected_tickers && $1::text[]`,
@@ -720,6 +735,13 @@ export async function fetchMemoryCandidatesForDebug(
         threshold: surfacing.surfacingMin,
         decision: surfacing.decision,
         oneLinerOnSymbol: surfacing.oneLinerOnSymbol,
+      },
+      provenance: {
+        modelName: row.model_name ?? null,
+        promptVersion: row.prompt_version ?? null,
+        validatorVersion: row.validator_version ?? null,
+        generatedAt: row.generated_at ?? null,
+        tickersUnknown: Array.isArray(row.tickers_unknown) ? row.tickers_unknown : [],
       },
     };
     candidate.gates = evaluateMemoryGates(candidate);

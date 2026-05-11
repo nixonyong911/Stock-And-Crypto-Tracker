@@ -4,6 +4,12 @@ import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import type { FastifyBaseLogger } from "fastify";
 import { curateMarketMemory } from "./memory-curator.js";
+import { validateNewsEntries, type ValidatedNewsEntry } from "./llm-schemas.js";
+import {
+  NEWS_PROCESSOR_PROMPT_VERSION,
+  NEWS_PROCESSOR_VALIDATOR_VERSION,
+  validateTickersAgainstUniverse,
+} from "./provenance.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -15,6 +21,7 @@ interface RawArticle {
   published_at: string;
   search_category: string | null;
   sentiment_label: string | null;
+  url: string | null;
 }
 
 export interface FilteredNewsEntry {
@@ -33,6 +40,7 @@ export interface FilteredNewsEntry {
     external_id: string;
     title: string;
     published_at: string;
+    url: string | null;
   }>;
 }
 
@@ -124,6 +132,7 @@ export async function processUnfilteredNews(
     );
 
     const stories = await analyzeWithLLM(capped, log);
+    const generatedAt = new Date().toISOString();
     if (stories.length === 0) {
       log.warn("LLM returned no stories");
       const result: ProcessingResult = {
@@ -139,15 +148,24 @@ export async function processUnfilteredNews(
       return result;
     }
 
+    const allTickers = [...new Set(stories.flatMap((s) => s.affected_tickers))];
+    const tickerValidation = await validateTickersAgainstUniverse(db, allTickers);
+    const unknownSet = new Set(tickerValidation.unknown);
+
+    const storiesWithProvenance = stories.map((story) => ({
+      ...story,
+      tickers_unknown: story.affected_tickers.filter((t) => unknownSet.has(t)),
+    }));
+
     const timeRange = computeTimeRange(capped);
-    await insertFilteredNews(db, batchId, stories, timeRange);
+    await insertFilteredNews(db, batchId, storiesWithProvenance, timeRange, generatedAt);
     await cleanupOldEntries(db, log);
 
-    const highImpact = stories.filter((s) => s.impact_level === "high").length;
+    const highImpact = storiesWithProvenance.filter((s) => s.impact_level === "high").length;
     const result: ProcessingResult = {
       batchId,
       inputArticles: capped.length,
-      outputStories: stories.length,
+      outputStories: storiesWithProvenance.length,
       highImpact,
       processingTimeMs: Date.now() - startTime,
       sourceBreakdown,
@@ -215,7 +233,7 @@ async function fetchRecentArticles(
 ): Promise<RawArticle[]> {
   const { rows } = await db.query<RawArticle>(
     `SELECT source_api, external_id, title, description,
-            published_at::text, search_category, sentiment_label
+            published_at::text, search_category, sentiment_label, url
      FROM unfiltered_news_combined
      WHERE created_at >= NOW() - INTERVAL '${LOOKBACK_HOURS} hours'
      ORDER BY published_at DESC`,
@@ -396,101 +414,51 @@ export function parseLLMOutput(
 
   if (!Array.isArray(parsed)) return [];
 
+  const validated = validateNewsEntries(parsed);
+
   const results: FilteredNewsEntry[] = [];
-  for (const item of parsed) {
-    try {
-      const entry = validateEntry(item, articles);
-      if (entry) results.push(entry);
-    } catch (err) {
-      log.warn({ err, item }, "Skipping invalid LLM entry");
-    }
+  for (const entry of validated) {
+    const sourceArticles = entry.source_article_indices
+      .filter((i) => i >= 1 && i <= articles.length)
+      .map((i) => {
+        const a = articles[i - 1]!;
+        return {
+          source_api: a.source_api,
+          external_id: a.external_id,
+          title: a.title,
+          published_at: a.published_at,
+          url: a.url ?? null,
+        };
+      });
+
+    results.push({
+      headline: entry.headline,
+      summary: entry.summary,
+      category: entry.category,
+      impact_level: entry.impact_level,
+      affected_sectors: entry.affected_sectors,
+      affected_tickers: entry.affected_tickers,
+      sentiment: entry.sentiment,
+      sentiment_score: entry.sentiment_score,
+      key_points: entry.key_points,
+      market_implications: entry.market_implications,
+      source_articles: sourceArticles,
+    });
   }
 
   return results;
 }
 
-function validateEntry(item: unknown, articles: RawArticle[]): FilteredNewsEntry | null {
-  if (!item || typeof item !== "object") return null;
-  const obj = item as Record<string, unknown>;
-
-  const headline = typeof obj["headline"] === "string" ? obj["headline"] : null;
-  const summary = typeof obj["summary"] === "string" ? obj["summary"] : null;
-  if (!headline || !summary) return null;
-
-  const validCategories = ["macro", "geopolitical", "policy", "market", "crypto", "diplomatic"];
-  const category = validCategories.includes(String(obj["category"]))
-    ? String(obj["category"])
-    : "market";
-
-  const validImpacts = ["high", "medium", "low"];
-  const impactLevel = validImpacts.includes(String(obj["impact_level"]))
-    ? (String(obj["impact_level"]) as "high" | "medium" | "low")
-    : "medium";
-
-  const validSentiments = ["bullish", "bearish", "neutral"];
-  const sentiment = validSentiments.includes(String(obj["sentiment"]))
-    ? (String(obj["sentiment"]) as "bullish" | "bearish" | "neutral")
-    : "neutral";
-
-  const sentimentScore = typeof obj["sentiment_score"] === "number"
-    ? Math.max(-1, Math.min(1, obj["sentiment_score"]))
-    : 0;
-
-  const affectedSectors = Array.isArray(obj["affected_sectors"])
-    ? (obj["affected_sectors"] as unknown[]).filter((s): s is string => typeof s === "string")
-    : [];
-
-  const affectedTickers = Array.isArray(obj["affected_tickers"])
-    ? (obj["affected_tickers"] as unknown[]).filter((s): s is string => typeof s === "string").map((s) => s.toUpperCase())
-    : [];
-
-  const keyPoints = Array.isArray(obj["key_points"])
-    ? (obj["key_points"] as unknown[]).filter((s): s is string => typeof s === "string")
-    : [];
-  if (keyPoints.length === 0) return null;
-
-  const marketImplications = typeof obj["market_implications"] === "string"
-    ? obj["market_implications"]
-    : "";
-
-  const sourceIndices = Array.isArray(obj["source_article_indices"])
-    ? (obj["source_article_indices"] as unknown[]).filter((n): n is number => typeof n === "number")
-    : [];
-
-  const sourceArticles = sourceIndices
-    .filter((i) => i >= 1 && i <= articles.length)
-    .map((i) => {
-      const a = articles[i - 1]!;
-      return {
-        source_api: a.source_api,
-        external_id: a.external_id,
-        title: a.title,
-        published_at: a.published_at,
-      };
-    });
-
-  return {
-    headline,
-    summary,
-    category,
-    impact_level: impactLevel,
-    affected_sectors: affectedSectors,
-    affected_tickers: affectedTickers,
-    sentiment,
-    sentiment_score: sentimentScore,
-    key_points: keyPoints,
-    market_implications: marketImplications,
-    source_articles: sourceArticles,
-  };
-}
-
 // ── Database insertion ────────────────────────────────────────────────
+
+const NEWS_MODEL_NAME = "claude-4.6-sonnet-medium";
 
 async function insertFilteredNews(
   db: Pool,
   batchId: string,
-  stories: FilteredNewsEntry[],
+  stories: Array<FilteredNewsEntry & { tickers_unknown: string[] }>,
   timeRange: { start: string; end: string },
+  generatedAt: string,
 ): Promise<void> {
   const client = await db.connect();
   try {
@@ -502,8 +470,10 @@ async function insertFilteredNews(
          (batch_id, headline, summary, category, impact_level,
           affected_sectors, affected_tickers, sentiment, sentiment_score,
           key_points, market_implications, source_articles,
-          time_range_start, time_range_end)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          time_range_start, time_range_end,
+          model_name, prompt_version, validator_version, generated_at, tickers_unknown)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                 $15, $16, $17, $18, $19)`,
         [
           batchId,
           story.headline,
@@ -519,6 +489,11 @@ async function insertFilteredNews(
           JSON.stringify(story.source_articles),
           timeRange.start,
           timeRange.end,
+          NEWS_MODEL_NAME,
+          NEWS_PROCESSOR_PROMPT_VERSION,
+          NEWS_PROCESSOR_VALIDATOR_VERSION,
+          generatedAt,
+          story.tickers_unknown,
         ],
       );
     }

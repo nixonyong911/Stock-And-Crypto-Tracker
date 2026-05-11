@@ -3,6 +3,15 @@ import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import type { FastifyBaseLogger } from "fastify";
+import {
+  validateNewThemes as zodValidateNewThemes,
+  validateThemeUpdates as zodValidateThemeUpdates,
+} from "./llm-schemas.js";
+import {
+  MEMORY_CURATOR_PROMPT_VERSION,
+  MEMORY_CURATOR_VALIDATOR_VERSION,
+  validateTickersAgainstUniverse,
+} from "./provenance.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -268,14 +277,22 @@ export async function curateMarketMemory(
       const curatorOutput = mergeBatchResults(
         successfulOutputs, existingThemes, log,
       );
+      const generatedAt = new Date().toISOString();
 
       resolveThemeIds(curatorOutput, existingThemes, log);
+
+      const allNewTickers = [
+        ...new Set(curatorOutput.new_themes.flatMap((t) => t.affected_tickers)),
+      ];
+      const tickerValidation = await validateTickersAgainstUniverse(db, allNewTickers);
+      const unknownTickerSet = new Set(tickerValidation.unknown);
 
       const batchIds = [...new Set(recentStories.map((s) => s.batch_id))];
       const priceSnapshot = await snapshotTickerPrices(db, curatorOutput, log);
 
       const applied = await applyChanges(
         db, curatorOutput, batchIds, priceSnapshot, log,
+        { modelName: curatorModel, generatedAt, unknownTickerSet },
       );
 
       const archivedFromCap = await enforceThemeCap(db, log);
@@ -517,136 +534,16 @@ export function parseCuratorOutput(
     return empty;
   }
 
-  const newThemes = validateNewThemes(parsed["new_themes"], log);
-  const updates = validateUpdates(parsed["updates"], log);
+  const newThemes = zodValidateNewThemes(parsed["new_themes"]);
+  const updates = zodValidateThemeUpdates(parsed["updates"]);
   const decay = validateDecay(parsed["decay"], log);
   const reasoning = typeof parsed["reasoning"] === "string" ? parsed["reasoning"] : undefined;
 
   return { new_themes: newThemes, updates, decay, reasoning };
 }
 
-function validateNewThemes(
-  raw: unknown,
-  log: FastifyBaseLogger,
-): NewThemeEntry[] {
-  if (!Array.isArray(raw)) return [];
-
-  const validCategories = new Set([
-    "macro", "geopolitical", "policy", "market", "crypto", "diplomatic", "sector", "earnings",
-  ]);
-  const validImpacts = new Set(["critical", "high", "medium", "low"]);
-
-  const results: NewThemeEntry[] = [];
-  for (const item of raw) {
-    try {
-      if (!item || typeof item !== "object") continue;
-      const obj = item as Record<string, unknown>;
-
-      const theme = typeof obj["theme"] === "string" ? obj["theme"].trim() : null;
-      const summary = typeof obj["summary"] === "string" ? obj["summary"].trim() : null;
-      if (!theme || !summary) continue;
-
-      const keyFacts = Array.isArray(obj["key_facts"])
-        ? (obj["key_facts"] as unknown[]).filter((s): s is string => typeof s === "string")
-        : [];
-      if (keyFacts.length === 0) continue;
-
-      const category = validCategories.has(String(obj["category"]))
-        ? String(obj["category"])
-        : "market";
-      const impactLevel = validImpacts.has(String(obj["impact_level"]))
-        ? String(obj["impact_level"])
-        : "medium";
-
-      const affectedSectors = Array.isArray(obj["affected_sectors"])
-        ? (obj["affected_sectors"] as unknown[]).filter((s): s is string => typeof s === "string")
-        : [];
-      const affectedTickers = Array.isArray(obj["affected_tickers"])
-        ? (obj["affected_tickers"] as unknown[]).filter((s): s is string => typeof s === "string")
-            .map((s) => s.toUpperCase())
-        : [];
-      const marketImplications = typeof obj["market_implications"] === "string"
-        ? obj["market_implications"]
-        : "";
-
-      const validSentiments = new Set(["bullish", "bearish", "neutral"]);
-      const sentiment = validSentiments.has(String(obj["sentiment"]))
-        ? String(obj["sentiment"])
-        : "neutral";
-      const sentimentScore = typeof obj["sentiment_score"] === "number"
-        ? Math.max(-1, Math.min(1, obj["sentiment_score"]))
-        : 0;
-
-      const newsOneLiner = typeof obj["news_one_liner"] === "string"
-        ? obj["news_one_liner"].slice(0, 200)
-        : "";
-
-      results.push({
-        theme, summary, key_facts: keyFacts, category,
-        impact_level: impactLevel, affected_sectors: affectedSectors,
-        affected_tickers: affectedTickers, market_implications: marketImplications,
-        sentiment, sentiment_score: sentimentScore,
-        news_one_liner: newsOneLiner,
-      });
-    } catch (err) {
-      log.warn({ err, item }, "Skipping invalid new theme entry");
-    }
-  }
-  return results;
-}
-
-function validateUpdates(
-  raw: unknown,
-  log: FastifyBaseLogger,
-): ThemeUpdateEntry[] {
-  if (!Array.isArray(raw)) return [];
-  const validImpacts = new Set(["critical", "high", "medium", "low"]);
-
-  const results: ThemeUpdateEntry[] = [];
-  for (const item of raw) {
-    try {
-      if (!item || typeof item !== "object") continue;
-      const obj = item as Record<string, unknown>;
-
-      const themeId = typeof obj["theme_id"] === "string" ? obj["theme_id"] : null;
-      const updatedSummary = typeof obj["updated_summary"] === "string" ? obj["updated_summary"] : null;
-      if (!themeId || !updatedSummary) continue;
-
-      const newFacts = Array.isArray(obj["new_facts"])
-        ? (obj["new_facts"] as unknown[]).filter((s): s is string => typeof s === "string")
-        : [];
-
-      const updatedImpact = validImpacts.has(String(obj["updated_impact"]))
-        ? String(obj["updated_impact"])
-        : "medium";
-
-      const updatedRelevance = typeof obj["updated_relevance"] === "number"
-        ? Math.max(0, Math.min(1, obj["updated_relevance"]))
-        : 0.8;
-
-      const validSentiments = new Set(["bullish", "bearish", "neutral"]);
-      const updatedSentiment = validSentiments.has(String(obj["updated_sentiment"]))
-        ? String(obj["updated_sentiment"])
-        : undefined;
-      const updatedSentimentScore = typeof obj["updated_sentiment_score"] === "number"
-        ? Math.max(-1, Math.min(1, obj["updated_sentiment_score"]))
-        : undefined;
-      const updatedOneLiner = typeof obj["updated_one_liner"] === "string"
-        ? obj["updated_one_liner"].slice(0, 200)
-        : undefined;
-
-      results.push({
-        theme_id: themeId, new_facts: newFacts, updated_summary: updatedSummary,
-        updated_impact: updatedImpact, updated_relevance: updatedRelevance,
-        updated_sentiment: updatedSentiment, updated_sentiment_score: updatedSentimentScore,
-        updated_one_liner: updatedOneLiner,
-      });
-    } catch (err) {
-      log.warn({ err, item }, "Skipping invalid theme update entry");
-    }
-  }
-  return results;
-}
+// validateNewThemes and validateUpdates replaced by Zod-based validation
+// in llm-schemas.ts (imported as zodValidateNewThemes / zodValidateThemeUpdates).
 
 function validateDecay(
   raw: unknown,
@@ -811,12 +708,19 @@ async function snapshotTickerPrices(
 
 // ── Apply changes to DB ───────────────────────────────────────────────
 
+interface ProvenanceContext {
+  modelName: string;
+  generatedAt: string;
+  unknownTickerSet: Set<string>;
+}
+
 async function applyChanges(
   db: Pool,
   output: CuratorOutput,
   batchIds: string[],
   priceSnapshot: Record<string, number>,
   log: FastifyBaseLogger,
+  provenance: ProvenanceContext,
 ): Promise<{ newThemes: number; updatedThemes: number; decayedThemes: number; archivedThemes: number }> {
   const client = await db.connect();
   let newThemes = 0;
@@ -834,6 +738,9 @@ async function applyChanges(
       for (const tk of nt.affected_tickers) {
         if (priceSnapshot[tk] !== undefined) tickerPrices[tk] = priceSnapshot[tk];
       }
+      const tickersUnknown = nt.affected_tickers.filter((t) =>
+        provenance.unknownTickerSet.has(t),
+      );
 
       await client.query(
         `INSERT INTO analysis_market_memory
@@ -841,13 +748,20 @@ async function applyChanges(
           relevance_score, affected_sectors, affected_tickers, market_implications,
           sentiment, sentiment_score,
           first_observed, last_updated, update_count, source_batch_ids,
-          price_snapshot_at, ticker_prices_at_creation, news_one_liner)
-         VALUES ($1,$2,'active',$3,$4,$5,$6,1.000,$7,$8,$9,$10,$11,$12,$12,1,$13,$12,$14,$15)`,
+          price_snapshot_at, ticker_prices_at_creation, news_one_liner,
+          model_name, prompt_version, validator_version, generated_at, tickers_unknown)
+         VALUES ($1,$2,'active',$3,$4,$5,$6,1.000,$7,$8,$9,$10,$11,$12,$12,1,$13,$12,$14,$15,
+                 $16,$17,$18,$19,$20)`,
         [
           themeId, nt.theme, nt.summary, nt.key_facts, nt.category,
           nt.impact_level, nt.affected_sectors, nt.affected_tickers,
           nt.market_implications, nt.sentiment, nt.sentiment_score,
           now, batchIds, JSON.stringify(tickerPrices), nt.news_one_liner || null,
+          provenance.modelName,
+          MEMORY_CURATOR_PROMPT_VERSION,
+          MEMORY_CURATOR_VALIDATOR_VERSION,
+          provenance.generatedAt,
+          tickersUnknown,
         ],
       );
       newThemes++;
@@ -860,10 +774,16 @@ async function applyChanges(
         "update_count = update_count + 1",
         "source_batch_ids = COALESCE(source_batch_ids, '{}') || $7::uuid[]",
         "status = 'active'",
+        "model_name = $8", "prompt_version = $9",
+        "validator_version = $10", "generated_at = $11",
       ];
       const params: unknown[] = [
         upd.theme_id, upd.updated_summary, upd.updated_impact,
         upd.updated_relevance, upd.new_facts, now, batchIds,
+        provenance.modelName,
+        MEMORY_CURATOR_PROMPT_VERSION,
+        MEMORY_CURATOR_VALIDATOR_VERSION,
+        provenance.generatedAt,
       ];
       if (upd.updated_sentiment) {
         params.push(upd.updated_sentiment);

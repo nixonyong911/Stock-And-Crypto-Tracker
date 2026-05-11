@@ -30,6 +30,7 @@ const mockArticles = [
     published_at: "2026-03-27T10:00:00Z",
     search_category: "macro",
     sentiment_label: "bearish",
+    url: "https://example.com/fed-rates",
   },
   {
     source_api: "gnews",
@@ -39,6 +40,7 @@ const mockArticles = [
     published_at: "2026-03-27T09:00:00Z",
     search_category: "geopolitical",
     sentiment_label: "bearish",
+    url: "https://example.com/oil-surge",
   },
   {
     source_api: "marketaux",
@@ -48,6 +50,7 @@ const mockArticles = [
     published_at: "2026-03-27T08:00:00Z",
     search_category: "market",
     sentiment_label: "positive",
+    url: "https://example.com/apple-earnings",
   },
 ];
 
@@ -315,5 +318,47 @@ describe("formatAdminNotification", () => {
     const msg = formatAdminNotification(result);
     expect(msg).not.toContain("<script>");
     expect(msg).toContain("&lt;script&gt;");
+  });
+});
+
+// ── Provenance: source_articles URL persistence ──────────────────────
+
+describe("parseLLMOutput provenance", () => {
+  it("includes url in source_articles from upstream articles", () => {
+    const llmOutput = JSON.stringify([
+      {
+        headline: "URL Test",
+        summary: "Testing URL persistence in source_articles",
+        category: "market",
+        impact_level: "low",
+        sentiment: "neutral",
+        sentiment_score: 0,
+        key_points: ["Point"],
+        source_article_indices: [1],
+      },
+    ]);
+
+    const result = parseLLMOutput(llmOutput, mockArticles, noopLog);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.source_articles[0]!.url).toBe("https://example.com/fed-rates");
+  });
+
+  it("sets url to null when upstream article has no url", () => {
+    const articlesNoUrl = mockArticles.map((a) => ({ ...a, url: null }));
+    const llmOutput = JSON.stringify([
+      {
+        headline: "No URL",
+        summary: "Article without URL",
+        category: "market",
+        impact_level: "low",
+        sentiment: "neutral",
+        sentiment_score: 0,
+        key_points: ["Point"],
+        source_article_indices: [1],
+      },
+    ]);
+
+    const result = parseLLMOutput(llmOutput, articlesNoUrl, noopLog);
+    expect(result[0]!.source_articles[0]!.url).toBeNull();
   });
 });
