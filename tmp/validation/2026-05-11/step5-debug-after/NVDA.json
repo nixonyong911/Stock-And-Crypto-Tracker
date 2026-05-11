@@ -1,0 +1,186 @@
+{
+  "ok": true,
+  "input": {
+    "symbol": "NVDA",
+    "assetType": "stock",
+    "mode": "strict",
+    "requestedAt": "2026-05-11T03:33:54.268Z"
+  },
+  "freshness": {
+    "priceTargetAnalysisDate": null,
+    "memoryChosenLastUpdated": "2026-05-08 06:09:34.505+00",
+    "memoryNewestLastUpdated": "2026-05-08 12:09:57.203+00",
+    "requestedAt": "2026-05-11T03:33:54.268Z"
+  },
+  "candidateSignals": {
+    "original": [],
+    "sorted": [],
+    "tieGroups": [],
+    "tieBreak": {
+      "used": false,
+      "mechanism": "n/a",
+      "note": "no candidate signals"
+    },
+    "primaryIndexInOriginal": null,
+    "rationale": "no candidate signals \u2014 neutral fallback brief"
+  },
+  "primary": null,
+  "truth": null,
+  "derived": null,
+  "memory": {
+    "candidates": [
+      {
+        "theme": "AI Capex Supercycle Redirects Institutional Flows Into Semiconductors \u2014 Chip ETFs Dominate 2026 Inflows as Big Tech Loses Narrative Leadership",
+        "category": "market",
+        "impactLevel": "high",
+        "relevanceScore": 1,
+        "sentimentScore": 0.75,
+        "affectedTickers": [
+          "NVDA",
+          "AMD",
+          "SOXX",
+          "NSDQ100",
+          "RTY",
+          "SPX500"
+        ],
+        "lastUpdated": "2026-05-08 06:09:34.505+00",
+        "newsOneLiner": "ARK's top 11 AI and data center picks add a retail flow catalyst layer to the AI capex supercycle, reinforcing NVDA, PLTR, and AMD as dual institutional-retail conviction targets.",
+        "summary": "Semiconductor ETFs continue to dominate 2026 institutional AI investment flows while ARK Invest's disclosure of top 11 AI and data center holdings \u2014 spanning NVDA, TSLA, PLTR, and AMD \u2014 adds a retail capital flow dimension to the institutional AI conviction picture. ARK's disclosure may drive incremental retail inflows into named positions despite the fund's own volatile post-pandemic performance track record, and the timing alongside ongoing bubble-debate commentary from veteran strategists creates a bifurcated sentiment environment: growth-oriented retail investors taking cues from ARK allocate toward AI infrastructure and application names while institutional strategists rotate into semiconductor ETFs to reduce single-name valuation concentration. Apple and Oracle earnings beats have confirmed that AI monetization is broadening into multiple corporate revenue streams simultaneously, and the global propagation of AI trade optimism to Asian equities confirms the institutional AI investment narrative is a cross-regional capital allocation theme. Oracle's cloud infrastructure growth provides incremental demand-side validation for the data center buildout thesis that semiconductor ETF flows are pricing. ARK's named positions represent a curated list of the highest-conviction growth AI plays, and their public disclosure ensures these names receive elevated retail scrutiny and potential buying pressure in the near term \u2014 reinforcing the broader pattern where semiconductor and data center infrastructure names benefit from both institutional ETF rotation and retail growth mandate inflows simultaneously. For Russell 2000 outperformance, the global AI trade optimism episode confirms the AI diffusion theme is sufficiently broad to sustain multiple equity market beneficiaries simultaneously, supporting the small-cap domestic AI infrastructure exposure thesis alongside the large-cap semiconductor ETF flow dominance.",
+        "rankKey": {
+          "impactRank": 1,
+          "relevance": 1,
+          "ageHours": 69.40549222222222,
+          "freshnessDecay": 0.03603483024691356,
+          "oneLinerOnSymbol": true,
+          "compositeAssociationScore": 0.28603483024691356
+        },
+        "chosen": true,
+        "whyLost": null,
+        "gates": {
+          "contextGatePassed": true,
+          "blendGatePassed": true
+        },
+        "affinity": {
+          "score": 4,
+          "threshold": 2,
+          "reasons": [
+            "text_token_hit:NVDA",
+            "position_primary_hit:NVDA",
+            "normal_tag:n=6"
+          ],
+          "passed": true
+        },
+        "surfacing": {
+          "score": 0.7472069660493827,
+          "threshold": 0.55,
+          "decision": "passed_floor_above_threshold",
+          "oneLinerOnSymbol": true
+        }
+      },
+      {
+        "theme": "PLA Leadership Purge Escalation \u2014 Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+        "category": "geopolitical",
+        "impactLevel": "medium",
+        "relevanceScore": 1,
+        "sentimentScore": -0.45,
+        "affectedTickers": [
+          "FXI",
+          "SPX500",
+          "NSDQ100",
+          "NVDA",
+          "AAPL"
+        ],
+        "lastUpdated": "2026-05-08 12:09:57.203+00",
+        "newsOneLiner": "China's death sentences for two ex-defense ministers deepen PLA command uncertainty, raising tail-risk premiums for Taiwan-exposed tech and semiconductor names.",
+        "summary": "China sentenced two former defense ministers \u2014 Li Shangfu and Wei Fenghe \u2014 to suspended death sentences for corruption, representing the most severe judicial outcome yet in the ongoing purge of the People's Liberation Army's senior leadership. The scale and seniority of the purge is analytically significant: consecutive defense ministers facing capital-adjacent sentences confirms that the PLA leadership disruption is not a bounded anti-corruption episode but a sustained structural realignment of the military command apparatus under Xi Jinping's direct control. The market-relevant implication operates through two channels. First, command coherence risk: rapid, high-level leadership turnover in a nuclear-armed military with active Taiwan Strait posturing creates an elevated tail risk of miscalculation or unauthorized action during a period of already-elevated global geopolitical tension \u2014 a risk premium that China-exposed equities, particularly semiconductor and technology names with Taiwan supply chain dependencies, must absorb. Second, institutional confidence risk: foreign institutional investors already managing China equity exposure under the overhang of property sector stress, export demand deterioration, and US tariff escalation must now layer in a military governance uncertainty premium that had not been quantified in prior risk models. The suspended death sentences \u2014 rather than immediate execution \u2014 signal a calibrated political messaging strategy: severe enough to demonstrate Xi's anti-corruption seriousness and consolidate personal control, but not so irreversible as to create martyrs within the officer corps. For FXI and China-ADR-adjacent equity positions, the purge adds a governance and stability headwind that is structurally independent of the macro economic recovery thesis and will not resolve quickly given the judicial finality now attached to both cases.",
+        "rankKey": {
+          "impactRank": 2,
+          "relevance": 1,
+          "ageHours": 63.399187222222224,
+          "freshnessDecay": 0.11945573302469137,
+          "oneLinerOnSymbol": false,
+          "compositeAssociationScore": 0.11945573302469137
+        },
+        "chosen": false,
+        "whyLost": "affinity score 0 < threshold 2: text_token_miss, position_primary_miss:position=4, normal_tag:n=5",
+        "gates": {
+          "contextGatePassed": true,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 0,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_miss:position=4",
+            "normal_tag:n=5"
+          ],
+          "passed": false
+        },
+        "surfacing": {
+          "score": 0.3738911466049383,
+          "threshold": 0.55,
+          "decision": "passed_floor_below_threshold",
+          "oneLinerOnSymbol": false
+        }
+      }
+    ],
+    "aliasResolution": {
+      "symbolUpper": "NVDA",
+      "candidatesTried": [
+        "NVDA"
+      ],
+      "chosenHitVia": "NVDA"
+    },
+    "chosenIndex": 0
+  },
+  "macro": {
+    "headlines": [
+      "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "Crude Oil Surge Toward $100/bbl \u2014 Energy Market Stress",
+      "US Crypto Regulatory Clarity \u2014 SEC-CFTC MoU Resolves Jurisdictional Overlap, Completing Institutional Adoption Precondition Stack",
+      "Non-Tariff Barrier Trade Fragmentation \u2014 UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+      "US Consumer Confidence-Spending Divergence \u2014 Sentiment at Record Lows While Hard Data Holds, Flagging Deferred Recession Risk",
+      "UK Trumpflation Stagflation \u2014 Dual Energy and Tariff Shock Erodes British Savers' Real Wealth as BoE Rate Hold Fails to Keep Pace",
+      "PLA Leadership Purge Escalation \u2014 Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "Pakistan Rupee Near-Term Stability \u2014 IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+      "African Mining Resource Nationalism Escalation \u2014 Ghana Localisation Policy Adds Regulatory Friction Layer for International Operators",
+      "Hantavirus Cruise Ship Outbreak \u2014 MV Hondius Infection Event Creates Near-Term Booking Demand and Regulatory Risk for Cruise Operators"
+    ],
+    "dominantTheme": "macro",
+    "overallSentiment": -0.23100000000000004,
+    "gatePassed": false,
+    "gateThreshold": 0.3
+  },
+  "fallbacks": {
+    "holdAboveSource": "none",
+    "breakBelowSource": "none",
+    "contextSource": "none",
+    "contextTrimmed": false,
+    "memoryAliasResolved": false,
+    "memoryDroppedForNewsSentiment": false,
+    "neutralFallbackUsed": true
+  },
+  "brief": {
+    "ticker": "NVDA",
+    "status": {
+      "label": "Neutral",
+      "tone": "neutral"
+    },
+    "price": 0,
+    "changePercent": 0,
+    "confidence": "Low",
+    "updatedAt": null,
+    "whatHappening": "No actionable technical signals right now.",
+    "whatToWatch": {
+      "holdAbove": "\u2014",
+      "breakBelowTarget": "\u2014"
+    },
+    "context": "",
+    "hasMaterialContext": false
+  },
+  "notes": [
+    "no candidate signals \u2014 neutral fallback brief",
+    "affinity gate rejected 1 candidate (threshold=2) \u2014 reasons: text_token_miss (1), position_primary_miss (1)"
+  ]
+}

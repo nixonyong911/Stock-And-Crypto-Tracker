@@ -1,0 +1,185 @@
+{
+  "ok": true,
+  "input": {
+    "symbol": "TSLA",
+    "assetType": "stock",
+    "mode": "strict",
+    "requestedAt": "2026-05-11T03:33:54.288Z"
+  },
+  "freshness": {
+    "priceTargetAnalysisDate": null,
+    "memoryChosenLastUpdated": "2026-05-06 12:03:46.2+00",
+    "memoryNewestLastUpdated": "2026-05-06 12:03:46.2+00",
+    "requestedAt": "2026-05-11T03:33:54.288Z"
+  },
+  "candidateSignals": {
+    "original": [],
+    "sorted": [],
+    "tieGroups": [],
+    "tieBreak": {
+      "used": false,
+      "mechanism": "n/a",
+      "note": "no candidate signals"
+    },
+    "primaryIndexInOriginal": null,
+    "rationale": "no candidate signals \u2014 neutral fallback brief"
+  },
+  "primary": null,
+  "truth": null,
+  "derived": null,
+  "memory": {
+    "candidates": [
+      {
+        "theme": "US-EU Auto Tariff Escalation \u2014 Trump's 25% Tariff Threat Opens New Trade War Front Against Europe's Largest Export Sector",
+        "category": "policy",
+        "impactLevel": "high",
+        "relevanceScore": 1,
+        "sentimentScore": -0.75,
+        "affectedTickers": [
+          "DAX",
+          "STOXX50",
+          "GM",
+          "F",
+          "TSLA",
+          "SPX500",
+          "GOLD"
+        ],
+        "lastUpdated": "2026-05-05 00:07:17.321+00",
+        "newsOneLiner": "Trump renewed 25% EU auto tariff threats just after the EU ratified a trade deal, destroying negotiation credibility and widening the trade war front against German automakers.",
+        "summary": "The US-EU auto tariff escalation has intensified materially: the Trump administration renewed explicit 25% tariff threats against European automobiles at the precise moment the EU had just ratified the latest bilateral trade deal \u2014 a sequencing that eliminates the credibility of the negotiation framework itself and signals that ratified agreements do not function as stable commitments under current US trade policy architecture. The analytical severity is compounded by this new credibility dimension: European governments and corporate planners cannot rely on negotiated outcomes as durable, meaning the investment uncertainty premium for EU-exposed manufacturers extends beyond the specific tariff rate to the reliability of any agreement. German automakers (BMW, Volkswagen, Mercedes-Benz) with 15-20% US revenue exposure remain the most directly affected, and the deal credibility collapse makes it impossible for them to hedge exposure through diplomatic confidence that prior rounds of negotiation had occasionally provided. VIX has been elevated across multiple concurrent uncertainty sources \u2014 Hormuz tensions, Truth Social policy signaling, and now revived auto tariff threats \u2014 creating a multi-directional volatility premium that complicates corporate investment planning and equity risk modeling simultaneously. For EU retaliation risk, the deal ratification-then-tariff-threat sequence removes the diplomatic reciprocity norm that had historically moderated retaliatory scope: the EU cannot credibly threaten to undo a deal it just ratified, but it can escalate outside the automotive channel through aerospace, agricultural, and technology counter-tariffs. US domestic automakers receive nominal competitive relief, but global supply chain integration means EU component sourcing partially offsets the competitive benefit.",
+        "rankKey": {
+          "impactRank": 1,
+          "relevance": 1,
+          "ageHours": 147.44360416666666,
+          "freshnessDecay": 0,
+          "oneLinerOnSymbol": false,
+          "compositeAssociationScore": 0
+        },
+        "chosen": false,
+        "whyLost": "affinity score 0 < threshold 2: text_token_miss, position_primary_miss:position=5, normal_tag:n=7",
+        "gates": {
+          "contextGatePassed": false,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 0,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_miss:position=5",
+            "normal_tag:n=7"
+          ],
+          "passed": false
+        },
+        "surfacing": {
+          "score": null,
+          "threshold": 0.55,
+          "decision": "failed_floor",
+          "oneLinerOnSymbol": false
+        }
+      },
+      {
+        "theme": "Second-Life EV Battery Grid Storage Market \u2014 Moment Energy $40M Round Validates Commercial Viability of Battery Repurposing as Energy Infrastructure",
+        "category": "market",
+        "impactLevel": "low",
+        "relevanceScore": 1,
+        "sentimentScore": 0.45,
+        "affectedTickers": [
+          "TSLA",
+          "ENPH",
+          "NEE"
+        ],
+        "lastUpdated": "2026-05-06 12:03:46.2+00",
+        "newsOneLiner": "Moment Energy's $40M raise for repurposing EV batteries into grid storage validates a lower-cost alternative to new-battery energy infrastructure, pressuring raw material demand forecasts.",
+        "summary": "Moment Energy's $40 million funding round to scale repurposing of retired EV batteries into grid-scale energy storage validates the second-life battery market as a commercially viable segment, addressing two converging structural needs simultaneously: the growing volume of end-of-life EV batteries requiring responsible disposition and the surging demand for grid-scale energy storage infrastructure. The investment thesis is analytically coherent: as EV adoption accelerates globally, the volume of retired lithium-ion battery packs entering the secondary market grows proportionally, creating a feedstock availability advantage for second-life repurposers that new battery manufacturers do not possess. Repurposed batteries typically retain 70-80% of original capacity at end-of-vehicle-life, sufficient for stationary grid storage applications with less demanding power density requirements. The cost structure advantage is material \u2014 second-life repurposing bypasses the raw material extraction, cell manufacturing, and module assembly cost stack that constrains new battery economics, enabling grid storage deployments at structurally lower capital cost. CEO commentary citing 'infinite demand for power' is consistent with the broader data center buildout theme and AI infrastructure supercycle that has elevated power demand forecasts globally. The second-order implications for raw material markets are meaningful: if second-life batteries capture meaningful grid storage market share, demand for newly mined lithium, cobalt, and nickel for stationary storage applications may grow more slowly than grid storage volume projections alone would imply, creating a structural complexity in commodity demand modeling. For new battery manufacturers and integrated energy storage companies, the second-life segment represents both a competitive alternative (lower-cost grid storage) and a long-run demand validation signal for EV adoption as the volume source of repurposable packs.",
+        "rankKey": {
+          "impactRank": 3,
+          "relevance": 1,
+          "ageHours": 111.50224888888889,
+          "freshnessDecay": 0,
+          "oneLinerOnSymbol": false,
+          "compositeAssociationScore": 0
+        },
+        "chosen": true,
+        "whyLost": null,
+        "gates": {
+          "contextGatePassed": false,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 3,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_hit:TSLA",
+            "narrow_tag_bonus:n=3"
+          ],
+          "passed": true
+        },
+        "surfacing": {
+          "score": null,
+          "threshold": 0.55,
+          "decision": "failed_floor",
+          "oneLinerOnSymbol": false
+        }
+      }
+    ],
+    "aliasResolution": {
+      "symbolUpper": "TSLA",
+      "candidatesTried": [
+        "TSLA"
+      ],
+      "chosenHitVia": "TSLA"
+    },
+    "chosenIndex": 1
+  },
+  "macro": {
+    "headlines": [
+      "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "Crude Oil Surge Toward $100/bbl \u2014 Energy Market Stress",
+      "US Crypto Regulatory Clarity \u2014 SEC-CFTC MoU Resolves Jurisdictional Overlap, Completing Institutional Adoption Precondition Stack",
+      "Non-Tariff Barrier Trade Fragmentation \u2014 UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+      "US Consumer Confidence-Spending Divergence \u2014 Sentiment at Record Lows While Hard Data Holds, Flagging Deferred Recession Risk",
+      "UK Trumpflation Stagflation \u2014 Dual Energy and Tariff Shock Erodes British Savers' Real Wealth as BoE Rate Hold Fails to Keep Pace",
+      "PLA Leadership Purge Escalation \u2014 Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "Pakistan Rupee Near-Term Stability \u2014 IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+      "African Mining Resource Nationalism Escalation \u2014 Ghana Localisation Policy Adds Regulatory Friction Layer for International Operators",
+      "Hantavirus Cruise Ship Outbreak \u2014 MV Hondius Infection Event Creates Near-Term Booking Demand and Regulatory Risk for Cruise Operators"
+    ],
+    "dominantTheme": "macro",
+    "overallSentiment": -0.23100000000000004,
+    "gatePassed": false,
+    "gateThreshold": 0.3
+  },
+  "fallbacks": {
+    "holdAboveSource": "none",
+    "breakBelowSource": "none",
+    "contextSource": "none",
+    "contextTrimmed": false,
+    "memoryAliasResolved": false,
+    "memoryDroppedForNewsSentiment": false,
+    "neutralFallbackUsed": true
+  },
+  "brief": {
+    "ticker": "TSLA",
+    "status": {
+      "label": "Neutral",
+      "tone": "neutral"
+    },
+    "price": 0,
+    "changePercent": 0,
+    "confidence": "Low",
+    "updatedAt": null,
+    "whatHappening": "No actionable technical signals right now.",
+    "whatToWatch": {
+      "holdAbove": "\u2014",
+      "breakBelowTarget": "\u2014"
+    },
+    "context": "",
+    "hasMaterialContext": false
+  },
+  "notes": [
+    "no candidate signals \u2014 neutral fallback brief",
+    "affinity gate rejected 1 candidate (threshold=2) \u2014 reasons: text_token_miss (1), position_primary_miss (1)"
+  ]
+}

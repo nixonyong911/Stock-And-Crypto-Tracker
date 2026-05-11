@@ -1,0 +1,279 @@
+{
+  "ok": true,
+  "input": {
+    "symbol": "META",
+    "assetType": "stock",
+    "mode": "strict",
+    "requestedAt": "2026-05-11T03:29:44.662Z"
+  },
+  "freshness": {
+    "priceTargetAnalysisDate": "2026-05-10",
+    "memoryChosenLastUpdated": null,
+    "memoryNewestLastUpdated": "2026-05-07 18:04:11.841+00",
+    "requestedAt": "2026-05-11T03:29:44.662Z"
+  },
+  "candidateSignals": {
+    "original": [
+      {
+        "index": 0,
+        "type": "entry_zone",
+        "priority": "high",
+        "headline": "META is near a key support level ($620.53\u2013$645.86)",
+        "timeframeAlignment": "full",
+        "rawDataKeys": [
+          "close",
+          "daySignal",
+          "swingSignal",
+          "longTermSignal",
+          "latestOpen",
+          "entryLow",
+          "entryHigh",
+          "targetPrice",
+          "stopLoss",
+          "rsi",
+          "ema20",
+          "ema50",
+          "periodLow",
+          "periodHigh",
+          "lookbackDays",
+          "confidence",
+          "macdHistogram",
+          "previousMacdHistogram"
+        ],
+        "strength": 0
+      },
+      {
+        "index": 1,
+        "type": "news_sentiment",
+        "priority": "low",
+        "headline": "META has bearish news sentiment (1 articles, avg -0.30)",
+        "timeframeAlignment": "full",
+        "rawDataKeys": [
+          "close",
+          "daySignal",
+          "swingSignal",
+          "longTermSignal",
+          "latestOpen",
+          "entryLow",
+          "entryHigh",
+          "targetPrice",
+          "stopLoss",
+          "rsi",
+          "ema20",
+          "ema50",
+          "periodLow",
+          "periodHigh",
+          "lookbackDays",
+          "confidence",
+          "macdHistogram",
+          "previousMacdHistogram",
+          "newsArticleCount",
+          "newsAvgSentiment",
+          "newsSentimentLabel"
+        ],
+        "strength": 0.0375
+      }
+    ],
+    "sorted": [
+      {
+        "index": 0,
+        "type": "entry_zone",
+        "priority": "high",
+        "strength": 0,
+        "rank": 0
+      },
+      {
+        "index": 1,
+        "type": "news_sentiment",
+        "priority": "low",
+        "strength": 0.0375,
+        "rank": 1
+      }
+    ],
+    "tieGroups": [],
+    "tieBreak": {
+      "used": false,
+      "mechanism": "n/a",
+      "note": "no ties: priorities were [high, low]"
+    },
+    "primaryIndexInOriginal": 0,
+    "rationale": "primary = candidates[0] (entry_zone, high, strength=0.000). Beat news_sentiment (low) on PRIORITY_ORDER (high<medium<low). No ties."
+  },
+  "primary": {
+    "symbol": "META",
+    "assetType": "stock",
+    "type": "entry_zone",
+    "priority": "high",
+    "timeframeAlignment": "full",
+    "headline": "META is near a key support level ($620.53\u2013$645.86)",
+    "rawData": {
+      "close": 609.7,
+      "daySignal": "neutral",
+      "swingSignal": "neutral",
+      "longTermSignal": "neutral",
+      "latestOpen": 609.33,
+      "entryLow": 620.529812,
+      "entryHigh": 645.85756,
+      "targetPrice": 672.983844,
+      "stopLoss": 597.069,
+      "rsi": 49.0661,
+      "ema20": 653.256143,
+      "ema50": 652.229611,
+      "periodLow": 603.1,
+      "periodHigh": 686.82,
+      "lookbackDays": 20,
+      "confidence": 1,
+      "macdHistogram": -0.332991,
+      "previousMacdHistogram": -0.332991
+    }
+  },
+  "truth": {
+    "symbol": "META",
+    "assetType": "stock",
+    "signals": {
+      "day": "neutral",
+      "swing": "neutral",
+      "longTerm": "neutral",
+      "alignment": "full"
+    },
+    "levels": {
+      "entryLow": 620.529812,
+      "entryHigh": 645.85756,
+      "target": 672.983844,
+      "stopLoss": 597.069,
+      "periodLow": 603.1,
+      "periodHigh": 686.82,
+      "ema20": 653.256143,
+      "ema50": 652.229611
+    },
+    "signalFacts": {
+      "type": "entry_zone",
+      "priority": "high",
+      "macdHistogram": -0.332991
+    },
+    "price": 609.7,
+    "open": 609.33,
+    "dataAsOf": "2026-05-10",
+    "rawConfidence": 1,
+    "macro": {
+      "dominantTheme": "macro",
+      "overallSentiment": -0.23100000000000004
+    }
+  },
+  "derived": {
+    "stance": {
+      "label": "Watch zone",
+      "tone": "watch"
+    },
+    "confidence": "Medium",
+    "holdAbove": "620.53",
+    "breakBelowTarget": "597.07",
+    "changePercent": 0.060722432836066584,
+    "hasMaterialContext": false,
+    "context": "",
+    "contextSource": "none",
+    "contextTrimmed": false,
+    "signalStrength": 0,
+    "confidenceSource": "degenerate_default"
+  },
+  "memory": {
+    "candidates": [
+      {
+        "theme": "Apple AI Product Litigation \u2014 Siri $250M Settlement Establishes Legal Precedent for AI Feature Misrepresentation Across Big Tech",
+        "category": "market",
+        "impactLevel": "low",
+        "relevanceScore": 1,
+        "sentimentScore": -0.3,
+        "affectedTickers": [
+          "AAPL",
+          "MSFT",
+          "GOOGL",
+          "META",
+          "NSDQ100"
+        ],
+        "lastUpdated": "2026-05-07 18:04:11.841+00",
+        "newsOneLiner": "Apple's $250M Siri settlement creates a litigation blueprint threatening all big tech AI feature marketing claims, raising compliance costs sector-wide.",
+        "summary": "Apple agreed to a $250 million settlement over claims it misled iPhone buyers about the AI capabilities of Siri, with eligible users potentially receiving up to $95 each. The settlement is financially immaterial relative to Apple's balance sheet but establishes a judicial precedent that courts and plaintiff attorneys can now cite to pursue similar AI feature marketing liability claims across the entire tech ecosystem. As AI-powered features have become standard marketing differentiators across smartphones, enterprise software, and consumer applications, the legal standard for actionable misrepresentation of AI capability is now actively adjudicated with a landmark settlement as anchor. The timing is analytically adverse: Big Tech is in an AI feature marketing arms race, with product launches routinely featuring capability claims that early-cycle technology may not fully deliver \u2014 Microsoft Copilot, Google Gemini, Meta AI, and Amazon Alexa all face analogous exposure profiles to the Siri claim that was adjudicated. For Apple specifically, the settlement introduces prospective legal scrutiny over Apple Intelligence marketing as the company depends on AI feature differentiation to drive the next iPhone upgrade supercycle \u2014 any perception gap between marketed and delivered capability now carries documented litigation risk rather than theoretical reputational risk. For the broader sector, legal compliance review of AI product marketing claims before launch becomes a risk management necessity, adding modestly to product development overhead and potentially moderating the pace of AI feature claim escalation that has characterized recent product cycles.",
+        "rankKey": {
+          "impactRank": 3,
+          "relevance": 1
+        },
+        "chosen": false,
+        "whyLost": "affinity score 0 < threshold 2: text_token_miss, position_primary_miss:position=4, normal_tag:n=5",
+        "gates": {
+          "contextGatePassed": false,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 0,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_miss:position=4",
+            "normal_tag:n=5"
+          ],
+          "passed": false
+        }
+      }
+    ],
+    "aliasResolution": {
+      "symbolUpper": "META",
+      "candidatesTried": [
+        "META"
+      ],
+      "chosenHitVia": null
+    },
+    "chosenIndex": null
+  },
+  "macro": {
+    "headlines": [
+      "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "Crude Oil Surge Toward $100/bbl \u2014 Energy Market Stress",
+      "US Crypto Regulatory Clarity \u2014 SEC-CFTC MoU Resolves Jurisdictional Overlap, Completing Institutional Adoption Precondition Stack",
+      "Non-Tariff Barrier Trade Fragmentation \u2014 UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+      "US Consumer Confidence-Spending Divergence \u2014 Sentiment at Record Lows While Hard Data Holds, Flagging Deferred Recession Risk",
+      "UK Trumpflation Stagflation \u2014 Dual Energy and Tariff Shock Erodes British Savers' Real Wealth as BoE Rate Hold Fails to Keep Pace",
+      "PLA Leadership Purge Escalation \u2014 Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "Pakistan Rupee Near-Term Stability \u2014 IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+      "African Mining Resource Nationalism Escalation \u2014 Ghana Localisation Policy Adds Regulatory Friction Layer for International Operators",
+      "Hantavirus Cruise Ship Outbreak \u2014 MV Hondius Infection Event Creates Near-Term Booking Demand and Regulatory Risk for Cruise Operators"
+    ],
+    "dominantTheme": "macro",
+    "overallSentiment": -0.23100000000000004,
+    "gatePassed": false,
+    "gateThreshold": 0.3
+  },
+  "fallbacks": {
+    "holdAboveSource": "entryLow",
+    "breakBelowSource": "stopLoss",
+    "contextSource": "none",
+    "contextTrimmed": false,
+    "memoryAliasResolved": false,
+    "memoryDroppedForNewsSentiment": false,
+    "neutralFallbackUsed": false
+  },
+  "brief": {
+    "ticker": "META",
+    "status": {
+      "label": "Watch zone",
+      "tone": "watch"
+    },
+    "price": 609.7,
+    "changePercent": 0.060722432836066584,
+    "confidence": "Medium",
+    "updatedAt": "2026-05-10T21:00:00.000Z",
+    "whatHappening": "META is back inside its entry zone at $609.70 (zone $620.53\u2013$645.86) with a stop at $597.07.",
+    "whatToWatch": {
+      "holdAbove": "620.53",
+      "breakBelowTarget": "597.07"
+    },
+    "context": "",
+    "hasMaterialContext": false
+  },
+  "notes": [
+    "primary chosen by PRIORITY_ORDER: high beats lower priorities (no ties)",
+    "affinity gate rejected 1 candidate (threshold=2) \u2014 reasons: text_token_miss (1), position_primary_miss (1)",
+    "context omitted because no candidate passed affinity (impact present, but row was not on-symbol)",
+    "macro sentiment -0.23 below |0.3| gate \u2014 macro context suppressed"
+  ]
+}

@@ -1,0 +1,403 @@
+{
+  "ok": true,
+  "input": {
+    "symbol": "GOLD",
+    "assetType": "stock",
+    "mode": "strict",
+    "requestedAt": "2026-05-11T03:29:44.643Z"
+  },
+  "freshness": {
+    "priceTargetAnalysisDate": "2026-05-10",
+    "memoryChosenLastUpdated": "2026-05-10 00:07:56.702+00",
+    "memoryNewestLastUpdated": "2026-05-10 06:08:45.991+00",
+    "requestedAt": "2026-05-11T03:29:44.643Z"
+  },
+  "candidateSignals": {
+    "original": [
+      {
+        "index": 0,
+        "type": "news_sentiment",
+        "priority": "low",
+        "headline": "GOLD has bearish news sentiment (5 articles, avg -0.39)",
+        "timeframeAlignment": "full",
+        "rawDataKeys": [
+          "close",
+          "daySignal",
+          "swingSignal",
+          "longTermSignal",
+          "latestOpen",
+          "entryLow",
+          "entryHigh",
+          "targetPrice",
+          "stopLoss",
+          "rsi",
+          "ema20",
+          "ema50",
+          "periodLow",
+          "periodHigh",
+          "lookbackDays",
+          "confidence",
+          "macdHistogram",
+          "previousMacdHistogram",
+          "newsArticleCount",
+          "newsAvgSentiment",
+          "newsSentimentLabel",
+          "newsHeadlines"
+        ],
+        "strength": 0.24375000000000002
+      }
+    ],
+    "sorted": [
+      {
+        "index": 0,
+        "type": "news_sentiment",
+        "priority": "low",
+        "strength": 0.24375000000000002,
+        "rank": 0
+      }
+    ],
+    "tieGroups": [],
+    "tieBreak": {
+      "used": false,
+      "mechanism": "n/a",
+      "note": "no ties: priorities were [low]"
+    },
+    "primaryIndexInOriginal": 0,
+    "rationale": "primary = candidates[0] (news_sentiment, low, strength=0.244). Only candidate."
+  },
+  "primary": {
+    "symbol": "GOLD",
+    "assetType": "stock",
+    "type": "news_sentiment",
+    "priority": "low",
+    "timeframeAlignment": "full",
+    "headline": "GOLD has bearish news sentiment (5 articles, avg -0.39)",
+    "rawData": {
+      "close": 4690.85,
+      "daySignal": "neutral",
+      "swingSignal": "neutral",
+      "longTermSignal": "neutral",
+      "latestOpen": 4688.15,
+      "entryLow": 32.161929,
+      "entryHigh": 33.474661,
+      "targetPrice": 2903.125058,
+      "stopLoss": 31.833746,
+      "rsi": 50.5228,
+      "ema20": 26.163825,
+      "ema50": 26.222645,
+      "periodLow": 42.8,
+      "periodHigh": 4821.06,
+      "lookbackDays": 20,
+      "confidence": 1,
+      "macdHistogram": 0.016027,
+      "previousMacdHistogram": 0.016027,
+      "newsArticleCount": 5,
+      "newsAvgSentiment": -0.39,
+      "newsSentimentLabel": "bearish",
+      "newsHeadlines": [
+        "Pakistan Rupee Near-Term Stability \u2014 IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+        "African Mining Resource Nationalism Escalation \u2014 Ghana Localisation Policy Adds Regulatory Friction Layer for International Operators"
+      ]
+    }
+  },
+  "truth": {
+    "symbol": "GOLD",
+    "assetType": "stock",
+    "signals": {
+      "day": "neutral",
+      "swing": "neutral",
+      "longTerm": "neutral",
+      "alignment": "full"
+    },
+    "levels": {
+      "target": 2903.125058,
+      "periodHigh": 4821.06
+    },
+    "signalFacts": {
+      "type": "news_sentiment",
+      "priority": "low",
+      "macdHistogram": 0.016027,
+      "newsSentimentLabel": "bearish",
+      "newsArticleCount": 5,
+      "newsAvgSentiment": -0.39
+    },
+    "price": 4690.85,
+    "open": 4688.15,
+    "dataAsOf": "2026-05-10",
+    "rawConfidence": 1,
+    "macro": {
+      "dominantTheme": "macro",
+      "overallSentiment": -0.23100000000000004
+    },
+    "truthFlags": [
+      "level_out_of_band:entryLow",
+      "level_out_of_band:entryHigh",
+      "level_out_of_band:stopLoss",
+      "level_out_of_band:periodLow",
+      "level_out_of_band:ema20",
+      "level_out_of_band:ema50"
+    ]
+  },
+  "derived": {
+    "stance": {
+      "label": "Watch zone",
+      "tone": "watch"
+    },
+    "confidence": "Low",
+    "holdAbove": "\u2014",
+    "breakBelowTarget": "\u2014",
+    "changePercent": 0.05759201390742036,
+    "hasMaterialContext": false,
+    "context": "",
+    "contextSource": "none",
+    "contextTrimmed": false,
+    "signalStrength": 0.24375000000000002,
+    "confidenceSource": "news_score"
+  },
+  "memory": {
+    "candidates": [
+      {
+        "theme": "G7 Synchronized Rate Hold \u2014 Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+        "category": "macro",
+        "impactLevel": "high",
+        "relevanceScore": 1,
+        "sentimentScore": -0.6,
+        "affectedTickers": [
+          "SPX500",
+          "NSDQ100",
+          "DJ30",
+          "TLT",
+          "GOLD",
+          "OIL"
+        ],
+        "lastUpdated": "2026-05-05 06:04:19.7+00",
+        "newsOneLiner": "RBA joins G7 central banks hiking into an energy shock, extending the synchronized monetary paralysis thesis to developed markets beyond the G7 core as ASX rate-sensitive stocks sell off.",
+        "summary": "The synchronized central bank paralysis thesis has received its most direct institutional validation through Fed NY President Williams' 'unusual circumstances' characterization of the current economy \u2014 a diplomatically significant phrase that formally acknowledges the structural anomaly of simultaneous headline economic strength and acute multi-vector headwinds from Hormuz disruption, tariff uncertainty, and consumer confidence collapse. Williams' dual characterization \u2014 'very strong' economy plus 'unusual circumstances' \u2014 maps precisely onto the Fed's policy bind: the strong aggregate data validates the hawkish majority's resistance to rate cuts while the 'unusual circumstances' framing validates the dovish minority's concern that surface-level strength masks forward deterioration risk. The Reserve Bank of Australia now joins the central bank paralysis picture as a non-G7 developed-market dimension: the RBA faces an impending rate hike decision into an oil shock above $120/bbl, with ASX 200 declining ahead of the decision as rate-sensitive financials and REITs lag while resource and energy names outperform \u2014 precisely mirroring the stagflation sector rotation pattern observable across US, European, and Indian equity markets. For the ECB, the combination of German GDP downgrade risk, EU auto tariff threats, and sustained $120+ crude creates an even more acute version of the same policy bind \u2014 three independent inflationary shocks demanding hikes simultaneously with demand destruction signals demanding accommodation. The BoJ accommodative outlier position continues to benefit from G10 divergence, and the multi-directional developed-world policy split now encompasses Australia as a fourth axis of stagflation pressure. Williams' 'unusual circumstances' comment ensures the Fed's public communication framework now explicitly references the macro anomaly, which the foreign exchange and rates markets interpret as a subtle shift in the Fed's probability assessment of eventual accommodation.",
+        "rankKey": {
+          "impactRank": 1,
+          "relevance": 1
+        },
+        "chosen": false,
+        "whyLost": "affinity score 0 < threshold 2: text_token_miss, position_primary_miss:position=5, normal_tag:n=6",
+        "gates": {
+          "contextGatePassed": false,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 0,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_miss:position=5",
+            "normal_tag:n=6"
+          ],
+          "passed": false
+        }
+      },
+      {
+        "theme": "US-EU Auto Tariff Escalation \u2014 Trump's 25% Tariff Threat Opens New Trade War Front Against Europe's Largest Export Sector",
+        "category": "policy",
+        "impactLevel": "high",
+        "relevanceScore": 1,
+        "sentimentScore": -0.75,
+        "affectedTickers": [
+          "DAX",
+          "STOXX50",
+          "GM",
+          "F",
+          "TSLA",
+          "SPX500",
+          "GOLD"
+        ],
+        "lastUpdated": "2026-05-05 00:07:17.321+00",
+        "newsOneLiner": "Trump renewed 25% EU auto tariff threats just after the EU ratified a trade deal, destroying negotiation credibility and widening the trade war front against German automakers.",
+        "summary": "The US-EU auto tariff escalation has intensified materially: the Trump administration renewed explicit 25% tariff threats against European automobiles at the precise moment the EU had just ratified the latest bilateral trade deal \u2014 a sequencing that eliminates the credibility of the negotiation framework itself and signals that ratified agreements do not function as stable commitments under current US trade policy architecture. The analytical severity is compounded by this new credibility dimension: European governments and corporate planners cannot rely on negotiated outcomes as durable, meaning the investment uncertainty premium for EU-exposed manufacturers extends beyond the specific tariff rate to the reliability of any agreement. German automakers (BMW, Volkswagen, Mercedes-Benz) with 15-20% US revenue exposure remain the most directly affected, and the deal credibility collapse makes it impossible for them to hedge exposure through diplomatic confidence that prior rounds of negotiation had occasionally provided. VIX has been elevated across multiple concurrent uncertainty sources \u2014 Hormuz tensions, Truth Social policy signaling, and now revived auto tariff threats \u2014 creating a multi-directional volatility premium that complicates corporate investment planning and equity risk modeling simultaneously. For EU retaliation risk, the deal ratification-then-tariff-threat sequence removes the diplomatic reciprocity norm that had historically moderated retaliatory scope: the EU cannot credibly threaten to undo a deal it just ratified, but it can escalate outside the automotive channel through aerospace, agricultural, and technology counter-tariffs. US domestic automakers receive nominal competitive relief, but global supply chain integration means EU component sourcing partially offsets the competitive benefit.",
+        "rankKey": {
+          "impactRank": 1,
+          "relevance": 1
+        },
+        "chosen": false,
+        "whyLost": "affinity score 0 < threshold 2: text_token_miss, position_primary_miss:position=7, normal_tag:n=7",
+        "gates": {
+          "contextGatePassed": false,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 0,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_miss:position=7",
+            "normal_tag:n=7"
+          ],
+          "passed": false
+        }
+      },
+      {
+        "theme": "Non-Tariff Barrier Trade Fragmentation \u2014 UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+        "category": "macro",
+        "impactLevel": "medium",
+        "relevanceScore": 1,
+        "sentimentScore": -0.55,
+        "affectedTickers": [
+          "SPX500",
+          "OIL",
+          "GOLD"
+        ],
+        "lastUpdated": "2026-05-10 06:08:45.991+00",
+        "newsOneLiner": "UNCTAD finds LDCs losing 10% of G20 exports to non-tariff barriers, deepening trade fragmentation beyond headline tariff disputes and pressuring EM commodity exporters.",
+        "summary": "UNCTAD's finding that least developed countries are losing approximately 10% of their G20-bound export value to non-tariff measures \u2014 regulatory divergence, sanitary standards, technical barriers to trade \u2014 adds a structurally distinct and less-visible dimension to the trade fragmentation narrative dominating 2026 macro discourse. While US-EU auto tariffs and Hormuz-driven supply chain disruption have captured market attention as the primary trade headwinds, non-tariff barriers represent a more insidious and harder-to-negotiate fragmentation force: they lack the political salience of tariff announcements, making them resistant to diplomatic resolution, and they disproportionately target commodity-exporting developing economies whose export composition aligns with G20 technical and regulatory standards gaps. The 10% export loss figure is economically meaningful at the LDC level \u2014 these economies typically operate with narrow current account cushions and limited fiscal space to absorb export revenue shortfalls \u2014 and the loss compounds direct tariff exposure that trade war escalation has already imposed. The second-order global implications flow through commodity markets: reduced LDC export capacity constrains commodity availability from frontier market producers, modestly tightening supply-side conditions for agricultural commodities, base metals, and soft commodities sourced from the most affected regions. For global capital markets, the UNCTAD quantification is a structural deglobalization indicator that reinforces the thesis that trade fragmentation is broadening beyond headline bilateral tariff disputes into a systemic regulatory barrier pattern affecting global trade flow architecture at a fundamental level.",
+        "rankKey": {
+          "impactRank": 2,
+          "relevance": 1
+        },
+        "chosen": false,
+        "whyLost": "affinity score 1 < threshold 2: text_token_miss, position_primary_miss:position=3, narrow_tag_bonus:n=3",
+        "gates": {
+          "contextGatePassed": true,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 1,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_miss:position=3",
+            "narrow_tag_bonus:n=3"
+          ],
+          "passed": false
+        }
+      },
+      {
+        "theme": "Pakistan Rupee Near-Term Stability \u2014 IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+        "category": "macro",
+        "impactLevel": "low",
+        "relevanceScore": 1,
+        "sentimentScore": 0.05,
+        "affectedTickers": [
+          "GOLD"
+        ],
+        "lastUpdated": "2026-05-10 00:07:56.702+00",
+        "newsOneLiner": "Pakistan's rupee holds steady near PKR 279/USD, offering fragile relief for EM-exposed portfolios but structural fiscal risks and oil import costs remain.",
+        "summary": "Pakistan's rupee is holding stable against the US dollar at PKR 278.95\u2013279.90, a fragile but meaningful near-term positive for Pakistani sovereign debt and equity market sentiment given the country's ongoing IMF program and persistent balance of payments pressures. Currency stability at this level reflects the IMF program's discipline-imposing function \u2014 Pakistan's access to tranches is conditioned on macro stabilization metrics that incentivize the State Bank of Pakistan to defend the exchange rate within a managed band. However, the analytical context is important: stability is not a fundamental turnaround signal. Pakistan's structural fiscal challenges \u2014 elevated public debt, chronically low tax-to-GDP ratio, energy import dependency exacerbated by the current Hormuz-driven crude price environment above $120/bbl, and a current account that remains sensitive to remittance flows and export commodity prices \u2014 remain fully intact. The mixed trends across Euro, GBP, and Riyal pairs against PKR introduce cross-rate volatility that affects Pakistani importers and the remittance corridor from Gulf-based Pakistani workers, the latter being a critical current account support mechanism. For gold specifically, Pakistan is a structurally large unofficial gold import market, and rupee stability modestly reduces the domestic gold price premium that currency weakness typically amplifies. Near-term, the stability provides a window for Pakistani fixed income and equity investors to assess macro conditions without the compounding effect of currency-driven capital erosion, but the IMF program conditionality timeline and the energy cost environment represent the two live structural risks most likely to interrupt the stability if either deteriorates.",
+        "rankKey": {
+          "impactRank": 3,
+          "relevance": 1
+        },
+        "chosen": true,
+        "whyLost": null,
+        "gates": {
+          "contextGatePassed": false,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 3,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_hit:GOLD",
+            "narrow_tag_bonus:n=1"
+          ],
+          "passed": true
+        }
+      },
+      {
+        "theme": "African Mining Resource Nationalism Escalation \u2014 Ghana Localisation Policy Adds Regulatory Friction Layer for International Operators",
+        "category": "policy",
+        "impactLevel": "low",
+        "relevanceScore": 1,
+        "sentimentScore": -0.1,
+        "affectedTickers": [
+          "GOLD",
+          "GLD",
+          "GDX"
+        ],
+        "lastUpdated": "2026-05-08 06:09:34.505+00",
+        "newsOneLiner": "Ghana's US debt deal modestly reduces fiscal pressure driving aggressive resource nationalism, but localisation policy friction for gold miners like GDX and CCJ-adjacent operators remains structurally",
+        "summary": "Ghana's new mining localisation policy \u2014 which drew a formal warning from the Extractive Industries Workers Union over risks to existing worker protections \u2014 has been accompanied by a partly moderating fiscal development: Ghana reached a bilateral debt restructuring agreement with the US Export-Import Bank that aims to stabilize its sovereign financial position. The debt deal is analytically relevant to the resource nationalism theme through the fiscal incentive channel: governments that pursue aggressive mining localisation and maximum revenue extraction frequently do so partly under fiscal duress, and debt relief that reduces sovereign financial pressure can modestly moderate the urgency of the most extreme extraction policies \u2014 though it rarely reverses established localisation regulatory frameworks once politically embedded. The worker protection concerns raised by the union remain a political economy complication that typically prolongs regulatory uncertainty regardless of improvements in the sovereign's fiscal condition. For international gold miners operating in Ghana, the US debt restructuring is a net-positive modulating signal \u2014 not a reversal of localisation risk, but a reduction in the fiscal emergency dimension that can accelerate the most punitive resource nationalism measures toward their worst-case endpoints. The broader West African resource nationalism pattern across Burkina Faso, Mali, Senegal, and Tanzania continues as a structural regional trend entirely independent of Ghana's bilateral debt resolution, confirming the policy convergence thesis remains intact. For gold price dynamics, the supply-side constructive implication of resource nationalism constraints on production costs and output growth remains directionally intact, with the debt deal reducing tail-risk severity rather than altering the fundamental regulatory friction trajectory for African-exposed mining portfolios.",
+        "rankKey": {
+          "impactRank": 3,
+          "relevance": 1
+        },
+        "chosen": false,
+        "whyLost": "impact=low affinity=3 tied with chosen but last_updated older than chosen",
+        "gates": {
+          "contextGatePassed": false,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 3,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_hit:GOLD",
+            "narrow_tag_bonus:n=3"
+          ],
+          "passed": true
+        }
+      }
+    ],
+    "aliasResolution": {
+      "symbolUpper": "GOLD",
+      "candidatesTried": [
+        "GOLD"
+      ],
+      "chosenHitVia": "GOLD"
+    },
+    "chosenIndex": 3
+  },
+  "macro": {
+    "headlines": [
+      "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "Crude Oil Surge Toward $100/bbl \u2014 Energy Market Stress",
+      "US Crypto Regulatory Clarity \u2014 SEC-CFTC MoU Resolves Jurisdictional Overlap, Completing Institutional Adoption Precondition Stack",
+      "Non-Tariff Barrier Trade Fragmentation \u2014 UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+      "US Consumer Confidence-Spending Divergence \u2014 Sentiment at Record Lows While Hard Data Holds, Flagging Deferred Recession Risk",
+      "UK Trumpflation Stagflation \u2014 Dual Energy and Tariff Shock Erodes British Savers' Real Wealth as BoE Rate Hold Fails to Keep Pace",
+      "PLA Leadership Purge Escalation \u2014 Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "Pakistan Rupee Near-Term Stability \u2014 IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+      "African Mining Resource Nationalism Escalation \u2014 Ghana Localisation Policy Adds Regulatory Friction Layer for International Operators",
+      "Hantavirus Cruise Ship Outbreak \u2014 MV Hondius Infection Event Creates Near-Term Booking Demand and Regulatory Risk for Cruise Operators"
+    ],
+    "dominantTheme": "macro",
+    "overallSentiment": -0.23100000000000004,
+    "gatePassed": false,
+    "gateThreshold": 0.3
+  },
+  "fallbacks": {
+    "holdAboveSource": "none",
+    "breakBelowSource": "none",
+    "contextSource": "none",
+    "contextTrimmed": false,
+    "memoryAliasResolved": false,
+    "memoryDroppedForNewsSentiment": true,
+    "neutralFallbackUsed": false
+  },
+  "brief": {
+    "ticker": "GOLD",
+    "status": {
+      "label": "Watch zone",
+      "tone": "watch"
+    },
+    "price": 4690.85,
+    "changePercent": 0.05759201390742036,
+    "confidence": "Low",
+    "updatedAt": "2026-05-10T21:00:00.000Z",
+    "whatHappening": "Limited: Recent coverage skewed bearish across 5 stories (avg -0.39).",
+    "whatToWatch": {
+      "holdAbove": "\u2014",
+      "breakBelowTarget": "\u2014"
+    },
+    "context": "",
+    "hasMaterialContext": false
+  },
+  "notes": [
+    "primary chosen by PRIORITY_ORDER: low (no ties)",
+    "affinity gate rejected 3 candidates (threshold=2) \u2014 reasons: text_token_miss (3), position_primary_miss (3)",
+    "chosen memory failed context gate (impact=low, relevance=1.00); context line empty",
+    "macro sentiment -0.23 below |0.3| gate \u2014 macro context suppressed",
+    "primary is news_sentiment \u2014 per-ticker memoryText deliberately suppressed in truth to avoid double-stating",
+    "holdAbove em-dash: no entryLow / periodLow / ema20 available",
+    "breakBelowTarget em-dash: stop_loss not available"
+  ]
+}

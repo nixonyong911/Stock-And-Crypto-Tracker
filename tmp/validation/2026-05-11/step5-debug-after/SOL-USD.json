@@ -1,0 +1,189 @@
+{
+  "ok": true,
+  "input": {
+    "symbol": "SOL/USD",
+    "assetType": "crypto",
+    "mode": "strict",
+    "requestedAt": "2026-05-11T03:33:54.420Z"
+  },
+  "freshness": {
+    "priceTargetAnalysisDate": null,
+    "memoryChosenLastUpdated": "2026-05-07 12:09:55.14+00",
+    "memoryNewestLastUpdated": "2026-05-11 00:04:35.06+00",
+    "requestedAt": "2026-05-11T03:33:54.420Z"
+  },
+  "candidateSignals": {
+    "original": [],
+    "sorted": [],
+    "tieGroups": [],
+    "tieBreak": {
+      "used": false,
+      "mechanism": "n/a",
+      "note": "no candidate signals"
+    },
+    "primaryIndexInOriginal": null,
+    "rationale": "no candidate signals \u2014 neutral fallback brief"
+  },
+  "primary": null,
+  "truth": null,
+  "derived": null,
+  "memory": {
+    "candidates": [
+      {
+        "theme": "Crypto Altcoin Infrastructure Maturation \u2014 Chainlink Secures $100B TVS While XRP Tests Key $1.45 Resistance Amid Regulatory Tailwind",
+        "category": "crypto",
+        "impactLevel": "high",
+        "relevanceScore": 1,
+        "sentimentScore": 0.7,
+        "affectedTickers": [
+          "LINK",
+          "XRP",
+          "BTC",
+          "ETH",
+          "SOL",
+          "COIN"
+        ],
+        "lastUpdated": "2026-05-11 00:04:35.06+00",
+        "newsOneLiner": "JPMorgan's first cross-border tokenized Treasury on the XRP Ledger is the strongest institutional validation in XRP's history, though the price at $1.42 suggests a re-rating lag that a $1.45 breakout ",
+        "summary": "Two concurrent altcoin infrastructure data points signal structural ecosystem maturation beyond the BTC-ETH institutional narrative. Chainlink's oracle network has reached $100 billion in total value secured, a milestone quantifying DeFi's real economic dependency on decentralized oracle infrastructure at a scale constituting meaningful global financial infrastructure. XRP received its most significant institutional validation in May 2026: JPMorgan, Mastercard, Ripple, and Ondo Finance completed the first cross-border tokenized U.S. Treasury settlement on the XRP Ledger, transforming XRP from a contested regulatory asset into demonstrated cross-border financial settlement infrastructure credentialed by two of the world's most systemically important financial institutions. Despite this fundamental development, XRP's price action remains muted at $1.42 \u2014 down 35% year-to-date with only a modest April recovery \u2014 reflecting that the market has not yet re-rated the asset to reflect institutional utility validation, potentially because near-term retail momentum is weak and the longer-term institutional adoption thesis requires sustained settlement transaction volume before constituting a durable demand floor. The $1.45 technical resistance tested four times in 2026 remains the key breakout level; the JPMorgan transaction provides the fundamental anchoring that the fifth test of that resistance was previously lacking. For LINK, the $100B TVS milestone validates that DeFi oracle infrastructure is operating at institutional scale. The combination \u2014 oracle infrastructure credentialing at $100B TVS and XRP's first cross-border sovereign-instrument settlement \u2014 represents the broadest altcoin ecosystem quality signal the current cycle has produced outside the BTC-ETH institutional accumulation axis.",
+        "rankKey": {
+          "impactRank": 1,
+          "relevance": 1,
+          "ageHours": 3.4887130555555554,
+          "freshnessDecay": 0.9515456520061728,
+          "oneLinerOnSymbol": false,
+          "compositeAssociationScore": 0.9515456520061728
+        },
+        "chosen": false,
+        "whyLost": "affinity score 0 < threshold 2: text_token_miss, position_primary_miss:position=5, normal_tag:n=6",
+        "gates": {
+          "contextGatePassed": true,
+          "blendGatePassed": true
+        },
+        "affinity": {
+          "score": 0,
+          "threshold": 2,
+          "reasons": [
+            "text_token_miss",
+            "position_primary_miss:position=5",
+            "normal_tag:n=6"
+          ],
+          "passed": false
+        },
+        "surfacing": {
+          "score": 0.6303091304012346,
+          "threshold": 0.55,
+          "decision": "passed_floor_above_threshold",
+          "oneLinerOnSymbol": false
+        }
+      },
+      {
+        "theme": "Moscow Exchange Altcoin Index Expansion \u2014 MOEX Benchmark Suite Addition Signals Emerging Market Institutional Crypto Recognition Beyond BTC/ETH",
+        "category": "crypto",
+        "impactLevel": "medium",
+        "relevanceScore": 1,
+        "sentimentScore": 0.6,
+        "affectedTickers": [
+          "SOL",
+          "XRP",
+          "BNB",
+          "TRX",
+          "BTC",
+          "ETH"
+        ],
+        "lastUpdated": "2026-05-07 12:09:55.14+00",
+        "newsOneLiner": "MOEX adding SOL, TRX, BNB, XRP to its benchmark suite creates structured institutional demand in Russia, broadening altcoin adoption beyond Western markets.",
+        "summary": "Russia's Moscow Exchange announced it will add Solana, Tron, BNB, and XRP to its cryptocurrency benchmark index suite alongside existing instruments, marking a significant exchange-level institutional endorsement of major altcoins in a large, sanctions-constrained but domestically active capital market. The MOEX index addition is analytically distinct from Western institutional adoption signals: Russian institutional investors operate under a sanctions framework that limits access to US-domiciled ETF products and USD-settled custody infrastructure, making exchange-native crypto index benchmarks one of the few standardized frameworks through which domestic institutions can establish structured exposure to digital assets. Exchange index inclusion historically functions as a passive demand catalyst \u2014 pension, endowment, and discretionary fund mandates that track or benchmark against exchange indices experience structural pressure to acquire constituent assets, and the MOEX addition creates this demand mechanic for SOL, TRX, BNB, and XRP in a market not previously accessible to these assets at benchmark level. The altcoin selection is notable: Solana and XRP are both simultaneously accumulating institutional product infrastructure in Western markets (Jito-HSDT Asia-Pacific partnership, XRP regulatory tailwind from CLARITY Act), meaning the MOEX addition arrives as a second-order demand signal layering onto existing Western institutional momentum rather than operating in isolation. Tron and BNB's inclusion signals that MOEX is benchmarking the full top-tier altcoin universe rather than confining its index to the ETH ecosystem. The sanctions dimension creates an important caveat: the actual capital flows enabled are constrained by Russia's exclusion from SWIFT and USD settlement systems, meaning the demand catalyst operates through ruble-denominated or crypto-native settlement mechanisms. However, the exchange-level institutional recognition signal has global narrative value \u2014 it extends the institutional altcoin adoption thesis beyond US, European, and Asia-Pacific markets into a fifth major jurisdiction, reducing the 'Western-only phenomenon' counterargument that altcoin skeptics have applied to prior institutional endorsements.",
+        "rankKey": {
+          "impactRank": 2,
+          "relevance": 1,
+          "ageHours": 87.39980194444445,
+          "freshnessDecay": 0,
+          "oneLinerOnSymbol": true,
+          "compositeAssociationScore": 0.25
+        },
+        "chosen": true,
+        "whyLost": null,
+        "gates": {
+          "contextGatePassed": false,
+          "blendGatePassed": false
+        },
+        "affinity": {
+          "score": 4,
+          "threshold": 2,
+          "reasons": [
+            "text_token_hit:SOL",
+            "position_primary_hit:SOL",
+            "normal_tag:n=6"
+          ],
+          "passed": true
+        },
+        "surfacing": {
+          "score": null,
+          "threshold": 0.55,
+          "decision": "failed_floor",
+          "oneLinerOnSymbol": false
+        }
+      }
+    ],
+    "aliasResolution": {
+      "symbolUpper": "SOL/USD",
+      "candidatesTried": [
+        "SOL/USD",
+        "SOL"
+      ],
+      "chosenHitVia": "SOL"
+    },
+    "chosenIndex": 1
+  },
+  "macro": {
+    "headlines": [
+      "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "Crude Oil Surge Toward $100/bbl \u2014 Energy Market Stress",
+      "US Crypto Regulatory Clarity \u2014 SEC-CFTC MoU Resolves Jurisdictional Overlap, Completing Institutional Adoption Precondition Stack",
+      "Non-Tariff Barrier Trade Fragmentation \u2014 UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+      "US Consumer Confidence-Spending Divergence \u2014 Sentiment at Record Lows While Hard Data Holds, Flagging Deferred Recession Risk",
+      "UK Trumpflation Stagflation \u2014 Dual Energy and Tariff Shock Erodes British Savers' Real Wealth as BoE Rate Hold Fails to Keep Pace",
+      "PLA Leadership Purge Escalation \u2014 Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "Pakistan Rupee Near-Term Stability \u2014 IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+      "African Mining Resource Nationalism Escalation \u2014 Ghana Localisation Policy Adds Regulatory Friction Layer for International Operators",
+      "Hantavirus Cruise Ship Outbreak \u2014 MV Hondius Infection Event Creates Near-Term Booking Demand and Regulatory Risk for Cruise Operators"
+    ],
+    "dominantTheme": "macro",
+    "overallSentiment": -0.23100000000000004,
+    "gatePassed": false,
+    "gateThreshold": 0.3
+  },
+  "fallbacks": {
+    "holdAboveSource": "none",
+    "breakBelowSource": "none",
+    "contextSource": "none",
+    "contextTrimmed": false,
+    "memoryAliasResolved": true,
+    "memoryDroppedForNewsSentiment": false,
+    "neutralFallbackUsed": true
+  },
+  "brief": {
+    "ticker": "SOL",
+    "status": {
+      "label": "Neutral",
+      "tone": "neutral"
+    },
+    "price": 0,
+    "changePercent": 0,
+    "confidence": "Low",
+    "updatedAt": null,
+    "whatHappening": "No actionable technical signals right now.",
+    "whatToWatch": {
+      "holdAbove": "\u2014",
+      "breakBelowTarget": "\u2014"
+    },
+    "context": "",
+    "hasMaterialContext": false
+  },
+  "notes": [
+    "no candidate signals \u2014 neutral fallback brief",
+    "memory matched on alias SOL (digest symbol SOL/USD)",
+    "affinity gate rejected 1 candidate (threshold=2) \u2014 reasons: text_token_miss (1), position_primary_miss (1)"
+  ]
+}
