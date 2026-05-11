@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   parseCuratorOutput,
   formatCuratorNotification,
@@ -1021,7 +1021,7 @@ describe("applyChanges Slice 2 primary_ticker", () => {
 
     const params = findInsertParams(queries);
     expect(params).toBeDefined();
-    // INSERT order: ..., tickersUnknown ($20), primary_ticker ($21), primary_ticker_source ($22)
+    // INSERT order: ..., tickersUnknown ($20), primary_ticker ($21), primary_ticker_source ($22), tickers_inferred ($23)
     expect(params![20]).toBe("AAPL");
     expect(params![21]).toBe("batch_heuristic");
   });
@@ -1060,5 +1060,134 @@ describe("applyChanges Slice 2 primary_ticker", () => {
     const updateSql = findUpdateSql(queries);
     expect(updateSql).toBeDefined();
     expect(updateSql).not.toContain("primary_ticker");
+  });
+});
+
+// ── applyChanges: Slice 5 ticker sanitization ────────────────────────
+
+describe("applyChanges Slice 5 ticker sanitization", () => {
+  const provenance = {
+    modelName: "test-model",
+    generatedAt: "2026-04-01T00:00:00Z",
+    unknownTickerSet: new Set<string>(),
+  };
+
+  afterEach(() => {
+    delete process.env["MEMORY_CURATOR_SANITIZE_BROAD_TICKERS"];
+  });
+
+  it("drops unevidenced SPX500 from affected_tickers and populates tickers_inferred", async () => {
+    const { pool, queries } = makeMockPool();
+    const nt = makeNewTheme({ affected_tickers: ["JEPI", "SPX500"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    const batchStories = [
+      makeStory({ affected_tickers: ["JEPI"], primary_ticker: null }),
+    ];
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, batchStories);
+
+    const params = findInsertParams(queries);
+    expect(params).toBeDefined();
+    // $8 = affected_tickers (index 7) — sanitized
+    expect(params![7]).toEqual(["JEPI"]);
+    // $23 = tickers_inferred (index 22)
+    expect(params![22]).toEqual(["SPX500"]);
+  });
+
+  it("keeps evidenced boilerplate tickers in affected_tickers", async () => {
+    const { pool, queries } = makeMockPool();
+    const nt = makeNewTheme({ affected_tickers: ["OIL", "SPX500"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    const batchStories = [
+      makeStory({ affected_tickers: ["OIL", "SPX500"], primary_ticker: null }),
+    ];
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, batchStories);
+
+    const params = findInsertParams(queries);
+    expect(params).toBeDefined();
+    expect(params![7]).toEqual(["OIL", "SPX500"]);
+    expect(params![22]).toEqual([]);
+  });
+
+  it("derives primary_ticker from RAW tickers before sanitization (anchor invariance)", async () => {
+    const { pool, queries } = makeMockPool();
+    // Theme has AAPL + SPX500; stories carry AAPL primary. SPX500 is unevidenced boilerplate.
+    const nt = makeNewTheme({ affected_tickers: ["AAPL", "SPX500"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    const batchStories = [
+      makeStory({ affected_tickers: ["AAPL"], primary_ticker: "AAPL" }),
+    ];
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, batchStories);
+
+    const params = findInsertParams(queries);
+    expect(params).toBeDefined();
+    // affected_tickers sanitized to ["AAPL"]
+    expect(params![7]).toEqual(["AAPL"]);
+    // tickers_inferred = ["SPX500"]
+    expect(params![22]).toEqual(["SPX500"]);
+    // primary_ticker still derived from raw ["AAPL", "SPX500"]
+    expect(params![20]).toBe("AAPL");
+    expect(params![21]).toBe("batch_heuristic");
+  });
+
+  it("writes raw tickers and empty tickers_inferred when env flag disables sanitization", async () => {
+    process.env["MEMORY_CURATOR_SANITIZE_BROAD_TICKERS"] = "false";
+
+    const { pool, queries } = makeMockPool();
+    const nt = makeNewTheme({ affected_tickers: ["JEPI", "SPX500"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    const batchStories = [
+      makeStory({ affected_tickers: ["JEPI"], primary_ticker: null }),
+    ];
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, batchStories);
+
+    const params = findInsertParams(queries);
+    expect(params).toBeDefined();
+    // No sanitization — raw tickers preserved
+    expect(params![7]).toEqual(["JEPI", "SPX500"]);
+    // Empty inferred
+    expect(params![22]).toEqual([]);
+  });
+
+  it("does NOT touch affected_tickers or tickers_inferred on the UPDATE path", async () => {
+    const { pool, queries } = makeMockPool();
+    const update: ThemeUpdateEntry = {
+      theme_id: "550e8400-e29b-41d4-a716-446655440000",
+      new_facts: ["new fact"],
+      updated_summary: "updated",
+      updated_impact: "high",
+      updated_relevance: 0.9,
+    };
+    const output: CuratorOutput = { new_themes: [], updates: [update], decay: [] };
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, []);
+
+    const updateSql = findUpdateSql(queries);
+    expect(updateSql).toBeDefined();
+    expect(updateSql).not.toContain("affected_tickers");
+    expect(updateSql).not.toContain("tickers_inferred");
+  });
+
+  it("INSERT SQL includes tickers_inferred column", async () => {
+    const { pool, queries } = makeMockPool();
+    const nt = makeNewTheme({ affected_tickers: ["AAPL"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, [
+      makeStory({ affected_tickers: ["AAPL"], primary_ticker: null }),
+    ]);
+
+    const insertQuery = queries.find(
+      (q) => typeof q.sql === "string" && q.sql.includes("INSERT INTO analysis_market_memory"),
+    );
+    expect(insertQuery).toBeDefined();
+    expect(insertQuery!.sql).toContain("tickers_inferred");
   });
 });

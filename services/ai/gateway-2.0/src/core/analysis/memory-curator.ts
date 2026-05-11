@@ -13,6 +13,10 @@ import {
   validateTickersAgainstUniverse,
 } from "./provenance.js";
 import { computeMemoryPrimary } from "./primary-ticker.js";
+import {
+  sanitizeAffectedTickers,
+  getSanitizeBroadTickersEnabled,
+} from "./ticker-sanitizer.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -747,20 +751,30 @@ export async function applyChanges(
 
     for (const nt of output.new_themes) {
       const themeId = randomUUID();
-      const tickerPrices: Record<string, number> = {};
-      for (const tk of nt.affected_tickers) {
-        if (priceSnapshot[tk] !== undefined) tickerPrices[tk] = priceSnapshot[tk];
-      }
-      const tickersUnknown = nt.affected_tickers.filter((t) =>
-        provenance.unknownTickerSet.has(t),
-      );
 
+      // Slice 2: derive primary_ticker from RAW affected_tickers (before sanitization).
       const memoryPrimary = computeMemoryPrimary(
         nt.affected_tickers,
         batchStories.map((s) => ({
           affected_tickers: s.affected_tickers,
           primary_ticker: s.primary_ticker,
         })),
+      );
+
+      // Slice 5: remove unevidenced broad-index boilerplate from affected_tickers.
+      const storyTickerProjection = batchStories.map((s) => ({
+        affected_tickers: s.affected_tickers,
+      }));
+      const sanitization = getSanitizeBroadTickersEnabled()
+        ? sanitizeAffectedTickers(nt.affected_tickers, storyTickerProjection)
+        : { kept: [...nt.affected_tickers], inferred: [] as string[] };
+
+      const tickerPrices: Record<string, number> = {};
+      for (const tk of sanitization.kept) {
+        if (priceSnapshot[tk] !== undefined) tickerPrices[tk] = priceSnapshot[tk];
+      }
+      const tickersUnknown = sanitization.kept.filter((t) =>
+        provenance.unknownTickerSet.has(t),
       );
 
       await client.query(
@@ -771,12 +785,12 @@ export async function applyChanges(
           first_observed, last_updated, update_count, source_batch_ids,
           price_snapshot_at, ticker_prices_at_creation, news_one_liner,
           model_name, prompt_version, validator_version, generated_at, tickers_unknown,
-          primary_ticker, primary_ticker_source)
+          primary_ticker, primary_ticker_source, tickers_inferred)
          VALUES ($1,$2,'active',$3,$4,$5,$6,1.000,$7,$8,$9,$10,$11,$12,$12,1,$13,$12,$14,$15,
-                 $16,$17,$18,$19,$20,$21,$22)`,
+                 $16,$17,$18,$19,$20,$21,$22,$23)`,
         [
           themeId, nt.theme, nt.summary, nt.key_facts, nt.category,
-          nt.impact_level, nt.affected_sectors, nt.affected_tickers,
+          nt.impact_level, nt.affected_sectors, sanitization.kept,
           nt.market_implications, nt.sentiment, nt.sentiment_score,
           now, batchIds, JSON.stringify(tickerPrices), nt.news_one_liner || null,
           provenance.modelName,
@@ -786,6 +800,7 @@ export async function applyChanges(
           tickersUnknown,
           memoryPrimary.primary_ticker,
           memoryPrimary.primary_ticker_source,
+          sanitization.inferred,
         ],
       );
       newThemes++;
