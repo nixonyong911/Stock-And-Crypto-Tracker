@@ -1,0 +1,149 @@
+{
+  "symbol": "GOLD",
+  "symbolUpper": "GOLD",
+  "aliases": [
+    "GOLD"
+  ],
+  "threshold": 2,
+  "candidatesCount": 5,
+  "passedCount": 2,
+  "chosen": {
+    "theme": "Pakistan Rupee Near-Term Stability — IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+    "news_one_liner": "Pakistan's rupee holds steady near PKR 279/USD, offering fragile relief for EM-exposed portfolios but structural fiscal risks and oil import costs remain.",
+    "affected_tickers": [
+      "GOLD"
+    ],
+    "affinity": {
+      "score": 3,
+      "reasons": [
+        "text_token_miss",
+        "position_primary_hit:GOLD",
+        "narrow_tag_bonus:n=1"
+      ],
+      "passed": true,
+      "threshold": 2
+    }
+  },
+  "candidates": [
+    {
+      "theme": "G7 Synchronized Rate Hold — Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "DJ30",
+        "TLT",
+        "GOLD",
+        "OIL"
+      ],
+      "impact_level": "high",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-05 06:04:19.7+00",
+      "news_one_liner": "RBA joins G7 central banks hiking into an energy shock, extending the synchronized monetary paralysis thesis to developed markets beyond the G7 core as ASX rate-sensitive stocks sell off.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=6"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    },
+    {
+      "theme": "US-EU Auto Tariff Escalation — Trump's 25% Tariff Threat Opens New Trade War Front Against Europe's Largest Export Sector",
+      "affected_tickers": [
+        "DAX",
+        "STOXX50",
+        "GM",
+        "F",
+        "TSLA",
+        "SPX500",
+        "GOLD"
+      ],
+      "impact_level": "high",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-05 00:07:17.321+00",
+      "news_one_liner": "Trump renewed 25% EU auto tariff threats just after the EU ratified a trade deal, destroying negotiation credibility and widening the trade war front against German automakers.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=7",
+          "normal_tag:n=7"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Non-Tariff Barrier Trade Fragmentation — UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+      "affected_tickers": [
+        "SPX500",
+        "OIL",
+        "GOLD"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-10 06:08:45.991+00",
+      "news_one_liner": "UNCTAD finds LDCs losing 10% of G20 exports to non-tariff barriers, deepening trade fragmentation beyond headline tariff disputes and pressuring EM commodity exporters.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Pakistan Rupee Near-Term Stability — IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+      "affected_tickers": [
+        "GOLD"
+      ],
+      "impact_level": "low",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-10 00:07:56.702+00",
+      "news_one_liner": "Pakistan's rupee holds steady near PKR 279/USD, offering fragile relief for EM-exposed portfolios but structural fiscal risks and oil import costs remain.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:GOLD",
+          "narrow_tag_bonus:n=1"
+        ],
+        "passed": true
+      },
+      "chosen": true
+    },
+    {
+      "theme": "African Mining Resource Nationalism Escalation — Ghana Localisation Policy Adds Regulatory Friction Layer for International Operators",
+      "affected_tickers": [
+        "GOLD",
+        "GLD",
+        "GDX"
+      ],
+      "impact_level": "low",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-08 06:09:34.505+00",
+      "news_one_liner": "Ghana's US debt deal modestly reduces fiscal pressure driving aggressive resource nationalism, but localisation policy friction for gold miners like GDX and CCJ-adjacent operators remains structurally",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:GOLD",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true
+      },
+      "chosen": false
+    }
+  ]
+}

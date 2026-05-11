@@ -1,0 +1,131 @@
+{
+  "symbol": "AAPL",
+  "symbolUpper": "AAPL",
+  "aliases": [
+    "AAPL"
+  ],
+  "threshold": 2,
+  "candidatesCount": 4,
+  "passedCount": 2,
+  "chosen": {
+    "theme": "Berkshire Annual Meeting Anti-Speculation Signal — Buffett's Crypto Warning and Apple Endorsement Create Bifurcated Retail Sentiment Event",
+    "news_one_liner": "Buffett's 'risky' crypto warning at Berkshire's annual meeting threatens retail BTC/ETH inflows while boosting AAPL credibility.",
+    "affected_tickers": [
+      "BTC",
+      "ETH",
+      "AAPL",
+      "BRK.B",
+      "SPX500"
+    ],
+    "affinity": {
+      "score": 2,
+      "reasons": [
+        "text_token_hit:AAPL",
+        "position_primary_miss:position=3",
+        "normal_tag:n=5"
+      ],
+      "passed": true,
+      "threshold": 2
+    }
+  },
+  "candidates": [
+    {
+      "theme": "Berkshire Annual Meeting Anti-Speculation Signal — Buffett's Crypto Warning and Apple Endorsement Create Bifurcated Retail Sentiment Event",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "AAPL",
+        "BRK.B",
+        "SPX500"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-04 00:09:06.597+00",
+      "news_one_liner": "Buffett's 'risky' crypto warning at Berkshire's annual meeting threatens retail BTC/ETH inflows while boosting AAPL credibility.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:AAPL",
+          "position_primary_miss:position=3",
+          "normal_tag:n=5"
+        ],
+        "passed": true
+      },
+      "chosen": true
+    },
+    {
+      "theme": "Google Digital Health Platform Consolidation — Fitbit Air and Google Health App Relaunch Signal Alphabet's AI-Wearables Push Into Apple's Core Health Ecosystem",
+      "affected_tickers": [
+        "GOOGL",
+        "AAPL",
+        "NSDQ100"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-09 18:03:24.437+00",
+      "news_one_liner": "Google's Fitbit Air and AI health app relaunch escalate competition with Apple Watch and position Alphabet as a clinical data platform in the $500B digital health market.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    },
+    {
+      "theme": "PLA Leadership Purge Escalation — Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "affected_tickers": [
+        "FXI",
+        "SPX500",
+        "NSDQ100",
+        "NVDA",
+        "AAPL"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-08 12:09:57.203+00",
+      "news_one_liner": "China's death sentences for two ex-defense ministers deepen PLA command uncertainty, raising tail-risk premiums for Taiwan-exposed tech and semiconductor names.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=5"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Apple AI Product Litigation — Siri $250M Settlement Establishes Legal Precedent for AI Feature Misrepresentation Across Big Tech",
+      "affected_tickers": [
+        "AAPL",
+        "MSFT",
+        "GOOGL",
+        "META",
+        "NSDQ100"
+      ],
+      "impact_level": "low",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-07 18:04:11.841+00",
+      "news_one_liner": "Apple's $250M Siri settlement creates a litigation blueprint threatening all big tech AI feature marketing claims, raising compliance costs sector-wide.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:AAPL",
+          "normal_tag:n=5"
+        ],
+        "passed": true
+      },
+      "chosen": false
+    }
+  ]
+}

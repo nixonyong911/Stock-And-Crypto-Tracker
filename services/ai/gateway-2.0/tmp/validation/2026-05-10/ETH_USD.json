@@ -1,0 +1,254 @@
+{
+  "symbol": "ETH/USD",
+  "symbolUpper": "ETH/USD",
+  "aliases": [
+    "ETH/USD",
+    "ETH"
+  ],
+  "threshold": 2,
+  "candidatesCount": 9,
+  "passedCount": 4,
+  "chosen": {
+    "theme": "Ethereum Relative Outperformance — ETH/BTC Ratio Improvement and Net Taker Volume Inflection Signal Demand Regime Shift",
+    "news_one_liner": "Ethereum's $3,000 price target gains analyst consensus as crypto recovery sentiment aligns with equity risk-on, reinforcing institutional accumulation at current levels.",
+    "affected_tickers": [
+      "ETH",
+      "BTC",
+      "COIN",
+      "IBIT"
+    ],
+    "affinity": {
+      "score": 4,
+      "reasons": [
+        "text_token_hit:ETH",
+        "position_primary_hit:ETH",
+        "normal_tag:n=4"
+      ],
+      "passed": true,
+      "threshold": 2
+    }
+  },
+  "candidates": [
+    {
+      "theme": "Ethereum Relative Outperformance — ETH/BTC Ratio Improvement and Net Taker Volume Inflection Signal Demand Regime Shift",
+      "affected_tickers": [
+        "ETH",
+        "BTC",
+        "COIN",
+        "IBIT"
+      ],
+      "impact_level": "high",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-09 18:03:24.437+00",
+      "news_one_liner": "Ethereum's $3,000 price target gains analyst consensus as crypto recovery sentiment aligns with equity risk-on, reinforcing institutional accumulation at current levels.",
+      "affinity": {
+        "score": 4,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:ETH",
+          "position_primary_hit:ETH",
+          "normal_tag:n=4"
+        ],
+        "passed": true
+      },
+      "chosen": true
+    },
+    {
+      "theme": "US Crypto Regulatory Clarity — SEC-CFTC MoU Resolves Jurisdictional Overlap, Completing Institutional Adoption Precondition Stack",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "COIN",
+        "HOOD"
+      ],
+      "impact_level": "high",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-08 18:04:08.551+00",
+      "news_one_liner": "Bitcoin holds $80K range support ahead of the jobs report while Tether's $515M USDT freeze confirms stablecoin compliance infrastructure is operating at institutional scale alongside BTC ETF accumulat",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "normal_tag:n=4"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    },
+    {
+      "theme": "DeFi Smart Contract Exploit Cycle — Ekubo Protocol $1.4M EVM Swap Router Breach Extends Cross-Chain Security Risk Pattern",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "COIN"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-07 06:10:07.415+00",
+      "news_one_liner": "Ekubo Protocol's $1.4M EVM router exploit reinforces institutional preference for audited custody over permissionless DeFi, pressuring ETH and BTC DeFi sentiment.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:ETH",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Moscow Exchange Altcoin Index Expansion — MOEX Benchmark Suite Addition Signals Emerging Market Institutional Crypto Recognition Beyond BTC/ETH",
+      "affected_tickers": [
+        "SOL",
+        "XRP",
+        "BNB",
+        "TRX",
+        "BTC",
+        "ETH"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-07 12:09:55.14+00",
+      "news_one_liner": "MOEX adding SOL, TRX, BNB, XRP to its benchmark suite creates structured institutional demand in Russia, broadening altcoin adoption beyond Western markets.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:ETH",
+          "position_primary_miss:position=6",
+          "normal_tag:n=6"
+        ],
+        "passed": true
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Berkshire Annual Meeting Anti-Speculation Signal — Buffett's Crypto Warning and Apple Endorsement Create Bifurcated Retail Sentiment Event",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "AAPL",
+        "BRK.B",
+        "SPX500"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-04 00:09:06.597+00",
+      "news_one_liner": "Buffett's 'risky' crypto warning at Berkshire's annual meeting threatens retail BTC/ETH inflows while boosting AAPL credibility.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:ETH",
+          "position_primary_miss:position=2",
+          "normal_tag:n=5"
+        ],
+        "passed": true
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Privacy Coin Institutional Surge — Multicoin Capital ZEC Disclosure and 70% Rally Signal Emerging Demand Bifurcation Between Transparent and Anonymous Crypto Rails",
+      "affected_tickers": [
+        "ZEC",
+        "BTC",
+        "ETH",
+        "COIN"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-09 06:11:23.499+00",
+      "news_one_liner": "US seizure of Iranian BTC and Tether's $515M freeze provide back-to-back proof that custodied crypto can be censored, supercharging ZEC's privacy-demand thesis.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "normal_tag:n=4"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Bitcoin Custodial Censorship-Resistance Myth — US Seizure of Iranian Crypto Assets Proves State Actors Can Restrict BTC Access at Scale",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "COIN",
+        "ZEC"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-09 06:11:23.499+00",
+      "news_one_liner": "US seizure of Iranian crypto proves custodied Bitcoin can be frozen by state actors, undermining BTC's safe-haven premium and boosting privacy coin demand.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "normal_tag:n=4"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Crypto Altcoin Infrastructure Maturation — Chainlink Secures $100B TVS While XRP Tests Key $1.45 Resistance Amid Regulatory Tailwind",
+      "affected_tickers": [
+        "LINK",
+        "XRP",
+        "BTC",
+        "ETH",
+        "SOL",
+        "COIN"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-05 00:07:17.321+00",
+      "news_one_liner": "Chainlink's $100B TVS milestone and XRP's $1.45 resistance test signal DeFi infrastructure maturation as regulatory clarity unlocks altcoin momentum.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=4",
+          "normal_tag:n=6"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    },
+    {
+      "theme": "State-Sponsored Crypto Theft Dominance — North Korea Claims 75%+ of Global Hack Value, Escalating Custody Security and Regulatory Pressure",
+      "affected_tickers": [
+        "BTC",
+        "ETH",
+        "COIN",
+        "PANW",
+        "CRWD"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-05 00:07:17.321+00",
+      "news_one_liner": "TRM Labs confirmed North Korea accounts for 76% of 2026 crypto hack losses, making state-sponsored theft the dominant security threat as institutional crypto values surge.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "normal_tag:n=5"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    }
+  ]
+}

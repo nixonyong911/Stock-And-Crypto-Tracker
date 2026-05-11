@@ -1,0 +1,88 @@
+{
+  "input": {
+    "symbol": "NEAR/USD",
+    "assetType": "crypto",
+    "mode": "strict",
+    "requestedAt": "2026-05-10T06:26:08.223Z"
+  },
+  "freshness": {
+    "priceTargetAnalysisDate": null,
+    "memoryChosenLastUpdated": null,
+    "memoryNewestLastUpdated": null,
+    "requestedAt": "2026-05-10T06:26:08.223Z"
+  },
+  "candidateSignals": {
+    "original": [],
+    "sorted": [],
+    "tieGroups": [],
+    "tieBreak": {
+      "used": false,
+      "mechanism": "n/a",
+      "note": "no candidate signals"
+    },
+    "primaryIndexInOriginal": null,
+    "rationale": "no candidate signals — neutral fallback brief"
+  },
+  "primary": null,
+  "truth": null,
+  "derived": null,
+  "memory": {
+    "candidates": [],
+    "aliasResolution": {
+      "symbolUpper": "NEAR/USD",
+      "candidatesTried": [
+        "NEAR/USD",
+        "NEAR"
+      ],
+      "chosenHitVia": null
+    },
+    "chosenIndex": null
+  },
+  "macro": {
+    "headlines": [
+      "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "Crude Oil Surge Toward $100/bbl — Energy Market Stress",
+      "US Crypto Regulatory Clarity — SEC-CFTC MoU Resolves Jurisdictional Overlap, Completing Institutional Adoption Precondition Stack",
+      "Non-Tariff Barrier Trade Fragmentation — UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+      "US Consumer Confidence-Spending Divergence — Sentiment at Record Lows While Hard Data Holds, Flagging Deferred Recession Risk",
+      "UK Trumpflation Stagflation — Dual Energy and Tariff Shock Erodes British Savers' Real Wealth as BoE Rate Hold Fails to Keep Pace",
+      "PLA Leadership Purge Escalation — Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "Pakistan Rupee Near-Term Stability — IMF Program Anchor Holds USD/PKR Steady Amid Structural Fiscal Fragility",
+      "African Mining Resource Nationalism Escalation — Ghana Localisation Policy Adds Regulatory Friction Layer for International Operators",
+      "Hantavirus Cruise Ship Outbreak — MV Hondius Infection Event Creates Near-Term Booking Demand and Regulatory Risk for Cruise Operators"
+    ],
+    "dominantTheme": "macro",
+    "overallSentiment": -0.25700000000000006,
+    "gatePassed": false,
+    "gateThreshold": 0.3
+  },
+  "fallbacks": {
+    "holdAboveSource": "none",
+    "breakBelowSource": "none",
+    "contextSource": "none",
+    "memoryAliasResolved": false,
+    "memoryDroppedForNewsSentiment": false,
+    "neutralFallbackUsed": true
+  },
+  "brief": {
+    "ticker": "NEAR",
+    "status": {
+      "label": "Neutral",
+      "tone": "neutral"
+    },
+    "price": 0,
+    "changePercent": 0,
+    "confidence": "Low",
+    "updatedAt": null,
+    "whatHappening": "No actionable technical signals right now.",
+    "whatToWatch": {
+      "holdAbove": "—",
+      "breakBelowTarget": "—"
+    },
+    "context": "",
+    "hasMaterialContext": false
+  },
+  "notes": [
+    "no candidate signals — neutral fallback brief"
+  ]
+}

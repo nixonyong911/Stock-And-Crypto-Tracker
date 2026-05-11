@@ -1,0 +1,87 @@
+{
+  "symbol": "SOL/USD",
+  "symbolUpper": "SOL/USD",
+  "aliases": [
+    "SOL/USD",
+    "SOL"
+  ],
+  "threshold": 2,
+  "candidatesCount": 2,
+  "passedCount": 1,
+  "chosen": {
+    "theme": "Moscow Exchange Altcoin Index Expansion — MOEX Benchmark Suite Addition Signals Emerging Market Institutional Crypto Recognition Beyond BTC/ETH",
+    "news_one_liner": "MOEX adding SOL, TRX, BNB, XRP to its benchmark suite creates structured institutional demand in Russia, broadening altcoin adoption beyond Western markets.",
+    "affected_tickers": [
+      "SOL",
+      "XRP",
+      "BNB",
+      "TRX",
+      "BTC",
+      "ETH"
+    ],
+    "affinity": {
+      "score": 4,
+      "reasons": [
+        "text_token_hit:SOL",
+        "position_primary_hit:SOL",
+        "normal_tag:n=6"
+      ],
+      "passed": true,
+      "threshold": 2
+    }
+  },
+  "candidates": [
+    {
+      "theme": "Moscow Exchange Altcoin Index Expansion — MOEX Benchmark Suite Addition Signals Emerging Market Institutional Crypto Recognition Beyond BTC/ETH",
+      "affected_tickers": [
+        "SOL",
+        "XRP",
+        "BNB",
+        "TRX",
+        "BTC",
+        "ETH"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-07 12:09:55.14+00",
+      "news_one_liner": "MOEX adding SOL, TRX, BNB, XRP to its benchmark suite creates structured institutional demand in Russia, broadening altcoin adoption beyond Western markets.",
+      "affinity": {
+        "score": 4,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:SOL",
+          "position_primary_hit:SOL",
+          "normal_tag:n=6"
+        ],
+        "passed": true
+      },
+      "chosen": true
+    },
+    {
+      "theme": "Crypto Altcoin Infrastructure Maturation — Chainlink Secures $100B TVS While XRP Tests Key $1.45 Resistance Amid Regulatory Tailwind",
+      "affected_tickers": [
+        "LINK",
+        "XRP",
+        "BTC",
+        "ETH",
+        "SOL",
+        "COIN"
+      ],
+      "impact_level": "medium",
+      "relevance_score": "1.000",
+      "last_updated": "2026-05-05 00:07:17.321+00",
+      "news_one_liner": "Chainlink's $100B TVS milestone and XRP's $1.45 resistance test signal DeFi infrastructure maturation as regulatory clarity unlocks altcoin momentum.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=6"
+        ],
+        "passed": false
+      },
+      "chosen": false
+    }
+  ]
+}
