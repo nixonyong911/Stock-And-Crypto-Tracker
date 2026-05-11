@@ -261,3 +261,56 @@ The `affected_tickers && $1::text[]` filter in `fetchTickerMemoryText` and `fetc
 
 - Remove the `inferred_only` branch and revert `attachmentKind` to always `"none"` — single code block.
 - Set `SMART_DIGEST_INFERRED_ONLY_PENALTY=0` (or unset it) to disable the penalty at runtime without any code change.
+
+---
+
+## Slice 7 — Inferred-only tuning + env-gated candidate inclusion
+
+**Decision target:** Ship the penalty compose-default (`-2`) and the env-gated SQL expansion (`SMART_DIGEST_INCLUDE_INFERRED_ONLY`, default `false`) as additive, reversible changes on top of Slice 6. The include flag stays dormant at default; its behavioral effect is only relevant when production data later contains non-empty `tickers_inferred` AND the flag is explicitly flipped on.
+
+### Environment knobs
+
+| Variable | Default | Clamp / validation | Effect |
+|---|---|---|---|
+| `SMART_DIGEST_INFERRED_ONLY_PENALTY` | `-2` (compose layer) | `[-5, 0]` clamped in `getInferredOnlyPenalty()` | Score penalty applied when `attachmentKind === "inferred_only"`. Source-level default remains `0`; the `-2` lives in `deployment/vm/docker-compose.yml` so revert is one line. |
+| `SMART_DIGEST_INCLUDE_INFERRED_ONLY` | `false` (compose layer) | Truthy: `"true"` / `"1"` only; everything else is false | When true, fetchers also pull rows whose digest-symbol alias appears only in `tickers_inferred`. Default false — no behavior change until explicitly enabled. |
+
+### SQL predicate shape per fetcher
+
+All three fetchers use the canonical predicate:
+
+```sql
+(affected_tickers && $K::text[]
+ OR ($I::bool AND tickers_inferred && $K::text[]))
+```
+
+Where `$K` is the existing alias-array parameter and `$I` is the newly-appended boolean flag.
+
+| Fetcher | File | `$K` | `$I` | Params shape |
+|---|---|---|---|---|
+| `fetchTickerMemoryText` | `recommendation-engine.ts` | `$1` | `$3` | `[string[], number, boolean]` |
+| `fetchNewsHeadlines` (with `symbolFilter`) | `recommendation-engine.ts` | `$2` | `$3` | `[number, string[], boolean]` |
+| `fetchMemoryCandidatesForDebug` | `digest-debug.ts` | `$1` | `$2` | `[string[], boolean]` |
+
+When `$I` is bound `false`, the OR-arm evaluates to `false` for every row, so the predicate reduces to the original `affected_tickers && $K::text[]` filter. Observable behavioral contract: at flag `false` the returned candidate set matches the Slice 6 default-path outcome, asserted by deep-equal tests.
+
+### TS-side iteration changes
+
+- `fetchTickerMemoryText`: inner per-digest hit-check probes both `row.affected_tickers` and `row.tickers_inferred` (when flag is true) before filtering.
+- `fetchNewsHeadlines`: outer ticker loop iterates `[...keptTickers, ...inferredTickers]` where `inferredTickers` is empty when flag is false.
+- `fetchMemoryCandidatesForDebug`: no TS iteration change needed (single-symbol scoring already handles classification via `computeSymbolAffinity`).
+
+### Data-aware execution branches
+
+- **Branch A (inferred_nonempty == 0):** No `inferred_only` candidates can appear regardless of flag state. Wiring ships dormant. Validation: BEFORE snapshot grep guard confirms zero `inferred_only` attachments; tests prove default-flag behavioral parity with Slice 6.
+- **Branch B (inferred_nonempty > 0):** AFTER snapshot with flag=true + penalty=-2 enables the full before/after flip comparison. Regression guard: no symbol whose BEFORE chosen-row was `attachmentKind="kept"` may have its AFTER chosen-row become `attachmentKind="inferred_only"`.
+
+### Reversibility
+
+- `SMART_DIGEST_INFERRED_ONLY_PENALTY=0` + `SMART_DIGEST_INCLUDE_INFERRED_ONLY=false` (or unset both) returns the system to Slice 6 behavior exactly.
+- The penalty value lives in the compose layer, not in source code. Revert is one line in `docker-compose.yml` or an Infisical override.
+- The include flag defaults to `false` in compose; flipping to `true` requires explicit action via Infisical or compose override.
+
+### Caveat
+
+The include flag stays dormant by default and is only behaviorally relevant when production data contains non-empty `tickers_inferred` AND the flag is explicitly flipped on. Until both conditions hold, this slice ships dormant wiring and a stored-but-unreached penalty value.

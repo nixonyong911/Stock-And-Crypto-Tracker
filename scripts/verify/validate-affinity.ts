@@ -1,20 +1,28 @@
 /**
- * Smart Digest — Step 3 Affinity Validation
+ * Smart Digest — Affinity Validation (Slice 7 update)
  *
  * Read-only validation harness. Reads `analysis_market_memory` JSON dumped
- * from prod via SSH into stdin (or a file specified as the second arg),
- * scores every fresh row against a hard-coded list of validation symbols
- * using the same `computeSymbolAffinity` the engine uses, and emits one
- * `tmp/validation/<date>/<symbol>.json` artefact per symbol.
+ * from prod via SSH into stdin, scores every fresh row against a hard-coded
+ * list of validation symbols using the same `computeSymbolAffinity` the
+ * engine uses, and emits one `tmp/validation/<date>/<symbol>.json` artefact
+ * per symbol.
+ *
+ * The JSON projection must include `tickers_inferred`, `primary_ticker`,
+ * and `primary_ticker_source` (guaranteed when using `row_to_json(amm)`).
+ *
+ * Env knobs honoured:
+ *   - SMART_DIGEST_INCLUDE_INFERRED_ONLY  (default false)
+ *     When "true" / "1", the in-script iteration also probes
+ *     `tickers_inferred` for alias intersection (mirrors the SQL expansion
+ *     gated by the same flag in production fetchers).
+ *   - SMART_DIGEST_INFERRED_ONLY_PENALTY  (default 0)
+ *     Forwarded to `computeSymbolAffinity` via the env reader.
  *
  * Usage (from repo root):
  *
- *   ssh ... 'docker exec postgres psql ... -c "COPY (SELECT ...) TO STDOUT"' \
+ *   ssh ... 'docker exec postgres psql ... -c "COPY (SELECT row_to_json(amm)
+ *     FROM analysis_market_memory amm WHERE status IN ('"'"'active'"'"','"'"'fading'"'"')) TO STDOUT"' \
  *     | npx tsx scripts/verify/validate-affinity.ts
- *
- * The script does not connect to any DB itself — it just consumes the JSON
- * the SSH pipeline produced. That keeps validation reproducible and avoids
- * pulling pg into a script dir.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -24,11 +32,15 @@ import {
   getAffinityMin,
 } from "../../services/ai/gateway-2.0/src/core/analysis/digest-symbol-affinity.js";
 import { newsLookupCandidateSymbols } from "../../services/ai/gateway-2.0/src/core/analysis/recommendation-engine.js";
+import { coercePrimaryTickerSource } from "../../services/ai/gateway-2.0/src/core/analysis/primary-ticker.js";
 
 interface RawRow {
   theme: string | null;
   category: string | null;
   affected_tickers: string[] | null;
+  tickers_inferred: string[] | null;
+  primary_ticker: string | null;
+  primary_ticker_source: string | null;
   news_one_liner: string | null;
   summary: string | null;
   impact_level: string | null;
@@ -38,15 +50,33 @@ interface RawRow {
   status: string | null;
 }
 
+// 11 required spec symbols + 2 optional continuity symbols
 const VALIDATION_SYMBOLS = [
+  // Indices (3)
+  "SPX500",
+  "NSDQ100",
+  "DJ30",
+  // Equities (5)
+  "AAPL",
+  "NVDA",
+  "MSFT",
+  "GOOGL",
+  "META",
+  // Crypto pairs (2)
   "BTC/USD",
   "ETH/USD",
+  // Metals (1)
+  "GOLD",
+  // Optional continuity (2)
   "NEAR/USD",
   "SOL/USD",
-  "AAPL",
-  "GOLD",
-  "SPX500",
 ];
+
+const includeInferred = (() => {
+  const raw = process.env["SMART_DIGEST_INCLUDE_INFERRED_ONLY"] ?? "";
+  const v = raw.toLowerCase();
+  return v === "true" || v === "1";
+})();
 
 const IMPACT_RANK: Record<string, number> = {
   critical: 0,
@@ -98,6 +128,7 @@ async function main() {
     chosenTheme: string | null;
     chosenAffinity: number | null;
     chosenReasons: string[] | null;
+    chosenAttachmentKind: string | null;
   }> = [];
 
   for (const symbol of VALIDATION_SYMBOLS) {
@@ -118,8 +149,13 @@ async function main() {
       const tickers = (r.affected_tickers ?? []).map((t) =>
         (t ?? "").toUpperCase(),
       );
-      const intersects = tickers.some((t) => aliasSet.has(t));
-      if (!intersects) continue;
+      const keptIntersects = tickers.some((t) => aliasSet.has(t));
+      const inferredIntersects =
+        includeInferred &&
+        (r.tickers_inferred ?? []).some((t) =>
+          aliasSet.has((t ?? "").toUpperCase()),
+        );
+      if (!keptIntersects && !inferredIntersects) continue;
       const affinity = computeSymbolAffinity({
         theme: r.theme,
         newsOneLiner: r.news_one_liner,
@@ -127,6 +163,9 @@ async function main() {
         symbolUpper,
         aliases,
         threshold,
+        tickersInferred: r.tickers_inferred ?? [],
+        primaryTicker: r.primary_ticker,
+        primarySource: coercePrimaryTickerSource(r.primary_ticker_source),
       });
       scored.push({
         row: r,
@@ -155,6 +194,7 @@ async function main() {
     const candidates = scored.map((s) => ({
       theme: s.row.theme,
       affected_tickers: s.row.affected_tickers,
+      tickers_inferred: s.row.tickers_inferred ?? [],
       impact_level: s.row.impact_level,
       relevance_score: s.row.relevance_score,
       last_updated: s.row.last_updated,
@@ -164,6 +204,7 @@ async function main() {
         threshold: s.affinity.threshold,
         reasons: s.affinity.reasons,
         passed: s.affinity.passed,
+        attachmentKind: s.affinity.attachmentKind,
       },
       chosen: s === chosen,
     }));
@@ -173,6 +214,7 @@ async function main() {
       symbolUpper,
       aliases,
       threshold,
+      includeInferred,
       candidatesCount: scored.length,
       passedCount,
       chosen: chosen
@@ -180,7 +222,11 @@ async function main() {
             theme: chosen.row.theme,
             news_one_liner: chosen.row.news_one_liner,
             affected_tickers: chosen.row.affected_tickers,
-            affinity: chosen.affinity,
+            tickers_inferred: chosen.row.tickers_inferred ?? [],
+            affinity: {
+              ...chosen.affinity,
+              attachmentKind: chosen.affinity.attachmentKind,
+            },
           }
         : null,
       candidates,
@@ -198,10 +244,11 @@ async function main() {
       chosenTheme: chosen?.row.theme ?? null,
       chosenAffinity: chosen?.affinity.score ?? null,
       chosenReasons: chosen?.affinity.reasons ?? null,
+      chosenAttachmentKind: chosen?.affinity.attachmentKind ?? null,
     });
   }
 
-  console.log(JSON.stringify({ outDir, threshold, summary }, null, 2));
+  console.log(JSON.stringify({ outDir, threshold, includeInferred, summary }, null, 2));
 }
 
 main().catch((err) => {

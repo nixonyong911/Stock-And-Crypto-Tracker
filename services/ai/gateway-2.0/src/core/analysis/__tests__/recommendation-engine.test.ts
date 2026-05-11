@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect } from "vitest";
 import type { Pool, QueryResult, QueryResultRow } from "pg";
 import {
   computeAlignment,
@@ -1247,6 +1247,162 @@ describe("fetchTickerMemoryText — slice 6 tickers_inferred passthrough", () =>
     const out = await fetchTickerMemoryText(pool, ["JEPI"]);
     expect(out.get("JEPI")).toBeDefined();
     expect(out.get("JEPI")?.newsOneLiner).toMatch(/distribution sustainability/);
+  });
+});
+
+// ── Slice 7: fetchTickerMemoryText structural + behavioral tests ──────
+
+describe("fetchTickerMemoryText — slice 7 structural", () => {
+  const INCLUDE_ENV = "SMART_DIGEST_INCLUDE_INFERRED_ONLY";
+  const PENALTY_ENV = "SMART_DIGEST_INFERRED_ONLY_PENALTY";
+  const origInclude = process.env[INCLUDE_ENV];
+  const origPenalty = process.env[PENALTY_ENV];
+
+  function makeCapturingPool(rows: MemoryRow[]) {
+    let lastCall: { sql: string; params: unknown[] } | undefined;
+    const pool = {
+      query: async (sql: string, params: unknown[]) => {
+        lastCall = { sql, params };
+        return { rows, rowCount: rows.length, command: "SELECT", oid: 0, fields: [] };
+      },
+    } as unknown as Pool;
+    return { pool, getLastCall: () => lastCall };
+  }
+
+  beforeEach(() => {
+    delete process.env[INCLUDE_ENV];
+    delete process.env[PENALTY_ENV];
+  });
+
+  afterEach(() => {
+    if (origInclude === undefined) delete process.env[INCLUDE_ENV];
+    else process.env[INCLUDE_ENV] = origInclude;
+    if (origPenalty === undefined) delete process.env[PENALTY_ENV];
+    else process.env[PENALTY_ENV] = origPenalty;
+  });
+
+  it("SQL contains the canonical inferred predicate shape", async () => {
+    const { pool, getLastCall } = makeCapturingPool([]);
+    await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(getLastCall()!.sql).toMatch(
+      /affected_tickers && \$1::text\[\]\s*\n?\s*OR \(\$3::bool AND tickers_inferred && \$1::text\[\]\)/,
+    );
+  });
+
+  it("params has 3 elements with flag=false at default", async () => {
+    const { pool, getLastCall } = makeCapturingPool([]);
+    await fetchTickerMemoryText(pool, ["AAPL"]);
+    const p = getLastCall()!.params;
+    expect(p).toHaveLength(3);
+    expect(Array.isArray(p[0])).toBe(true);
+    expect(typeof p[1]).toBe("number");
+    expect(p[2]).toBe(false);
+  });
+
+  it("params[2]=true when SMART_DIGEST_INCLUDE_INFERRED_ONLY=true", async () => {
+    process.env[INCLUDE_ENV] = "true";
+    const { pool, getLastCall } = makeCapturingPool([]);
+    await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(getLastCall()!.params[2]).toBe(true);
+  });
+});
+
+describe("fetchTickerMemoryText — slice 7 behavioral parity (default path)", () => {
+  const INCLUDE_ENV = "SMART_DIGEST_INCLUDE_INFERRED_ONLY";
+  const PENALTY_ENV = "SMART_DIGEST_INFERRED_ONLY_PENALTY";
+  const origInclude = process.env[INCLUDE_ENV];
+  const origPenalty = process.env[PENALTY_ENV];
+
+  beforeEach(() => {
+    delete process.env[INCLUDE_ENV];
+    delete process.env[PENALTY_ENV];
+  });
+
+  afterEach(() => {
+    if (origInclude === undefined) delete process.env[INCLUDE_ENV];
+    else process.env[INCLUDE_ENV] = origInclude;
+    if (origPenalty === undefined) delete process.env[PENALTY_ENV];
+    else process.env[PENALTY_ENV] = origPenalty;
+  });
+
+  it("default-flag chosen-row is deep-equal to Slice 6 baseline", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "AAPL services beat",
+        news_one_liner: "AAPL services revenue exceeded expectations.",
+        affected_tickers: ["AAPL"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+        tickers_inferred: [],
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")).toBeDefined();
+    expect(out.get("AAPL")?.newsOneLiner).toMatch(/services revenue/);
+  });
+
+  it("empty-inferred + flag true still produces no inferred_only (dormant data)", async () => {
+    process.env[INCLUDE_ENV] = "true";
+    process.env[PENALTY_ENV] = "-2";
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "AAPL services beat",
+        news_one_liner: "AAPL services revenue exceeded expectations.",
+        affected_tickers: ["AAPL"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+        tickers_inferred: [],
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")).toBeDefined();
+    expect(out.get("AAPL")?.newsOneLiner).toMatch(/services revenue/);
+  });
+
+  it("populated-inferred + flag true + penalty -2: inferred_only candidate does NOT win", async () => {
+    process.env[INCLUDE_ENV] = "true";
+    process.env[PENALTY_ENV] = "-2";
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "JEPI Covered-Call ETF Structural Flaw",
+        news_one_liner: "JEPI distribution sustainability risk.",
+        affected_tickers: ["JEPI"],
+        impact_level: "medium",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+        tickers_inferred: ["SPX500"],
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["SPX500"]);
+    // SPX500 only appears in tickers_inferred, so attachmentKind=inferred_only.
+    // Score: text_miss(0) + penalty(-2) + narrow(+1) = -1, below threshold 2 → rejected.
+    expect(out.get("SPX500")).toBeUndefined();
+  });
+
+  it("penalty-zero override lets inferred_only candidate win", async () => {
+    process.env[INCLUDE_ENV] = "true";
+    process.env[PENALTY_ENV] = "0";
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "SPX500 broad index funds see outflows",
+        news_one_liner: "SPX500 ETF rotation continues.",
+        affected_tickers: ["JEPI"],
+        impact_level: "medium",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+        tickers_inferred: ["SPX500"],
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["SPX500"]);
+    // Score: text_hit(+2) + penalty(0) + narrow(+1) = 3 >= threshold 2 → passes
+    expect(out.get("SPX500")).toBeDefined();
+    expect(out.get("SPX500")?.newsOneLiner).toMatch(/ETF rotation/);
   });
 });
 

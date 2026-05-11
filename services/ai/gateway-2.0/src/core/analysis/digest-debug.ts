@@ -61,6 +61,7 @@ import {
 import {
   computeSymbolAffinity,
   getAffinityMin,
+  getIncludeInferredOnly,
   textMentionsAnyAlias,
   type AffinityResult,
   type AttachmentKind,
@@ -643,6 +644,7 @@ export async function fetchMemoryCandidatesForDebug(
   );
   if (candidatesTried.length === 0) return [];
 
+  const includeInferred = getIncludeInferredOnly();
   let rows: MemoryDebugRow[];
   try {
     const res = await db.query<MemoryDebugRow>(
@@ -657,8 +659,9 @@ export async function fetchMemoryCandidatesForDebug(
               primary_ticker, primary_ticker_source, tickers_inferred
          FROM analysis_market_memory
         WHERE status IN ('active', 'fading')
-          AND affected_tickers && $1::text[]`,
-      [candidatesTried],
+          AND (affected_tickers && $1::text[]
+               OR ($2::bool AND tickers_inferred && $1::text[]))`,
+      [candidatesTried, includeInferred],
     );
     rows = res.rows;
   } catch {

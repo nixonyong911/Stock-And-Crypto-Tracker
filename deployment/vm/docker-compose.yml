@@ -462,6 +462,8 @@ services:
       - CURATOR_MAX_STORIES_PER_BATCH=${CURATOR_MAX_STORIES_PER_BATCH:-10}
       - RABBITMQ_URL=amqp://stocktracker:${RABBITMQ_PASSWORD}@rabbitmq:5672
       - OVERVIEW_ALLOWED_USERS=${OVERVIEW_ALLOWED_USERS:-}
+      - SMART_DIGEST_INFERRED_ONLY_PENALTY=${SMART_DIGEST_INFERRED_ONLY_PENALTY:--2}
+      - SMART_DIGEST_INCLUDE_INFERRED_ONLY=${SMART_DIGEST_INCLUDE_INFERRED_ONLY:-false}
     volumes:
       # cursor-agent CLI: mount the entire versions dir (contains node binary + JS chunks)
       # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing

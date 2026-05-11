@@ -242,6 +242,20 @@ export function getInferredOnlyPenalty(): number {
 }
 
 /**
+ * Slice 7B: when true, fetchers also pull rows whose digest-symbol alias
+ * appears only in `tickers_inferred` (i.e. tickers dropped by the Slice 5
+ * sanitizer). Default false — no behavior change until explicitly enabled.
+ * Truthy values: "true", "TRUE", "1". Everything else (including "yes",
+ * "0", empty, non-string-coerced values) returns false.
+ */
+export function getIncludeInferredOnly(): boolean {
+  const raw = process.env["SMART_DIGEST_INCLUDE_INFERRED_ONLY"];
+  if (raw === undefined || raw === "") return false;
+  const v = raw.toLowerCase();
+  return v === "true" || v === "1";
+}
+
+/**
  * Score a single `(memory_row, digest_symbol)` pair. Pure: no I/O, no
  * mutation, no globals. Same inputs always produce identical
  * `{score, reasons, passed, threshold, attachmentKind}`.

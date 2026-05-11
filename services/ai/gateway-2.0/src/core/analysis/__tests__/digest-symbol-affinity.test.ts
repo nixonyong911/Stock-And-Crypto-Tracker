@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   computeSymbolAffinity,
   getAffinityMin,
+  getIncludeInferredOnly,
   getInferredOnlyPenalty,
 } from "../digest-symbol-affinity.js";
 import type { PrimaryTickerSource } from "../primary-ticker.js";
@@ -949,4 +950,74 @@ describe("computeSymbolAffinity — slice 6 determinism + validation symbols", (
       expect(r.reasons.some((x) => x.startsWith("primary_ticker"))).toBe(false);
     });
   }
+});
+
+// ── Slice 7: getIncludeInferredOnly env reader ──────────────────────
+
+describe("getIncludeInferredOnly — env reader", () => {
+  const ENV = "SMART_DIGEST_INCLUDE_INFERRED_ONLY";
+  const original = process.env[ENV];
+
+  beforeEach(() => {
+    delete process.env[ENV];
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env[ENV];
+    else process.env[ENV] = original;
+  });
+
+  it("defaults to false when env is unset", () => {
+    expect(getIncludeInferredOnly()).toBe(false);
+  });
+
+  it("defaults to false when env is empty", () => {
+    process.env[ENV] = "";
+    expect(getIncludeInferredOnly()).toBe(false);
+  });
+
+  it('returns true for "true"', () => {
+    process.env[ENV] = "true";
+    expect(getIncludeInferredOnly()).toBe(true);
+  });
+
+  it('returns true for "TRUE"', () => {
+    process.env[ENV] = "TRUE";
+    expect(getIncludeInferredOnly()).toBe(true);
+  });
+
+  it('returns true for "True"', () => {
+    process.env[ENV] = "True";
+    expect(getIncludeInferredOnly()).toBe(true);
+  });
+
+  it('returns true for "1"', () => {
+    process.env[ENV] = "1";
+    expect(getIncludeInferredOnly()).toBe(true);
+  });
+
+  it('returns false for "false"', () => {
+    process.env[ENV] = "false";
+    expect(getIncludeInferredOnly()).toBe(false);
+  });
+
+  it('returns false for "0"', () => {
+    process.env[ENV] = "0";
+    expect(getIncludeInferredOnly()).toBe(false);
+  });
+
+  it('returns false for "yes"', () => {
+    process.env[ENV] = "yes";
+    expect(getIncludeInferredOnly()).toBe(false);
+  });
+
+  it('returns false for "no"', () => {
+    process.env[ENV] = "no";
+    expect(getIncludeInferredOnly()).toBe(false);
+  });
+
+  it('returns false for arbitrary string "abc"', () => {
+    process.env[ENV] = "abc";
+    expect(getIncludeInferredOnly()).toBe(false);
+  });
 });

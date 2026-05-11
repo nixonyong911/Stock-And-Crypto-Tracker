@@ -3,6 +3,7 @@ import { getMemoryFreshnessHours } from "./digest-brief-truth.js";
 import {
   computeSymbolAffinity,
   getAffinityMin,
+  getIncludeInferredOnly,
   textMentionsAnyAlias,
   type AffinityResult,
 } from "./digest-symbol-affinity.js";
@@ -404,11 +405,13 @@ async function fetchNewsHeadlines(
   db: Pool,
   symbolFilter?: string,
 ): Promise<FetchNewsHeadlinesResult> {
+  const includeInferred = getIncludeInferredOnly();
   const params: unknown[] = [];
   let symbolClause = "";
   if (symbolFilter) {
-    symbolClause = " AND affected_tickers && $1::text[]";
+    symbolClause = " AND (affected_tickers && $2::text[] OR ($3::bool AND tickers_inferred && $2::text[]))";
     params.push(newsLookupCandidateSymbols(symbolFilter));
+    params.push(includeInferred);
   }
 
   const freshHours = getMemoryFreshnessHours();
@@ -417,7 +420,7 @@ async function fetchNewsHeadlines(
             primary_ticker, primary_ticker_source, tickers_inferred
      FROM analysis_market_memory
      WHERE status IN ('active', 'fading')
-       AND last_updated >= NOW() - ($1::int * INTERVAL '1 hour')${symbolClause.replace("$1", "$2")}
+       AND last_updated >= NOW() - ($1::int * INTERVAL '1 hour')${symbolClause}
      ORDER BY relevance_score DESC, last_updated DESC
      LIMIT 50`,
     [freshHours, ...params],
@@ -427,7 +430,9 @@ async function fetchNewsHeadlines(
   const oneLinerMap = new Map<string, string>();
   const affinityMin = getAffinityMin();
   for (const row of rows) {
-    for (const ticker of row.affected_tickers ?? []) {
+    const keptTickers = row.affected_tickers ?? [];
+    const inferredTickers = includeInferred ? (row.tickers_inferred ?? []) : [];
+    for (const ticker of [...keptTickers, ...inferredTickers]) {
       // Per-(row, ticker) affinity: the same row may legitimately be on-symbol
       // for one ticker in `affected_tickers` and contaminated for another.
       // We use the bare ticker as the digest symbol and derive its alias set
@@ -582,6 +587,7 @@ export async function fetchTickerMemoryText(
     for (const c of cands) candidatesUnion.add(c);
   }
 
+  const includeInferred = getIncludeInferredOnly();
   const freshHours = getMemoryFreshnessHours();
   const { rows } = await db.query<MemoryTextRow>(
     `SELECT theme, affected_tickers, news_one_liner, summary, key_facts,
@@ -592,8 +598,9 @@ export async function fetchTickerMemoryText(
      FROM analysis_market_memory
      WHERE status IN ('active', 'fading')
        AND last_updated >= NOW() - ($2::int * INTERVAL '1 hour')
-       AND affected_tickers && $1::text[]`,
-    [Array.from(candidatesUnion), freshHours],
+       AND (affected_tickers && $1::text[]
+            OR ($3::bool AND tickers_inferred && $1::text[]))`,
+    [Array.from(candidatesUnion), freshHours, includeInferred],
   );
 
   if (rows.length === 0) return out;
@@ -605,8 +612,12 @@ export async function fetchTickerMemoryText(
     let best: CandidateInput | undefined;
     for (const row of rows) {
       const tickers = row.affected_tickers ?? [];
-      const hit = tickers.some((t) => candSet.has((t ?? "").toUpperCase()));
-      if (!hit) continue;
+      const inferred = row.tickers_inferred ?? [];
+      const keptHit = tickers.some((t) => candSet.has((t ?? "").toUpperCase()));
+      const inferredHit =
+        includeInferred &&
+        inferred.some((t) => candSet.has((t ?? "").toUpperCase()));
+      if (!keptHit && !inferredHit) continue;
       const affinity = computeSymbolAffinity({
         theme: row.theme,
         newsOneLiner: row.news_one_liner,

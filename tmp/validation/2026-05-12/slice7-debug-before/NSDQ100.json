@@ -1,0 +1,342 @@
+{
+  "symbol": "NSDQ100",
+  "symbolUpper": "NSDQ100",
+  "aliases": [
+    "NSDQ100",
+    "QQQ"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 12,
+  "passedCount": 0,
+  "chosen": null,
+  "candidates": [
+    {
+      "theme": "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "affected_tickers": [
+        "CL=F",
+        "BNO",
+        "XLE",
+        "USO",
+        "SPY",
+        "QQQ",
+        "DIA",
+        "TLT",
+        "GLD",
+        "LMT",
+        "RTX",
+        "XOM",
+        "CVX",
+        "COP"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "critical",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T10:42:43.279+00:00",
+      "news_one_liner": "Putin's Victory Day ceasefire signal joins Iran's peace demand as a second simultaneous de-escalation hint, but neither is yet a priced probability for energy or defense markets.",
+      "affinity": {
+        "score": -1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=6",
+          "broad_tag_penalty:n=14"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "AI Capex Supercycle Redirects Institutional Flows Into Semiconductors — Chip ETFs Dominate 2026 Inflows as Big Tech Loses Narrative Leadership",
+      "affected_tickers": [
+        "NVDA",
+        "AMD",
+        "SOXX",
+        "NSDQ100",
+        "RTY",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T06:09:34.505+00:00",
+      "news_one_liner": "ARK's top 11 AI and data center picks add a retail flow catalyst layer to the AI capex supercycle, reinforcing NVDA, PLTR, and AMD as dual institutional-retail conviction targets.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=4",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "G7 Synchronized Rate Hold — Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "DJ30",
+        "TLT",
+        "GOLD",
+        "OIL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-05T06:04:19.7+00:00",
+      "news_one_liner": "RBA joins G7 central banks hiking into an energy shock, extending the synchronized monetary paralysis thesis to developed markets beyond the G7 core as ASX rate-sensitive stocks sell off.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Commercial Space Launch Sector Institutionalization — Rocket Lab Record Contract and 2027 Breakeven Path Signal Government Demand Inflection",
+      "affected_tickers": [
+        "RKLB",
+        "SPX500",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T18:03:24.437+00:00",
+      "news_one_liner": "Rocket Lab's record contract and 2027 breakeven path unlock institutional buying as commercial space transitions from speculative to earnings-visible.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Google Digital Health Platform Consolidation — Fitbit Air and Google Health App Relaunch Signal Alphabet's AI-Wearables Push Into Apple's Core Health Ecosystem",
+      "affected_tickers": [
+        "GOOGL",
+        "AAPL",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T18:03:24.437+00:00",
+      "news_one_liner": "Google's Fitbit Air and AI health app relaunch escalate competition with Apple Watch and position Alphabet as a clinical data platform in the $500B digital health market.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "KOSPI Record High Divergence — Samsung and SK Hynix AI Semiconductor Demand Decouples Korean Equities From Global Risk-Off",
+      "affected_tickers": [
+        "KOSPI",
+        "005930.KS",
+        "000660.KS",
+        "SOXX",
+        "NVDA",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T10:42:43.279+00:00",
+      "news_one_liner": "KOSPI hits record high as Samsung and SK Hynix AI chip demand overrides global risk-off, pulling EM fund inflows away from India and China.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "primary_ticker_miss:heuristic:^FCHI",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "PLA Leadership Purge Escalation — Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "affected_tickers": [
+        "FXI",
+        "SPX500",
+        "NSDQ100",
+        "NVDA",
+        "AAPL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T12:09:57.203+00:00",
+      "news_one_liner": "China's death sentences for two ex-defense ministers deepen PLA command uncertainty, raising tail-risk premiums for Taiwan-exposed tech and semiconductor names.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "AI Capital Markets Integration — Anthropic Wall Street JV Exploration Signals Frontier Model Pivot to Finance as Federal Exclusion Redirects Commercial Strategy",
+      "affected_tickers": [
+        "MSFT",
+        "GOOGL",
+        "700.HK",
+        "NSDQ100",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T06:09:34.505+00:00",
+      "news_one_liner": "Google Cloud and Genpact's agentic AI deal for CFO offices extends AI-finance integration into enterprise operations, threatening SAP and Oracle while boosting GOOGL cloud revenue durability.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=4",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "DOD Defense AI Procurement Expansion — Anthropic Federal Blacklist Accelerates Govtech AI Consolidation Around Cleared Hyperscalers",
+      "affected_tickers": [
+        "MSFT",
+        "AMZN",
+        "GOOGL",
+        "PLTR",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-04T12:04:13.177+00:00",
+      "news_one_liner": "Anthropic's Wall Street JV exploration signals commercial pivot toward finance after DOD blacklisting, pressuring incumbent fintech while reinforcing hyperscaler dominance in government AI contracts.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Meta Messaging Platform Consolidation — Instagram DM Encryption Removal Redirects Users to WhatsApp, Raising EU Regulatory Exposure",
+      "affected_tickers": [
+        "META",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T10:42:43.279+00:00",
+      "news_one_liner": "Meta removes Instagram DM encryption and funnels users to WhatsApp, consolidating its messaging strategy but risking EU regulatory action under GDPR.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "primary_ticker_miss:heuristic:^FCHI",
+          "narrow_tag_bonus:n=2"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "AI and Cybersecurity Venture Capital Sustained Commitment — Israeli AlphaDrive $100M Fund and ANZ Execution Research Signal Structural Startup Ecosystem Depth",
+      "affected_tickers": [
+        "PANW",
+        "CRWD",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-05T12:10:26.131+00:00",
+      "news_one_liner": "A new $100M Israeli AI/cyber fund and ANZ execution research confirm sustained private capital commitment to AI and cybersecurity as structural growth sectors.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Apple AI Product Litigation — Siri $250M Settlement Establishes Legal Precedent for AI Feature Misrepresentation Across Big Tech",
+      "affected_tickers": [
+        "AAPL",
+        "MSFT",
+        "GOOGL",
+        "META",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T18:04:11.841+00:00",
+      "news_one_liner": "Apple's $250M Siri settlement creates a litigation blueprint threatening all big tech AI feature marketing claims, raising compliance costs sector-wide.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}
