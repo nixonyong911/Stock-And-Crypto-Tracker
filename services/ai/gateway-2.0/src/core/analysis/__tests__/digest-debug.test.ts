@@ -622,6 +622,74 @@ describe("fetchMemoryCandidatesForDebug — production-parity ranking", () => {
     // But the invariant warning fires.
     expect((log as unknown as { warn: ReturnType<typeof vi.fn> }).warn).toHaveBeenCalledOnce();
   });
+
+  // ── Slice 3: affinity reasons reflect primary_ticker adoption ──────
+
+  it("affinity.reasons contains primary_ticker_hit:heuristic when primary matches digest alias", async () => {
+    const pool = makePool([
+      {
+        theme: "iPhone 17 supercycle",
+        category: "earnings",
+        affected_tickers: ["AAPL"],
+        news_one_liner: "Apple guidance beats expectations.",
+        summary: "Stronger services guidance.",
+        impact_level: "high",
+        relevance_score: "0.82",
+        sentiment_score: "0.4",
+        last_updated: "2026-05-09T18:32:00Z",
+        primary_ticker: "AAPL",
+        primary_ticker_source: "batch_heuristic",
+      },
+    ]);
+    const out = await fetchMemoryCandidatesForDebug(pool, "AAPL");
+    expect(out).toHaveLength(1);
+    expect(out[0]!.affinity.reasons).toContain("primary_ticker_hit:heuristic:AAPL");
+    expect(out[0]!.affinity.reasons.some((x: string) => x.startsWith("position_primary"))).toBe(false);
+  });
+
+  it("affinity.reasons contains primary_ticker_miss:heuristic when primary does NOT match digest alias", async () => {
+    const pool = makePool([
+      {
+        theme: "NVDA AI chip demand surge",
+        category: "market",
+        affected_tickers: ["AAPL", "NVDA"],
+        news_one_liner: "NVDA supply chain constraints ease.",
+        summary: "AI chip summary.",
+        impact_level: "high",
+        relevance_score: "0.9",
+        sentiment_score: "0.5",
+        last_updated: "2026-05-09T18:32:00Z",
+        primary_ticker: "NVDA",
+        primary_ticker_source: "batch_heuristic",
+      },
+    ]);
+    const out = await fetchMemoryCandidatesForDebug(pool, "AAPL");
+    expect(out).toHaveLength(1);
+    expect(out[0]!.affinity.reasons).toContain("primary_ticker_miss:heuristic:NVDA");
+    expect(out[0]!.affinity.reasons.some((x: string) => x.startsWith("position_primary"))).toBe(false);
+  });
+
+  it("affinity.reasons falls back to position_primary_* when source is NULL", async () => {
+    const pool = makePool([
+      {
+        theme: "iPhone 17 supercycle",
+        category: "earnings",
+        affected_tickers: ["AAPL"],
+        news_one_liner: "Apple guidance beats expectations.",
+        summary: "Stronger services guidance.",
+        impact_level: "high",
+        relevance_score: "0.82",
+        sentiment_score: "0.4",
+        last_updated: "2026-05-09T18:32:00Z",
+        primary_ticker: null,
+        primary_ticker_source: null,
+      },
+    ]);
+    const out = await fetchMemoryCandidatesForDebug(pool, "AAPL");
+    expect(out).toHaveLength(1);
+    expect(out[0]!.affinity.reasons).toContain("position_primary_hit:AAPL");
+    expect(out[0]!.affinity.reasons.some((x: string) => x.startsWith("primary_ticker"))).toBe(false);
+  });
 });
 
 // ── buildDigestDebugReport — end-to-end shape on stubbed engine ─────

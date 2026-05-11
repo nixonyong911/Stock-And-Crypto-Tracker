@@ -6,6 +6,7 @@ import {
   textMentionsAnyAlias,
   type AffinityResult,
 } from "./digest-symbol-affinity.js";
+import { coercePrimaryTickerSource } from "./primary-ticker.js";
 
 /**
  * Per-ticker text loaded from `analysis_market_memory` for a single
@@ -389,6 +390,8 @@ interface NewsHeadlineRow {
   headline: string;
   affected_tickers: string[];
   news_one_liner: string | null;
+  primary_ticker: string | null;
+  primary_ticker_source: string | null;
 }
 
 interface FetchNewsHeadlinesResult {
@@ -409,7 +412,8 @@ async function fetchNewsHeadlines(
 
   const freshHours = getMemoryFreshnessHours();
   const { rows } = await db.query<NewsHeadlineRow>(
-    `SELECT theme AS headline, affected_tickers, news_one_liner
+    `SELECT theme AS headline, affected_tickers, news_one_liner,
+            primary_ticker, primary_ticker_source
      FROM analysis_market_memory
      WHERE status IN ('active', 'fading')
        AND last_updated >= NOW() - ($1::int * INTERVAL '1 hour')${symbolClause.replace("$1", "$2")}
@@ -439,6 +443,8 @@ async function fetchNewsHeadlines(
         symbolUpper: tickerUpper,
         aliases,
         threshold: affinityMin,
+        primaryTicker: row.primary_ticker,
+        primarySource: coercePrimaryTickerSource(row.primary_ticker_source),
       });
       if (!affinity.passed) continue;
       const existing = headlineMap.get(ticker) ?? [];
@@ -472,6 +478,8 @@ interface MemoryTextRow {
   relevance_score: string | null;
   sentiment_score: string | null;
   last_updated: string | null;
+  primary_ticker: string | null;
+  primary_ticker_source: string | null;
 }
 
 const IMPACT_RANK: Record<string, number> = {
@@ -576,7 +584,8 @@ export async function fetchTickerMemoryText(
     `SELECT theme, affected_tickers, news_one_liner, summary, key_facts,
             market_implications, impact_level,
             relevance_score::text, sentiment_score::text,
-            last_updated::text
+            last_updated::text,
+            primary_ticker, primary_ticker_source
      FROM analysis_market_memory
      WHERE status IN ('active', 'fading')
        AND last_updated >= NOW() - ($2::int * INTERVAL '1 hour')
@@ -602,6 +611,8 @@ export async function fetchTickerMemoryText(
         symbolUpper: digestSym,
         aliases: cands,
         threshold: affinityMin,
+        primaryTicker: row.primary_ticker,
+        primarySource: coercePrimaryTickerSource(row.primary_ticker_source),
       });
       if (!affinity.passed) continue;
       const candidate: CandidateInput = {

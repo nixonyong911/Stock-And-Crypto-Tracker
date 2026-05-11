@@ -184,3 +184,18 @@ export function trustTierOf(source: PrimaryTickerSource): "strong" | "heuristic"
   if (source === "batch_heuristic") return "heuristic";
   return "none";
 }
+
+/**
+ * Coerce a raw DB string into the typed `PrimaryTickerSource`. Unrecognized
+ * values (including future source strings we haven't shipped code for)
+ * collapse to `null` (trust tier "none") so the consumer safely falls back
+ * to the position-primary heuristic.
+ *
+ * Canonical coercer shared by recommendation-engine.ts and digest-debug.ts
+ * so both consumers normalize the DB value identically.
+ */
+export function coercePrimaryTickerSource(raw: string | null | undefined): PrimaryTickerSource {
+  if (raw === "marketaux_entities") return "marketaux_entities";
+  if (raw === "batch_heuristic") return "batch_heuristic";
+  return null;
+}

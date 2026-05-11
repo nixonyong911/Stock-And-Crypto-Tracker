@@ -36,8 +36,33 @@ const WEIGHT_TEXT_TOKEN = 2;
  * +2 when `affected_tickers[0]` is one of the symbol's aliases. The curator
  * tends to put the primary subject first in the array, so position-1
  * combined with even one supporting signal clears the default threshold.
+ *
+ * Slice 3: this weight is only used as a **fallback** when
+ * `primarySource` is null/undefined. When upstream provides a
+ * deterministic `primary_ticker`, the WEIGHT_PRIMARY_TICKER_* constants
+ * below take priority (see the mutex in `computeSymbolAffinity`).
  */
 const WEIGHT_POSITION_PRIMARY = 2;
+
+/**
+ * +3 when `primary_ticker` matches the digest symbol's alias set AND
+ * `primary_ticker_source` is `"marketaux_entities"` (strong tier —
+ * source-grounded, no LLM). Higher than WEIGHT_POSITION_PRIMARY because
+ * the upstream signal is more trustworthy than the curator's implicit
+ * "first ticker in array" convention.
+ *
+ * See docs/upstream-trust-map.md § Slice 2/3 for trust-tier definitions.
+ */
+const WEIGHT_PRIMARY_TICKER_STRONG = 3;
+
+/**
+ * +2 when `primary_ticker` matches the digest symbol's alias set AND
+ * `primary_ticker_source` is `"batch_heuristic"` (heuristic tier —
+ * deterministic majority vote but not source-grounded at the memory
+ * layer). Same magnitude as WEIGHT_POSITION_PRIMARY because the signal
+ * quality is comparable; it replaces rather than stacks on position.
+ */
+const WEIGHT_PRIMARY_TICKER_HEURISTIC = 2;
 
 /**
  * +1 when the row is narrowly tagged. Narrowly-tagged rows are usually about
@@ -80,6 +105,8 @@ const AFFINITY_MIN_CEILING = 10;
  */
 const TICKER_CASE_SENSITIVE_MAX_LEN = 4;
 
+import type { PrimaryTickerSource } from "./primary-ticker.js";
+
 // ── Public types ──────────────────────────────────────────────────────
 
 export interface AffinityResult {
@@ -114,6 +141,19 @@ export interface ComputeSymbolAffinityArgs {
    * set per digest symbol can reuse it across many candidate rows.
    */
   aliases: string[];
+  /**
+   * Slice 3: upstream deterministic primary-subject ticker. When
+   * `primarySource` is non-null this replaces the position-primary
+   * heuristic (mutex, not additive). When null/undefined the legacy
+   * `affected_tickers[0]` fallback fires unchanged.
+   */
+  primaryTicker?: string | null;
+  /**
+   * Slice 3: trust tier of `primaryTicker`. Determines the weight on
+   * match: `"marketaux_entities"` → +3 (strong), `"batch_heuristic"` → +2
+   * (heuristic), null/undefined → legacy position-primary fallback.
+   */
+  primarySource?: PrimaryTickerSource;
   /**
    * Optional override for tests; production calls always go through
    * `getAffinityMin()`.
@@ -171,23 +211,45 @@ export function computeSymbolAffinity(
     reasons.push("text_token_miss");
   }
 
-  // 2. Position-primary bonus — curator convention: subject first.
+  // 2. Subject-primary signal — upstream-first mutex.
+  //
+  //    When upstream provides a deterministic primary_ticker (non-null
+  //    primarySource), we score ONLY against that signal and skip the
+  //    positional fallback entirely. When upstream is silent (null/
+  //    undefined), the legacy affected_tickers[0] heuristic fires.
+  //    No double-counting: exactly one of primary_ticker_* or
+  //    position_primary_* appears in `reasons`.
   const tickers = Array.isArray(args.affectedTickers) ? args.affectedTickers : [];
-  const firstTicker = tickers[0]?.toUpperCase();
-  const positionMatch = firstTicker && aliasSet.has(firstTicker)
-    ? firstTicker
-    : null;
-  if (positionMatch) {
-    score += WEIGHT_POSITION_PRIMARY;
-    reasons.push(`position_primary_hit:${positionMatch}`);
-  } else {
-    const symbolPosition = findSymbolPosition(tickers, aliasSet);
-    if (symbolPosition === -1) {
-      // Should not normally happen because the SQL pre-filter requires
-      // intersection, but document it for the debug surface.
-      reasons.push("position_primary_miss:not_in_tickers");
+  const primarySource = args.primarySource ?? null;
+
+  if (primarySource === "marketaux_entities" || primarySource === "batch_heuristic") {
+    const tier = primarySource === "marketaux_entities" ? "strong" : "heuristic";
+    const weight =
+      primarySource === "marketaux_entities"
+        ? WEIGHT_PRIMARY_TICKER_STRONG
+        : WEIGHT_PRIMARY_TICKER_HEURISTIC;
+    const pt = (args.primaryTicker ?? "").toUpperCase() || null;
+    if (pt && aliasSet.has(pt)) {
+      score += weight;
+      reasons.push(`primary_ticker_hit:${tier}:${pt}`);
     } else {
-      reasons.push(`position_primary_miss:position=${symbolPosition + 1}`);
+      reasons.push(`primary_ticker_miss:${tier}:${pt ?? "null"}`);
+    }
+  } else {
+    const firstTicker = tickers[0]?.toUpperCase();
+    const positionMatch = firstTicker && aliasSet.has(firstTicker)
+      ? firstTicker
+      : null;
+    if (positionMatch) {
+      score += WEIGHT_POSITION_PRIMARY;
+      reasons.push(`position_primary_hit:${positionMatch}`);
+    } else {
+      const symbolPosition = findSymbolPosition(tickers, aliasSet);
+      if (symbolPosition === -1) {
+        reasons.push("position_primary_miss:not_in_tickers");
+      } else {
+        reasons.push(`position_primary_miss:position=${symbolPosition + 1}`);
+      }
     }
   }
 

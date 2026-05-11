@@ -621,6 +621,8 @@ interface MemoryRow {
   relevance_score: string | null;
   sentiment_score: string | null;
   last_updated: string | null;
+  primary_ticker: string | null;
+  primary_ticker_source: string | null;
 }
 
 function makeMemoryRow(overrides: Partial<MemoryRow> = {}): MemoryRow {
@@ -635,6 +637,8 @@ function makeMemoryRow(overrides: Partial<MemoryRow> = {}): MemoryRow {
     relevance_score: "0.7",
     sentiment_score: "0.3",
     last_updated: "2026-05-08T12:00:00Z",
+    primary_ticker: null,
+    primary_ticker_source: null,
     ...overrides,
   };
 }
@@ -876,6 +880,71 @@ describe("fetchTickerMemoryText — affinity-aware ranking and rejection", () =>
     const pool = makeMockPool(rows);
     const out = await fetchTickerMemoryText(pool, ["AAPL"]);
     expect(out.get("AAPL")?.newsOneLiner).toMatch(/services revenue/);
+  });
+});
+
+// ── Slice 3: primary_ticker adoption in fetchTickerMemoryText ─────────
+
+describe("fetchTickerMemoryText — primary_ticker adoption", () => {
+  it("heuristic primary recovers a non-position-1 BTC subject row", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "Ethereum analyst-day setup",
+        news_one_liner: "Ethereum's $3,000 target gains analyst consensus.",
+        affected_tickers: ["ETH", "BTC", "COIN"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+        primary_ticker: "BTC",
+        primary_ticker_source: "batch_heuristic",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["BTC/USD"]);
+    // Without primary_ticker, this row scores 0 (text miss) + 0 (position miss) + 1 (narrow) = 1 → rejected.
+    // With batch_heuristic primary_ticker="BTC", it scores 0 + 2 (heuristic hit) + 1 (narrow) = 3 → passes.
+    expect(out.get("BTC/USD")).toBeDefined();
+    expect(out.get("BTC/USD")?.newsOneLiner).toMatch(/\$3,000 target/);
+  });
+
+  it("heuristic primary mismatch defends contamination even when alias is at position 1", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "Ethereum DeFi convergence",
+        news_one_liner: "DeFi convergence accelerates institutional interest.",
+        affected_tickers: ["BTC", "ETH"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+        primary_ticker: "ETH",
+        primary_ticker_source: "batch_heuristic",
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["BTC/USD"]);
+    // BTC is at position 1 (would normally score +2 via position_primary_hit).
+    // But primary_ticker_source is non-null, so the mutex fires: primary_ticker="ETH"
+    // doesn't match BTC aliases → heuristic miss (+0). Score = 0 + 0 + 1 (narrow n=2) = 1 → rejected.
+    expect(out.get("BTC/USD")).toBeUndefined();
+  });
+
+  it("NULL source preserves legacy behavior (existing rejection test still passes)", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "Ethereum analyst-day setup",
+        news_one_liner: "Ethereum's $3,000 target gains analyst consensus.",
+        affected_tickers: ["ETH", "BTC", "COIN", "IBIT"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+        primary_ticker: null,
+        primary_ticker_source: null,
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["BTC/USD"]);
+    // NULL source → legacy path: position_primary_miss:position=2, no text token → rejected.
+    expect(out.get("BTC/USD")).toBeUndefined();
   });
 });
 

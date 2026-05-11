@@ -91,7 +91,7 @@ Everything downstream of `analysis_market_memory` is template-driven in TS. The 
 
 1. **Ticker hallucination** — `affected_tickers` is the join key for symbol overlap; `tickers_unknown` observability now enables sizing this risk.
 2. **`news_one_liner`** — only LLM string surfaced verbatim on cards; no factuality enforcement.
-3. **No primary-subject vs mentioned-ticker distinction** — Slice 2 lands a deterministic `primary_ticker` on filtered news (strong tier) and a batch-heuristic primary on memory (heuristic tier). Smart Digest does NOT yet consume these — Slice 3 will replace the implicit `affected_tickers[0]` heuristic in `computeSymbolAffinity` once production distributions are observed.
+3. **Primary-subject vs mentioned-ticker distinction** — Slice 2 landed a deterministic `primary_ticker` on filtered news (strong tier) and a batch-heuristic primary on memory (heuristic tier). Slice 3 adopted these in `computeSymbolAffinity` via a trust-tier-weighted mutex that replaces the implicit `affected_tickers[0]` heuristic when upstream signal is available. See "Consumer adoption (Slice 3)" below for details.
 4. **Memory lineage is batch-coarse** — `source_batch_ids` only, no per-row attribution. Deferred.
 
 ## Slice 2: primary subject ticker
@@ -128,12 +128,36 @@ primaryTicker: {
 
 The `trustTier` field is the canonical thing a debug reader should key off; the raw `source` is kept for forensic completeness. `fetchMemoryCandidatesForDebug` logs an invariant warning if a memory row carries `marketaux_entities` (only valid on filtered news) — the source is preserved unchanged, only flagged.
 
-### Consumer guidance (Slice 3 hand-off)
+### Consumer adoption (Slice 3 — landed)
 
-Smart Digest does not consume `primary_ticker` in this slice. The next slice may:
+`computeSymbolAffinity` in `digest-symbol-affinity.ts` now scores `primary_ticker` per trust tier via a **mutex** with the legacy position-primary heuristic:
 
-- (a) **Adopt the signal in affinity**: replace `WEIGHT_POSITION_PRIMARY` (the `+2` bonus on `affected_tickers[0]`) with a stronger bonus when `row.primary_ticker` matches (or aliases to) the digest symbol, gated on `primary_ticker_source IS NOT NULL`. Fall back to current behavior when NULL. Consider weighting `strong` higher than `heuristic`.
+- When `primary_ticker_source` is non-null, the scorer uses `primary_ticker` as the subject signal and **skips** the `affected_tickers[0]` positional fallback entirely. No double-counting.
+- When `primary_ticker_source` is null/undefined, the legacy `WEIGHT_POSITION_PRIMARY` (+2 for `affected_tickers[0]` alias match) fires unchanged.
+
+**Weight values:**
+
+- `"marketaux_entities"` (strong) match: **+3** (`WEIGHT_PRIMARY_TICKER_STRONG`)
+- `"batch_heuristic"` (heuristic) match: **+2** (`WEIGHT_PRIMARY_TICKER_HEURISTIC`)
+- Non-null source, no alias match: **+0** (no penalty this slice)
+- `NULL` source: legacy position-primary (+2 on hit, +0 on miss)
+
+**New reason codes in `affinity.reasons`:**
+
+- `primary_ticker_hit:strong:TICKER` / `primary_ticker_hit:heuristic:TICKER` — subject signal matched the digest alias set.
+- `primary_ticker_miss:strong:TICKER` / `primary_ticker_miss:heuristic:TICKER` — subject signal did not match (or `primary_ticker` was null with non-null source).
+- `position_primary_hit:*` / `position_primary_miss:*` — only appears when source is NULL (fallback path).
+
+**Plumbing:** `recommendation-engine.ts` (`fetchTickerMemoryText`, `fetchNewsHeadlines`) and `digest-debug.ts` (`fetchMemoryCandidatesForDebug`) all SELECT `primary_ticker, primary_ticker_source` and pass them through `coercePrimaryTickerSource` (canonical shared coercer in `primary-ticker.ts`) into the scorer.
+
+**What is NOT changed in Slice 3:**
+
+- `compareMemoryCandidates` ranking ordering, surfacing thresholds, `decideSurfacing`, and the brief generator are untouched. Score changes flow through the existing ranking key.
+- No negative penalty on a strong-tier mismatch (deferred to Slice 4 after observing real distributions).
+- `WEIGHT_POSITION_PRIMARY` is kept active for the NULL-source fallback path. The old heuristic is not deleted.
+
+### Future work (Slice 4+)
+
+- (a) **Negative penalty on strong miss**: if Slice 3 validation shows that `marketaux_entities` mismatch is a reliable contamination signal, add a `-1` penalty on strong miss to further suppress off-symbol rows.
 - (b) **Expand coverage**: deterministic NER on GNews titles (no LLM) to populate `primary_ticker` for GNews-only stories.
-- (c) **Tighten the prompt**: ask the LLM for a primary_ticker output field — but only after Slice 2 data shows whether the model agrees with the MarketAux-deterministic primary on the rows we can ground-truth.
-
-Do not collapse the three trust tiers into a single boolean. The whole point of Slice 2 is making the distinction available to downstream code.
+- (c) **Tighten the prompt**: ask the LLM for a `primary_ticker` output field — but only after Slice 2/3 data shows whether the model agrees with the MarketAux-deterministic primary on ground-truth rows.

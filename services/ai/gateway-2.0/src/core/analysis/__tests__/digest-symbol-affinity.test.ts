@@ -3,6 +3,7 @@ import {
   computeSymbolAffinity,
   getAffinityMin,
 } from "../digest-symbol-affinity.js";
+import type { PrimaryTickerSource } from "../primary-ticker.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -13,6 +14,8 @@ function score(opts: {
   symbolUpper: string;
   aliases?: string[];
   threshold?: number;
+  primaryTicker?: string | null;
+  primarySource?: PrimaryTickerSource;
 }) {
   return computeSymbolAffinity({
     theme: opts.theme ?? null,
@@ -21,6 +24,8 @@ function score(opts: {
     symbolUpper: opts.symbolUpper,
     aliases: opts.aliases ?? [opts.symbolUpper],
     threshold: opts.threshold,
+    primaryTicker: opts.primaryTicker,
+    primarySource: opts.primarySource,
   });
 }
 
@@ -400,6 +405,136 @@ describe("computeSymbolAffinity — edge cases", () => {
     };
     const a = computeSymbolAffinity({ ...args, threshold: 2 });
     const b = computeSymbolAffinity({ ...args, threshold: 2 });
+    expect(a).toEqual(b);
+  });
+});
+
+// ── Slice 3: primary_ticker adoption ─────────────────────────────────
+
+describe("computeSymbolAffinity — primary_ticker adoption", () => {
+  it("strong hit beats position miss: recovers +3 for a BTC-subject row at position 2", () => {
+    const r = score({
+      theme: "Ethereum Relative Outperformance — ETH/BTC Ratio",
+      newsOneLiner: "Ethereum's $3,000 target gains analyst consensus.",
+      affectedTickers: ["ETH", "BTC", "COIN", "IBIT"],
+      symbolUpper: "BTC/USD",
+      aliases: ["BTC/USD", "BTC"],
+      primaryTicker: "BTC",
+      primarySource: "marketaux_entities",
+      threshold: 2,
+    });
+    expect(r.reasons).toContain("primary_ticker_hit:strong:BTC");
+    expect(r.reasons.some((x) => x.startsWith("position_primary"))).toBe(false);
+    expect(r.score).toBeGreaterThanOrEqual(5);
+  });
+
+  it("strong miss disables position bonus even when alias is at position 1", () => {
+    const r = score({
+      theme: "Big Tech AI litigation wave",
+      newsOneLiner: "Sector compliance costs rise.",
+      affectedTickers: ["BTC", "ETH", "COIN", "IBIT", "NVDA"],
+      symbolUpper: "BTC/USD",
+      aliases: ["BTC/USD", "BTC"],
+      primaryTicker: "ETH",
+      primarySource: "marketaux_entities",
+      threshold: 2,
+    });
+    expect(r.reasons).toContain("primary_ticker_miss:strong:ETH");
+    expect(r.reasons.some((x) => x.startsWith("position_primary"))).toBe(false);
+    // text miss (0) + strong miss (0) + normal_tag n=5 (0) = 0
+    expect(r.score).toBe(0);
+    expect(r.passed).toBe(false);
+  });
+
+  it("heuristic hit yields +2", () => {
+    const r = score({
+      theme: "Earnings preview",
+      newsOneLiner: "Investors brace for results.",
+      affectedTickers: ["AAPL", "MSFT"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      primaryTicker: "AAPL",
+      primarySource: "batch_heuristic",
+      threshold: 2,
+    });
+    expect(r.reasons).toContain("primary_ticker_hit:heuristic:AAPL");
+    expect(r.reasons.some((x) => x.startsWith("position_primary"))).toBe(false);
+    expect(r.score).toBe(3);
+  });
+
+  it("heuristic miss = 0, no fall-through to position-primary", () => {
+    const r = score({
+      theme: "Big Tech AI litigation wave",
+      newsOneLiner: "Sector compliance costs rise.",
+      affectedTickers: ["AAPL", "MSFT", "GOOGL", "META", "NVDA"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      primaryTicker: "NVDA",
+      primarySource: "batch_heuristic",
+      threshold: 2,
+    });
+    expect(r.reasons).toContain("primary_ticker_miss:heuristic:NVDA");
+    expect(r.reasons.some((x) => x.startsWith("position_primary"))).toBe(false);
+    // text miss (0) + heuristic miss (0) + normal_tag n=5 (0) = 0
+    expect(r.score).toBe(0);
+    expect(r.passed).toBe(false);
+  });
+
+  it("NULL source = legacy position-primary behavior unchanged", () => {
+    const r = score({
+      theme: "Earnings preview",
+      newsOneLiner: "Investors brace for results.",
+      affectedTickers: ["AAPL", "MSFT"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      primaryTicker: null,
+      primarySource: null,
+      threshold: 2,
+    });
+    expect(r.reasons).toContain("position_primary_hit:AAPL");
+    expect(r.reasons.some((x) => x.startsWith("primary_ticker"))).toBe(false);
+  });
+
+  it("omitted primaryTicker/primarySource = legacy behavior (backward compat)", () => {
+    const r = score({
+      theme: "Earnings preview",
+      newsOneLiner: "Investors brace for results.",
+      affectedTickers: ["AAPL", "MSFT"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      threshold: 2,
+    });
+    expect(r.reasons).toContain("position_primary_hit:AAPL");
+    expect(r.reasons.some((x) => x.startsWith("primary_ticker"))).toBe(false);
+  });
+
+  it("strong source with null primaryTicker records miss:strong:null", () => {
+    const r = score({
+      theme: "AAPL guidance",
+      newsOneLiner: null,
+      affectedTickers: ["AAPL"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      primaryTicker: null,
+      primarySource: "marketaux_entities",
+      threshold: 2,
+    });
+    expect(r.reasons).toContain("primary_ticker_miss:strong:null");
+  });
+
+  it("determinism holds with primary_ticker fields", () => {
+    const args = {
+      theme: "AAPL near support",
+      newsOneLiner: "Apple narrative steady.",
+      affectedTickers: ["AAPL", "MSFT"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      primaryTicker: "AAPL",
+      primarySource: "batch_heuristic" as PrimaryTickerSource,
+      threshold: 2,
+    };
+    const a = computeSymbolAffinity(args);
+    const b = computeSymbolAffinity(args);
     expect(a).toEqual(b);
   });
 });

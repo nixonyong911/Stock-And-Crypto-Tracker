@@ -66,6 +66,7 @@ import {
 } from "./digest-symbol-affinity.js";
 import {
   trustTierOf,
+  coercePrimaryTickerSource,
   type PrimaryTickerSource,
 } from "./primary-ticker.js";
 
@@ -327,22 +328,9 @@ function impactRank(level: string | null): number {
   return IMPACT_RANK[level.toLowerCase()] ?? 9;
 }
 
-/**
- * Coerce a raw `primary_ticker_source` DB value into the typed
- * `PrimaryTickerSource`. Anything we don't recognize collapses to `null`
- * (i.e. trust tier "none") so future source values can ship to the DB
- * without crashing the debug surface.
- *
- * Invariant: filtered-news rows should never carry `"batch_heuristic"`,
- * and memory rows should never carry `"marketaux_entities"`. The caller
- * is responsible for asserting that invariant — this helper does not
- * enforce it, only normalizes the type.
- */
-function coercePrimaryTickerSource(raw: string | null): PrimaryTickerSource {
-  if (raw === "marketaux_entities") return "marketaux_entities";
-  if (raw === "batch_heuristic") return "batch_heuristic";
-  return null;
-}
+// coercePrimaryTickerSource is imported from primary-ticker.ts (canonical
+// shared coercer — see Slice 3). The invariant guard below remains local
+// because it logs on the FastifyBaseLogger which is a debug-module concern.
 
 /**
  * Slice 2 invariant guard for memory rows: log a warning if a row carries
@@ -691,6 +679,8 @@ export async function fetchMemoryCandidatesForDebug(
       symbolUpper,
       aliases: candidatesTried,
       threshold: affinityThreshold,
+      primaryTicker: row.primary_ticker,
+      primarySource: coercePrimaryTickerSource(row.primary_ticker_source),
     });
     const lastUpdatedMs = row.last_updated ? Date.parse(row.last_updated) : 0;
     const ageHours =
