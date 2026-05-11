@@ -623,6 +623,7 @@ interface MemoryRow {
   last_updated: string | null;
   primary_ticker: string | null;
   primary_ticker_source: string | null;
+  tickers_inferred: string[] | null;
 }
 
 function makeMemoryRow(overrides: Partial<MemoryRow> = {}): MemoryRow {
@@ -639,6 +640,7 @@ function makeMemoryRow(overrides: Partial<MemoryRow> = {}): MemoryRow {
     last_updated: "2026-05-08T12:00:00Z",
     primary_ticker: null,
     primary_ticker_source: null,
+    tickers_inferred: [],
     ...overrides,
   };
 }
@@ -674,26 +676,31 @@ describe("fetchTickerMemoryText", () => {
   });
 
   it("returns the highest-impact-then-highest-relevance row for a ticker", async () => {
+    const freshTs = new Date(Date.now() - 6 * 3_600_000).toISOString();
     const rows = [
       makeMemoryRow({
         impact_level: "medium",
         relevance_score: "0.9",
         news_one_liner: "Medium-impact line",
+        last_updated: freshTs,
       }),
       makeMemoryRow({
         impact_level: "high",
         relevance_score: "0.5",
         news_one_liner: "High-impact line",
+        last_updated: freshTs,
       }),
       makeMemoryRow({
         impact_level: "high",
         relevance_score: "0.85",
         news_one_liner: "Best high-impact line",
+        last_updated: freshTs,
       }),
       makeMemoryRow({
         impact_level: "low",
         relevance_score: "0.99",
         news_one_liner: "Low-impact line",
+        last_updated: freshTs,
       }),
     ];
     const pool = makeMockPool(rows);
@@ -1114,6 +1121,7 @@ interface MemRow {
   relevance_score: string | null;
   sentiment_score: string | null;
   last_updated: string | null;
+  tickers_inferred: string[] | null;
 }
 
 function makeMemRow(overrides: Partial<MemRow> = {}): MemRow {
@@ -1128,6 +1136,7 @@ function makeMemRow(overrides: Partial<MemRow> = {}): MemRow {
     relevance_score: "0.8",
     sentiment_score: "0.4",
     last_updated: new Date(Date.now() - 6 * 3_600_000).toISOString(),
+    tickers_inferred: [],
     ...overrides,
   };
 }
@@ -1198,6 +1207,46 @@ describe("fetchTickerMemoryText — Step-5 association ranking", () => {
     const pool = makeMemoryPool([staleCritical, freshHigh]);
     const out = await fetchTickerMemoryText(pool, ["AAPL"]);
     expect(out.get("AAPL")?.impactLevel).toBe("critical");
+  });
+});
+
+// ── Slice 6: tickers_inferred plumbing ─────────────────────────────────
+
+describe("fetchTickerMemoryText — slice 6 tickers_inferred passthrough", () => {
+  it("empty tickers_inferred does not change chosen-row decision (regression guard)", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "AAPL services beat",
+        news_one_liner: "AAPL services revenue exceeded expectations.",
+        affected_tickers: ["AAPL"],
+        impact_level: "high",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+        tickers_inferred: [],
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["AAPL"]);
+    expect(out.get("AAPL")).toBeDefined();
+    expect(out.get("AAPL")?.newsOneLiner).toMatch(/services revenue/);
+  });
+
+  it("non-empty tickers_inferred passes through without changing decision (default penalty = 0)", async () => {
+    const rows: MemoryRow[] = [
+      makeMemoryRow({
+        theme: "JEPI Covered-Call ETF Structural Flaw",
+        news_one_liner: "JEPI distribution sustainability risk.",
+        affected_tickers: ["JEPI"],
+        impact_level: "medium",
+        relevance_score: "1.000",
+        last_updated: "2026-05-09T18:00:00Z",
+        tickers_inferred: ["SPX500"],
+      }),
+    ];
+    const pool = makeMockPool(rows);
+    const out = await fetchTickerMemoryText(pool, ["JEPI"]);
+    expect(out.get("JEPI")).toBeDefined();
+    expect(out.get("JEPI")?.newsOneLiner).toMatch(/distribution sustainability/);
   });
 });
 

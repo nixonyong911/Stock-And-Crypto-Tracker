@@ -63,6 +63,7 @@ import {
   getAffinityMin,
   textMentionsAnyAlias,
   type AffinityResult,
+  type AttachmentKind,
 } from "./digest-symbol-affinity.js";
 import {
   trustTierOf,
@@ -219,6 +220,10 @@ export interface DebugMemoryCandidate {
     source: PrimaryTickerSource;
     trustTier: "strong" | "heuristic" | "none";
   };
+  /** Slice 6: tickers dropped by the Slice 5 sanitizer. Empty for pre-Slice-5 rows. */
+  tickersInferred: string[];
+  /** Slice 6: how the digest symbol relates to kept vs inferred ticker arrays. */
+  attachmentKind: AttachmentKind;
 }
 
 export interface DebugMemorySection {
@@ -319,6 +324,7 @@ interface MemoryDebugRow {
   tickers_unknown: string[] | null;
   primary_ticker: string | null;
   primary_ticker_source: string | null;
+  tickers_inferred: string[] | null;
 }
 
 // ── Pure helpers ──────────────────────────────────────────────────────
@@ -648,7 +654,7 @@ export async function fetchMemoryCandidatesForDebug(
               model_name, prompt_version, validator_version,
               generated_at::text AS generated_at,
               tickers_unknown,
-              primary_ticker, primary_ticker_source
+              primary_ticker, primary_ticker_source, tickers_inferred
          FROM analysis_market_memory
         WHERE status IN ('active', 'fading')
           AND affected_tickers && $1::text[]`,
@@ -672,6 +678,9 @@ export async function fetchMemoryCandidatesForDebug(
     const tickers = Array.isArray(row.affected_tickers)
       ? row.affected_tickers
       : [];
+    const inferredArr = Array.isArray(row.tickers_inferred)
+      ? row.tickers_inferred
+      : [];
     const affinity: AffinityResult = computeSymbolAffinity({
       theme: row.theme,
       newsOneLiner: row.news_one_liner,
@@ -681,6 +690,7 @@ export async function fetchMemoryCandidatesForDebug(
       threshold: affinityThreshold,
       primaryTicker: row.primary_ticker,
       primarySource: coercePrimaryTickerSource(row.primary_ticker_source),
+      tickersInferred: inferredArr,
     });
     const lastUpdatedMs = row.last_updated ? Date.parse(row.last_updated) : 0;
     const ageHours =
@@ -702,6 +712,7 @@ export async function fetchMemoryCandidatesForDebug(
     return {
       row,
       tickers,
+      inferredArr,
       impact: impactRank(row.impact_level),
       relevance,
       lastUpdatedMs,
@@ -736,7 +747,7 @@ export async function fetchMemoryCandidatesForDebug(
   };
 
   return enriched.map((e, idx) => {
-    const { row, tickers, impact, relevance, ageHours, decay, oneLinerOnSymbol, composite, affinity } = e;
+    const { row, tickers, inferredArr: eInferred, impact, relevance, ageHours, decay, oneLinerOnSymbol, composite, affinity } = e;
     const memoryText: TickerMemoryText = {};
     if (row.news_one_liner) memoryText.newsOneLiner = row.news_one_liner;
     if (row.summary) memoryText.summary = row.summary;
@@ -806,6 +817,8 @@ export async function fetchMemoryCandidatesForDebug(
         source: primarySource,
         trustTier: trustTierOf(primarySource),
       },
+      tickersInferred: eInferred,
+      attachmentKind: affinity.attachmentKind,
     };
     candidate.gates = evaluateMemoryGates(candidate);
     return candidate;

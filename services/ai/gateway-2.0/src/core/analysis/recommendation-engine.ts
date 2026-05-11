@@ -392,6 +392,7 @@ interface NewsHeadlineRow {
   news_one_liner: string | null;
   primary_ticker: string | null;
   primary_ticker_source: string | null;
+  tickers_inferred: string[] | null;
 }
 
 interface FetchNewsHeadlinesResult {
@@ -413,7 +414,7 @@ async function fetchNewsHeadlines(
   const freshHours = getMemoryFreshnessHours();
   const { rows } = await db.query<NewsHeadlineRow>(
     `SELECT theme AS headline, affected_tickers, news_one_liner,
-            primary_ticker, primary_ticker_source
+            primary_ticker, primary_ticker_source, tickers_inferred
      FROM analysis_market_memory
      WHERE status IN ('active', 'fading')
        AND last_updated >= NOW() - ($1::int * INTERVAL '1 hour')${symbolClause.replace("$1", "$2")}
@@ -445,6 +446,7 @@ async function fetchNewsHeadlines(
         threshold: affinityMin,
         primaryTicker: row.primary_ticker,
         primarySource: coercePrimaryTickerSource(row.primary_ticker_source),
+        tickersInferred: row.tickers_inferred ?? [],
       });
       if (!affinity.passed) continue;
       const existing = headlineMap.get(ticker) ?? [];
@@ -480,6 +482,7 @@ interface MemoryTextRow {
   last_updated: string | null;
   primary_ticker: string | null;
   primary_ticker_source: string | null;
+  tickers_inferred: string[] | null;
 }
 
 const IMPACT_RANK: Record<string, number> = {
@@ -585,7 +588,7 @@ export async function fetchTickerMemoryText(
             market_implications, impact_level,
             relevance_score::text, sentiment_score::text,
             last_updated::text,
-            primary_ticker, primary_ticker_source
+            primary_ticker, primary_ticker_source, tickers_inferred
      FROM analysis_market_memory
      WHERE status IN ('active', 'fading')
        AND last_updated >= NOW() - ($2::int * INTERVAL '1 hour')
@@ -613,6 +616,7 @@ export async function fetchTickerMemoryText(
         threshold: affinityMin,
         primaryTicker: row.primary_ticker,
         primarySource: coercePrimaryTickerSource(row.primary_ticker_source),
+        tickersInferred: row.tickers_inferred ?? [],
       });
       if (!affinity.passed) continue;
       const candidate: CandidateInput = {

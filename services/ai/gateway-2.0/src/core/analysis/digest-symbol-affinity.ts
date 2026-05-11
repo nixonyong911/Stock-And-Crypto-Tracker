@@ -106,6 +106,17 @@ const AFFINITY_MIN_FLOOR = 0;
 const AFFINITY_MIN_CEILING = 10;
 
 /**
+ * Slice 6: penalty applied when the digest symbol appears ONLY in
+ * `tickers_inferred` (boilerplate dropped by Slice 5 sanitizer) and NOT
+ * in `affected_tickers`. Default 0 — no behavior change unless the env
+ * knob `SMART_DIGEST_INFERRED_ONLY_PENALTY` is set to a negative value.
+ * Clamped to `[INFERRED_ONLY_PENALTY_FLOOR, INFERRED_ONLY_PENALTY_CEILING]`.
+ */
+const WEIGHT_INFERRED_ONLY_ATTACHMENT_DEFAULT = 0;
+const INFERRED_ONLY_PENALTY_FLOOR = -5;
+const INFERRED_ONLY_PENALTY_CEILING = 0;
+
+/**
  * Tickers <= TICKER_CASE_SENSITIVE_MAX_LEN match as exact uppercase whole
  * words. Above the cutoff, we relax to case-insensitive whole-word match.
  *
@@ -119,6 +130,8 @@ const TICKER_CASE_SENSITIVE_MAX_LEN = 4;
 import type { PrimaryTickerSource } from "./primary-ticker.js";
 
 // ── Public types ──────────────────────────────────────────────────────
+
+export type AttachmentKind = "kept" | "inferred_only" | "both" | "none";
 
 export interface AffinityResult {
   /** Sum of bonus/penalty weights applied. */
@@ -134,6 +147,14 @@ export interface AffinityResult {
   passed: boolean;
   /** Threshold the row was compared against. Echoed for inspectability. */
   threshold: number;
+  /**
+   * Slice 6: how the digest symbol relates to the row's ticker arrays.
+   *   - `kept`          — symbol is in `affected_tickers` (normal path)
+   *   - `inferred_only` — symbol is only in `tickers_inferred` (boilerplate)
+   *   - `both`          — in both arrays (defensive; should not happen post-Slice-5)
+   *   - `none`          — symbol is in neither array
+   */
+  attachmentKind: AttachmentKind;
 }
 
 export interface ComputeSymbolAffinityArgs {
@@ -167,6 +188,12 @@ export interface ComputeSymbolAffinityArgs {
    */
   primarySource?: PrimaryTickerSource;
   /**
+   * Slice 6: tickers dropped from `affected_tickers` by the Slice 5
+   * sanitizer and preserved in `analysis_market_memory.tickers_inferred`.
+   * Empty array when absent or for pre-Slice-5 rows.
+   */
+  tickersInferred?: string[];
+  /**
    * Optional override for tests; production calls always go through
    * `getAffinityMin()`.
    */
@@ -197,9 +224,27 @@ export function getAffinityMin(): number {
 }
 
 /**
+ * Slice 6: read the inferred-only attachment penalty from the environment.
+ * Falls back to `WEIGHT_INFERRED_ONLY_ATTACHMENT_DEFAULT` (0) when the env
+ * is unset/empty/non-numeric, and clamps to
+ * `[INFERRED_ONLY_PENALTY_FLOOR, INFERRED_ONLY_PENALTY_CEILING]` so only
+ * non-positive values are accepted.
+ */
+export function getInferredOnlyPenalty(): number {
+  const raw = process.env["SMART_DIGEST_INFERRED_ONLY_PENALTY"];
+  if (raw === undefined || raw === "") return WEIGHT_INFERRED_ONLY_ATTACHMENT_DEFAULT;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return WEIGHT_INFERRED_ONLY_ATTACHMENT_DEFAULT;
+  return Math.min(
+    INFERRED_ONLY_PENALTY_CEILING,
+    Math.max(INFERRED_ONLY_PENALTY_FLOOR, parsed),
+  );
+}
+
+/**
  * Score a single `(memory_row, digest_symbol)` pair. Pure: no I/O, no
  * mutation, no globals. Same inputs always produce identical
- * `{score, reasons, passed, threshold}`.
+ * `{score, reasons, passed, threshold, attachmentKind}`.
  */
 export function computeSymbolAffinity(
   args: ComputeSymbolAffinityArgs,
@@ -208,10 +253,26 @@ export function computeSymbolAffinity(
   let score = 0;
 
   const aliasSet = new Set(args.aliases.map((a) => a.toUpperCase()));
-  // Symbol itself is always a valid token even when aliases is empty.
   aliasSet.add(args.symbolUpper.toUpperCase());
 
   const aliasList = [...aliasSet];
+
+  const tickers = Array.isArray(args.affectedTickers) ? args.affectedTickers : [];
+  const inferred = Array.isArray(args.tickersInferred) ? args.tickersInferred : [];
+
+  // 0. Slice 6: classify attachment kind before scoring.
+  const keptHit = findFirstAliasHit(tickers, aliasSet);
+  const inferredHit = findFirstAliasHit(inferred, aliasSet);
+  const attachmentKind: AttachmentKind =
+    keptHit && inferredHit ? "both"
+    : keptHit ? "kept"
+    : inferredHit ? "inferred_only"
+    : "none";
+
+  for (const t of inferred) {
+    const u = (t ?? "").toUpperCase();
+    if (u) reasons.push(`inferred_ticker_present:${u}`);
+  }
 
   // 1. Text-token bonus — strongest signal that the row is on-symbol.
   const textBlob = `${args.theme ?? ""}\n${args.newsOneLiner ?? ""}`;
@@ -225,16 +286,20 @@ export function computeSymbolAffinity(
 
   // 2. Subject-primary signal — upstream-first mutex.
   //
-  //    When upstream provides a deterministic primary_ticker (non-null
-  //    primarySource), we score ONLY against that signal and skip the
-  //    positional fallback entirely. When upstream is silent (null/
-  //    undefined), the legacy affected_tickers[0] heuristic fires.
-  //    No double-counting: exactly one of primary_ticker_* or
-  //    position_primary_* appears in `reasons`.
-  const tickers = Array.isArray(args.affectedTickers) ? args.affectedTickers : [];
+  //    Slice 6: when the symbol is only in tickers_inferred (inferred_only
+  //    attachment), the primary-ticker and position-primary branches are
+  //    meaningless — the symbol was dropped from affected_tickers by the
+  //    sanitizer. Instead, emit the inferred-only attachment code and apply
+  //    the (default-zero) penalty.
   const primarySource = args.primarySource ?? null;
 
-  if (primarySource === "marketaux_entities" || primarySource === "batch_heuristic") {
+  if (attachmentKind === "inferred_only") {
+    const penalty = getInferredOnlyPenalty();
+    if (penalty !== 0) {
+      score += penalty;
+    }
+    reasons.push(`attachment_inferred_only:${inferredHit}`);
+  } else if (primarySource === "marketaux_entities" || primarySource === "batch_heuristic") {
     const tier = primarySource === "marketaux_entities" ? "strong" : "heuristic";
     const hitWeight = primarySource === "marketaux_entities"
       ? WEIGHT_PRIMARY_TICKER_STRONG
@@ -288,6 +353,7 @@ export function computeSymbolAffinity(
     reasons,
     passed: score >= threshold,
     threshold,
+    attachmentKind,
   };
 }
 
@@ -312,6 +378,21 @@ export function textMentionsAnyAlias(
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────
+
+/**
+ * Return the first ticker in `arr` that is a member of `aliasSet`
+ * (case-insensitive), or `null` when none match.
+ */
+function findFirstAliasHit(
+  arr: ReadonlyArray<string>,
+  aliasSet: Set<string>,
+): string | null {
+  for (const t of arr) {
+    const u = (t ?? "").toUpperCase();
+    if (u && aliasSet.has(u)) return u;
+  }
+  return null;
+}
 
 /**
  * Find the first alias that matches the text as a whole word. Match rules:

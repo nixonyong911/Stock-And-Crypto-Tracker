@@ -212,3 +212,52 @@ Slice 3 emitted `primary_ticker_miss:strong:null` when `primary_ticker_source` w
 ### Reversibility
 
 Single-line revert of `WEIGHT_PRIMARY_TICKER_STRONG_MISS` from -2 to 0 restores Slice 3 behavior exactly. No migration, no schema change, no upstream layer touched.
+
+---
+
+## Slice 6 — Consumer adoption of `tickers_inferred`
+
+**Decision target:** Make the Smart Digest consumer-side scorer aware of `analysis_market_memory.tickers_inferred` (populated by the Slice 5 INSERT-time sanitizer) so that inferred-only ticker attachment is distinguishable, debuggable, and discountable.
+
+### What changed
+
+1. **Attachment classification** — every `(row, symbol)` affinity evaluation now classifies an `attachmentKind`:
+
+| Kind | Condition | Behaviour |
+|---|---|---|
+| `kept` | Symbol is in `affected_tickers` | Normal scoring (unchanged) |
+| `inferred_only` | Symbol is only in `tickers_inferred` | Skips position-primary / primary-ticker branches; applies configurable penalty |
+| `both` | Symbol is in both arrays | Treated as `kept` (defensive; should not occur post-Slice-5) |
+| `none` | Symbol is in neither array | Normal scoring (unchanged) |
+
+2. **New reason code families:**
+
+| Code | When emitted |
+|---|---|
+| `inferred_ticker_present:<T>` | For every entry in `tickers_inferred` (always, for inspectability) |
+| `attachment_inferred_only:<ALIAS>` | When `attachmentKind === "inferred_only"` (replaces position/primary branches) |
+
+3. **New environment knob:**
+
+| Variable | Default | Clamp range | Effect |
+|---|---|---|---|
+| `SMART_DIGEST_INFERRED_ONLY_PENALTY` | `0` | `[-5, 0]` | Score penalty applied once when `attachmentKind === "inferred_only"`. At default `0`, no behavior change. |
+
+4. **Debug surface** — `DebugMemoryCandidate` now exposes `tickersInferred: string[]` and `attachmentKind`.
+
+### Scoring behaviour for `inferred_only`
+
+When the digest symbol is only present via `tickers_inferred`:
+
+- `WEIGHT_POSITION_PRIMARY`, `WEIGHT_PRIMARY_TICKER_STRONG`, `WEIGHT_PRIMARY_TICKER_HEURISTIC`, and `WEIGHT_PRIMARY_TICKER_STRONG_MISS` are **all skipped** — these weights are meaningless because the symbol was dropped from `affected_tickers` by the sanitizer.
+- `getInferredOnlyPenalty()` is applied once (default `0`).
+- Text-token and cardinality-shaping weights still fire normally.
+
+### SQL filter unchanged
+
+The `affected_tickers && $1::text[]` filter in `fetchTickerMemoryText` and `fetchNewsHeadlines` is **not** expanded to include `tickers_inferred` in Slice 6. This is deliberate — opening the filter is a Slice 7 candidate once data and scoring evidence exist.
+
+### Reversibility
+
+- Remove the `inferred_only` branch and revert `attachmentKind` to always `"none"` — single code block.
+- Set `SMART_DIGEST_INFERRED_ONLY_PENALTY=0` (or unset it) to disable the penalty at runtime without any code change.

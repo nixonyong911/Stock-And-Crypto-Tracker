@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   computeSymbolAffinity,
   getAffinityMin,
+  getInferredOnlyPenalty,
 } from "../digest-symbol-affinity.js";
 import type { PrimaryTickerSource } from "../primary-ticker.js";
 
@@ -16,6 +17,7 @@ function score(opts: {
   threshold?: number;
   primaryTicker?: string | null;
   primarySource?: PrimaryTickerSource;
+  tickersInferred?: string[];
 }) {
   return computeSymbolAffinity({
     theme: opts.theme ?? null,
@@ -26,6 +28,7 @@ function score(opts: {
     threshold: opts.threshold,
     primaryTicker: opts.primaryTicker,
     primarySource: opts.primarySource,
+    tickersInferred: opts.tickersInferred,
   });
 }
 
@@ -663,4 +666,287 @@ describe("computeSymbolAffinity — slice 4 trust-aware penalty", () => {
     expect(r.score).toBe(3);
     expect(r.passed).toBe(true);
   });
+});
+
+// ── Slice 6: tickers_inferred consumer adoption ──────────────────────
+
+describe("computeSymbolAffinity — slice 6 attachmentKind classification", () => {
+  it("attachmentKind = 'kept' when symbol is in affected_tickers (no inferred)", () => {
+    const r = score({
+      theme: "JEPI Covered-Call ETF Structural Flaw",
+      newsOneLiner: "JEPI distribution sustainability risk exposed.",
+      affectedTickers: ["JEPI"],
+      symbolUpper: "JEPI",
+      aliases: ["JEPI"],
+      tickersInferred: [],
+      threshold: 2,
+    });
+    expect(r.attachmentKind).toBe("kept");
+    expect(r.reasons.some((x) => x.startsWith("attachment_inferred_only:"))).toBe(false);
+  });
+
+  it("attachmentKind = 'kept' when symbol is in affected_tickers (inferred has others)", () => {
+    const r = score({
+      theme: "JEPI Covered-Call ETF Structural Flaw",
+      newsOneLiner: "JEPI distribution sustainability risk exposed.",
+      affectedTickers: ["JEPI"],
+      symbolUpper: "JEPI",
+      aliases: ["JEPI"],
+      tickersInferred: ["SPX500"],
+      threshold: 2,
+    });
+    expect(r.attachmentKind).toBe("kept");
+    expect(r.reasons).toContain("inferred_ticker_present:SPX500");
+    expect(r.reasons.some((x) => x.startsWith("attachment_inferred_only:"))).toBe(false);
+  });
+
+  it("attachmentKind = 'inferred_only' skips primary/position and applies default-zero penalty", () => {
+    const r = score({
+      theme: "JEPI Covered-Call ETF Structural Flaw",
+      newsOneLiner: "JEPI distribution sustainability risk exposed.",
+      affectedTickers: ["JEPI"],
+      symbolUpper: "SPX500",
+      aliases: ["SPX500", "SPY"],
+      tickersInferred: ["SPX500"],
+      threshold: 2,
+    });
+    expect(r.attachmentKind).toBe("inferred_only");
+    expect(r.reasons).toContain("attachment_inferred_only:SPX500");
+    expect(r.reasons).toContain("inferred_ticker_present:SPX500");
+    expect(r.reasons.some((x) => x.startsWith("position_primary"))).toBe(false);
+    expect(r.reasons.some((x) => x.startsWith("primary_ticker"))).toBe(false);
+    // text_token_miss (0) + inferred_only penalty (0) + narrow n=1 (+1) = 1
+    expect(r.score).toBe(1);
+    expect(r.passed).toBe(false);
+  });
+
+  it("attachmentKind = 'both' keeps normal scoring (defensive case)", () => {
+    const r = score({
+      theme: "AAPL earnings surprise",
+      newsOneLiner: "Services beat.",
+      affectedTickers: ["AAPL"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      tickersInferred: ["AAPL"],
+      threshold: 2,
+    });
+    expect(r.attachmentKind).toBe("both");
+    expect(r.reasons.some((x) => x.startsWith("position_primary"))).toBe(true);
+    expect(r.reasons.some((x) => x.startsWith("attachment_inferred_only:"))).toBe(false);
+  });
+
+  it("attachmentKind = 'none' when symbol is in neither array", () => {
+    const r = score({
+      theme: "JEPI Covered-Call ETF Structural Flaw",
+      newsOneLiner: "JEPI distribution sustainability risk exposed.",
+      affectedTickers: ["JEPI"],
+      symbolUpper: "META",
+      aliases: ["META"],
+      tickersInferred: ["SPX500"],
+      threshold: 2,
+    });
+    expect(r.attachmentKind).toBe("none");
+    expect(r.reasons).toContain("inferred_ticker_present:SPX500");
+    expect(r.reasons.some((x) => x.startsWith("attachment_inferred_only:"))).toBe(false);
+  });
+
+  it("inferred_ticker_present codes emitted for every inferred ticker", () => {
+    const r = score({
+      theme: "Macro theme",
+      newsOneLiner: "Broad index rotation.",
+      affectedTickers: ["AAPL"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      tickersInferred: ["SPX500", "NSDQ100"],
+      threshold: 2,
+    });
+    expect(r.reasons).toContain("inferred_ticker_present:SPX500");
+    expect(r.reasons).toContain("inferred_ticker_present:NSDQ100");
+  });
+
+  it("empty tickersInferred emits no inferred_ticker_present codes", () => {
+    const r = score({
+      theme: "AAPL earnings",
+      newsOneLiner: null,
+      affectedTickers: ["AAPL"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      tickersInferred: [],
+      threshold: 2,
+    });
+    expect(r.reasons.some((x) => x.startsWith("inferred_ticker_present:"))).toBe(false);
+    expect(r.attachmentKind).toBe("kept");
+  });
+
+  it("omitted tickersInferred defaults to empty (backward compat)", () => {
+    const r = score({
+      theme: "AAPL earnings",
+      newsOneLiner: null,
+      affectedTickers: ["AAPL"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      threshold: 2,
+    });
+    expect(r.attachmentKind).toBe("kept");
+    expect(r.reasons.some((x) => x.startsWith("inferred_ticker_present:"))).toBe(false);
+  });
+
+  it("inferred_only with text-hit still gets text bonus but skips position/primary", () => {
+    const r = score({
+      theme: "SPX500 broad index funds see outflows",
+      newsOneLiner: "ETF rotation continues.",
+      affectedTickers: ["AAPL", "MSFT"],
+      symbolUpper: "SPX500",
+      aliases: ["SPX500", "SPY"],
+      tickersInferred: ["SPX500"],
+      threshold: 2,
+    });
+    expect(r.attachmentKind).toBe("inferred_only");
+    expect(r.reasons).toContain("text_token_hit:SPX500");
+    expect(r.reasons).toContain("attachment_inferred_only:SPX500");
+    expect(r.reasons.some((x) => x.startsWith("position_primary"))).toBe(false);
+    // text (+2) + inferred_only penalty (0) + narrow n=2 (+1) = 3
+    expect(r.score).toBe(3);
+  });
+});
+
+describe("getInferredOnlyPenalty — env reader and clamps", () => {
+  const ENV = "SMART_DIGEST_INFERRED_ONLY_PENALTY";
+  const original = process.env[ENV];
+
+  beforeEach(() => {
+    delete process.env[ENV];
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env[ENV];
+    else process.env[ENV] = original;
+  });
+
+  it("defaults to 0 when env is unset", () => {
+    expect(getInferredOnlyPenalty()).toBe(0);
+  });
+
+  it("defaults to 0 when env is empty", () => {
+    process.env[ENV] = "";
+    expect(getInferredOnlyPenalty()).toBe(0);
+  });
+
+  it("defaults to 0 when env is non-numeric", () => {
+    process.env[ENV] = "abc";
+    expect(getInferredOnlyPenalty()).toBe(0);
+  });
+
+  it("respects a valid negative value", () => {
+    process.env[ENV] = "-3";
+    expect(getInferredOnlyPenalty()).toBe(-3);
+  });
+
+  it("clamps a too-large negative value to -5", () => {
+    process.env[ENV] = "-99";
+    expect(getInferredOnlyPenalty()).toBe(-5);
+  });
+
+  it("clamps a positive value to 0", () => {
+    process.env[ENV] = "5";
+    expect(getInferredOnlyPenalty()).toBe(0);
+  });
+});
+
+describe("computeSymbolAffinity — slice 6 inferred_only with env penalty", () => {
+  const ENV = "SMART_DIGEST_INFERRED_ONLY_PENALTY";
+  const original = process.env[ENV];
+
+  beforeEach(() => {
+    delete process.env[ENV];
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env[ENV];
+    else process.env[ENV] = original;
+  });
+
+  it("penalty -2 from env is applied on inferred_only attachment", () => {
+    process.env[ENV] = "-2";
+    const r = score({
+      theme: "SPX500 broad index funds see outflows",
+      newsOneLiner: "ETF rotation continues.",
+      affectedTickers: ["AAPL", "MSFT"],
+      symbolUpper: "SPX500",
+      aliases: ["SPX500", "SPY"],
+      tickersInferred: ["SPX500"],
+      threshold: 2,
+    });
+    expect(r.attachmentKind).toBe("inferred_only");
+    // text (+2) + inferred_only penalty (-2) + narrow n=2 (+1) = 1
+    expect(r.score).toBe(1);
+    expect(r.passed).toBe(false);
+  });
+
+  it("penalty from env is NOT applied when attachmentKind is 'kept'", () => {
+    process.env[ENV] = "-3";
+    const r = score({
+      theme: "AAPL earnings beat",
+      newsOneLiner: null,
+      affectedTickers: ["AAPL"],
+      symbolUpper: "AAPL",
+      aliases: ["AAPL"],
+      tickersInferred: ["SPX500"],
+      threshold: 2,
+    });
+    expect(r.attachmentKind).toBe("kept");
+    // text (+2) + position_primary_hit (+2) + narrow n=1 (+1) = 5
+    expect(r.score).toBe(5);
+  });
+});
+
+describe("computeSymbolAffinity — slice 6 determinism + validation symbols", () => {
+  it("identical inputs with tickersInferred produce identical results", () => {
+    const args = {
+      theme: "JEPI Covered-Call ETF Structural Flaw",
+      newsOneLiner: "JEPI distribution risk exposed.",
+      affectedTickers: ["JEPI"],
+      symbolUpper: "SPX500",
+      aliases: ["SPX500", "SPY"],
+      tickersInferred: ["SPX500"],
+      threshold: 2,
+    };
+    const results = Array.from({ length: 100 }, () => computeSymbolAffinity(args));
+    for (const r of results) {
+      expect(r).toEqual(results[0]);
+    }
+  });
+
+  const VALIDATION_SYMBOLS: Array<{
+    symbolUpper: string;
+    aliases: string[];
+  }> = [
+    { symbolUpper: "SPX500", aliases: ["SPX500", "SPY"] },
+    { symbolUpper: "NSDQ100", aliases: ["NSDQ100", "QQQ"] },
+    { symbolUpper: "DJ30", aliases: ["DJ30", "DIA"] },
+    { symbolUpper: "AAPL", aliases: ["AAPL"] },
+    { symbolUpper: "NVDA", aliases: ["NVDA"] },
+    { symbolUpper: "META", aliases: ["META"] },
+    { symbolUpper: "BTC/USD", aliases: ["BTC/USD", "BTC"] },
+    { symbolUpper: "ETH/USD", aliases: ["ETH/USD", "ETH"] },
+  ];
+
+  for (const { symbolUpper, aliases } of VALIDATION_SYMBOLS) {
+    it(`inferred_only classification for ${symbolUpper}`, () => {
+      const r = computeSymbolAffinity({
+        theme: "Generic Theme Title",
+        newsOneLiner: "Generic one-liner text.",
+        affectedTickers: ["UNRELATED"],
+        symbolUpper,
+        aliases,
+        tickersInferred: [symbolUpper],
+        threshold: 2,
+      });
+      expect(r.attachmentKind).toBe("inferred_only");
+      expect(r.reasons).toContain(`attachment_inferred_only:${symbolUpper}`);
+      expect(r.reasons).toContain(`inferred_ticker_present:${symbolUpper}`);
+      expect(r.reasons.some((x) => x.startsWith("position_primary"))).toBe(false);
+      expect(r.reasons.some((x) => x.startsWith("primary_ticker"))).toBe(false);
+    });
+  }
 });

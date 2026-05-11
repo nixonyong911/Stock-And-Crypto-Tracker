@@ -70,7 +70,7 @@ function memoryCandidate(
     relevanceScore: 0.82,
     sentimentScore: 0.4,
     affectedTickers: ["AAPL"],
-    lastUpdated: "2026-05-08T12:00:00Z",
+    lastUpdated: new Date(Date.now() - 6 * 3_600_000).toISOString(),
     newsOneLiner: "Apple guidance beats expectations.",
     summary: "Stronger services guidance lifts mega-cap tech.",
     rankKey: {
@@ -112,6 +112,8 @@ function memoryCandidate(
       source: null,
       trustTier: "none",
     },
+    tickersInferred: [],
+    attachmentKind: "kept" as const,
     ...overrides,
   };
 }
@@ -1089,5 +1091,80 @@ describe("digest-debug — affinity surface", () => {
         /affinity gate rejected 2 candidates/.test(n),
       ),
     ).toBe(true);
+  });
+});
+
+// ── Slice 6: tickers_inferred + attachmentKind in debug candidates ────
+
+describe("fetchMemoryCandidatesForDebug — slice 6 tickersInferred + attachmentKind", () => {
+  it("surfaces tickersInferred and attachmentKind='kept' when symbol is in affected_tickers", async () => {
+    const pool = makePool([
+      {
+        theme: "JEPI Covered-Call ETF Structural Flaw",
+        category: "market",
+        affected_tickers: ["JEPI"],
+        news_one_liner: "JEPI distribution sustainability risk.",
+        summary: "JEPI ETF flaw.",
+        impact_level: "medium",
+        relevance_score: "0.8",
+        sentiment_score: "-0.2",
+        last_updated: "2026-05-09T18:00:00Z",
+        primary_ticker: null,
+        primary_ticker_source: null,
+        tickers_inferred: ["SPX500"],
+      },
+    ]);
+    const out = await fetchMemoryCandidatesForDebug(pool, "JEPI");
+    expect(out).toHaveLength(1);
+    expect(out[0]!.tickersInferred).toEqual(["SPX500"]);
+    expect(out[0]!.attachmentKind).toBe("kept");
+    expect(out[0]!.affinity.reasons).toContain("inferred_ticker_present:SPX500");
+  });
+
+  it("empty tickers_inferred (pre-Slice-5 row) shows attachmentKind='kept' with no inferred codes", async () => {
+    const pool = makePool([
+      {
+        theme: "AAPL services beat",
+        category: "earnings",
+        affected_tickers: ["AAPL"],
+        news_one_liner: "AAPL services revenue exceeded expectations.",
+        summary: "Services beat.",
+        impact_level: "high",
+        relevance_score: "0.82",
+        sentiment_score: "0.4",
+        last_updated: "2026-05-09T18:32:00Z",
+        primary_ticker: null,
+        primary_ticker_source: null,
+        tickers_inferred: [],
+      },
+    ]);
+    const out = await fetchMemoryCandidatesForDebug(pool, "AAPL");
+    expect(out).toHaveLength(1);
+    expect(out[0]!.tickersInferred).toEqual([]);
+    expect(out[0]!.attachmentKind).toBe("kept");
+    expect(out[0]!.affinity.reasons.some((r: string) => r.startsWith("inferred_ticker_present:"))).toBe(false);
+  });
+
+  it("null tickers_inferred treated as empty (backward compat)", async () => {
+    const pool = makePool([
+      {
+        theme: "AAPL services beat",
+        category: "earnings",
+        affected_tickers: ["AAPL"],
+        news_one_liner: "AAPL services revenue exceeded expectations.",
+        summary: "Services beat.",
+        impact_level: "high",
+        relevance_score: "0.82",
+        sentiment_score: "0.4",
+        last_updated: "2026-05-09T18:32:00Z",
+        primary_ticker: null,
+        primary_ticker_source: null,
+        tickers_inferred: null,
+      },
+    ]);
+    const out = await fetchMemoryCandidatesForDebug(pool, "AAPL");
+    expect(out).toHaveLength(1);
+    expect(out[0]!.tickersInferred).toEqual([]);
+    expect(out[0]!.attachmentKind).toBe("kept");
   });
 });
