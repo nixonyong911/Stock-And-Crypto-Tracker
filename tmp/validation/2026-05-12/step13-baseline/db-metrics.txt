@@ -1,0 +1,43 @@
+# Step 13 — Baseline DB metrics
+# Capture: 2026-05-12T05:07:00Z
+# All metrics on WHERE status IN ('active','fading')
+
+## 1a. Row counts and shares (m1-m9 + m5b/m5c)
+m1_total|45
+m2_inferred_nonempty|0
+m3_inferred_share|0.0000
+m4_primary_nonnull|4
+m5_primary_share|0.0889
+m5b_primary_coherent_share_population|0.0000
+m5c_new_path_primary_total|n/a (baseline — no slice_deploy_ts yet)
+m5c_new_path_primary_incoherent|n/a (baseline — no slice_deploy_ts yet)
+m6_broad_bearing|38
+m7_broad_share|0.8444
+m8_overlap_inferred_affected|0
+m9_disjoint_inferred_affected|0
+
+## 1b. Ticker-breadth distribution
+b0_zero|0
+b1_single|5
+b2_narrow|16
+b3_wide|21
+b4_very_wide|3
+
+## 1c. Per-broad-ticker contamination breakdown
+SPX500|20
+NSDQ100|11
+BTC|10
+ETH|8
+GOLD|5
+OIL|4
+RTY|2
+SPY|1
+QQQ|1
+DJ30|1
+NATGAS|1
+DIA|1
+
+## Derived
+# b3_wide + b4_very_wide = 24 / 45 = 53.3%
+# m5b_primary_coherent = 0 out of 4 non-null primaries = 0% coherent
+# m6_broad_bearing = 38 / 45 = 84.4% of rows carry at least one broad ticker (v2 union)

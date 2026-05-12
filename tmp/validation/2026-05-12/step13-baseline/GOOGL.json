@@ -1,0 +1,113 @@
+{
+  "symbol": "GOOGL",
+  "symbolUpper": "GOOGL",
+  "aliases": [
+    "GOOGL"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 3,
+  "passedCount": 2,
+  "chosen": {
+    "theme": "Google Digital Health Platform Consolidation — Fitbit Air and Google Health App Relaunch Signal Alphabet's AI-Wearables Push Into Apple's Core Health Ecosystem",
+    "news_one_liner": "Google's Fitbit Air and AI health app relaunch escalate competition with Apple Watch and position Alphabet as a clinical data platform in the $500B digital health market.",
+    "affected_tickers": [
+      "GOOGL",
+      "AAPL",
+      "NSDQ100"
+    ],
+    "tickers_inferred": [],
+    "affinity": {
+      "score": 3,
+      "reasons": [
+        "text_token_miss",
+        "position_primary_hit:GOOGL",
+        "narrow_tag_bonus:n=3"
+      ],
+      "passed": true,
+      "threshold": 2,
+      "attachmentKind": "kept"
+    }
+  },
+  "candidates": [
+    {
+      "theme": "Google Digital Health Platform Consolidation — Fitbit Air and Google Health App Relaunch Signal Alphabet's AI-Wearables Push Into Apple's Core Health Ecosystem",
+      "affected_tickers": [
+        "GOOGL",
+        "AAPL",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T18:03:24.437+00:00",
+      "news_one_liner": "Google's Fitbit Air and AI health app relaunch escalate competition with Apple Watch and position Alphabet as a clinical data platform in the $500B digital health market.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:GOOGL",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": true
+    },
+    {
+      "theme": "AI Capital Markets Integration — Anthropic Wall Street JV Exploration Signals Frontier Model Pivot to Finance as Federal Exclusion Redirects Commercial Strategy",
+      "affected_tickers": [
+        "MSFT",
+        "GOOGL",
+        "700.HK",
+        "NSDQ100",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T06:09:34.505+00:00",
+      "news_one_liner": "Google Cloud and Genpact's agentic AI deal for CFO offices extends AI-finance integration into enterprise operations, threatening SAP and Oracle while boosting GOOGL cloud revenue durability.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_hit:GOOGL",
+          "position_primary_miss:position=2",
+          "normal_tag:n=5"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Apple AI Product Litigation — Siri $250M Settlement Establishes Legal Precedent for AI Feature Misrepresentation Across Big Tech",
+      "affected_tickers": [
+        "AAPL",
+        "MSFT",
+        "GOOGL",
+        "META",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T18:04:11.841+00:00",
+      "news_one_liner": "Apple's $250M Siri settlement creates a litigation blueprint threatening all big tech AI feature marketing claims, raising compliance costs sector-wide.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}

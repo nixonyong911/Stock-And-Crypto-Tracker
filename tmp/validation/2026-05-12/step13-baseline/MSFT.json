@@ -1,0 +1,90 @@
+{
+  "symbol": "MSFT",
+  "symbolUpper": "MSFT",
+  "aliases": [
+    "MSFT"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 2,
+  "passedCount": 1,
+  "chosen": {
+    "theme": "AI Capital Markets Integration — Anthropic Wall Street JV Exploration Signals Frontier Model Pivot to Finance as Federal Exclusion Redirects Commercial Strategy",
+    "news_one_liner": "Google Cloud and Genpact's agentic AI deal for CFO offices extends AI-finance integration into enterprise operations, threatening SAP and Oracle while boosting GOOGL cloud revenue durability.",
+    "affected_tickers": [
+      "MSFT",
+      "GOOGL",
+      "700.HK",
+      "NSDQ100",
+      "SPX500"
+    ],
+    "tickers_inferred": [],
+    "affinity": {
+      "score": 2,
+      "reasons": [
+        "text_token_miss",
+        "position_primary_hit:MSFT",
+        "normal_tag:n=5"
+      ],
+      "passed": true,
+      "threshold": 2,
+      "attachmentKind": "kept"
+    }
+  },
+  "candidates": [
+    {
+      "theme": "AI Capital Markets Integration — Anthropic Wall Street JV Exploration Signals Frontier Model Pivot to Finance as Federal Exclusion Redirects Commercial Strategy",
+      "affected_tickers": [
+        "MSFT",
+        "GOOGL",
+        "700.HK",
+        "NSDQ100",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T06:09:34.505+00:00",
+      "news_one_liner": "Google Cloud and Genpact's agentic AI deal for CFO offices extends AI-finance integration into enterprise operations, threatening SAP and Oracle while boosting GOOGL cloud revenue durability.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:MSFT",
+          "normal_tag:n=5"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": true
+    },
+    {
+      "theme": "Apple AI Product Litigation — Siri $250M Settlement Establishes Legal Precedent for AI Feature Misrepresentation Across Big Tech",
+      "affected_tickers": [
+        "AAPL",
+        "MSFT",
+        "GOOGL",
+        "META",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T18:04:11.841+00:00",
+      "news_one_liner": "Apple's $250M Siri settlement creates a litigation blueprint threatening all big tech AI feature marketing claims, raising compliance costs sector-wide.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}

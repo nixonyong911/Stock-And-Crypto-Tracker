@@ -1,0 +1,24 @@
+# Slice 9 — pre-deploy baseline (dormant parity check)
+# Date: 2026-05-12T06:18 UTC
+# Gateway image: stocktracker-gateway-2.0:v1.2 (rebuilt at 06:16:50Z with Slice 9 dormant code)
+# Env: MEMORY_CURATOR_RESANITIZE_ON_UPDATE=false
+
+## Q1 — Contamination breakdown
+
+active_fading:       50
+inferred_nonempty:   0
+primary_present:     4
+primary_incoherent:  4
+
+## Comparison with iter-1 (2026-05-12T05:07 UTC)
+
+iter-1 active_fading: 47 → now 50 (3 new rows from subsequent curator runs)
+iter-1 inferred_nonempty: 0 → still 0 (Slice 9 dormant — expected)
+iter-1 primary_present: 4 → still 4
+iter-1 primary_incoherent: 4 → still 4
+
+## Verdict
+
+Dormant parity confirmed. Slice 9 code is deployed but inactive.
+The 3 new rows (47→50) are from normal curator activity since iter-1.
+No metrics moved — the dormant code is truly inert.

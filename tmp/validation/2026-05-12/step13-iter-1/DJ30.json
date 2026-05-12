@@ -1,0 +1,79 @@
+{
+  "symbol": "DJ30",
+  "symbolUpper": "DJ30",
+  "aliases": [
+    "DJ30",
+    "DIA"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 2,
+  "passedCount": 0,
+  "chosen": null,
+  "candidates": [
+    {
+      "theme": "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "affected_tickers": [
+        "CL=F",
+        "BNO",
+        "XLE",
+        "USO",
+        "SPY",
+        "QQQ",
+        "DIA",
+        "TLT",
+        "GLD",
+        "LMT",
+        "RTX",
+        "XOM",
+        "CVX",
+        "COP"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "critical",
+      "relevance_score": 1,
+      "last_updated": "2026-05-12T05:33:27.518+00:00",
+      "news_one_liner": "Ukraine ceasefire collapse eliminates the Russia de-escalation counter-signal, leaving US-Iran back-channels as the sole remaining peace monitor in an otherwise uniformly escalatory geopolitical pictu",
+      "affinity": {
+        "score": -1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=7",
+          "broad_tag_penalty:n=14"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "G7 Synchronized Rate Hold — Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "DJ30",
+        "TLT",
+        "GOLD",
+        "OIL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-12T05:33:27.518+00:00",
+      "news_one_liner": "BOJ breaks from its dovish outlier role with a hawkish pivot, leaving zero accommodative anchors in the G7 and adding yen-carry unwind risk to an already complex monetary paralysis picture.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}

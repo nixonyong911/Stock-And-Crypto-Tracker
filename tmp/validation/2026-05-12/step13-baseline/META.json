@@ -1,0 +1,65 @@
+{
+  "symbol": "META",
+  "symbolUpper": "META",
+  "aliases": [
+    "META"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 2,
+  "passedCount": 0,
+  "chosen": null,
+  "candidates": [
+    {
+      "theme": "Meta Messaging Platform Consolidation — Instagram DM Encryption Removal Redirects Users to WhatsApp, Raising EU Regulatory Exposure",
+      "affected_tickers": [
+        "META",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T10:42:43.279+00:00",
+      "news_one_liner": "Meta removes Instagram DM encryption and funnels users to WhatsApp, consolidating its messaging strategy but risking EU regulatory action under GDPR.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "primary_ticker_miss:heuristic:^FCHI",
+          "narrow_tag_bonus:n=2"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Apple AI Product Litigation — Siri $250M Settlement Establishes Legal Precedent for AI Feature Misrepresentation Across Big Tech",
+      "affected_tickers": [
+        "AAPL",
+        "MSFT",
+        "GOOGL",
+        "META",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T18:04:11.841+00:00",
+      "news_one_liner": "Apple's $250M Siri settlement creates a litigation blueprint threatening all big tech AI feature marketing claims, raising compliance costs sector-wide.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=4",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}

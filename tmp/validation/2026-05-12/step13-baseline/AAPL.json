@@ -1,0 +1,143 @@
+{
+  "symbol": "AAPL",
+  "symbolUpper": "AAPL",
+  "aliases": [
+    "AAPL"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 4,
+  "passedCount": 1,
+  "chosen": {
+    "theme": "Apple AI Product Litigation — Siri $250M Settlement Establishes Legal Precedent for AI Feature Misrepresentation Across Big Tech",
+    "news_one_liner": "Apple's $250M Siri settlement creates a litigation blueprint threatening all big tech AI feature marketing claims, raising compliance costs sector-wide.",
+    "affected_tickers": [
+      "AAPL",
+      "MSFT",
+      "GOOGL",
+      "META",
+      "NSDQ100"
+    ],
+    "tickers_inferred": [],
+    "affinity": {
+      "score": 2,
+      "reasons": [
+        "text_token_miss",
+        "position_primary_hit:AAPL",
+        "normal_tag:n=5"
+      ],
+      "passed": true,
+      "threshold": 2,
+      "attachmentKind": "kept"
+    }
+  },
+  "candidates": [
+    {
+      "theme": "Trump-Xi Summit Imminent — US-China Trade War Ceasefire Potential Emerges as Highest-Impact Binary Catalyst for Global Equities",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "AAPL",
+        "NVDA",
+        "AMD",
+        "TM"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-12T00:04:35.068+00:00",
+      "news_one_liner": "An imminent Trump-Xi summit creates a high-stakes binary catalyst for tech and industrial stocks exposed to US-China tariff uncertainty.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "primary_ticker_miss:heuristic:^AXJO",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Google Digital Health Platform Consolidation — Fitbit Air and Google Health App Relaunch Signal Alphabet's AI-Wearables Push Into Apple's Core Health Ecosystem",
+      "affected_tickers": [
+        "GOOGL",
+        "AAPL",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T18:03:24.437+00:00",
+      "news_one_liner": "Google's Fitbit Air and AI health app relaunch escalate competition with Apple Watch and position Alphabet as a clinical data platform in the $500B digital health market.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "PLA Leadership Purge Escalation — Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "affected_tickers": [
+        "FXI",
+        "SPX500",
+        "NSDQ100",
+        "NVDA",
+        "AAPL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T12:09:57.203+00:00",
+      "news_one_liner": "China's death sentences for two ex-defense ministers deepen PLA command uncertainty, raising tail-risk premiums for Taiwan-exposed tech and semiconductor names.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Apple AI Product Litigation — Siri $250M Settlement Establishes Legal Precedent for AI Feature Misrepresentation Across Big Tech",
+      "affected_tickers": [
+        "AAPL",
+        "MSFT",
+        "GOOGL",
+        "META",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T18:04:11.841+00:00",
+      "news_one_liner": "Apple's $250M Siri settlement creates a litigation blueprint threatening all big tech AI feature marketing claims, raising compliance costs sector-wide.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:AAPL",
+          "normal_tag:n=5"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": true
+    }
+  ]
+}

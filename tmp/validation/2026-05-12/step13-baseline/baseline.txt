@@ -1,0 +1,9 @@
+# Step 13 — Baseline anchor
+# Capture timestamp: 2026-05-12T05:07:00Z (UTC)
+# Gateway image: stocktracker-gateway-2.0:v1.2
+# Gateway status: Up 26 minutes (healthy)
+
+# prompt_version distribution (active/fading):
+#   (null)              | 34
+#   memory-curator.v1   | 11
+#   total               | 45

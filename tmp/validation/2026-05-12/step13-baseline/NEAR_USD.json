@@ -1,0 +1,14 @@
+{
+  "symbol": "NEAR/USD",
+  "symbolUpper": "NEAR/USD",
+  "aliases": [
+    "NEAR/USD",
+    "NEAR"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 0,
+  "passedCount": 0,
+  "chosen": null,
+  "candidates": []
+}

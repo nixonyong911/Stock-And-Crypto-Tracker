@@ -1,0 +1,23 @@
+# Step 13 — Iter-1 capture
+# Capture timestamp: 2026-05-12T05:35:00Z (UTC)
+# Gateway image: stocktracker-gateway-2.0:v1.2
+# Gateway status: Up ~55 minutes (healthy)
+# Slice 8 deploy: 2026-05-12T04:40:22Z
+# Curator run triggered manually via /internal/process-news
+
+# prompt_version distribution (active/fading):
+#   (null)              | 30
+#   memory-curator.v2   | 13
+#   memory-curator.v1   |  4
+#   total               | 47
+
+# Curator run summary:
+#   newThemes (INSERTs): 2
+#   updates: 14
+#   decayed: 5 (to fading, not archived)
+#   activeThemes: 47
+#   processingTimeMs: 577597
+#   curatorRunId: ee3149d6-c1b6-4423-973b-8dc22bf7f254
+
+# Refreshed share: 13/47 = 27.7% (above ~25% heuristic)
+# Multi-class coverage: crypto (BTC/ETH), equities (AAPL/NVDA/AMD), indices (SPX500/NSDQ100/DJ30), commodities (GOLD/OIL) — PASS

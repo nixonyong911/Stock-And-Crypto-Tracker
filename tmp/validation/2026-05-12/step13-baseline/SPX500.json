@@ -1,0 +1,600 @@
+{
+  "symbol": "SPX500",
+  "symbolUpper": "SPX500",
+  "aliases": [
+    "SPX500",
+    "SPY"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 21,
+  "passedCount": 5,
+  "chosen": {
+    "theme": "G7 Synchronized Rate Hold — Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+    "news_one_liner": "RBA joins G7 central banks hiking into an energy shock, extending the synchronized monetary paralysis thesis to developed markets beyond the G7 core as ASX rate-sensitive stocks sell off.",
+    "affected_tickers": [
+      "SPX500",
+      "NSDQ100",
+      "DJ30",
+      "TLT",
+      "GOLD",
+      "OIL"
+    ],
+    "tickers_inferred": [],
+    "affinity": {
+      "score": 2,
+      "reasons": [
+        "text_token_miss",
+        "position_primary_hit:SPX500",
+        "normal_tag:n=6"
+      ],
+      "passed": true,
+      "threshold": 2,
+      "attachmentKind": "kept"
+    }
+  },
+  "candidates": [
+    {
+      "theme": "US-Iran War Escalation & Strait of Hormuz Blockade Threat",
+      "affected_tickers": [
+        "CL=F",
+        "BNO",
+        "XLE",
+        "USO",
+        "SPY",
+        "QQQ",
+        "DIA",
+        "TLT",
+        "GLD",
+        "LMT",
+        "RTX",
+        "XOM",
+        "CVX",
+        "COP"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "critical",
+      "relevance_score": 1,
+      "last_updated": "2026-05-12T00:04:35.068+00:00",
+      "news_one_liner": "South Korea's formal condemnation of the Hormuz attack on its cargo ship escalates allied pressure on Iran, raising shipping insurance costs for Asian energy importers.",
+      "affinity": {
+        "score": -1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "broad_tag_penalty:n=14"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "G7 Synchronized Rate Hold — Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "DJ30",
+        "TLT",
+        "GOLD",
+        "OIL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-05T06:04:19.7+00:00",
+      "news_one_liner": "RBA joins G7 central banks hiking into an energy shock, extending the synchronized monetary paralysis thesis to developed markets beyond the G7 core as ASX rate-sensitive stocks sell off.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "normal_tag:n=6"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": true
+    },
+    {
+      "theme": "Trump-Xi Summit Imminent — US-China Trade War Ceasefire Potential Emerges as Highest-Impact Binary Catalyst for Global Equities",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "AAPL",
+        "NVDA",
+        "AMD",
+        "TM"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-12T00:04:35.068+00:00",
+      "news_one_liner": "An imminent Trump-Xi summit creates a high-stakes binary catalyst for tech and industrial stocks exposed to US-China tariff uncertainty.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "primary_ticker_miss:heuristic:^AXJO",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "AI Capex Supercycle Redirects Institutional Flows Into Semiconductors — Chip ETFs Dominate 2026 Inflows as Big Tech Loses Narrative Leadership",
+      "affected_tickers": [
+        "NVDA",
+        "AMD",
+        "SOXX",
+        "NSDQ100",
+        "RTY",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T06:09:34.505+00:00",
+      "news_one_liner": "ARK's top 11 AI and data center picks add a retail flow catalyst layer to the AI capex supercycle, reinforcing NVDA, PLTR, and AMD as dual institutional-retail conviction targets.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=6",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "US-EU Auto Tariff Escalation — Trump's 25% Tariff Threat Opens New Trade War Front Against Europe's Largest Export Sector",
+      "affected_tickers": [
+        "DAX",
+        "STOXX50",
+        "GM",
+        "F",
+        "TSLA",
+        "SPX500",
+        "GOLD"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 0.92,
+      "last_updated": "2026-05-05T00:07:17.321+00:00",
+      "news_one_liner": "Trump renewed 25% EU auto tariff threats just after the EU ratified a trade deal, destroying negotiation credibility and widening the trade war front against German automakers.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=6",
+          "normal_tag:n=7"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Germany GDP Forecast Downgrade — Iran Energy Shock Delivers First Major Developed Market Growth Casualty",
+      "affected_tickers": [
+        "DAX",
+        "OIL",
+        "NATGAS",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 0.92,
+      "last_updated": "2026-05-05T00:07:17.321+00:00",
+      "news_one_liner": "Germany faces three simultaneous shocks — Hormuz energy costs, US auto tariffs, and trade deal credibility collapse — pushing GDP downgrade risk beyond consensus estimates.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=4",
+          "normal_tag:n=4"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Non-Tariff Barrier Trade Fragmentation — UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+      "affected_tickers": [
+        "SPX500",
+        "OIL",
+        "GOLD"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-10T06:08:45.991+00:00",
+      "news_one_liner": "UNCTAD finds LDCs losing 10% of G20 exports to non-tariff barriers, deepening trade fragmentation beyond headline tariff disputes and pressuring EM commodity exporters.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "US Consumer Confidence-Spending Divergence — Sentiment at Record Lows While Hard Data Holds, Flagging Deferred Recession Risk",
+      "affected_tickers": [
+        "SPX500",
+        "RTY",
+        "XRT"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T12:02:34.87+00:00",
+      "news_one_liner": "Visa's strongest growth since 2022 widens hard-data resilience evidence, keeping the soft-landing consensus alive while sentiment-spending divergence remains unresolved.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "SEC ESG Enforcement Activation — Sustainability Disclosure Mandates Shift From Voluntary to Coercive Compliance Phase",
+      "affected_tickers": [
+        "SPX500",
+        "XLE",
+        "XLB"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-06T12:03:46.2+00:00",
+      "news_one_liner": "SEC enforcement of sustainability disclosures raises compliance costs for energy and materials firms, accelerating mandatory ESG reporting across US markets.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Commercial Space Launch Sector Institutionalization — Rocket Lab Record Contract and 2027 Breakeven Path Signal Government Demand Inflection",
+      "affected_tickers": [
+        "RKLB",
+        "SPX500",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T18:03:24.437+00:00",
+      "news_one_liner": "Rocket Lab's record contract and 2027 breakeven path unlock institutional buying as commercial space transitions from speculative to earnings-visible.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "JEPI Covered-Call ETF Structural Flaw — Retirement Income Strategy Downgrade Exposes Distribution Sustainability Risk for Millions",
+      "affected_tickers": [
+        "JEPI",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T06:10:07.415+00:00",
+      "news_one_liner": "JEPI's Sell downgrade on $40B in AUM exposes millions of retirees to recurring distribution cuts as covered-call mechanics lag bull market recoveries.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=2"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "GameStop $56B eBay Acquisition Proposal — Meme Stock Strategic Pivot Triggers Credibility and Financing Crisis",
+      "affected_tickers": [
+        "GME",
+        "EBAY",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 0.92,
+      "last_updated": "2026-05-05T00:07:17.321+00:00",
+      "news_one_liner": "GameStop's $56B eBay bid sent GME lower as investors rejected the deal's feasibility, creating a binary overhang for EBAY.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "European Defense Spending Structural Acceleration — US Troop Withdrawal Forces NATO Burden-Sharing Recalibration",
+      "affected_tickers": [
+        "LMT",
+        "RTX",
+        "NOC",
+        "BA",
+        "LDOS",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-11T10:42:43.279+00:00",
+      "news_one_liner": "Putin's Victory Day ceasefire rhetoric introduces a new tail-risk for European defense stocks but analysts expect skepticism to persist absent a concrete diplomatic framework.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=6",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "UK Trumpflation Stagflation — Dual Energy and Tariff Shock Erodes British Savers' Real Wealth as BoE Rate Hold Fails to Keep Pace",
+      "affected_tickers": [
+        "FTSE",
+        "LLOY",
+        "BARC",
+        "NWG",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T06:11:23.499+00:00",
+      "news_one_liner": "UK savers are losing real wealth as energy and tariff inflation outpaces deposit rates, threatening UK banks, retailers, and sterling.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "PLA Leadership Purge Escalation — Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "affected_tickers": [
+        "FXI",
+        "SPX500",
+        "NSDQ100",
+        "NVDA",
+        "AAPL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T12:09:57.203+00:00",
+      "news_one_liner": "China's death sentences for two ex-defense ministers deepen PLA command uncertainty, raising tail-risk premiums for Taiwan-exposed tech and semiconductor names.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "AI Capital Markets Integration — Anthropic Wall Street JV Exploration Signals Frontier Model Pivot to Finance as Federal Exclusion Redirects Commercial Strategy",
+      "affected_tickers": [
+        "MSFT",
+        "GOOGL",
+        "700.HK",
+        "NSDQ100",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T06:09:34.505+00:00",
+      "news_one_liner": "Google Cloud and Genpact's agentic AI deal for CFO offices extends AI-finance integration into enterprise operations, threatening SAP and Oracle while boosting GOOGL cloud revenue durability.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "California Insurance Market Regulatory Crisis — State Farm Violations Signal Escalating Regulatory Friction for Property Insurers in High-Risk States",
+      "affected_tickers": [
+        "PGR",
+        "ALL",
+        "TRV",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-05T12:10:26.131+00:00",
+      "news_one_liner": "California's State Farm enforcement action escalates insurance market regulatory risk, pressuring P&C insurer stocks with high-catastrophe-state exposure.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=4",
+          "normal_tag:n=4"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Sports Finance Institutionalization — William Blair-Inner Circle Sports Acquisition Confirms PE-Driven Franchise M&A as Mainstream Advisory Vertical",
+      "affected_tickers": [
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-06T06:02:54.498+00:00",
+      "news_one_liner": "William Blair buying Inner Circle Sports confirms PE-driven sports franchise M&A has matured into a mainstream institutional advisory vertical.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "narrow_tag_bonus:n=1"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Corporate Bitcoin Treasury Model Under Fire — Schiff's 'Ponzi' Critique Highlights Leveraged Accumulation Risk at Strategy Inc.",
+      "affected_tickers": [
+        "MSTR",
+        "BTC",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-06T00:09:39.906+00:00",
+      "news_one_liner": "Schiff's 'Ponzi' label on Strategy's BTC-funded preferred stock raises regulatory risk for MSTR and the leveraged corporate Bitcoin treasury model more broadly.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Unconstrained Bond Fund Renaissance — Rate Volatility and Geopolitical Uncertainty Drive Institutional Capital to Flexible Fixed Income",
+      "affected_tickers": [
+        "TLT",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-06T00:09:39.906+00:00",
+      "news_one_liner": "Flexible bond funds are outperforming as rate volatility rewards unconstrained mandates, drawing institutional capital away from passive fixed income benchmarks.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=2"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Healthcare Sector Defensive Outperformance — AstraZeneca Q1 Beat and Baron Fund Highlights Signal Sector as Safe Haven Amid Macro Stress",
+      "affected_tickers": [
+        "AZN",
+        "JNJ",
+        "ROIV",
+        "WELL",
+        "GH",
+        "BLLN",
+        "ARGX",
+        "RDNT",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 0.92,
+      "last_updated": "2026-05-05T00:07:17.321+00:00",
+      "news_one_liner": "AstraZeneca's Q1 beat and raised guidance anchor healthcare sector outperformance as investors rotate into defensive earnings visibility amid macro stress.",
+      "affinity": {
+        "score": -1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=9",
+          "broad_tag_penalty:n=9"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}
