@@ -16,6 +16,8 @@ import { computeMemoryPrimary } from "./primary-ticker.js";
 import {
   sanitizeAffectedTickers,
   getSanitizeBroadTickersEnabled,
+  getResanitizeOnUpdateEnabled,
+  getActiveBroadSet,
 } from "./ticker-sanitizer.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -842,6 +844,75 @@ export async function applyChanges(
       if (upd.updated_one_liner) {
         params.push(upd.updated_one_liner);
         setClauses.push(`news_one_liner = $${params.length}`);
+      }
+
+      // Slice 9: re-sanitize the existing row's affected_tickers on UPDATE.
+      if (
+        getResanitizeOnUpdateEnabled() &&
+        getSanitizeBroadTickersEnabled() &&
+        batchStories.length > 0
+      ) {
+        try {
+          const { rows: existingRows } = await client.query<{
+            affected_tickers: string[];
+            primary_ticker: string | null;
+            primary_ticker_source: string | null;
+          }>(
+            `SELECT affected_tickers, primary_ticker, primary_ticker_source
+             FROM analysis_market_memory WHERE theme_id = $1 FOR UPDATE`,
+            [upd.theme_id],
+          );
+          const existingRow = existingRows[0];
+
+          if (existingRow && existingRow.affected_tickers.length > 0) {
+            const storyProj = batchStories.map((s) => ({
+              affected_tickers: s.affected_tickers,
+            }));
+            const san = sanitizeAffectedTickers(existingRow.affected_tickers, storyProj);
+
+            const broadSet = getActiveBroadSet();
+            const hadNonBroad = existingRow.affected_tickers.some(
+              (t) => !broadSet.has(t.toUpperCase()),
+            );
+            const erasureTriggered = san.kept.length === 0 && hadNonBroad;
+
+            const sortedKept = [...san.kept].sort();
+            const sortedExisting = [...existingRow.affected_tickers]
+              .map((t) => t.toUpperCase())
+              .sort();
+            const isIdentity =
+              san.inferred.length === 0 &&
+              sortedKept.length === sortedExisting.length &&
+              sortedKept.every((t, i) => t === sortedExisting[i]);
+
+            if (erasureTriggered) {
+              log.warn(
+                { themeId: upd.theme_id },
+                "Slice 9: erasure guard — sanitizer emptied kept for row with non-broad tickers; skipping",
+              );
+            } else if (!isIdentity) {
+              params.push(san.kept);
+              setClauses.push(`affected_tickers = $${params.length}`);
+              params.push(san.inferred);
+              setClauses.push(`tickers_inferred = $${params.length}`);
+
+              if (
+                existingRow.primary_ticker &&
+                !san.kept.includes(existingRow.primary_ticker)
+              ) {
+                params.push(null);
+                setClauses.push(`primary_ticker = $${params.length}`);
+                params.push(null);
+                setClauses.push(`primary_ticker_source = $${params.length}`);
+              }
+            }
+          }
+        } catch (resanErr) {
+          log.warn(
+            { themeId: upd.theme_id, err: resanErr },
+            "Slice 9: UPDATE-path sanitization failed; falling through to legacy update",
+          );
+        }
       }
 
       const result = await client.query(

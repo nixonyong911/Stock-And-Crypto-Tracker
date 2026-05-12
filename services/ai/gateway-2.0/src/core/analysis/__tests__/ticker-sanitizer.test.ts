@@ -4,6 +4,7 @@ import {
   getSanitizeBroadTickersEnabled,
   getBroadTickerTier,
   getActiveBroadSet,
+  getResanitizeOnUpdateEnabled,
   BROAD_INDEX_BOILERPLATE_TICKERS,
   BROAD_MACRO_PROXY_TICKERS,
 } from "../ticker-sanitizer.js";
@@ -468,5 +469,55 @@ describe("sanitizeAffectedTickers — Slice 8 zero-evidence fallback", () => {
     // v1: GOLD is not broad, SPX500 is. Mixed theme → SPX500 inferred, GOLD kept.
     expect(result.kept).toEqual(["GOLD"]);
     expect(result.inferred).toEqual(["SPX500"]);
+  });
+});
+
+// ── getResanitizeOnUpdateEnabled (Slice 9) ──────────────────────────
+
+describe("getResanitizeOnUpdateEnabled", () => {
+  const ENV_KEY = "MEMORY_CURATOR_RESANITIZE_ON_UPDATE";
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it("returns false by default (env unset)", () => {
+    delete process.env[ENV_KEY];
+    expect(getResanitizeOnUpdateEnabled()).toBe(false);
+  });
+
+  it("returns false when env is empty string", () => {
+    process.env[ENV_KEY] = "";
+    expect(getResanitizeOnUpdateEnabled()).toBe(false);
+  });
+
+  it("returns true when env is 'true'", () => {
+    process.env[ENV_KEY] = "true";
+    expect(getResanitizeOnUpdateEnabled()).toBe(true);
+  });
+
+  it("returns true when env is 'True' (case-insensitive)", () => {
+    process.env[ENV_KEY] = "True";
+    expect(getResanitizeOnUpdateEnabled()).toBe(true);
+  });
+
+  it("returns true when env is 'TRUE'", () => {
+    process.env[ENV_KEY] = "TRUE";
+    expect(getResanitizeOnUpdateEnabled()).toBe(true);
+  });
+
+  it("returns false when env is 'false'", () => {
+    process.env[ENV_KEY] = "false";
+    expect(getResanitizeOnUpdateEnabled()).toBe(false);
+  });
+
+  it("returns false for unknown value 'yes' (strict true-only)", () => {
+    process.env[ENV_KEY] = "yes";
+    expect(getResanitizeOnUpdateEnabled()).toBe(false);
+  });
+
+  it("returns false for unknown value '1' (strict true-only)", () => {
+    process.env[ENV_KEY] = "1";
+    expect(getResanitizeOnUpdateEnabled()).toBe(false);
   });
 });

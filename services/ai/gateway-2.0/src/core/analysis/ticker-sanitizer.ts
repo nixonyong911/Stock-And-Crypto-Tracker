@@ -1,7 +1,7 @@
-// Slice 5 + Slice 8: deterministic broad-index/macro-proxy boilerplate
-// sanitization for analysis_market_memory affected_tickers at INSERT time.
+// Slice 5 + Slice 8 + Slice 9: deterministic broad-index/macro-proxy
+// boilerplate sanitization for analysis_market_memory affected_tickers.
 //
-// Removes tickers from the LLM-proposed affected_tickers when:
+// Removes tickers from affected_tickers when:
 //   1. the ticker is in the active broad set (tier-dependent), AND
 //   2. no contributing story (overlap with theme tickers) carries that ticker.
 //
@@ -9,6 +9,10 @@
 //   - BROAD_MACRO_PROXY_TICKERS (GOLD, OIL, NATGAS, BTC, BTC/USD, ETH, ETH/USD)
 //   - Tiered set composition via MEMORY_CURATOR_BROAD_TICKER_TIER (v1 | v2)
 //   - Zero-evidence fallback replaced with all-broad / mixed-theme tiered rule
+//
+// Slice 9 addition:
+//   - MEMORY_CURATOR_RESANITIZE_ON_UPDATE env reader (default false)
+//     Gates re-application of the sanitizer on the UPDATE path.
 //
 // Pure / deterministic / no I/O. Safe fallback on any internal failure.
 
@@ -64,6 +68,17 @@ export function getBroadTickerTier(): "v1" | "v2" {
   const raw = process.env["MEMORY_CURATOR_BROAD_TICKER_TIER"];
   if (raw === "v1") return "v1";
   return "v2";
+}
+
+/**
+ * Slice 9: whether the sanitizer re-runs on the UPDATE path. Default false.
+ * Set `MEMORY_CURATOR_RESANITIZE_ON_UPDATE=true` to enable.
+ * Strict: only the literal string "true" (case-insensitive) activates it.
+ */
+export function getResanitizeOnUpdateEnabled(): boolean {
+  const raw = process.env["MEMORY_CURATOR_RESANITIZE_ON_UPDATE"];
+  if (raw === undefined || raw === "") return false;
+  return raw.toLowerCase() === "true";
 }
 
 /** Compose the active broad set based on the configured tier. */

@@ -362,3 +362,53 @@ The UPDATE path is intentionally untouched in Slice 8 — that belongs in Slice 
 - Does not change UPDATE-path mutation semantics (deferred to Slice 9).
 - Does not run a backfill script on legacy rows (deferred to Slice 10).
 - Does not change the consumer read path (`digest-symbol-affinity.ts`, `recommendation-engine.ts`, `digest-debug.ts`) — all read-side tests pass unchanged.
+
+---
+
+## Slice 9 — UPDATE-path sanitization
+
+**Status:** deployed dormant (flag default `false`).
+
+### Problem
+
+Slice 8 only sanitizes `affected_tickers` on the INSERT path. The dominant curator write path is UPDATE — rows that the curator refreshes carry their pre-Slice-8 `affected_tickers` verbatim. iter-1 showed `tickers_inferred = 0 / 47` and 7/11 validation symbols still contaminated with broad indices in their UPDATEd rows.
+
+### What Slice 9 does
+
+When `MEMORY_CURATOR_RESANITIZE_ON_UPDATE=true` AND `MEMORY_CURATOR_SANITIZE_BROAD_TICKERS` is not `false`, the `applyChanges` UPDATE branch:
+
+1. Reads the existing row's `affected_tickers`, `primary_ticker`, `primary_ticker_source` inside the transaction (`SELECT … FOR UPDATE`).
+2. Runs `sanitizeAffectedTickers(existingRow.affected_tickers, batchStories)` using the same sanitizer and evidence model as the INSERT path.
+3. Writes `affected_tickers = san.kept`, `tickers_inferred = san.inferred` as additional SET clauses.
+4. If the existing `primary_ticker` is no longer in `san.kept`, nulls `primary_ticker` and `primary_ticker_source` (guard-only — never recomputes via `computeMemoryPrimary`).
+
+### Safety guards
+
+- **No contributing stories** → sanitizer step skipped entirely; legacy UPDATE fires.
+- **Existing list empty** → nothing to sanitize; legacy UPDATE fires.
+- **Erasure guard** → if `san.kept` is empty AND existing list had non-broad tickers, treat as untrusted and no-op.
+- **Identity guard** → if `san.kept` is set-equal to existing and `san.inferred` is empty, skip the extra SET clauses (avoids no-op writes).
+- **Per-update try/catch** → any failure in the sanitization block logs a warning and falls through to the legacy UPDATE.
+
+### Environment knobs
+
+| Variable | Default | Values | Effect |
+|---|---|---|---|
+| `MEMORY_CURATOR_RESANITIZE_ON_UPDATE` | `"false"` | `"true"` enables | Enables UPDATE-path sanitization. Strict: only literal `"true"` (case-insensitive) activates it. |
+
+Master kill switch `MEMORY_CURATOR_SANITIZE_BROAD_TICKERS=false` supersedes Slice 9 regardless of its own flag.
+
+### Reversibility
+
+| Action | Effect |
+|---|---|
+| `MEMORY_CURATOR_RESANITIZE_ON_UPDATE=false` | Reverts to Slice 8 UPDATE behavior. No redeploy. |
+| `MEMORY_CURATOR_SANITIZE_BROAD_TICKERS=false` | Master kill switch — disables all sanitization (Slice 5 + 8 + 9). |
+
+### What this slice intentionally does NOT do
+
+- Does not change `ThemeUpdateEntry`, `themeUpdateEntrySchema`, or the curator prompt (no LLM contract change).
+- Does not recompute `primary_ticker` via `computeMemoryPrimary` on UPDATE (guard-only).
+- Does not run a backfill script on legacy rows (deferred to Slice 10).
+- Does not change INSERT-path behavior (already shipped in Slice 8).
+- Does not change the consumer read path — all read-side tests pass unchanged.
