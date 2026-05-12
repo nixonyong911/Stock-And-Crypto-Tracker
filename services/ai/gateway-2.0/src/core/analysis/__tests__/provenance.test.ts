@@ -12,7 +12,7 @@ import {
 describe("provenance constants", () => {
   it("exports expected version strings", () => {
     expect(NEWS_PROCESSOR_PROMPT_VERSION).toBe("news-processor.v1");
-    expect(MEMORY_CURATOR_PROMPT_VERSION).toBe("memory-curator.v1");
+    expect(MEMORY_CURATOR_PROMPT_VERSION).toBe("memory-curator.v2");
     expect(NEWS_PROCESSOR_VALIDATOR_VERSION).toBe("news-processor.zod.v1");
     expect(MEMORY_CURATOR_VALIDATOR_VERSION).toBe("memory-curator.zod.v1");
   });

@@ -464,6 +464,7 @@ services:
       - OVERVIEW_ALLOWED_USERS=${OVERVIEW_ALLOWED_USERS:-}
       - SMART_DIGEST_INFERRED_ONLY_PENALTY=${SMART_DIGEST_INFERRED_ONLY_PENALTY:--2}
       - SMART_DIGEST_INCLUDE_INFERRED_ONLY=${SMART_DIGEST_INCLUDE_INFERRED_ONLY:-false}
+      - MEMORY_CURATOR_BROAD_TICKER_TIER=${MEMORY_CURATOR_BROAD_TICKER_TIER:-v2}
     volumes:
       # cursor-agent CLI: mount the entire versions dir (contains node binary + JS chunks)
       # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing

@@ -314,3 +314,51 @@ When `$I` is bound `false`, the OR-arm evaluates to `false` for every row, so th
 ### Caveat
 
 The include flag stays dormant by default and is only behaviorally relevant when production data contains non-empty `tickers_inferred` AND the flag is explicitly flipped on. Until both conditions hold, this slice ships dormant wiring and a stored-but-unreached penalty value.
+
+---
+
+## Slice 8 — Curator pollution gate hardening
+
+Slice 8 addresses the curator-side bottleneck: `tickers_inferred ≈ 0` in production, low `primary_ticker` coverage on new rows, and broad-row contamination from the curator prompt. All changes are INSERT-time or pure-string; no UPDATE-path mutation semantics and no backfill. Those are deferred to Slices 9 and 10 respectively.
+
+### 8A — Sanitizer hardening
+
+**Broad set tiering.** The original `BROAD_INDEX_BOILERPLATE_TICKERS` (SPX500, NSDQ100, DJ30, RTY, SPY, QQQ, DIA, IWM, VTI, VOO) is preserved unchanged. A new `BROAD_MACRO_PROXY_TICKERS` (GOLD, OIL, NATGAS, BTC, BTC/USD, ETH, ETH/USD) is added alongside it. The active broad set is composed at runtime based on a tier env flag.
+
+**Zero-evidence fallback.** Slice 5 returned the original unchanged when `evidencedUnion` was empty (no contributing stories overlapped). Slice 8 replaces this with a tiered rule:
+- Theme is entirely broad → all tickers move to `tickers_inferred`, `affected_tickers = []`.
+- Theme has at least one non-broad ticker → non-broad subset stays in `affected_tickers`, broad tickers move to `tickers_inferred`.
+
+### 8B — Curator prompt revision
+
+The `affected_tickers` instruction in `buildBatchCuratorPrompt()` was changed from "include at least one major index symbol for broad macro themes" to "include only the tickers that are the SUBJECT of the article." The explicit lists of broad index proxies and macro proxies are cited in the prompt as examples of what NOT to include unless the article is actually about that instrument.
+
+`MEMORY_CURATOR_PROMPT_VERSION` bumped from `memory-curator.v1` to `memory-curator.v2`. All new rows record the new version in `prompt_version`, enabling A/B boundary queries in the DB.
+
+### 8C — Primary-ticker coherence guard (INSERT path only)
+
+After sanitization, if `computeMemoryPrimary` chose a primary that was dropped from `sanitization.kept`, both `primary_ticker` and `primary_ticker_source` are nulled before INSERT. Anchor invariance is preserved for the common case where the sanitizer kept everything.
+
+The UPDATE path is intentionally untouched in Slice 8 — that belongs in Slice 9.
+
+### Environment knobs
+
+| Variable | Default | Values | Effect |
+|---|---|---|---|
+| `MEMORY_CURATOR_SANITIZE_BROAD_TICKERS` | `true` (unchanged) | `"false"` disables | Disables the entire sanitizer (Slice 5 + 8). |
+| `MEMORY_CURATOR_BROAD_TICKER_TIER` | `"v2"` | `"v1"` / `"v2"` | `v1` = legacy index set only. `v2` = union of index + macro-proxy. Unknown values default to `v2`. |
+
+### Reversibility
+
+| Action | Effect |
+|---|---|
+| `MEMORY_CURATOR_BROAD_TICKER_TIER=v1` | Reverts to Slice 5 broad set (legacy indexes only). Macro-proxy expansion disabled. |
+| `MEMORY_CURATOR_SANITIZE_BROAD_TICKERS=false` | Reverts the entire sanitizer. All tickers pass through to `affected_tickers`. |
+| Git revert of prompt change | Restores old prompt text. Rows already tagged `memory-curator.v2` remain queryable as the A/B boundary. |
+| Git revert of coherence guard | Restores pre-Slice-8 behavior where `primary_ticker` can point outside `affected_tickers`. |
+
+### What this slice intentionally does NOT do
+
+- Does not change UPDATE-path mutation semantics (deferred to Slice 9).
+- Does not run a backfill script on legacy rows (deferred to Slice 10).
+- Does not change the consumer read path (`digest-symbol-affinity.ts`, `recommendation-engine.ts`, `digest-debug.ts`) — all read-side tests pass unchanged.

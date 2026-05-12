@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 // ── Prompt / validator version constants ──────────────────────────────
 
 export const NEWS_PROCESSOR_PROMPT_VERSION = "news-processor.v1";
-export const MEMORY_CURATOR_PROMPT_VERSION = "memory-curator.v1";
+export const MEMORY_CURATOR_PROMPT_VERSION = "memory-curator.v2";
 export const NEWS_PROCESSOR_VALIDATOR_VERSION = "news-processor.zod.v1";
 export const MEMORY_CURATOR_VALIDATOR_VERSION = "memory-curator.zod.v1";
 

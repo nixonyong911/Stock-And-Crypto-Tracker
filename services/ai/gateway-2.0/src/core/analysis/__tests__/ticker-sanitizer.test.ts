@@ -2,7 +2,10 @@ import { describe, it, expect, afterEach } from "vitest";
 import {
   sanitizeAffectedTickers,
   getSanitizeBroadTickersEnabled,
+  getBroadTickerTier,
+  getActiveBroadSet,
   BROAD_INDEX_BOILERPLATE_TICKERS,
+  BROAD_MACRO_PROXY_TICKERS,
 } from "../ticker-sanitizer.js";
 
 // ── sanitizeAffectedTickers ──────────────────────────────────────────
@@ -58,13 +61,13 @@ describe("sanitizeAffectedTickers", () => {
     expect(result.inferred).toEqual(["SPX500"]);
   });
 
-  it("falls back to original when evidencedUnion is empty (no contributing stories overlap)", () => {
+  it("moves all-broad theme to inferred when evidencedUnion is empty (Slice 8 zero-evidence rule)", () => {
     const result = sanitizeAffectedTickers(
       ["SPX500", "QQQ"],
       [{ affected_tickers: ["AAPL", "MSFT"] }],
     );
-    expect(result.kept).toEqual(["SPX500", "QQQ"]);
-    expect(result.inferred).toEqual([]);
+    expect(result.kept).toEqual([]);
+    expect(result.inferred).toEqual(["SPX500", "QQQ"]);
   });
 
   it("falls back to original when sanitization would empty the array", () => {
@@ -128,10 +131,10 @@ describe("sanitizeAffectedTickers", () => {
     expect(result.inferred).toEqual([]);
   });
 
-  it("falls back when no stories are provided (empty array)", () => {
+  it("splits mixed theme when no stories are provided — broad to inferred, non-broad to kept (Slice 8)", () => {
     const result = sanitizeAffectedTickers(["AAPL", "SPX500"], []);
-    expect(result.kept).toEqual(["AAPL", "SPX500"]);
-    expect(result.inferred).toEqual([]);
+    expect(result.kept).toEqual(["AAPL"]);
+    expect(result.inferred).toEqual(["SPX500"]);
   });
 
   it("handles case-insensitive input and uppercases output", () => {
@@ -217,6 +220,18 @@ describe("BROAD_INDEX_BOILERPLATE_TICKERS", () => {
   });
 });
 
+// ── BROAD_MACRO_PROXY_TICKERS ────────────────────────────────────────
+
+describe("BROAD_MACRO_PROXY_TICKERS", () => {
+  it("contains exactly the expected symbols", () => {
+    const expected = ["GOLD", "OIL", "NATGAS", "BTC", "BTC/USD", "ETH", "ETH/USD"];
+    expect(BROAD_MACRO_PROXY_TICKERS.size).toBe(expected.length);
+    for (const sym of expected) {
+      expect(BROAD_MACRO_PROXY_TICKERS.has(sym)).toBe(true);
+    }
+  });
+});
+
 // ── getSanitizeBroadTickersEnabled ───────────────────────────────────
 
 describe("getSanitizeBroadTickersEnabled", () => {
@@ -254,5 +269,204 @@ describe("getSanitizeBroadTickersEnabled", () => {
   it("returns true for any non-'false' value", () => {
     process.env[ENV_KEY] = "yes";
     expect(getSanitizeBroadTickersEnabled()).toBe(true);
+  });
+});
+
+// ── getBroadTickerTier (Slice 8) ─────────────────────────────────────
+
+describe("getBroadTickerTier", () => {
+  const ENV_KEY = "MEMORY_CURATOR_BROAD_TICKER_TIER";
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it("returns 'v2' by default (env unset)", () => {
+    delete process.env[ENV_KEY];
+    expect(getBroadTickerTier()).toBe("v2");
+  });
+
+  it("returns 'v1' when env is 'v1'", () => {
+    process.env[ENV_KEY] = "v1";
+    expect(getBroadTickerTier()).toBe("v1");
+  });
+
+  it("returns 'v2' when env is 'v2'", () => {
+    process.env[ENV_KEY] = "v2";
+    expect(getBroadTickerTier()).toBe("v2");
+  });
+
+  it("returns 'v2' for unknown values", () => {
+    process.env[ENV_KEY] = "v3";
+    expect(getBroadTickerTier()).toBe("v2");
+  });
+
+  it("returns 'v2' for empty string", () => {
+    process.env[ENV_KEY] = "";
+    expect(getBroadTickerTier()).toBe("v2");
+  });
+});
+
+// ── getActiveBroadSet (Slice 8) ──────────────────────────────────────
+
+describe("getActiveBroadSet", () => {
+  const ENV_KEY = "MEMORY_CURATOR_BROAD_TICKER_TIER";
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it("at v1, returns only the legacy index set", () => {
+    process.env[ENV_KEY] = "v1";
+    const set = getActiveBroadSet();
+    expect(set.has("SPX500")).toBe(true);
+    expect(set.has("GOLD")).toBe(false);
+    expect(set.has("BTC/USD")).toBe(false);
+    expect(set.size).toBe(BROAD_INDEX_BOILERPLATE_TICKERS.size);
+  });
+
+  it("at v2 (default), returns union of index + macro-proxy sets", () => {
+    delete process.env[ENV_KEY];
+    const set = getActiveBroadSet();
+    expect(set.has("SPX500")).toBe(true);
+    expect(set.has("GOLD")).toBe(true);
+    expect(set.has("BTC/USD")).toBe(true);
+    expect(set.has("ETH")).toBe(true);
+    const expectedSize = BROAD_INDEX_BOILERPLATE_TICKERS.size + BROAD_MACRO_PROXY_TICKERS.size;
+    expect(set.size).toBe(expectedSize);
+  });
+});
+
+// ── Slice 8 sanitizer behavior ───────────────────────────────────────
+
+describe("sanitizeAffectedTickers — Slice 8 tier v1 regression parity", () => {
+  const ENV_KEY = "MEMORY_CURATOR_BROAD_TICKER_TIER";
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it("at v1, GOLD stays in kept (not in legacy boilerplate set)", () => {
+    process.env[ENV_KEY] = "v1";
+    const result = sanitizeAffectedTickers(
+      ["NVDA", "GOLD", "SPX500"],
+      [{ affected_tickers: ["NVDA"] }],
+    );
+    expect(result.kept).toEqual(["NVDA", "GOLD"]);
+    expect(result.inferred).toEqual(["SPX500"]);
+  });
+
+  it("at v1, BTC/USD stays in kept (not in legacy boilerplate set)", () => {
+    process.env[ENV_KEY] = "v1";
+    const result = sanitizeAffectedTickers(
+      ["NVDA", "BTC/USD"],
+      [{ affected_tickers: ["NVDA"] }],
+    );
+    expect(result.kept).toEqual(["NVDA", "BTC/USD"]);
+    expect(result.inferred).toEqual([]);
+  });
+});
+
+describe("sanitizeAffectedTickers — Slice 8 tier v2 macro-proxy expansion", () => {
+  const ENV_KEY = "MEMORY_CURATOR_BROAD_TICKER_TIER";
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it("at v2, unevidenced GOLD moves to inferred", () => {
+    delete process.env[ENV_KEY];
+    const result = sanitizeAffectedTickers(
+      ["NVDA", "GOLD", "SPX500"],
+      [{ affected_tickers: ["NVDA"] }],
+    );
+    expect(result.kept).toEqual(["NVDA"]);
+    expect(result.inferred).toEqual(["GOLD", "SPX500"]);
+  });
+
+  it("at v2, unevidenced BTC/USD moves to inferred", () => {
+    delete process.env[ENV_KEY];
+    const result = sanitizeAffectedTickers(
+      ["NVDA", "BTC/USD"],
+      [{ affected_tickers: ["NVDA"] }],
+    );
+    expect(result.kept).toEqual(["NVDA"]);
+    expect(result.inferred).toEqual(["BTC/USD"]);
+  });
+
+  it("at v2, evidenced GOLD stays in kept", () => {
+    delete process.env[ENV_KEY];
+    const result = sanitizeAffectedTickers(
+      ["NVDA", "GOLD"],
+      [{ affected_tickers: ["NVDA", "GOLD"] }],
+    );
+    expect(result.kept).toEqual(["NVDA", "GOLD"]);
+    expect(result.inferred).toEqual([]);
+  });
+
+  it("at v2, evidenced ETH/USD stays in kept", () => {
+    delete process.env[ENV_KEY];
+    const result = sanitizeAffectedTickers(
+      ["ETH/USD", "AAVE"],
+      [{ affected_tickers: ["ETH/USD", "AAVE"] }],
+    );
+    expect(result.kept).toEqual(["ETH/USD", "AAVE"]);
+    expect(result.inferred).toEqual([]);
+  });
+});
+
+describe("sanitizeAffectedTickers — Slice 8 zero-evidence fallback", () => {
+  const ENV_KEY = "MEMORY_CURATOR_BROAD_TICKER_TIER";
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it("all-broad theme + zero evidence → kept=[], inferred=[all]", () => {
+    delete process.env[ENV_KEY];
+    const result = sanitizeAffectedTickers(
+      ["SPX500", "GOLD", "BTC/USD"],
+      [{ affected_tickers: ["AAPL"] }],
+    );
+    expect(result.kept).toEqual([]);
+    expect(result.inferred).toEqual(["SPX500", "GOLD", "BTC/USD"]);
+  });
+
+  it("all-broad theme + empty stories → kept=[], inferred=[all]", () => {
+    delete process.env[ENV_KEY];
+    const result = sanitizeAffectedTickers(["SPX500", "QQQ"], []);
+    expect(result.kept).toEqual([]);
+    expect(result.inferred).toEqual(["SPX500", "QQQ"]);
+  });
+
+  it("mixed theme + zero evidence → broad to inferred, non-broad to kept", () => {
+    delete process.env[ENV_KEY];
+    const result = sanitizeAffectedTickers(
+      ["NVDA", "SPX500", "GOLD"],
+      [{ affected_tickers: ["AAPL", "MSFT"] }],
+    );
+    expect(result.kept).toEqual(["NVDA"]);
+    expect(result.inferred).toEqual(["SPX500", "GOLD"]);
+  });
+
+  it("mixed theme + empty stories → same split as zero-evidence", () => {
+    delete process.env[ENV_KEY];
+    const result = sanitizeAffectedTickers(
+      ["LMT", "OIL", "DIA"],
+      [],
+    );
+    expect(result.kept).toEqual(["LMT"]);
+    expect(result.inferred).toEqual(["OIL", "DIA"]);
+  });
+
+  it("at v1, all-broad-v2 theme with non-v1-broad tickers keeps them in kept", () => {
+    process.env[ENV_KEY] = "v1";
+    const result = sanitizeAffectedTickers(
+      ["SPX500", "GOLD"],
+      [],
+    );
+    // v1: GOLD is not broad, SPX500 is. Mixed theme → SPX500 inferred, GOLD kept.
+    expect(result.kept).toEqual(["GOLD"]);
+    expect(result.inferred).toEqual(["SPX500"]);
   });
 });

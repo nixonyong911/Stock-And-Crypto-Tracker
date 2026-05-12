@@ -1,0 +1,16 @@
+# Slice 8 — DB baseline (BEFORE any code change)
+# Date: 2026-05-12
+# Query: Q1 contamination breakdown
+
+active_fading:          45
+inferred_nonempty:       0
+primary_present:         4
+primary_incoherent:      4
+broad_n_ge_8:            2
+broad_index_present:    26
+
+# Note: primary_incoherent == primary_present means every row that has a
+# primary_ticker is pointing outside its own affected_tickers. This confirms
+# the Slice 8C coherence guard is needed.
+# 26 of 45 active/fading rows (58%) have at least one broad index ticker.
+# Gateway version at baseline: gateway-2.0:v1.2

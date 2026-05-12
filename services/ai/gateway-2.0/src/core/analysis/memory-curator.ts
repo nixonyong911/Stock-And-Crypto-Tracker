@@ -447,7 +447,7 @@ RULES:
 - Deduplicate: merge similar articles into a single theme, never create two themes for the same event
 - Categories: macro, geopolitical, policy, market, crypto, diplomatic, sector, earnings
 - Impact levels: critical, high, medium, low
-- affected_tickers: uppercase symbols only. Include **equities** (AAPL, NVDA), **platform crypto** as BTC or BTC/USD (match the tradable symbol), **platform indices** (SPX500, NSDQ100, DJ30, RTY, etc.), and **platform commodities** (OIL, GOLD, NATGAS, etc.) when the theme materially affects them. For broad macro or risk-off themes that move "the market," include at least one major index symbol (e.g. SPX500) alongside any ETFs (SPY, QQQ). Do not use only generic ETF tickers when a platform index symbol applies.
+- affected_tickers: uppercase symbols only. Include only the tickers that are the SUBJECT of the article — i.e. the company, asset, or platform instrument the article is materially about. Do not include broad index proxies (SPX500, NSDQ100, DJ30, SPY, QQQ, DIA, IWM, VTI, VOO) or macro proxies (GOLD, OIL, NATGAS, BTC, BTC/USD, ETH, ETH/USD) just because the article references the broader market. Include them only if the article is itself ABOUT that index or commodity. Format: equities as AAPL/NVDA, platform crypto as BTC or BTC/USD (match the tradable symbol), platform indices as SPX500/NSDQ100/DJ30/RTY, platform commodities as OIL/GOLD/NATGAS.
 - relevance_score: 0.0 to 1.0 — increase for themes with strong new evidence, keep stable otherwise
 - For updates: only include themes that have genuinely new information, not just restatements
 - Think carefully about second-order effects (e.g., oil shock → inflation → Fed policy implications)
@@ -769,6 +769,13 @@ export async function applyChanges(
         ? sanitizeAffectedTickers(nt.affected_tickers, storyTickerProjection)
         : { kept: [...nt.affected_tickers], inferred: [] as string[] };
 
+      // Slice 8C: null primary if the sanitizer dropped it from kept.
+      const coherentPrimary =
+        memoryPrimary.primary_ticker &&
+        !sanitization.kept.includes(memoryPrimary.primary_ticker)
+          ? { primary_ticker: null, primary_ticker_source: null }
+          : memoryPrimary;
+
       const tickerPrices: Record<string, number> = {};
       for (const tk of sanitization.kept) {
         if (priceSnapshot[tk] !== undefined) tickerPrices[tk] = priceSnapshot[tk];
@@ -798,8 +805,8 @@ export async function applyChanges(
           MEMORY_CURATOR_VALIDATOR_VERSION,
           provenance.generatedAt,
           tickersUnknown,
-          memoryPrimary.primary_ticker,
-          memoryPrimary.primary_ticker_source,
+          coherentPrimary.primary_ticker,
+          coherentPrimary.primary_ticker_source,
           sanitization.inferred,
         ],
       );

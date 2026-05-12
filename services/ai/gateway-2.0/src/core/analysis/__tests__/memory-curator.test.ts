@@ -1063,6 +1063,106 @@ describe("applyChanges Slice 2 primary_ticker", () => {
   });
 });
 
+// ── buildBatchCuratorPrompt: Slice 8B prompt revision ─────────────────
+
+describe("buildBatchCuratorPrompt Slice 8B prompt revision", () => {
+  it("does NOT contain the old 'include at least one major index' instruction", () => {
+    const prompt = buildBatchCuratorPrompt([makeTheme()], [makeStory()]);
+    expect(prompt).not.toContain("include at least one major index");
+  });
+
+  it("contains the new SUBJECT-only scope instruction", () => {
+    const prompt = buildBatchCuratorPrompt([makeTheme()], [makeStory()]);
+    expect(prompt).toContain("only the tickers that are the SUBJECT");
+  });
+
+  it("lists broad index proxies to avoid in the prompt", () => {
+    const prompt = buildBatchCuratorPrompt([makeTheme()], [makeStory()]);
+    expect(prompt).toContain("SPX500, NSDQ100, DJ30, SPY, QQQ, DIA, IWM, VTI, VOO");
+  });
+
+  it("lists macro proxies to avoid in the prompt", () => {
+    const prompt = buildBatchCuratorPrompt([makeTheme()], [makeStory()]);
+    expect(prompt).toContain("GOLD, OIL, NATGAS, BTC, BTC/USD, ETH, ETH/USD");
+  });
+});
+
+// ── applyChanges: Slice 8C primary-ticker coherence guard ─────────────
+
+describe("applyChanges Slice 8C primary-ticker coherence guard", () => {
+  const provenance = {
+    modelName: "test-model",
+    generatedAt: "2026-04-01T00:00:00Z",
+    unknownTickerSet: new Set<string>(),
+  };
+
+  afterEach(() => {
+    delete process.env["MEMORY_CURATOR_SANITIZE_BROAD_TICKERS"];
+    delete process.env["MEMORY_CURATOR_BROAD_TICKER_TIER"];
+  });
+
+  it("nulls primary_ticker when sanitizer drops unevidenced broad primary from kept", async () => {
+    const { pool, queries } = makeMockPool();
+    const nt = makeNewTheme({ affected_tickers: ["SPX500", "NVDA"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    // Story overlaps via NVDA only — SPX500 is unevidenced broad → inferred.
+    // computeMemoryPrimary runs on RAW [SPX500, NVDA] and majority-vote picks
+    // SPX500 (2 stories say SPX500).
+    const batchStories = [
+      makeStory({ affected_tickers: ["NVDA"], primary_ticker: "SPX500" }),
+      makeStory({ affected_tickers: ["NVDA", "AMD"], primary_ticker: "SPX500" }),
+    ];
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, batchStories);
+
+    const params = findInsertParams(queries);
+    expect(params).toBeDefined();
+    // $8 (index 7) = affected_tickers → ["NVDA"] (SPX500 moved to inferred)
+    expect(params![7]).toEqual(["NVDA"]);
+    // $23 (index 22) = tickers_inferred → ["SPX500"]
+    expect(params![22]).toEqual(["SPX500"]);
+    // Slice 8C: primary_ticker was SPX500, which is NOT in kept → nulled
+    expect(params![20]).toBeNull();
+    expect(params![21]).toBeNull();
+  });
+
+  it("preserves primary_ticker when it remains in sanitization.kept", async () => {
+    const { pool, queries } = makeMockPool();
+    const nt = makeNewTheme({ affected_tickers: ["NVDA", "AAPL"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    const batchStories = [
+      makeStory({ affected_tickers: ["NVDA", "AAPL"], primary_ticker: "NVDA" }),
+    ];
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, batchStories);
+
+    const params = findInsertParams(queries);
+    expect(params).toBeDefined();
+    expect(params![7]).toEqual(["NVDA", "AAPL"]);
+    expect(params![20]).toBe("NVDA");
+    expect(params![21]).toBe("batch_heuristic");
+  });
+
+  it("does not change null primary_ticker (defensive)", async () => {
+    const { pool, queries } = makeMockPool();
+    const nt = makeNewTheme({ affected_tickers: ["NVDA"] });
+    const output: CuratorOutput = { new_themes: [nt], updates: [], decay: [] };
+
+    const batchStories = [
+      makeStory({ affected_tickers: ["NVDA"], primary_ticker: null }),
+    ];
+
+    await applyChanges(pool, output, ["batch-001"], {}, noopLog, provenance, batchStories);
+
+    const params = findInsertParams(queries);
+    expect(params).toBeDefined();
+    expect(params![20]).toBeNull();
+    expect(params![21]).toBeNull();
+  });
+});
+
 // ── applyChanges: Slice 5 ticker sanitization ────────────────────────
 
 describe("applyChanges Slice 5 ticker sanitization", () => {
