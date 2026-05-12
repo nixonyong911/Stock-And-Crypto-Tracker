@@ -412,3 +412,72 @@ Master kill switch `MEMORY_CURATOR_SANITIZE_BROAD_TICKERS=false` supersedes Slic
 - Does not run a backfill script on legacy rows (deferred to Slice 10).
 - Does not change INSERT-path behavior (already shipped in Slice 8).
 - Does not change the consumer read path — all read-side tests pass unchanged.
+
+---
+
+## Slice 10 — Legacy decontamination of `analysis_market_memory`
+
+**Status:** one-shot operational script, not a permanent feature flag.
+
+### Problem
+
+Slice 8 fixed the INSERT path. Slice 9 fixed the UPDATE path. But rows whose themes no longer surface in fresh story batches are immortal — the curator never selects them for UPDATE, so Slice 9 never touches them. The 30+ null-`prompt_version` legacy rows (pre-Slice-5 themes) fall in this bucket. Iter-1 measured `tickers_inferred = 0 / 47` and 7/11 validation symbols still contaminated.
+
+### What Slice 10 does
+
+A one-shot script (`scripts/decontaminate-memory.ts`) walks all `active`/`fading` rows with non-empty `affected_tickers`, retrieves contributing stories via `source_batch_ids` from `analysis_filtered_news`, and re-runs `sanitizeAffectedTickers` from `ticker-sanitizer.ts` on each row. The same Slice 8 zero-evidence fallback and Slice 8C/9 primary coherence guard are applied.
+
+### Columns rewritten (per row, only when diff is non-identity)
+
+| Column | Rule |
+|---|---|
+| `affected_tickers` | `= san.kept` (replaces existing) |
+| `tickers_inferred` | `= san.inferred` (replaces existing) |
+| `primary_ticker` | Unchanged unless it was non-null and dropped from `san.kept` → set to `NULL` |
+| `primary_ticker_source` | Nulled iff `primary_ticker` was nulled |
+
+All other columns are untouched — `prompt_version`, `model_name`, `generated_at` etc. are preserved so the A/B boundary remains queryable.
+
+### Safety guards
+
+- `--dry-run` is the default. `--commit` must be passed explicitly.
+- `MEMORY_CURATOR_SANITIZE_BROAD_TICKERS=false` master kill switch → script aborts immediately.
+- Sanitizer-invent assertion: no ticker in `kept`/`inferred` may be absent from the original `affected_tickers`. Violation → abort.
+- Erasure-rate threshold: commit aborts if > 10% of rows would have `kept=[]` (configurable via `--max-erasure-rate`).
+- Single transaction with `SELECT … FOR UPDATE` row-level locks.
+- `revert.sql` written BEFORE `COMMIT` — fully reversible.
+
+### CLI
+
+```
+infisical run --env=prod -- npx tsx scripts/decontaminate-memory.ts \
+  --dry-run --out tmp/validation/<date>/slice10-dry-run-all/
+
+infisical run --env=prod -- npx tsx scripts/decontaminate-memory.ts \
+  --commit --out tmp/validation/<date>/slice10-commit/
+```
+
+Optional narrowing: `--theme-id <uuid>`, `--limit N`.
+
+### Artefacts
+
+| File | When |
+|---|---|
+| `diff.jsonl` | Always (dry-run + commit) |
+| `summary.md` | Always |
+| `revert.sql` | Commit mode only, written BEFORE `COMMIT` |
+
+### Reversibility
+
+| Action | Effect |
+|---|---|
+| `psql -f revert.sql` | Restores all four columns per row to pre-Slice-10 values. Single command. |
+| Discard artefacts | No state changed if only `--dry-run` was used. |
+
+### What this slice intentionally does NOT do
+
+- Does not change any production code path — `memory-curator.ts`, `ticker-sanitizer.ts`, and all consumer code are untouched.
+- Does not add env flags or compose changes. One-shot script only.
+- Does not recompute `primary_ticker` via `computeMemoryPrimary` (guard-only nulling, mirroring Slice 8C/9).
+- Does not change `prompt_version` on existing rows.
+- Does not modify `analysis_filtered_news`, `analysis_ticker_price_targets`, or any user-facing table.
