@@ -4,9 +4,8 @@ import {
   parseArgs,
   runDecontamination,
   type CliArgs,
-  type DiffEntry,
   type MemoryRow,
-} from "../../../../scripts/decontaminate-memory.js";
+} from "../decontaminate-helpers.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────
 

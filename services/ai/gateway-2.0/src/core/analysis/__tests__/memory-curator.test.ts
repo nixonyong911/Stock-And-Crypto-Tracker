@@ -1693,7 +1693,7 @@ describe("applyChanges Slice 9 UPDATE-path sanitization", () => {
     } as never;
 
     const warnSpy = vi.fn();
-    const spyLog = { ...noopLog, warn: warnSpy } as never;
+    const spyLog = { ...(noopLog as Record<string, unknown>), warn: warnSpy } as never;
 
     const output: CuratorOutput = {
       new_themes: [],
