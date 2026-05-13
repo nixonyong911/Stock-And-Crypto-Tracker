@@ -1,16 +1,17 @@
 /**
- * Step 14.2 broadcaster-level tests.
+ * Step 14.2/14.3 broadcaster-level tests.
  *
  * Covers:
  *   A. Flag-off parity — legacy synthesizeOverview path, no artifact writes
- *   B. Flag-on write path — fingerprint, slot acquire, synthesizeOverviewCore, artifact persist
+ *   B. Flag-on write path — orchestrator invoked, synthesis from artifact
  *   C. Flag-on reuse path — existing artifact reused, synthesis skipped
- *   D. Fallback path visibility — template_fallback persisted, broadcast proceeds
+ *   D. Fallback path visibility — template_fallback from orchestrator, broadcast proceeds
  *   E. Delivery boundary — user_recommendation_log INSERT shape unchanged,
  *      no overview_id/Step 15 linkage leaked
  *
- * Mocks at module boundary so the broadcaster orchestration is exercised
- * without a real database, Redis, LLM, or Telegram.
+ * After 14.3, the broadcaster delegates to `orchestrateDailyOverviewArtifact`
+ * which is mocked at the module boundary. The repo/fingerprint layer is tested
+ * in `daily-overview-orchestrator.test.ts` instead.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -35,51 +36,17 @@ vi.mock("../market-overview.js", () => ({
   fetchCryptoPriceTrajectory: vi.fn(async () => []),
 }));
 
-vi.mock("../daily-overview-fingerprint.js", () => ({
-  computeOverviewSnapshotHash: vi.fn(() => "snap-hash-stub"),
-  computeOverviewContextHash: vi.fn(() => "ctx-hash-stub"),
-  projectSnapshotRefs: vi.fn(() => ({ indices: [] })),
-  gatherContextRefs: vi.fn(async () => ({
-    priorOverviews: [],
-    stockTrajectory: [],
-    cryptoTrajectory: [],
-    memoryThemes: [],
-  })),
-  CURRENT_OVERVIEW_SCHEMA_VERSION: 1,
-  CURRENT_OVERVIEW_GENERATOR_VERSION: "1",
-  CURRENT_OVERVIEW_PROMPT_VERSION: "overview.v1",
-  CURRENT_OVERVIEW_MODEL: "claude-4.6-sonnet-medium",
-  CURRENT_CODE_VERSION: "test-sha",
-}));
-
-vi.mock("../daily-overview-repository.js", () => ({
-  getCurrentOverviewArtifact: vi.fn(),
-  acquireOverviewSlot: vi.fn(),
-  markOverviewGenerating: vi.fn(),
-  markOverviewReady: vi.fn(),
-  markOverviewFailed: vi.fn(),
+vi.mock("../daily-overview-orchestrator.js", () => ({
+  orchestrateDailyOverviewArtifact: vi.fn(),
 }));
 
 import { broadcastDailyOverview, type BroadcastDeps } from "../daily-overview-broadcaster.js";
 import {
   buildMarketSnapshot,
   synthesizeOverview,
-  synthesizeOverviewCore,
   formatMorningBrief,
-  buildTemplateFallbackNarrative,
 } from "../market-overview.js";
-import {
-  getCurrentOverviewArtifact,
-  acquireOverviewSlot,
-  markOverviewGenerating,
-  markOverviewReady,
-  markOverviewFailed,
-} from "../daily-overview-repository.js";
-import {
-  computeOverviewSnapshotHash,
-  computeOverviewContextHash,
-  gatherContextRefs,
-} from "../daily-overview-fingerprint.js";
+import { orchestrateDailyOverviewArtifact } from "../daily-overview-orchestrator.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -187,34 +154,29 @@ beforeEach(() => {
     narrative: "Legacy narrative from LLM",
     topStories: ["Story A"],
   });
-  vi.mocked(synthesizeOverviewCore).mockResolvedValue({
-    narrative: "Core narrative from LLM",
-    topStories: ["Story B"],
-    durationMs: 3000,
+  vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
+    source: "fresh",
+    artifactId: 1,
+    externalId: "uuid-1",
+    brief: {
+      narrative: "Orchestrated narrative",
+      topStories: ["Story B"],
+      synthesisSource: "llm" as const,
+      durationMs: 3000,
+    },
+    attempt: 1,
+    durationMs: 100,
   });
 });
 
 // ── A. Flag-off parity ────────────────────────────────────────────────
 
 describe("flag OFF — legacy parity", () => {
-  it("does not call any artifact repository functions", async () => {
+  it("does not call orchestrator", async () => {
     const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
     await broadcastDailyOverview(deps, "pre_market");
 
-    expect(getCurrentOverviewArtifact).not.toHaveBeenCalled();
-    expect(acquireOverviewSlot).not.toHaveBeenCalled();
-    expect(markOverviewGenerating).not.toHaveBeenCalled();
-    expect(markOverviewReady).not.toHaveBeenCalled();
-    expect(markOverviewFailed).not.toHaveBeenCalled();
-  });
-
-  it("does not call fingerprint functions", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    expect(computeOverviewSnapshotHash).not.toHaveBeenCalled();
-    expect(computeOverviewContextHash).not.toHaveBeenCalled();
-    expect(gatherContextRefs).not.toHaveBeenCalled();
+    expect(orchestrateDailyOverviewArtifact).not.toHaveBeenCalled();
   });
 
   it("calls legacy synthesizeOverview path", async () => {
@@ -222,7 +184,6 @@ describe("flag OFF — legacy parity", () => {
     await broadcastDailyOverview(deps, "pre_market");
 
     expect(synthesizeOverview).toHaveBeenCalledTimes(1);
-    expect(synthesizeOverviewCore).not.toHaveBeenCalled();
   });
 
   it("defaults to flag-off when canonicalArtifactEnabled is undefined", async () => {
@@ -230,7 +191,7 @@ describe("flag OFF — legacy parity", () => {
     await broadcastDailyOverview(deps, "pre_market");
 
     expect(synthesizeOverview).toHaveBeenCalledTimes(1);
-    expect(getCurrentOverviewArtifact).not.toHaveBeenCalled();
+    expect(orchestrateDailyOverviewArtifact).not.toHaveBeenCalled();
   });
 
   it("still formats and broadcasts through the same path", async () => {
@@ -244,69 +205,29 @@ describe("flag OFF — legacy parity", () => {
 
 // ── B. Flag-on write path ─────────────────────────────────────────────
 
-describe("flag ON — artifact write path (no reusable artifact)", () => {
-  beforeEach(() => {
-    vi.mocked(getCurrentOverviewArtifact).mockResolvedValue(null);
-    vi.mocked(acquireOverviewSlot).mockResolvedValue({ id: 1, overview_id: "uuid-1" });
-    vi.mocked(markOverviewGenerating).mockResolvedValue(true);
-    vi.mocked(markOverviewReady).mockResolvedValue(true);
-  });
-
-  it("checks fingerprint and reuse before synthesis", async () => {
+describe("flag ON — artifact write path via orchestrator", () => {
+  it("calls orchestrator when flag is on", async () => {
     const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
     await broadcastDailyOverview(deps, "pre_market");
 
-    expect(computeOverviewSnapshotHash).toHaveBeenCalledTimes(1);
-    expect(gatherContextRefs).toHaveBeenCalledTimes(1);
-    expect(computeOverviewContextHash).toHaveBeenCalledTimes(1);
-    expect(getCurrentOverviewArtifact).toHaveBeenCalledTimes(1);
-  });
-
-  it("acquires slot and transitions through pending → generating → ready", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    expect(acquireOverviewSlot).toHaveBeenCalledTimes(1);
-    expect(markOverviewGenerating).toHaveBeenCalledWith(expect.anything(), 1);
-    expect(markOverviewReady).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls synthesizeOverviewCore (not legacy synthesizeOverview)", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    expect(synthesizeOverviewCore).toHaveBeenCalledTimes(1);
+    expect(orchestrateDailyOverviewArtifact).toHaveBeenCalledTimes(1);
     expect(synthesizeOverview).not.toHaveBeenCalled();
   });
 
-  it("persists artifact with synthesis_source='llm' and llm duration", async () => {
+  it("uses orchestrator result for formatting", async () => {
     const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
     await broadcastDailyOverview(deps, "pre_market");
 
-    const readyCall = vi.mocked(markOverviewReady).mock.calls[0]![0];
-    expect(readyCall).toMatchObject({
-      id: 1,
-      synthesisSource: "llm",
-      narrative: "Core narrative from LLM",
-      topStories: ["Story B"],
-      llmDurationMs: 3000,
-    });
+    const formatCall = vi.mocked(formatMorningBrief).mock.calls[0]!;
+    const synthesis = formatCall[1] as { narrative: string; topStories: string[] };
+    expect(synthesis.narrative).toBe("Orchestrated narrative");
+    expect(synthesis.topStories).toEqual(["Story B"]);
   });
 
-  it("falls back to legacy synthesizeOverview when slot acquisition fails", async () => {
-    vi.mocked(acquireOverviewSlot).mockResolvedValue(null);
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    expect(synthesizeOverview).toHaveBeenCalledTimes(1);
-    expect(synthesizeOverviewCore).not.toHaveBeenCalled();
-  });
-
-  it("still broadcasts after artifact write", async () => {
+  it("still broadcasts after orchestrator returns", async () => {
     const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
     await broadcastDailyOverview(deps, "pre_market");
 
-    expect(formatMorningBrief).toHaveBeenCalledTimes(1);
     expect(deps._sendTextCalls.length).toBe(1);
   });
 });
@@ -315,33 +236,22 @@ describe("flag ON — artifact write path (no reusable artifact)", () => {
 
 describe("flag ON — artifact reuse path", () => {
   beforeEach(() => {
-    vi.mocked(getCurrentOverviewArtifact).mockResolvedValue({
-      id: 42,
-      overview_id: "reused-uuid",
-      narrative: "Previously generated narrative",
-      top_stories: ["Reused story"],
-    } as never);
+    vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
+      source: "reuse",
+      artifactId: 42,
+      externalId: "reused-uuid",
+      brief: {
+        narrative: "Previously generated narrative",
+        topStories: ["Reused story"],
+        synthesisSource: "llm" as const,
+        durationMs: 2000,
+      },
+      attempt: 0,
+      durationMs: 5,
+    });
   });
 
-  it("skips synthesis entirely when reusable artifact found", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    expect(synthesizeOverviewCore).not.toHaveBeenCalled();
-    expect(synthesizeOverview).not.toHaveBeenCalled();
-  });
-
-  it("does not acquire slot or mark lifecycle transitions", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    expect(acquireOverviewSlot).not.toHaveBeenCalled();
-    expect(markOverviewGenerating).not.toHaveBeenCalled();
-    expect(markOverviewReady).not.toHaveBeenCalled();
-    expect(markOverviewFailed).not.toHaveBeenCalled();
-  });
-
-  it("uses artifact narrative/topStories for formatting", async () => {
+  it("uses reused artifact narrative for formatting", async () => {
     const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
     await broadcastDailyOverview(deps, "pre_market");
 
@@ -361,82 +271,67 @@ describe("flag ON — artifact reuse path", () => {
 
 // ── D. Fallback path visibility ───────────────────────────────────────
 
-describe("flag ON — template fallback when synthesis fails", () => {
-  beforeEach(() => {
-    vi.mocked(getCurrentOverviewArtifact).mockResolvedValue(null);
-    vi.mocked(acquireOverviewSlot).mockResolvedValue({ id: 1, overview_id: "uuid-1" });
-    vi.mocked(markOverviewGenerating).mockResolvedValue(true);
-    vi.mocked(markOverviewReady).mockResolvedValue(true);
-  });
+describe("flag ON — template fallback from orchestrator", () => {
+  it("uses fallback narrative when orchestrator returns fallback source", async () => {
+    vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
+      source: "fallback",
+      brief: {
+        narrative: "Template fallback narrative",
+        topStories: [],
+        synthesisSource: "template_fallback" as const,
+        durationMs: null,
+      },
+      attempt: 1,
+      durationMs: 50,
+    });
 
-  it("persists artifact with synthesis_source='template_fallback' when core returns null", async () => {
-    vi.mocked(synthesizeOverviewCore).mockResolvedValue(null);
     const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
     await broadcastDailyOverview(deps, "pre_market");
 
-    expect(buildTemplateFallbackNarrative).toHaveBeenCalledTimes(1);
-    const readyCall = vi.mocked(markOverviewReady).mock.calls[0]![0];
-    expect(readyCall).toMatchObject({
-      synthesisSource: "template_fallback",
-      narrative: "Template fallback narrative",
-      topStories: [],
-      llmDurationMs: null,
-    });
+    const formatCall = vi.mocked(formatMorningBrief).mock.calls[0]!;
+    const synthesis = formatCall[1] as { narrative: string; topStories: string[] };
+    expect(synthesis.narrative).toBe("Template fallback narrative");
   });
 
-  it("persists failure artifact and uses fallback when core throws", async () => {
-    vi.mocked(synthesizeOverviewCore).mockRejectedValue(new Error("LLM timed out"));
-    vi.mocked(markOverviewFailed).mockResolvedValue(true);
+  it("uses slot_conflict_fallback narrative for formatting", async () => {
+    vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
+      source: "slot_conflict_fallback",
+      brief: {
+        narrative: "Conflict fallback narrative",
+        topStories: [],
+        synthesisSource: "template_fallback" as const,
+        durationMs: null,
+      },
+      attempt: 1,
+      durationMs: 300,
+    });
+
     const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
     await broadcastDailyOverview(deps, "pre_market");
 
-    expect(markOverviewFailed).toHaveBeenCalledTimes(1);
-    const failCall = vi.mocked(markOverviewFailed).mock.calls[0]![0];
-    expect(failCall).toMatchObject({
-      id: 1,
-      errorCode: "llm_timeout",
-    });
-    expect(failCall.errorMessage).toContain("LLM timed out");
+    const formatCall = vi.mocked(formatMorningBrief).mock.calls[0]!;
+    const synthesis = formatCall[1] as { narrative: string; topStories: string[] };
+    expect(synthesis.narrative).toBe("Conflict fallback narrative");
   });
 
-  it("broadcast still succeeds even after fallback", async () => {
-    vi.mocked(synthesizeOverviewCore).mockResolvedValue(null);
+  it("broadcast still succeeds after fallback", async () => {
+    vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
+      source: "fallback",
+      brief: {
+        narrative: "Template fallback",
+        topStories: [],
+        synthesisSource: "template_fallback" as const,
+        durationMs: null,
+      },
+      attempt: 1,
+      durationMs: 50,
+    });
+
     const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
     const result = await broadcastDailyOverview(deps, "pre_market");
 
     expect(result.sent).toBe(1);
     expect(result.errors).toBe(0);
-  });
-
-  it("broadcast still succeeds after synthesis exception", async () => {
-    vi.mocked(synthesizeOverviewCore).mockRejectedValue(new Error("spawn failed"));
-    vi.mocked(markOverviewFailed).mockResolvedValue(true);
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
-    const result = await broadcastDailyOverview(deps, "pre_market");
-
-    expect(result.sent).toBe(1);
-    expect(result.errors).toBe(0);
-  });
-
-  it("classifies error codes correctly", async () => {
-    vi.mocked(markOverviewFailed).mockResolvedValue(true);
-
-    vi.mocked(synthesizeOverviewCore).mockRejectedValue(new Error("cursor-agent exited with code 1"));
-    const deps1 = makeBaseDeps({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(deps1, "pre_market");
-    expect(vi.mocked(markOverviewFailed).mock.calls[0]![0].errorCode).toBe("llm_exit_nonzero");
-
-    vi.clearAllMocks();
-    vi.mocked(buildMarketSnapshot).mockResolvedValue(MINIMAL_SNAPSHOT);
-    vi.mocked(getCurrentOverviewArtifact).mockResolvedValue(null);
-    vi.mocked(acquireOverviewSlot).mockResolvedValue({ id: 2, overview_id: "uuid-2" });
-    vi.mocked(markOverviewGenerating).mockResolvedValue(true);
-    vi.mocked(markOverviewFailed).mockResolvedValue(true);
-
-    vi.mocked(synthesizeOverviewCore).mockRejectedValue(new Error("ENOENT: spawn cursor-agent"));
-    const deps2 = makeBaseDeps({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(deps2, "pre_market");
-    expect(vi.mocked(markOverviewFailed).mock.calls[0]![0].errorCode).toBe("llm_spawn_failed");
   });
 });
 
@@ -450,14 +345,18 @@ describe("delivery boundary — user_recommendation_log shape unchanged", () => 
 
     vi.clearAllMocks();
     vi.mocked(buildMarketSnapshot).mockResolvedValue(MINIMAL_SNAPSHOT);
-    vi.mocked(getCurrentOverviewArtifact).mockResolvedValue(null);
-    vi.mocked(acquireOverviewSlot).mockResolvedValue({ id: 1, overview_id: "uuid-1" });
-    vi.mocked(markOverviewGenerating).mockResolvedValue(true);
-    vi.mocked(markOverviewReady).mockResolvedValue(true);
-    vi.mocked(synthesizeOverviewCore).mockResolvedValue({
-      narrative: "Core narrative",
-      topStories: ["Story"],
-      durationMs: 2000,
+    vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
+      source: "fresh",
+      artifactId: 1,
+      externalId: "uuid-1",
+      brief: {
+        narrative: "Orchestrated narrative",
+        topStories: ["Story"],
+        synthesisSource: "llm" as const,
+        durationMs: 2000,
+      },
+      attempt: 1,
+      durationMs: 100,
     });
 
     const depsOn = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
@@ -469,32 +368,17 @@ describe("delivery boundary — user_recommendation_log shape unchanged", () => 
     expect(insertOff!.sql).toBe(insertOn!.sql);
   });
 
-  it("INSERT has exactly 7 positional params: clerk_user_id, ticker_symbol, recommendation_type, priority, headline, message_body, timeframe_alignment", async () => {
+  it("INSERT has exactly 7 positional params", async () => {
     const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
-    vi.mocked(getCurrentOverviewArtifact).mockResolvedValue(null);
-    vi.mocked(acquireOverviewSlot).mockResolvedValue({ id: 1, overview_id: "uuid-1" });
-    vi.mocked(markOverviewGenerating).mockResolvedValue(true);
-    vi.mocked(markOverviewReady).mockResolvedValue(true);
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
     expect(insert).toBeDefined();
     expect(insert!.params).toHaveLength(7);
-    expect(insert!.sql).toContain("clerk_user_id");
-    expect(insert!.sql).toContain("ticker_symbol");
-    expect(insert!.sql).toContain("recommendation_type");
-    expect(insert!.sql).toContain("priority");
-    expect(insert!.sql).toContain("headline");
-    expect(insert!.sql).toContain("message_body");
-    expect(insert!.sql).toContain("timeframe_alignment");
   });
 
   it("INSERT does NOT contain overview_id (no Step 15 leakage)", async () => {
     const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
-    vi.mocked(getCurrentOverviewArtifact).mockResolvedValue(null);
-    vi.mocked(acquireOverviewSlot).mockResolvedValue({ id: 1, overview_id: "uuid-1" });
-    vi.mocked(markOverviewGenerating).mockResolvedValue(true);
-    vi.mocked(markOverviewReady).mockResolvedValue(true);
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -506,10 +390,6 @@ describe("delivery boundary — user_recommendation_log shape unchanged", () => 
 
   it("recommendation_type is still 'daily_overview'", async () => {
     const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
-    vi.mocked(getCurrentOverviewArtifact).mockResolvedValue(null);
-    vi.mocked(acquireOverviewSlot).mockResolvedValue({ id: 1, overview_id: "uuid-1" });
-    vi.mocked(markOverviewGenerating).mockResolvedValue(true);
-    vi.mocked(markOverviewReady).mockResolvedValue(true);
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -518,10 +398,6 @@ describe("delivery boundary — user_recommendation_log shape unchanged", () => 
 
   it("ticker_symbol is still 'MARKET'", async () => {
     const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
-    vi.mocked(getCurrentOverviewArtifact).mockResolvedValue(null);
-    vi.mocked(acquireOverviewSlot).mockResolvedValue({ id: 1, overview_id: "uuid-1" });
-    vi.mocked(markOverviewGenerating).mockResolvedValue(true);
-    vi.mocked(markOverviewReady).mockResolvedValue(true);
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));

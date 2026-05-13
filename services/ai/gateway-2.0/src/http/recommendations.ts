@@ -20,8 +20,8 @@ import {
 } from "../core/analysis/digest-delivery.js";
 import { buildDigestDebugReport } from "../core/analysis/digest-debug.js";
 import type { BriefMode } from "../core/analysis/digest-brief-truth.js";
-import { selectByDigestId } from "../core/analysis/smart-digest-repository.js";
-import { selectByOverviewId } from "../core/analysis/daily-overview-repository.js";
+import { selectByDigestId, listRecent } from "../core/analysis/smart-digest-repository.js";
+import { selectByOverviewId, listRecentOverviews } from "../core/analysis/daily-overview-repository.js";
 
 interface CheckRecommendationsBody {
   assetType?: "stock" | "crypto";
@@ -120,6 +120,7 @@ export function registerRecommendationRoutes(
             canonicalArtifactEnabled:
               config.dailyOverviewCanonicalArtifactEnabled,
             triggerReason: "http:trigger",
+            triggerSource: "http_trigger" as const,
           },
           sessionType,
         );
@@ -419,6 +420,48 @@ export function registerRecommendationRoutes(
         { err, symbol, assetType },
         "Error building debug-digest report",
       );
+      return reply.status(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // ── Admin: recent artifacts listing ──────────────────────────────────
+
+  app.get<{
+    Querystring: {
+      kind?: "smart_digest" | "daily_overview";
+      limit?: string;
+      symbol?: string;
+      sessionType?: string;
+    };
+  }>("/internal/artifacts/recent", async (request, reply) => {
+    const serviceKey = request.headers["x-service-key"] as string | undefined;
+    if (
+      !config.internalServiceKey ||
+      !serviceKey ||
+      serviceKey !== config.internalServiceKey
+    ) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const kind = request.query.kind ?? "smart_digest";
+    const limit = Math.min(Number(request.query.limit) || 20, 100);
+
+    try {
+      if (kind === "daily_overview") {
+        const rows = await listRecentOverviews(db, {
+          sessionType: request.query.sessionType,
+          limit,
+        });
+        return reply.send({ ok: true, kind, rows });
+      }
+
+      const rows = await listRecent(db, {
+        symbol: request.query.symbol?.toUpperCase(),
+        limit,
+      });
+      return reply.send({ ok: true, kind, rows });
+    } catch (err) {
+      app.log.error({ err, kind }, "Error listing recent artifacts");
       return reply.status(500).send({ error: "Internal server error" });
     }
   });

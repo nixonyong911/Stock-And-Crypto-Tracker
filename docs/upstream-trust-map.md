@@ -589,3 +589,48 @@ Decouples **LLM synthesis** from **per-user delivery**. Each generation attempt 
 - Does not add maintenance jobs for superseding/reaping old rows (Step 16).
 - Does not migrate `fetchPriorOverviews` to read from `analysis_daily_overview.narrative` instead of scraping `user_recommendation_log.message_body` (deferred to Step 14.2.x or Step 15).
 - Does not add per-locale synthesis (schema reserves `locale` column).
+
+---
+
+## Step 14.3 — Artifact generation orchestration cleanup
+
+Step 14.3 extracts the shared artifact-generation orchestration into a single `runArtifactJob` primitive, normalizing the two duplicate orchestration paths (digest pipeline + daily overview broadcaster) into one coherent system.
+
+### What changed
+
+| Area | Before (14.1 + 14.2) | After (14.3) |
+|---|---|---|
+| Orchestration | Two ~115-LOC inline implementations in `digest-pipeline.ts` and `daily-overview-broadcaster.ts` | Single `runArtifactJob` (~90 LOC) in `artifact-orchestrator.ts`; two thin binder functions in `smart-digest-orchestrator.ts` and `daily-overview-orchestrator.ts` |
+| Slot conflict | Digest: silent skip. Overview: fallback to legacy `synthesizeOverview` (Redis-cached LLM). | Uniform: acquire → 250ms backoff → re-read for reuse → `buildFallback` (digest: undefined/skip; overview: template fallback) |
+| `markGenerating` CAS | Return value discarded in both paths | CAS loss triggers re-read → reuse-or-fallback (correctness fix) |
+| Error classification | Digest: blanket `"generation_failed"`. Overview: inline classifier with 3 codes. | Shared `classifyArtifactError` with 9 codes in `artifact-errors.ts` |
+| Trigger taxonomy | Ad-hoc strings: `"signal:entry_zone"`, `"http:trigger"`, `"cron:pre_market"` | Typed `ArtifactTriggerSource` union + `buildTriggerReason` helper in `artifact-trigger.ts` |
+| Run identity | None — logs tied to individual artifact IDs | `runId` (UUID v4) generated at entry points; threaded through all orchestration logs via `makeArtifactRunLogger` |
+| Admin inspection | No HTTP route; `listRecent` / `listRecentOverviews` existed but were unexposed | `GET /internal/artifacts/recent?kind=smart_digest|daily_overview` in `recommendations.ts` |
+
+### New modules
+
+| File | Purpose |
+|---|---|
+| `artifact-orchestrator.ts` | `runArtifactJob<H, B>(spec)` — shared orchestration primitive |
+| `artifact-errors.ts` | `classifyArtifactError(err, hints?)`, `ARTIFACT_ERROR_CODES` |
+| `artifact-trigger.ts` | `ArtifactTriggerSource` type, `buildTriggerReason(source, qualifier?, extra?)` |
+| `artifact-logging.ts` | `newRunId()`, `newRunContext(type)`, `makeArtifactRunLogger(opts)` |
+| `smart-digest-orchestrator.ts` | `orchestrateDigestArtifact(deps, runCtx, ...)` — digest binder for `runArtifactJob` |
+| `daily-overview-orchestrator.ts` | `orchestrateDailyOverviewArtifact(deps, runCtx, ...)` — overview binder for `runArtifactJob` |
+
+### Behavior changes (flag-on paths only)
+
+1. **Slot-conflict policy for daily overview (flag-on):** Previously fell through to `synthesizeOverview` (Redis-cached LLM wrapper) on slot conflict. Now uses the orchestrator's uniform re-read + template fallback. Flag-off behavior unchanged.
+2. **Digest error classification:** `"generation_failed"` blanket label → classified codes (`truth_fetch_failed`, `render_failed`, etc.). No upstream consumer reads `error_code` yet.
+3. **`markGenerating` CAS check:** Previously discarded. Now a `false` return triggers re-read-or-fallback. Prevents leaving `pending` rows stuck on lost CAS.
+
+### What this step intentionally does NOT do
+
+- No schema changes to `analysis_smart_digest` or `analysis_daily_overview`.
+- No delivery changes (`deliverSmartDigest`, `user_recommendation_log` shape).
+- No new feature flags or env knobs.
+- No fingerprint logic changes.
+- No retry framework (next-trigger-arrival remains the retry mechanism).
+- No `analysis_runs` table (structured logging covers observability).
+- `resolveDemandSet` remains unused (reserved for future scheduled-window generation).

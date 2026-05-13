@@ -43,10 +43,6 @@ import {
 } from "./digest-delivery.js";
 import {
   getCurrentArtifact,
-  acquireInFlightSlot,
-  markGenerating,
-  markReady,
-  markFailed,
 } from "./smart-digest-repository.js";
 import {
   computeTruthFingerprint,
@@ -54,9 +50,9 @@ import {
   CURRENT_DIGEST_BRIEF_SCHEMA_VERSION,
   CURRENT_GENERATOR_VERSION,
   CURRENT_PROMPT_VERSION,
-  CURRENT_CODE_VERSION,
 } from "./smart-digest-fingerprint.js";
-import { evaluateTriggers, type DigestMode } from "./digest-trigger.js";
+import { orchestrateDigestArtifact } from "./smart-digest-orchestrator.js";
+import { newRunContext, type RunContext } from "./artifact-logging.js";
 import type { DigestBrief } from "./digest-brief-generator.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -86,6 +82,10 @@ export async function processRecommendations(
   const types: Array<"stock" | "crypto"> = assetType
     ? [assetType]
     : ["stock", "crypto"];
+
+  const runCtx = deps.canonicalArtifactEnabled
+    ? newRunContext("smart_digest")
+    : undefined;
 
   let totalSignals = 0;
   let totalSent = 0;
@@ -120,8 +120,8 @@ export async function processRecommendations(
       arr.push(s);
     }
 
-    if (deps.canonicalArtifactEnabled) {
-      await persistCanonicalArtifacts(deps, type, bySymbol, {
+    if (deps.canonicalArtifactEnabled && runCtx) {
+      await persistCanonicalArtifacts(deps, runCtx, type, bySymbol, {
         macroContext,
         newsOneLinerMap,
         memoryTextMap,
@@ -189,6 +189,7 @@ export async function filterDedupSignals(
 
 async function persistCanonicalArtifacts(
   deps: ProcessRecommendationsDeps,
+  runCtx: RunContext,
   assetType: "stock" | "crypto",
   bySymbol: Map<string, TickerSignal[]>,
   context: {
@@ -198,108 +199,31 @@ async function persistCanonicalArtifacts(
     analysisDateMap?: Map<string, string>;
   },
 ): Promise<void> {
-  const { db, log } = deps;
-  const briefMode = deps.briefMode ?? "strict";
+  const { log } = deps;
 
   for (const [symbol, signals] of bySymbol) {
     try {
-      const { hash: truthHash } = await computeTruthFingerprint(db, symbol);
-      const { hash: contextHash } = await computeContextFingerprint(db, symbol);
-
-      const existing = await getCurrentArtifact({
-        db,
+      const result = await orchestrateDigestArtifact(
+        { db: deps.db, log, briefMode: deps.briefMode },
+        runCtx,
         symbol,
         assetType,
-        briefMode,
-        truthHash,
-        contextHash,
-        schemaVersion: CURRENT_DIGEST_BRIEF_SCHEMA_VERSION,
-        generatorVersion: CURRENT_GENERATOR_VERSION,
-        promptVersion: CURRENT_PROMPT_VERSION,
-        maxAgeMs: 24 * 60 * 60 * 1000,
-      });
-      if (existing) {
-        log.info({ symbol, digestId: existing.digest_id }, "Reusing canonical artifact");
-        continue;
-      }
-
-      const now = new Date();
-      const slots = evaluateTriggers({
-        now,
-        modes: ["intraday" as DigestMode],
-        triggerReason: `signal:${signals[0]?.type ?? "unknown"}`,
-        demand: [{ symbol, assetType }],
-        briefMode,
-      });
-      const slot = slots[0];
-      if (!slot) continue;
-
-      const slotRow = await acquireInFlightSlot({
-        db,
-        symbol: slot.symbol,
-        assetType: slot.assetType,
-        digestDate: slot.digestDate,
-        mode: slot.mode,
-        windowStart: slot.windowStart,
-        windowEnd: slot.windowEnd,
-        triggerReason: slot.triggerReason,
-        briefMode: slot.briefMode,
-        truthHash,
-        contextHash,
-        schemaVersion: CURRENT_DIGEST_BRIEF_SCHEMA_VERSION,
-        generatorVersion: CURRENT_GENERATOR_VERSION,
-        promptVersion: CURRENT_PROMPT_VERSION,
-        codeVersion: CURRENT_CODE_VERSION,
-      });
-      if (!slotRow) continue;
-
-      await markGenerating(db, slotRow.id);
-
-      try {
-        const brief = generateDigestBrief({
-          signals,
-          symbol,
-          macroContext: context.macroContext,
-          newsOneLinerMap: context.newsOneLinerMap,
-          memoryTextMap: context.memoryTextMap,
-          analysisDateMap: context.analysisDateMap,
-          mode: briefMode,
-        });
-
-        const primary = signals[0];
-        await markReady({
-          db,
-          id: slotRow.id,
-          payload: brief as unknown as Record<string, unknown>,
-          title: primary?.headline ?? null,
-          summary: brief.whatHappening,
-          primarySignalType: primary?.type ?? null,
-          confidence: brief.confidence,
-          stanceLabel: brief.status.label,
-          stanceTone: brief.status.tone,
-          truthRefs: {},
-        });
-
+        signals,
+        context,
+      );
+      if (result.source === "reuse") {
         log.info(
-          { symbol, digestId: slotRow.digest_id, artifactId: slotRow.id },
+          { symbol, externalId: result.externalId, runId: runCtx.runId },
+          "Reusing canonical artifact",
+        );
+      } else if (result.source === "fresh") {
+        log.info(
+          { symbol, artifactId: result.artifactId, externalId: result.externalId, runId: runCtx.runId },
           "Persisted canonical artifact",
         );
-      } catch (genErr) {
-        await markFailed({
-          db,
-          id: slotRow.id,
-          errorCode: "generation_failed",
-          errorMessage: String(
-            genErr instanceof Error ? genErr.message : genErr,
-          ).slice(0, 1024),
-          errorStack: String(
-            genErr instanceof Error ? genErr.stack : "",
-          ).slice(0, 4096),
-        });
-        log.error({ err: genErr, symbol }, "Artifact generation failed");
       }
     } catch (err) {
-      log.error({ err, symbol }, "Failed to persist canonical artifact");
+      log.error({ err, symbol, runId: runCtx.runId }, "Failed to persist canonical artifact");
     }
   }
 }

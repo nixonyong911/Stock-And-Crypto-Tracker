@@ -9,6 +9,7 @@ import {
   type ProcessRecommendationsDeps,
 } from "./analysis/digest-pipeline.js";
 import type { BriefMode } from "./analysis/digest-brief-truth.js";
+import type { ArtifactTriggerSource } from "./analysis/artifact-trigger.js";
 
 const QUEUE_NAME = "pipeline-analysis-complete";
 const RECONNECT_DELAY_MS = 10_000;
@@ -20,6 +21,7 @@ export interface PipelineConsumerDeps {
   log: FastifyBaseLogger;
   briefMode?: BriefMode;
   canonicalArtifactEnabled?: boolean;
+  triggerSource?: ArtifactTriggerSource;
 }
 
 interface PipelineMessage {
