@@ -133,6 +133,7 @@ export async function processRecommendations(
       const sent = await fanOutToWatchers(
         deps,
         symbol,
+        type,
         tickerSignals,
         macroContext,
         newsOneLinerMap,
@@ -319,6 +320,7 @@ async function persistCanonicalArtifacts(
 async function fanOutToWatchers(
   deps: ProcessRecommendationsDeps,
   symbol: string,
+  assetType: "stock" | "crypto",
   signals: TickerSignal[],
   macroContext: MacroContext,
   newsOneLinerMap?: Map<string, string>,
@@ -340,7 +342,7 @@ async function fanOutToWatchers(
     const artifact = await getCurrentArtifact({
       db,
       symbol,
-      assetType: "stock",
+      assetType,
       briefMode,
       truthHash,
       contextHash,
