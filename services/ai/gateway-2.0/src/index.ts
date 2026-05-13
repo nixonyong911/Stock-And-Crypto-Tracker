@@ -124,6 +124,8 @@ async function main(): Promise<void> {
       curatorLlmTimeoutMs: config.curatorLlmTimeoutMs,
       curatorMaxStories: config.curatorMaxStories,
       curatorMaxStoriesPerBatch: config.curatorMaxStoriesPerBatch,
+      canonicalArtifactEnabled:
+        config.dailyOverviewCanonicalArtifactEnabled,
     });
     stopDigestScheduler = digestScheduler.stop;
   } catch (err) {

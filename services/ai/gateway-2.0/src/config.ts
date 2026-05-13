@@ -69,6 +69,14 @@ export interface GatewayConfig {
    * Sourced from env `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED`.
    */
   readonly smartDigestCanonicalArtifactEnabled: boolean;
+  /**
+   * When true, the daily overview broadcaster persists canonical artifacts
+   * to `analysis_daily_overview` before fanout and reads the synthesis
+   * back from the artifact row. When false (default), the existing
+   * Redis-cached LLM path is used unchanged.
+   * Sourced from env `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED`.
+   */
+  readonly dailyOverviewCanonicalArtifactEnabled: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +185,10 @@ export function loadConfig(): GatewayConfig {
     ),
     smartDigestCanonicalArtifactEnabled: envBool(
       "SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED",
+      false,
+    ),
+    dailyOverviewCanonicalArtifactEnabled: envBool(
+      "DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED",
       false,
     ),
   };

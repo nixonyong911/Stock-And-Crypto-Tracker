@@ -29,13 +29,13 @@ export interface NewsItem {
   impact_level?: string;
 }
 
-interface PriorOverview {
+export interface PriorOverview {
   date: string;
   sessionType: string;
   narrative: string;
 }
 
-interface PricePoint {
+export interface PricePoint {
   symbol: string;
   name: string;
   date: string;
@@ -90,6 +90,7 @@ const TRAJECTORY_NAMES: Record<string, string> = {
   "ETH/USD": "ETH",
 };
 
+const DEFAULT_OVERVIEW_MODEL = "claude-4.6-sonnet-medium";
 const LLM_TIMEOUT_MS = 60_000;
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]/g;
 const MAX_PRIOR_NARRATIVE_CHARS = 300;
@@ -264,7 +265,7 @@ async function fetchTopNews(db: Pool, limit = 15): Promise<NewsItem[]> {
 
 // ── Memory: prior overviews ──────────────────────────────────────────
 
-async function fetchPriorOverviews(db: Pool, days: number = HISTORY_DAYS): Promise<PriorOverview[]> {
+export async function fetchPriorOverviews(db: Pool, days: number = HISTORY_DAYS): Promise<PriorOverview[]> {
   const { rows } = await db.query<{
     sent_date: string;
     headline: string;
@@ -315,7 +316,7 @@ function truncateToSentence(text: string, maxLen: number): string {
 
 // ── Memory: price trajectory ─────────────────────────────────────────
 
-async function fetchStockPriceTrajectory(db: Pool, symbols: string[], days: number): Promise<PricePoint[]> {
+export async function fetchStockPriceTrajectory(db: Pool, symbols: string[], days: number): Promise<PricePoint[]> {
   if (symbols.length === 0) return [];
   const placeholders = symbols.map((_, i) => `$${i + 1}`).join(", ");
   const { rows } = await db.query<{
@@ -347,7 +348,7 @@ async function fetchStockPriceTrajectory(db: Pool, symbols: string[], days: numb
   }));
 }
 
-async function fetchCryptoPriceTrajectory(db: Pool, symbols: string[], days: number): Promise<PricePoint[]> {
+export async function fetchCryptoPriceTrajectory(db: Pool, symbols: string[], days: number): Promise<PricePoint[]> {
   if (symbols.length === 0) return [];
   const placeholders = symbols.map((_, i) => `$${i + 1}`).join(", ");
   const { rows } = await db.query<{
@@ -496,29 +497,22 @@ function buildSnapshotSummary(snapshot: MarketSnapshot): string {
   return parts.join("\n\n");
 }
 
-export async function synthesizeOverview(
-  snapshot: MarketSnapshot,
-  db: Pool,
-  redis: Redis,
-  log: FastifyBaseLogger,
-): Promise<{ narrative: string; topStories: string[] } | null> {
-  const dateStr = snapshot.timestamp.toISOString().slice(0, 10);
-  const dedupKey = `digest:overview:llm:${snapshot.sessionType}:${dateStr}`;
-  const cached = await redis.get(dedupKey);
-  if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch { /* regenerate */ }
-  }
+export interface SynthesizeOverviewCoreArgs {
+  snapshot: MarketSnapshot;
+  priorOverviews: PriorOverview[];
+  stockTrajectory: PricePoint[];
+  cryptoTrajectory: PricePoint[];
+  model: string;
+  log: FastifyBaseLogger;
+}
+
+export async function synthesizeOverviewCore(
+  args: SynthesizeOverviewCoreArgs,
+): Promise<{ narrative: string; topStories: string[]; durationMs: number } | null> {
+  const { snapshot, priorOverviews, stockTrajectory, cryptoTrajectory, model, log } = args;
 
   const dataSummary = buildSnapshotSummary(snapshot);
   if (!dataSummary) return null;
-
-  const [priorOverviews, stockTrajectory, cryptoTrajectory] = await Promise.all([
-    fetchPriorOverviews(db).catch(() => [] as PriorOverview[]),
-    fetchStockPriceTrajectory(db, TRAJECTORY_SYMBOLS, HISTORY_DAYS).catch(() => [] as PricePoint[]),
-    fetchCryptoPriceTrajectory(db, TRAJECTORY_CRYPTO, HISTORY_DAYS).catch(() => [] as PricePoint[]),
-  ]);
 
   const memoryContext = buildMemoryContext(priorOverviews);
   const trajectoryText = buildPriceTrajectoryText(stockTrajectory, cryptoTrajectory);
@@ -573,13 +567,14 @@ RULES:
 - No emojis. Minimal formatting. Clean prose.
 - Keep total response under 350 words.`;
 
-  const args = ["cursor-agent", "-p", prompt, "--model", "claude-4.6-sonnet-medium", "--trust"];
+  const llmArgs = ["cursor-agent", "-p", prompt, "--model", model, "--trust"];
   const apiKey = process.env["CURSOR_API_KEY"];
-  if (apiKey) args.push("--api-key", apiKey);
+  if (apiKey) llmArgs.push("--api-key", apiKey);
 
+  const startedAt = Date.now();
   try {
     const output = await new Promise<string>((resolve, reject) => {
-      const child = spawn(args[0]!, args.slice(1), {
+      const child = spawn(llmArgs[0]!, llmArgs.slice(1), {
         stdio: ["ignore", "pipe", "pipe"],
         detached: true,
       });
@@ -623,6 +618,7 @@ RULES:
         resolve(Buffer.concat(stdoutChunks).toString("utf-8").replace(ANSI_RE, "").trim());
       });
     });
+    const durationMs = Date.now() - startedAt;
 
     const narrativeMatch = output.match(/NARRATIVE:\s*([\s\S]*?)(?=OUTLOOK:|TOP_STORIES:|$)/i);
     const outlookMatch = output.match(/OUTLOOK:\s*([\s\S]*?)(?=TOP_STORIES:|$)/i);
@@ -639,15 +635,47 @@ RULES:
       .filter((l) => l.length > 0)
       .slice(0, 5) ?? [];
 
-    const result = { narrative, topStories };
-
-    await redis.set(dedupKey, JSON.stringify(result), "EX", 43200).catch(() => {});
-
-    return result;
+    return { narrative, topStories, durationMs };
   } catch (err) {
     log.warn({ err }, "LLM synthesis failed for market overview");
     return null;
   }
+}
+
+export async function synthesizeOverview(
+  snapshot: MarketSnapshot,
+  db: Pool,
+  redis: Redis,
+  log: FastifyBaseLogger,
+): Promise<{ narrative: string; topStories: string[] } | null> {
+  const dateStr = snapshot.timestamp.toISOString().slice(0, 10);
+  const dedupKey = `digest:overview:llm:${snapshot.sessionType}:${dateStr}`;
+  const cached = await redis.get(dedupKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch { /* regenerate */ }
+  }
+
+  const [priorOverviews, stockTrajectory, cryptoTrajectory] = await Promise.all([
+    fetchPriorOverviews(db).catch(() => [] as PriorOverview[]),
+    fetchStockPriceTrajectory(db, TRAJECTORY_SYMBOLS, HISTORY_DAYS).catch(() => [] as PricePoint[]),
+    fetchCryptoPriceTrajectory(db, TRAJECTORY_CRYPTO, HISTORY_DAYS).catch(() => [] as PricePoint[]),
+  ]);
+
+  const result = await synthesizeOverviewCore({
+    snapshot,
+    priorOverviews,
+    stockTrajectory,
+    cryptoTrajectory,
+    model: DEFAULT_OVERVIEW_MODEL,
+    log,
+  });
+  if (!result) return null;
+
+  const out = { narrative: result.narrative, topStories: result.topStories };
+  await redis.set(dedupKey, JSON.stringify(out), "EX", 43200).catch(() => {});
+  return out;
 }
 
 // ── Message formatters ────────────────────────────────────────────────
@@ -763,7 +791,7 @@ export function formatEveningRecap(
   ].filter((l) => l !== null).join("\n");
 }
 
-function buildTemplateFallbackNarrative(snapshot: MarketSnapshot): string {
+export function buildTemplateFallbackNarrative(snapshot: MarketSnapshot): string {
   const parts: string[] = [];
 
   if (snapshot.indices.length > 0) {

@@ -526,5 +526,66 @@ Decouples **content generation** from **per-user delivery**. Each generation att
 - Does not modify `deliverSmartDigest` or the `user_recommendation_log` INSERT shape.
 - Does not add `digest_id` to `user_recommendation_log` (Step 15).
 - Does not add maintenance jobs for superseding/reaping old rows (Step 16).
-- Does not cover Daily Overview canonicalization (separate future step).
+- Does not cover Daily Overview canonicalization (Step 14.2).
 - Does not add LLM calls to per-ticker briefs (`prompt_version` remains NULL).
+
+## Step 14.2 — `analysis_daily_overview` (canonical per-session daily overview artifact)
+
+Writer: `services/ai/gateway-2.0/src/core/analysis/daily-overview-broadcaster.ts` (flag-gated)
+Repository: `services/ai/gateway-2.0/src/core/analysis/daily-overview-repository.ts`
+Fingerprint: `services/ai/gateway-2.0/src/core/analysis/daily-overview-fingerprint.ts`
+Migration: `024_analysis_daily_overview.sql`
+
+Decouples **LLM synthesis** from **per-user delivery**. Each generation attempt produces an immutable row in `analysis_daily_overview`; the existing per-user `user_recommendation_log` INSERT is unchanged in Step 14.2. Delivery-layer linkage (`overview_id` FK on `user_recommendation_log`) is deferred to Step 15.
+
+### Canonical key
+
+`(overview_date, session_type, locale)` — one artifact per session per day per locale. No intraday-window concept. `locale` defaults to `'en'` and is reserved for future multi-locale support.
+
+### Reuse-eligibility columns (used in selection WHERE)
+
+| Column | Class | Notes |
+|---|---|---|
+| `snapshot_hash` | deterministic | SHA-256 over projected `MarketSnapshot` (indices, crypto, commodities, dxy, yields, news themes) |
+| `context_hash` | deterministic | SHA-256 over LLM-prompt context (prior overview refs, price trajectory, memory themes) |
+| `schema_version` | deterministic | Bumped when payload shape changes |
+| `generator_version` | deterministic | Manually bumped when orchestration logic changes meaningfully |
+| `prompt_version` | deterministic | Bumped when LLM prompt text changes; defaults to `'overview.v1'` |
+| `model_name` | deterministic | Participates in reuse selection (unlike 14.1 where it's audit-only); model swap genuinely changes output |
+
+### Audit-only columns (NOT used for reuse)
+
+| Column | Class | Notes |
+|---|---|---|
+| `code_version` | provenance | Git SHA at generation time; routine deploys do NOT invalidate artifacts |
+
+### Payload columns
+
+| Column | Class | Notes |
+|---|---|---|
+| `narrative` | LLM synthesis | Denormalized from `payload.synthesis.narrative` |
+| `top_stories` | LLM synthesis | JSONB `string[]` |
+| `message_body` | deterministic | Formatted Telegram markdown message |
+| `synthesis_source` | deterministic | `'llm'` or `'template_fallback'` — first-class telemetry for fallback rate |
+| `llm_duration_ms` | deterministic | LLM call latency; nullable |
+
+### Lifecycle states
+
+`pending` → `generating` → `ready` | `failed` | `invalidated` | `superseded`
+
+### Key design choices
+
+- **Append-only:** every generation attempt is its own row; payload is never updated in-place once `ready`.
+- **Partial unique index (`uq_dov_inflight`):** prevents concurrent generators racing for the same slot on `(overview_date, session_type, locale)`.
+- **Selection by query:** "current artifact" = `status='ready'` + matching hashes/versions + `overview_date` bound. No rolling freshness ceiling (the date IS the freshness bound). No `is_current` flag.
+- **Deploy-agnostic reuse:** `code_version` is stored for forensics but excluded from the reuse WHERE clause. Only `generator_version`, `prompt_version`, and `model_name` (all manually controlled) invalidate artifacts.
+- **Template fallback visibility:** when the LLM fails, a `ready` row with `synthesis_source='template_fallback'` is written so the broadcast still proceeds and the failure is auditable.
+- **Feature flag:** `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED` (default `false`). When off, the existing Redis-cached LLM path is used unchanged.
+
+### What this step intentionally does NOT do
+
+- Does not modify the `user_recommendation_log` INSERT shape or the Telegram fanout loop.
+- Does not add `overview_id` to `user_recommendation_log` (Step 15).
+- Does not add maintenance jobs for superseding/reaping old rows (Step 16).
+- Does not migrate `fetchPriorOverviews` to read from `analysis_daily_overview.narrative` instead of scraping `user_recommendation_log.message_body` (deferred to Step 14.2.x or Step 15).
+- Does not add per-locale synthesis (schema reserves `locale` column).

@@ -20,6 +20,7 @@ export interface DigestSchedulerDeps {
   curatorLlmTimeoutMs?: number;
   curatorMaxStories?: number;
   curatorMaxStoriesPerBatch?: number;
+  canonicalArtifactEnabled?: boolean;
 }
 
 export function startDigestScheduler(deps: DigestSchedulerDeps): { stop: () => void } {

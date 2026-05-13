@@ -21,6 +21,7 @@ import {
 import { buildDigestDebugReport } from "../core/analysis/digest-debug.js";
 import type { BriefMode } from "../core/analysis/digest-brief-truth.js";
 import { selectByDigestId } from "../core/analysis/smart-digest-repository.js";
+import { selectByOverviewId } from "../core/analysis/daily-overview-repository.js";
 
 interface CheckRecommendationsBody {
   assetType?: "stock" | "crypto";
@@ -74,7 +75,12 @@ export function registerRecommendationRoutes(
     },
   );
 
-  app.post<{ Body: { sessionType?: "pre_market" | "post_close" } }>(
+  app.post<{
+    Body: {
+      sessionType?: "pre_market" | "post_close";
+      overviewId?: string;
+    };
+  }>(
     "/internal/trigger-overview",
     async (request, reply) => {
       const serviceKey = request.headers["x-service-key"] as string | undefined;
@@ -86,10 +92,35 @@ export function registerRecommendationRoutes(
         return reply.status(401).send({ error: "Unauthorized" });
       }
 
+      const overviewId = request.body?.overviewId?.trim();
+      if (overviewId) {
+        try {
+          const artifact = await selectByOverviewId(db, overviewId);
+          if (!artifact) {
+            return reply.status(404).send({ error: "Overview artifact not found" });
+          }
+          return reply.send({ ok: true, artifact });
+        } catch (err) {
+          app.log.error(
+            { err, overviewId },
+            "Error fetching overview artifact by overviewId",
+          );
+          return reply.status(500).send({ error: "Internal server error" });
+        }
+      }
+
       try {
         const sessionType = request.body?.sessionType ?? "post_close";
         const result = await broadcastDailyOverview(
-          { db, redis, extensions, log: app.log },
+          {
+            db,
+            redis,
+            extensions,
+            log: app.log,
+            canonicalArtifactEnabled:
+              config.dailyOverviewCanonicalArtifactEnabled,
+            triggerReason: "http:trigger",
+          },
           sessionType,
         );
         return reply.send({ ok: true, ...result });
