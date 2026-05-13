@@ -19,6 +19,7 @@ export interface PipelineConsumerDeps {
   extensions: ExtensionRegistry;
   log: FastifyBaseLogger;
   briefMode?: BriefMode;
+  canonicalArtifactEnabled?: boolean;
 }
 
 interface PipelineMessage {
@@ -28,7 +29,8 @@ interface PipelineMessage {
 export async function startPipelineConsumer(
   deps: PipelineConsumerDeps,
 ): Promise<{ close: () => Promise<void> }> {
-  const { db, redis, extensions, log, briefMode } = deps;
+  const { db, redis, extensions, log, briefMode, canonicalArtifactEnabled } =
+    deps;
   const url =
     process.env["RABBITMQ_URL"] ??
     "amqp://stocktracker:guest@rabbitmq:5672";
@@ -43,6 +45,7 @@ export async function startPipelineConsumer(
     extensions,
     log,
     briefMode: briefMode ?? "strict",
+    canonicalArtifactEnabled,
   };
 
   async function connect(): Promise<void> {

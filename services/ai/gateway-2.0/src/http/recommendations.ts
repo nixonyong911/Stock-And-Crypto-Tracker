@@ -20,6 +20,7 @@ import {
 } from "../core/analysis/digest-delivery.js";
 import { buildDigestDebugReport } from "../core/analysis/digest-debug.js";
 import type { BriefMode } from "../core/analysis/digest-brief-truth.js";
+import { selectByDigestId } from "../core/analysis/smart-digest-repository.js";
 
 interface CheckRecommendationsBody {
   assetType?: "stock" | "crypto";
@@ -60,6 +61,8 @@ export function registerRecommendationRoutes(
             extensions,
             log: app.log,
             briefMode: config.smartDigestBriefBlend ? "blended" : "strict",
+            canonicalArtifactEnabled:
+              config.smartDigestCanonicalArtifactEnabled,
           },
           request.body?.assetType,
         );
@@ -331,6 +334,7 @@ export function registerRecommendationRoutes(
       symbol: string;
       assetType?: "stock" | "crypto";
       mode?: BriefMode;
+      digestId?: string;
     };
   }>("/internal/debug-digest", async (request, reply) => {
     const serviceKey = request.headers["x-service-key"] as string | undefined;
@@ -340,6 +344,23 @@ export function registerRecommendationRoutes(
       serviceKey !== config.internalServiceKey
     ) {
       return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const digestId = request.body?.digestId?.trim();
+    if (digestId) {
+      try {
+        const artifact = await selectByDigestId(db, digestId);
+        if (!artifact) {
+          return reply.status(404).send({ error: "Artifact not found" });
+        }
+        return reply.send({ ok: true, artifact });
+      } catch (err) {
+        app.log.error(
+          { err, digestId },
+          "Error fetching artifact by digestId",
+        );
+        return reply.status(500).send({ error: "Internal server error" });
+      }
     }
 
     const rawSym = request.body?.symbol?.trim();

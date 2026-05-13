@@ -61,6 +61,14 @@ export interface GatewayConfig {
    * Sourced from env `SMART_DIGEST_MEMORY_FRESHNESS_HOURS`.
    */
   readonly smartDigestMemoryFreshnessHours: number;
+  /**
+   * When true, the digest pipeline persists canonical artifacts to
+   * `analysis_smart_digest` before fanout and reads the brief back from
+   * the artifact row. When false (default), the existing in-memory
+   * generation path is used unchanged.
+   * Sourced from env `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED`.
+   */
+  readonly smartDigestCanonicalArtifactEnabled: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +174,10 @@ export function loadConfig(): GatewayConfig {
     smartDigestMemoryFreshnessHours: Math.min(
       720,
       Math.max(1, envInt("SMART_DIGEST_MEMORY_FRESHNESS_HOURS", 72)),
+    ),
+    smartDigestCanonicalArtifactEnabled: envBool(
+      "SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED",
+      false,
     ),
   };
 }

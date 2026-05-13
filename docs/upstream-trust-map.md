@@ -481,3 +481,50 @@ Optional narrowing: `--theme-id <uuid>`, `--limit N`.
 - Does not recompute `primary_ticker` via `computeMemoryPrimary` (guard-only nulling, mirroring Slice 8C/9).
 - Does not change `prompt_version` on existing rows.
 - Does not modify `analysis_filtered_news`, `analysis_ticker_price_targets`, or any user-facing table.
+
+---
+
+## Step 14.1 — `analysis_smart_digest` (canonical per-ticker digest artifact)
+
+Writer: `services/ai/gateway-2.0/src/core/analysis/digest-pipeline.ts` (flag-gated via `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED`)
+Migration: `023_analysis_smart_digest.sql`
+
+### Purpose
+
+Decouples **content generation** from **per-user delivery**. Each generation attempt produces an immutable row in `analysis_smart_digest`; the existing per-user `user_recommendation_log` INSERT is unchanged in Step 14.1. Delivery-layer linkage (`digest_id` FK on `user_recommendation_log`) is deferred to Step 15.
+
+### Reuse-eligibility columns
+
+| Column | Class | Notes |
+|---|---|---|
+| `truth_hash` | deterministic | SHA-256 of `(priceTargetId, updatedAt, analysisDate, newsOneLiner, macroSignature)` |
+| `context_hash` | deterministic | SHA-256 of memory themes + news headlines identity tuples |
+| `schema_version` | deterministic | Bumped when `DigestBrief` payload shape changes |
+| `generator_version` | deterministic | Manually bumped when generation algorithm changes meaningfully |
+| `prompt_version` | nullable | Reserved for future LLM-augmented briefs |
+
+### Audit-only columns (NOT used for reuse)
+
+| Column | Class | Notes |
+|---|---|---|
+| `code_version` | provenance | Git SHA at generation time; routine deploys do NOT invalidate artifacts |
+| `model_name` | provenance | Reserved for LLM model identification |
+
+### Lifecycle states
+
+`pending` → `generating` → `ready` | `failed` | `invalidated` | `superseded`
+
+### Key design choices
+
+- **Append-only:** every generation attempt is its own row; payload is never updated in-place once `ready`.
+- **Partial unique index (`uq_smart_digest_inflight`):** prevents concurrent generators racing for the same slot.
+- **Selection by query:** "current artifact" = `status='ready'` + matching fingerprints + freshness ceiling. No `is_current` flag.
+- **Deploy-agnostic reuse:** `code_version` is stored for forensics but excluded from the reuse WHERE clause. Only `generator_version` (manually bumped) invalidates artifacts.
+
+### What this step intentionally does NOT do
+
+- Does not modify `deliverSmartDigest` or the `user_recommendation_log` INSERT shape.
+- Does not add `digest_id` to `user_recommendation_log` (Step 15).
+- Does not add maintenance jobs for superseding/reaping old rows (Step 16).
+- Does not cover Daily Overview canonicalization (separate future step).
+- Does not add LLM calls to per-ticker briefs (`prompt_version` remains NULL).

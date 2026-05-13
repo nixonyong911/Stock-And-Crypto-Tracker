@@ -27,6 +27,13 @@
  *   infisical run --env=dev -- \
  *     npx tsx scripts/preview-digest.ts --symbol AAPL --strict-vs-blended
  *
+ *   # load & render an existing canonical artifact (Step 14.1)
+ *   infisical run --env=dev -- \
+ *     npx tsx scripts/preview-digest.ts --from-artifact latest --symbol AAPL
+ *
+ *   infisical run --env=dev -- \
+ *     npx tsx scripts/preview-digest.ts --from-artifact <digest_id>
+ *
  * Required env: DATABASE_URL (or DATABASE_URL_JS).
  */
 
@@ -39,6 +46,10 @@ import {
   type DigestDebugReport,
 } from "../src/core/analysis/digest-debug.js";
 import type { BriefMode } from "../src/core/analysis/digest-brief-truth.js";
+import {
+  selectByDigestId,
+  listRecent,
+} from "../src/core/analysis/smart-digest-repository.js";
 
 const { Pool } = pg;
 
@@ -54,6 +65,8 @@ interface CliArgs {
    * `truthFlags` from `BriefTruth`. Used during R1 validation.
    */
   strictVsBlended: boolean;
+  /** Load an existing canonical artifact instead of regenerating. */
+  fromArtifact: string | null;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -63,6 +76,7 @@ function parseArgs(argv: string[]): CliArgs {
   let writeFiles = false;
   let renderPng = false;
   let strictVsBlended = false;
+  let fromArtifact: string | null = null;
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -83,16 +97,19 @@ function parseArgs(argv: string[]): CliArgs {
       renderPng = true;
     } else if (a === "--strict-vs-blended") {
       strictVsBlended = true;
+    } else if (a === "--from-artifact" && argv[i + 1]) {
+      fromArtifact = argv[i + 1]!;
+      i++;
     }
   }
 
-  if (!symbol) {
+  if (!symbol && !fromArtifact) {
     throw new Error(
-      "Missing required argument: --symbol <TICKER>\n" +
-        "Usage: tsx scripts/preview-digest.ts --symbol AAPL [--asset stock|crypto] [--mode strict|blended] [--write-files] [--render-png] [--strict-vs-blended]",
+      "Missing required argument: --symbol <TICKER> (or --from-artifact <digest_id|latest>)\n" +
+        "Usage: tsx scripts/preview-digest.ts --symbol AAPL [--asset stock|crypto] [--mode strict|blended] [--write-files] [--render-png] [--strict-vs-blended] [--from-artifact <digest_id|latest>]",
     );
   }
-  return { symbol, asset, mode, writeFiles, renderPng, strictVsBlended };
+  return { symbol, asset, mode, writeFiles, renderPng, strictVsBlended, fromArtifact };
 }
 
 function fileSafe(symbol: string): string {
@@ -173,6 +190,56 @@ async function main(): Promise<void> {
   try {
     const args = parseArgs(process.argv.slice(2));
     const strictVsBlendedFlag = args.strictVsBlended;
+    const { fromArtifact } = args;
+
+    if (fromArtifact) {
+      console.error(
+        `[preview-digest] --from-artifact=${fromArtifact} ${symbol ? `symbol=${symbol}` : ""}`.trim(),
+      );
+
+      let artifact;
+      if (fromArtifact === "latest") {
+        const rows = await listRecent(pool as never, {
+          symbol: symbol || undefined,
+          limit: 1,
+        });
+        artifact = rows[0] ?? null;
+      } else {
+        artifact = await selectByDigestId(pool as never, fromArtifact);
+      }
+
+      if (!artifact) {
+        console.error("[preview-digest] No artifact found");
+        process.exit(1);
+      }
+
+      process.stdout.write(`${JSON.stringify(artifact, null, 2)}\n`);
+      console.error(
+        `[preview-digest] artifact: id=${artifact.id} digest_id=${artifact.digest_id} symbol=${artifact.symbol} status=${artifact.status}`,
+      );
+
+      if (renderPng && artifact.status === "ready") {
+        const outDir = join(process.cwd(), "tmp");
+        await mkdir(outDir, { recursive: true });
+        const safe = fileSafe(artifact.symbol);
+        try {
+          const brief = artifact.payload;
+          const png = await renderCard(brief as never);
+          const pngPath = join(outDir, `digest-${safe}.png`);
+          await writeFile(pngPath, png);
+          console.error(
+            `  wrote ${pngPath} (${png.length.toLocaleString()} bytes)`,
+          );
+        } catch (err) {
+          console.error(
+            "[preview-digest] card render failed:",
+            err instanceof Error ? err.message : err,
+          );
+        }
+      }
+      return;
+    }
+
     console.error(
       `[preview-digest] symbol=${symbol} asset=${asset} mode=${mode} ${writeFiles ? "write-files=true " : ""}${renderPng ? "render-png=true" : ""} ${strictVsBlendedFlag ? "strict-vs-blended=true" : ""}`.trim(),
     );

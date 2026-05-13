@@ -103,6 +103,7 @@ async function main(): Promise<void> {
       extensions: result.extensions,
       log: app.log,
       briefMode: config.smartDigestBriefBlend ? "blended" : "strict",
+      canonicalArtifactEnabled: config.smartDigestCanonicalArtifactEnabled,
     });
     closePipelineConsumer = consumer.close;
 
