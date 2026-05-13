@@ -1,0 +1,12 @@
+# Slice 10 — Q1 AFTER (post-commit)
+# Date: 2026-05-12T08:02 UTC
+# Commit run_id: 28316799-3cec-4016-8311-72ecb8b90f4f
+
+ active_fading | inferred_nonempty | primary_present | primary_incoherent | broad_n_ge_8 | broad_index_present 
+---------------+-------------------+-----------------+--------------------+--------------+---------------------
+            50 |                 6 |               4 |                  4 |            2 |                  22
+
+# Comparison with pre-Slice-10 baseline:
+#   inferred_nonempty: 0 → 6 (+6, matches exactly the 6 applied rows)
+#   broad_index_present: 26 → 22 (-4, broad index tickers moved to inferred)
+#   All other metrics unchanged

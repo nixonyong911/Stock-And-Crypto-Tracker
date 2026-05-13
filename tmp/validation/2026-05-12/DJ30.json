@@ -1,0 +1,43 @@
+{
+  "symbol": "DJ30",
+  "symbolUpper": "DJ30",
+  "aliases": [
+    "DJ30",
+    "DIA"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 1,
+  "passedCount": 0,
+  "chosen": null,
+  "candidates": [
+    {
+      "theme": "G7 Synchronized Rate Hold — Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "DJ30",
+        "TLT",
+        "GOLD",
+        "OIL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-12T07:00:15.081+00:00",
+      "news_one_liner": "April jobs beat validates Fed hold while BOJ goes hawkish on $100+ oil, leaving no accommodative G10 anchor and tightening global financial conditions from all directions.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}

@@ -1,0 +1,453 @@
+{
+  "symbol": "SPX500",
+  "symbolUpper": "SPX500",
+  "aliases": [
+    "SPX500",
+    "SPY"
+  ],
+  "threshold": 2,
+  "includeInferred": false,
+  "candidatesCount": 16,
+  "passedCount": 5,
+  "chosen": {
+    "theme": "G7 Synchronized Rate Hold — Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+    "news_one_liner": "April jobs beat validates Fed hold while BOJ goes hawkish on $100+ oil, leaving no accommodative G10 anchor and tightening global financial conditions from all directions.",
+    "affected_tickers": [
+      "SPX500",
+      "NSDQ100",
+      "DJ30",
+      "TLT",
+      "GOLD",
+      "OIL"
+    ],
+    "tickers_inferred": [],
+    "affinity": {
+      "score": 2,
+      "reasons": [
+        "text_token_miss",
+        "position_primary_hit:SPX500",
+        "normal_tag:n=6"
+      ],
+      "passed": true,
+      "threshold": 2,
+      "attachmentKind": "kept"
+    }
+  },
+  "candidates": [
+    {
+      "theme": "G7 Synchronized Rate Hold — Hormuz Energy Shock Locks All Major Central Banks Into Monetary Paralysis Simultaneously",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "DJ30",
+        "TLT",
+        "GOLD",
+        "OIL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-12T07:00:15.081+00:00",
+      "news_one_liner": "April jobs beat validates Fed hold while BOJ goes hawkish on $100+ oil, leaving no accommodative G10 anchor and tightening global financial conditions from all directions.",
+      "affinity": {
+        "score": 2,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "normal_tag:n=6"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": true
+    },
+    {
+      "theme": "Trump-Xi Summit Imminent — US-China Trade War Ceasefire Potential Emerges as Highest-Impact Binary Catalyst for Global Equities",
+      "affected_tickers": [
+        "SPX500",
+        "NSDQ100",
+        "AAPL",
+        "NVDA",
+        "AMD",
+        "TM"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-12T07:00:15.081+00:00",
+      "news_one_liner": "Trump-Xi summit goes live this week alongside CPI/PPI data, making it the highest-stakes binary macro event of the cycle for global equities and tech.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "primary_ticker_miss:heuristic:^AXJO",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "AI Capex Supercycle Redirects Institutional Flows Into Semiconductors — Chip ETFs Dominate 2026 Inflows as Big Tech Loses Narrative Leadership",
+      "affected_tickers": [
+        "NVDA",
+        "AMD",
+        "SOXX",
+        "NSDQ100",
+        "RTY",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "high",
+      "relevance_score": 1,
+      "last_updated": "2026-05-12T06:47:22.766+00:00",
+      "news_one_liner": "Constellation Energy's earnings beat and Micron's surge confirm AI capex demand is broadening from GPU compute into memory chips and nuclear power infrastructure, lifting the full AI supply chain.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=6",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "US Consumer Confidence-Spending Divergence — Sentiment at Record Lows While Hard Data Holds, Flagging Deferred Recession Risk",
+      "affected_tickers": [
+        "SPX500",
+        "RTY",
+        "XRT"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 0.97,
+      "last_updated": "2026-05-12T07:00:15.081+00:00",
+      "news_one_liner": "April jobs beat confirms US labor resilience but forecloses near-term Fed cuts, sustaining stagflation risk as oil-driven inflation compounds consumer cost pressure.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Non-Tariff Barrier Trade Fragmentation — UNCTAD Quantifies 10% LDC Export Loss as Deglobalization Extends Beyond Tariff Disputes",
+      "affected_tickers": [
+        "SPX500",
+        "OIL",
+        "GOLD"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-10T06:08:45.991+00:00",
+      "news_one_liner": "UNCTAD finds LDCs losing 10% of G20 exports to non-tariff barriers, deepening trade fragmentation beyond headline tariff disputes and pressuring EM commodity exporters.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "SEC ESG Enforcement Activation — Sustainability Disclosure Mandates Shift From Voluntary to Coercive Compliance Phase",
+      "affected_tickers": [
+        "SPX500",
+        "XLE",
+        "XLB"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-06T12:03:46.2+00:00",
+      "news_one_liner": "SEC enforcement of sustainability disclosures raises compliance costs for energy and materials firms, accelerating mandatory ESG reporting across US markets.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Commercial Space Launch Sector Institutionalization — Rocket Lab Record Contract and 2027 Breakeven Path Signal Government Demand Inflection",
+      "affected_tickers": [
+        "RKLB",
+        "SPX500",
+        "NSDQ100"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T18:03:24.437+00:00",
+      "news_one_liner": "Rocket Lab's record contract and 2027 breakeven path unlock institutional buying as commercial space transitions from speculative to earnings-visible.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "JEPI Covered-Call ETF Structural Flaw — Retirement Income Strategy Downgrade Exposes Distribution Sustainability Risk for Millions",
+      "affected_tickers": [
+        "JEPI",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-07T06:10:07.415+00:00",
+      "news_one_liner": "JEPI's Sell downgrade on $40B in AUM exposes millions of retirees to recurring distribution cuts as covered-call mechanics lag bull market recoveries.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=2"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "European Defense Spending Structural Acceleration — US Troop Withdrawal Forces NATO Burden-Sharing Recalibration",
+      "affected_tickers": [
+        "LMT",
+        "RTX",
+        "NOC",
+        "BA",
+        "LDOS",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 0.98,
+      "last_updated": "2026-05-12T07:00:15.081+00:00",
+      "news_one_liner": "Trump's ceasefire call failed immediately as both sides traded violation accusations, closing the last diplomatic off-ramp and cementing multi-year defense procurement tailwinds for LMT, RTX, and NOC.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=6",
+          "normal_tag:n=6"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "UK Trumpflation Stagflation — Dual Energy and Tariff Shock Erodes British Savers' Real Wealth as BoE Rate Hold Fails to Keep Pace",
+      "affected_tickers": [
+        "FTSE",
+        "LLOY",
+        "BARC",
+        "NWG",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-09T06:11:23.499+00:00",
+      "news_one_liner": "UK savers are losing real wealth as energy and tariff inflation outpaces deposit rates, threatening UK banks, retailers, and sterling.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "PLA Leadership Purge Escalation — Suspended Death Sentences for Two Former Defense Ministers Signal Sustained Chinese Military Command Instability",
+      "affected_tickers": [
+        "FXI",
+        "SPX500",
+        "NSDQ100",
+        "NVDA",
+        "AAPL"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T12:09:57.203+00:00",
+      "news_one_liner": "China's death sentences for two ex-defense ministers deepen PLA command uncertainty, raising tail-risk premiums for Taiwan-exposed tech and semiconductor names.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "AI Capital Markets Integration — Anthropic Wall Street JV Exploration Signals Frontier Model Pivot to Finance as Federal Exclusion Redirects Commercial Strategy",
+      "affected_tickers": [
+        "MSFT",
+        "GOOGL",
+        "700.HK",
+        "NSDQ100",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-08T06:09:34.505+00:00",
+      "news_one_liner": "Google Cloud and Genpact's agentic AI deal for CFO offices extends AI-finance integration into enterprise operations, threatening SAP and Oracle while boosting GOOGL cloud revenue durability.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=5",
+          "normal_tag:n=5"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "California Insurance Market Regulatory Crisis — State Farm Violations Signal Escalating Regulatory Friction for Property Insurers in High-Risk States",
+      "affected_tickers": [
+        "PGR",
+        "ALL",
+        "TRV",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "medium",
+      "relevance_score": 1,
+      "last_updated": "2026-05-05T12:10:26.131+00:00",
+      "news_one_liner": "California's State Farm enforcement action escalates insurance market regulatory risk, pressuring P&C insurer stocks with high-catastrophe-state exposure.",
+      "affinity": {
+        "score": 0,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=4",
+          "normal_tag:n=4"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Sports Finance Institutionalization — William Blair-Inner Circle Sports Acquisition Confirms PE-Driven Franchise M&A as Mainstream Advisory Vertical",
+      "affected_tickers": [
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-06T06:02:54.498+00:00",
+      "news_one_liner": "William Blair buying Inner Circle Sports confirms PE-driven sports franchise M&A has matured into a mainstream institutional advisory vertical.",
+      "affinity": {
+        "score": 3,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_hit:SPX500",
+          "narrow_tag_bonus:n=1"
+        ],
+        "passed": true,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Corporate Bitcoin Treasury Model Under Fire — Schiff's 'Ponzi' Critique Highlights Leveraged Accumulation Risk at Strategy Inc.",
+      "affected_tickers": [
+        "MSTR",
+        "BTC",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 0.97,
+      "last_updated": "2026-05-12T07:00:15.081+00:00",
+      "news_one_liner": "Capital B's €114M potential BTC capacity and record-low short interest in crypto equities confirm corporate treasury model expansion into Europe with reduced bearish pushback.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=3",
+          "narrow_tag_bonus:n=3"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    },
+    {
+      "theme": "Unconstrained Bond Fund Renaissance — Rate Volatility and Geopolitical Uncertainty Drive Institutional Capital to Flexible Fixed Income",
+      "affected_tickers": [
+        "TLT",
+        "SPX500"
+      ],
+      "tickers_inferred": [],
+      "impact_level": "low",
+      "relevance_score": 1,
+      "last_updated": "2026-05-06T00:09:39.906+00:00",
+      "news_one_liner": "Flexible bond funds are outperforming as rate volatility rewards unconstrained mandates, drawing institutional capital away from passive fixed income benchmarks.",
+      "affinity": {
+        "score": 1,
+        "threshold": 2,
+        "reasons": [
+          "text_token_miss",
+          "position_primary_miss:position=2",
+          "narrow_tag_bonus:n=2"
+        ],
+        "passed": false,
+        "attachmentKind": "kept"
+      },
+      "chosen": false
+    }
+  ]
+}

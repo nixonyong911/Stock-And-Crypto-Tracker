@@ -1,0 +1,7 @@
+# Slice 10 — Pre-deploy baseline (Q1)
+# Date: 2026-05-12T07:50 UTC
+# Gateway image: stocktracker-gateway-2.0:v1.2
+
+ active_fading | inferred_nonempty | primary_present | primary_incoherent | broad_n_ge_8 | broad_index_present 
+---------------+-------------------+-----------------+--------------------+--------------+---------------------
+            50 |                 0 |               4 |                  4 |            2 |                  26
