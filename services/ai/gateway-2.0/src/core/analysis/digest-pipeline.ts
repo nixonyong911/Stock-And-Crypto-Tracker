@@ -242,7 +242,7 @@ async function persistCanonicalArtifacts(
 async function fanOutToWatchers(
   deps: ProcessRecommendationsDeps,
   symbol: string,
-  assetType: "stock" | "crypto",
+  _assetType: "stock" | "crypto",
   signals: TickerSignal[],
   macroContext: MacroContext,
   newsOneLinerMap?: Map<string, string>,
