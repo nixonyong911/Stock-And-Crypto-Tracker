@@ -64,10 +64,15 @@ interface LogRow {
   symbol: string | null;
   headline: string | null;
   message_body: string | null;
+  artifact_kind: string | null;
+  artifact_id: number | null;
+  channel_type: string | null;
+  delivery_status: string | null;
+  delivery_failure_reason: string | null;
 }
 
 interface ParsedBrief {
-  shape: "json" | "legacy_markdown" | "empty";
+  shape: "json" | "legacy_markdown" | "empty" | "artifact_linked";
   brief?: Record<string, unknown>;
   raw?: string;
 }
@@ -85,15 +90,39 @@ function parseMessageBody(body: string | null): ParsedBrief {
   return { shape: "legacy_markdown", raw: trimmed };
 }
 
+async function resolveArtifact(
+  row: LogRow,
+): Promise<Record<string, unknown> | null> {
+  if (!row.artifact_kind || !row.artifact_id) return null;
+  const table =
+    row.artifact_kind === "smart_digest"
+      ? "analysis_smart_digest"
+      : row.artifact_kind === "daily_overview"
+        ? "analysis_daily_overview"
+        : null;
+  if (!table) return null;
+  const { data } = await supabase
+    .from(table)
+    .select("*")
+    .eq("id", row.artifact_id)
+    .single();
+  return data as Record<string, unknown> | null;
+}
+
 function printBrief(row: LogRow, parsed: ParsedBrief): void {
   console.log("─".repeat(72));
-  console.log(`id            ${row.id}`);
-  console.log(`sent_at       ${row.sent_at}`);
-  console.log(`user          ${row.clerk_user_id}`);
-  console.log(`type          ${row.recommendation_type ?? "(null)"}`);
-  console.log(`symbol        ${row.symbol ?? "(null)"}`);
-  console.log(`headline      ${row.headline ?? "(null)"}`);
-  console.log(`body shape    ${parsed.shape}`);
+  console.log(`id              ${row.id}`);
+  console.log(`sent_at         ${row.sent_at}`);
+  console.log(`user            ${row.clerk_user_id}`);
+  console.log(`type            ${row.recommendation_type ?? "(null)"}`);
+  console.log(`symbol          ${row.symbol ?? "(null)"}`);
+  console.log(`headline        ${row.headline ?? "(null)"}`);
+  console.log(`artifact_kind   ${row.artifact_kind ?? "(null)"}`);
+  console.log(`artifact_id     ${row.artifact_id ?? "(null)"}`);
+  console.log(`channel_type    ${row.channel_type ?? "(null)"}`);
+  console.log(`delivery_status ${row.delivery_status ?? "(null)"}`);
+  console.log(`failure_reason  ${row.delivery_failure_reason ?? "(null)"}`);
+  console.log(`body shape      ${parsed.shape}`);
 
   if (parsed.shape === "json" && parsed.brief) {
     const b = parsed.brief;
@@ -196,7 +225,7 @@ async function main() {
   let query = supabase
     .from("user_recommendation_log")
     .select(
-      "id, clerk_user_id, sent_at, recommendation_type, symbol, headline, message_body",
+      "id, clerk_user_id, sent_at, recommendation_type, symbol, headline, message_body, artifact_kind, artifact_id, channel_type, delivery_status, delivery_failure_reason",
     )
     .order("sent_at", { ascending: false })
     .limit(args.limit);
@@ -216,7 +245,27 @@ async function main() {
   }
 
   for (const row of rows) {
-    const parsed = parseMessageBody(row.message_body);
+    let parsed: ParsedBrief;
+    if (row.artifact_kind && row.artifact_id) {
+      const artifact = await resolveArtifact(row);
+      if (artifact) {
+        parsed = { shape: "artifact_linked", brief: artifact };
+        console.log(`\n[artifact] Resolved ${row.artifact_kind} #${row.artifact_id}:`);
+        console.log(`  status: ${str(artifact["status"])}`);
+        if (row.artifact_kind === "smart_digest") {
+          console.log(`  symbol: ${str(artifact["symbol"])}`);
+          console.log(`  payload keys: ${artifact["payload"] ? Object.keys(artifact["payload"] as object).join(", ") : "(null)"}`);
+        } else {
+          console.log(`  narrative: ${str(artifact["narrative"])?.slice(0, 200)}`);
+          console.log(`  top_stories: ${JSON.stringify(artifact["top_stories"])?.slice(0, 200)}`);
+        }
+      } else {
+        parsed = parseMessageBody(row.message_body);
+        console.log(`\n[artifact] WARN: ${row.artifact_kind} #${row.artifact_id} not found in artifact table`);
+      }
+    } else {
+      parsed = parseMessageBody(row.message_body);
+    }
     printBrief(row, parsed);
     if (args.replay) {
       await maybeReplay(row.symbol);

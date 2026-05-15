@@ -1,13 +1,13 @@
 /**
- * Step 14.2/14.3 broadcaster-level tests.
+ * Step 14.2/14.3 + Step 15 broadcaster-level tests.
  *
  * Covers:
  *   A. Flag-off parity — legacy synthesizeOverview path, no artifact writes
  *   B. Flag-on write path — orchestrator invoked, synthesis from artifact
  *   C. Flag-on reuse path — existing artifact reused, synthesis skipped
  *   D. Fallback path visibility — template_fallback from orchestrator, broadcast proceeds
- *   E. Delivery boundary — user_recommendation_log INSERT shape unchanged,
- *      no overview_id/Step 15 linkage leaked
+ *   E. Delivery ledger — Step 15 artifact linkage (artifact_kind, artifact_id),
+ *      delivery_status, message_body=NULL cutover, always-insert semantics
  *
  * After 14.3, the broadcaster delegates to `orchestrateDailyOverviewArtifact`
  * which is mocked at the module boundary. The repo/fingerprint layer is tested
@@ -335,10 +335,10 @@ describe("flag ON — template fallback from orchestrator", () => {
   });
 });
 
-// ── E. Delivery boundary — user_recommendation_log unchanged ──────────
+// ── E. Delivery ledger — Step 15 artifact linkage + message_body=NULL ──
 
-describe("delivery boundary — user_recommendation_log shape unchanged", () => {
-  it("INSERT columns are identical in flag-off and flag-on paths", async () => {
+describe("delivery ledger — Step 15 artifact linkage", () => {
+  it("INSERT SQL is identical in flag-off and flag-on paths", async () => {
     const depsOff = makeDepsWithRecipients({ canonicalArtifactEnabled: false });
     await broadcastDailyOverview(depsOff, "pre_market");
     const insertOff = depsOff._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -368,24 +368,60 @@ describe("delivery boundary — user_recommendation_log shape unchanged", () => 
     expect(insertOff!.sql).toBe(insertOn!.sql);
   });
 
-  it("INSERT has exactly 7 positional params", async () => {
+  it("INSERT has exactly 12 positional params (ledger shape)", async () => {
     const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
     expect(insert).toBeDefined();
-    expect(insert!.params).toHaveLength(7);
+    expect(insert!.params).toHaveLength(12);
   });
 
-  it("INSERT does NOT contain overview_id (no Step 15 leakage)", async () => {
+  it("INSERT contains artifact_kind and artifact_id columns", async () => {
     const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
     expect(insert).toBeDefined();
-    expect(insert!.sql).not.toContain("overview_id");
-    expect(insert!.sql).not.toContain("artifact_id");
-    expect(insert!.sql).not.toContain("digest_id");
+    expect(insert!.sql).toContain("artifact_kind");
+    expect(insert!.sql).toContain("artifact_id");
+    expect(insert!.sql).toContain("delivery_status");
+    expect(insert!.sql).toContain("channel_type");
+  });
+
+  it("flag-on: artifact_kind='daily_overview', artifact_id populated", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![7]).toBe("daily_overview");
+    expect(insert!.params![8]).toBe(1);
+  });
+
+  it("flag-off: artifact_kind and artifact_id are null", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: false });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![7]).toBeNull();
+    expect(insert!.params![8]).toBeNull();
+  });
+
+  it("message_body is NULL (Step 15 cutover)", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![5]).toBeNull();
+  });
+
+  it("delivery_status='sent' on successful send", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![10]).toBe("sent");
+    expect(insert!.params![11]).toBeNull();
   });
 
   it("recommendation_type is still 'daily_overview'", async () => {
@@ -402,5 +438,18 @@ describe("delivery boundary — user_recommendation_log shape unchanged", () => 
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
     expect(insert!.params![1]).toBe("MARKET");
+  });
+
+  it("always inserts a row even on send failure", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
+      sendText: vi.fn(async () => ({ ok: false })),
+    });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert).toBeDefined();
+    expect(insert!.params![10]).toBe("failed");
+    expect(insert!.params![11]).toBe("send_failed");
   });
 });

@@ -685,3 +685,46 @@ All endpoints require `x-service-key` matching `INTERNAL_SERVICE_KEY`.
 - No schema migrations — all changes use existing columns already defined in 14.1/14.2.
 - No changes to generation, fingerprinting, or orchestrator selection behavior.
 - No back-office UI or frontend pages for artifacts.
+
+---
+
+## Step 15 — Delivery ledger rewiring
+
+Migration: `025_user_recommendation_log_delivery_ledger.sql`
+Writers: `digest-delivery.ts`, `daily-overview-broadcaster.ts`
+
+Step 15 pivots `user_recommendation_log` from a content-bearing table into a true delivery ledger. Canonical content now lives only in `analysis_smart_digest` and `analysis_daily_overview`; the log records who got what, when, through which channel, and the delivery outcome.
+
+### Schema changes (additive only)
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `artifact_kind` | `VARCHAR(20)` | `NULL` | `'smart_digest'` or `'daily_overview'`; CHECK-constrained |
+| `artifact_id` | `BIGINT` | `NULL` | FK target in the kind-routed artifact table; pair-constrained with `artifact_kind` |
+| `channel_type` | `VARCHAR(20)` | `'telegram'` | Delivery channel |
+| `delivery_status` | `VARCHAR(20)` | `'sent'` | `'sent'` or `'failed'`; CHECK-constrained |
+| `delivery_failure_reason` | `VARCHAR(40)` | `NULL` | Machine-readable failure tag |
+
+New indexes: `idx_url_artifact (artifact_kind, artifact_id)`, `idx_url_failed (delivery_status, sent_at DESC) WHERE delivery_status = 'failed'`.
+
+`headline` and `priority` made nullable. No columns dropped.
+
+### Delivery changes
+
+- **Smart Digest**: `ArtifactRef { kind, id }` threaded from `persistCanonicalArtifacts` → `fanOutToWatchers` → `deliverSmartDigest`. The redundant `getCurrentArtifact` re-lookup in `fanOutToWatchers` was removed; the brief always comes from `generateDigestBrief`.
+- **Daily Overview**: `broadcastDailyOverview` captures `artifactId` from the orchestrator result and always-inserts a ledger row (both sent and failed deliveries).
+- **`message_body`**: set to `NULL` in both delivery INSERTs. Content is read from canonical artifact tables.
+
+### Read-path migration
+
+- `fetchPriorOverviews` reads `analysis_daily_overview.narrative` instead of parsing `user_recommendation_log.message_body`.
+- `gatherContextRefs` prior-overview block reads `analysis_daily_overview (overview_date, session_type)` instead of `user_recommendation_log (headline)`.
+- `inspect-digest.ts` resolves content via artifact lookup when `artifact_kind` + `artifact_id` are present.
+- `verify-digest.ts` checks artifact-pair consistency and delivery-status distribution.
+
+### What this step intentionally does NOT do
+
+- No `DROP COLUMN` against `user_recommendation_log` (legacy `message_body`/`headline`/`priority`/`timeframe_alignment` remain).
+- No backfill of old rows (pre-Step-15 rows keep `artifact_kind=NULL` forever).
+- No real foreign key to artifact tables.
+- No multi-channel delivery (schema is ready but code stays Telegram-only).

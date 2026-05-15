@@ -17,10 +17,18 @@ import { canReceiveSmartDigest } from "../core/analysis/digest-eligibility.js";
 import {
   renderSmartDigestCard,
   deliverSmartDigest,
+  type ArtifactRef,
 } from "../core/analysis/digest-delivery.js";
 import { buildDigestDebugReport } from "../core/analysis/digest-debug.js";
 import type { BriefMode } from "../core/analysis/digest-brief-truth.js";
-import { selectByDigestId } from "../core/analysis/smart-digest-repository.js";
+import { selectByDigestId, getCurrentArtifact } from "../core/analysis/smart-digest-repository.js";
+import {
+  computeTruthFingerprint,
+  computeContextFingerprint,
+  CURRENT_DIGEST_BRIEF_SCHEMA_VERSION,
+  CURRENT_GENERATOR_VERSION,
+  CURRENT_PROMPT_VERSION,
+} from "../core/analysis/smart-digest-fingerprint.js";
 import { selectByOverviewId } from "../core/analysis/daily-overview-repository.js";
 import {
   isValidKind,
@@ -331,6 +339,31 @@ export function registerRecommendationRoutes(
           });
         }
 
+        let artifactRef: ArtifactRef | null = null;
+        if (config.smartDigestCanonicalArtifactEnabled) {
+          try {
+            const { hash: truthHash } = await computeTruthFingerprint(db, symbol);
+            const { hash: contextHash } = await computeContextFingerprint(db, symbol);
+            const artifact = await getCurrentArtifact({
+              db,
+              symbol,
+              assetType,
+              briefMode,
+              truthHash,
+              contextHash,
+              schemaVersion: CURRENT_DIGEST_BRIEF_SCHEMA_VERSION,
+              generatorVersion: CURRENT_GENERATOR_VERSION,
+              promptVersion: CURRENT_PROMPT_VERSION,
+              maxAgeMs: 24 * 60 * 60 * 1000,
+            });
+            if (artifact) {
+              artifactRef = { kind: "smart_digest", id: artifact.id };
+            }
+          } catch (err) {
+            app.log.warn({ err, symbol }, "Opportunistic artifact lookup failed in force-send");
+          }
+        }
+
         const rendered = await renderSmartDigestCard(brief, app.log);
         const delivery = await deliverSmartDigest(
           { db, extensions, log: app.log },
@@ -338,6 +371,7 @@ export function registerRecommendationRoutes(
           brief,
           primary,
           rendered,
+          artifactRef,
         );
 
         return reply.send({

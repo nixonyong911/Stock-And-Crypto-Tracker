@@ -267,43 +267,23 @@ async function fetchTopNews(db: Pool, limit = 15): Promise<NewsItem[]> {
 
 export async function fetchPriorOverviews(db: Pool, days: number = HISTORY_DAYS): Promise<PriorOverview[]> {
   const { rows } = await db.query<{
-    sent_date: string;
-    headline: string;
-    message_body: string;
+    overview_date: string;
+    session_type: string;
+    narrative: string;
   }>(
-    `SELECT DISTINCT ON (sent_at::date, headline)
-       sent_at::date::text AS sent_date,
-       headline,
-       message_body
-     FROM user_recommendation_log
-     WHERE recommendation_type = 'daily_overview'
-       AND sent_at >= NOW() - make_interval(days => $1)
-     ORDER BY sent_at::date DESC, headline, sent_at DESC`,
+    `SELECT overview_date::text, session_type, narrative
+     FROM analysis_daily_overview
+     WHERE status = 'ready'
+       AND generated_at >= NOW() - make_interval(days => $1)
+     ORDER BY overview_date DESC, generated_at DESC`,
     [days],
   );
 
   return rows.map((r) => ({
-    date: r.sent_date,
-    sessionType: r.headline.includes("Morning") ? "pre_market" : "post_close",
-    narrative: truncateToSentence(extractNarrative(r.message_body), MAX_PRIOR_NARRATIVE_CHARS),
+    date: r.overview_date,
+    sessionType: r.session_type,
+    narrative: truncateToSentence(r.narrative, MAX_PRIOR_NARRATIVE_CHARS),
   }));
-}
-
-function extractNarrative(messageBody: string): string {
-  const lines = messageBody.split("\n");
-  const narrativeLines: string[] = [];
-  let collecting = false;
-
-  for (const line of lines) {
-    if (line.startsWith("*") && (line.includes("Brief") || line.includes("Recap"))) {
-      collecting = true;
-      continue;
-    }
-    if (collecting && line.startsWith("*") && line.endsWith("*")) break;
-    if (collecting && line.trim()) narrativeLines.push(line.trim());
-  }
-
-  return narrativeLines.join(" ") || messageBody.slice(0, MAX_PRIOR_NARRATIVE_CHARS);
 }
 
 function truncateToSentence(text: string, maxLen: number): string {

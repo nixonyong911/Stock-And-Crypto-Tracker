@@ -152,19 +152,17 @@ export async function gatherContextRefs(
     await Promise.all([
       db
         .query<{
-          sent_date: string;
-          headline: string;
+          overview_date: string;
+          session_type: string;
         }>(
-          `SELECT DISTINCT ON (sent_at::date, headline)
-             sent_at::date::text AS sent_date,
-             headline
-           FROM user_recommendation_log
-           WHERE recommendation_type = 'daily_overview'
-             AND sent_at >= NOW() - make_interval(days => $1)
-           ORDER BY sent_at::date DESC, headline, sent_at DESC`,
+          `SELECT overview_date::text, session_type
+           FROM analysis_daily_overview
+           WHERE status = 'ready'
+             AND generated_at >= NOW() - make_interval(days => $1)
+           ORDER BY overview_date DESC, generated_at DESC`,
           [HISTORY_DAYS],
         )
-        .catch(() => ({ rows: [] as Array<{ sent_date: string; headline: string }> })),
+        .catch(() => ({ rows: [] as Array<{ overview_date: string; session_type: string }> })),
 
       db
         .query<{
@@ -230,10 +228,8 @@ export async function gatherContextRefs(
 
   return {
     priorOverviews: priorRes.rows.map((r) => ({
-      date: r.sent_date,
-      sessionType: r.headline.includes("Morning")
-        ? "pre_market"
-        : "post_close",
+      date: r.overview_date,
+      sessionType: r.session_type,
       narrative: "",
     })),
     stockTrajectory: stockTrajRes.rows.map((r) => ({

@@ -13,6 +13,7 @@ import {
 } from "./daily-overview-orchestrator.js";
 import { newRunContext } from "./artifact-logging.js";
 import type { ArtifactTriggerSource } from "./artifact-trigger.js";
+import type { ArtifactRef } from "./digest-delivery.js";
 
 const SEND_DELAY_MS = 50;
 const ALLOWED_USERS = (process.env["OVERVIEW_ALLOWED_USERS"] ?? "")
@@ -66,6 +67,7 @@ export async function broadcastDailyOverview(
   }
 
   let synthesis: { narrative: string; topStories: string[] } | null;
+  let artifactRef: ArtifactRef | null = null;
 
   if (deps.canonicalArtifactEnabled) {
     const runCtx = newRunContext("daily_overview");
@@ -87,6 +89,9 @@ export async function broadcastDailyOverview(
     synthesis = result.brief
       ? { narrative: result.brief.narrative, topStories: result.brief.topStories }
       : null;
+    if (result.artifactId != null) {
+      artifactRef = { kind: "daily_overview", id: result.artifactId };
+    }
   } else {
     synthesis = await synthesizeOverview(snapshot, db, redis, log);
   }
@@ -122,11 +127,16 @@ export async function broadcastDailyOverview(
     "Broadcasting daily overview",
   );
 
+  const headline = `Daily ${sessionType === "pre_market" ? "Morning Brief" : "Market Recap"}`;
+
   let sent = 0;
   let skipped = 0;
   let errors = 0;
 
   for (const recipient of recipients.rows) {
+    let deliveryStatus: "sent" | "failed" = "failed";
+    let deliveryFailureReason: string | null = null;
+
     try {
       const result = await telegram.sendText({
         platformChatId: recipient.platform_user_id,
@@ -136,24 +146,10 @@ export async function broadcastDailyOverview(
 
       if (result.ok) {
         sent++;
-        await db
-          .query(
-            `INSERT INTO user_recommendation_log
-             (clerk_user_id, ticker_symbol, recommendation_type, priority, headline, message_body, timeframe_alignment)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [
-              recipient.clerk_user_id,
-              "MARKET",
-              "daily_overview",
-              "low",
-              `Daily ${sessionType === "pre_market" ? "Morning Brief" : "Market Recap"}`,
-              message,
-              "full",
-            ],
-          )
-          .catch((err) => log.error({ err }, "Failed to log overview send"));
+        deliveryStatus = "sent";
       } else {
         skipped++;
+        deliveryFailureReason = "send_failed";
       }
 
       if (SEND_DELAY_MS > 0) {
@@ -161,11 +157,37 @@ export async function broadcastDailyOverview(
       }
     } catch (err) {
       errors++;
+      deliveryFailureReason = "send_error";
       log.error(
         { err, clerkUserId: recipient.clerk_user_id },
         "Failed to send daily overview",
       );
     }
+
+    await db
+      .query(
+        `INSERT INTO user_recommendation_log
+         (clerk_user_id, ticker_symbol, recommendation_type, priority, headline,
+          message_body, timeframe_alignment,
+          artifact_kind, artifact_id,
+          channel_type, delivery_status, delivery_failure_reason)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          recipient.clerk_user_id,
+          "MARKET",
+          "daily_overview",
+          "low",
+          headline,
+          null,
+          "full",
+          artifactRef?.kind ?? null,
+          artifactRef?.id ?? null,
+          "telegram",
+          deliveryStatus,
+          deliveryFailureReason,
+        ],
+      )
+      .catch((err) => log.error({ err }, "Failed to log overview delivery"));
   }
 
   await redis.set(dedupKey, "1", "EX", 43200).catch(() => {});

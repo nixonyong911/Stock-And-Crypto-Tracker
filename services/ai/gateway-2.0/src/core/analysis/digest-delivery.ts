@@ -4,7 +4,7 @@
  * Owns:
  *   - the Smart Digest card render facade (`renderCard` + `buildCardCaption`)
  *   - channel send dispatch (`extensions.get("telegram").sendPhoto`)
- *   - the `user_recommendation_log` INSERT
+ *   - the `user_recommendation_log` INSERT (delivery ledger)
  *   - delivery failure semantics
  *
  * Knows nothing about sessions, prefs, daily caps, or watcher SQL — those
@@ -21,6 +21,11 @@ import type { TickerSignal } from "./recommendation-engine.js";
 import type { DigestTarget } from "./digest-eligibility.js";
 
 // ── Public types ──────────────────────────────────────────────────────
+
+export interface ArtifactRef {
+  kind: "smart_digest" | "daily_overview";
+  id: number;
+}
 
 export interface RenderedDigestCard {
   photo: Buffer;
@@ -76,6 +81,11 @@ export async function renderSmartDigestCard(
  * succeeded, failed, or was skipped (no `rendered` available, no telegram
  * extension registered) — that mirrors the long-standing "brief always
  * recorded" guarantee from the legacy `fanOutToWatchers` implementation.
+ *
+ * When `artifactRef` is provided, the ledger row links to the canonical
+ * artifact via `(artifact_kind, artifact_id)`. When null (flag-off or
+ * fallback path), those columns are written as NULL — preserving the
+ * pre-Step-15 row shape.
  */
 export async function deliverSmartDigest(
   deps: DeliveryDeps,
@@ -83,17 +93,10 @@ export async function deliverSmartDigest(
   brief: DigestBrief,
   primary: TickerSignal,
   rendered: RenderedDigestCard | null,
+  artifactRef: ArtifactRef | null = null,
 ): Promise<DeliveryResult> {
   const { db, extensions, log } = deps;
 
-  // Failure-reason precedence mirrors the legacy /internal/force-send-digest
-  // logic exactly:
-  //   - telegram extension missing  -> "telegram_unavailable"
-  //   - render produced no buffer   -> "render_or_send_error"
-  //   - sendPhoto threw             -> "render_or_send_error"
-  //   - sendPhoto returned ok:false -> "send_failed"
-  //   - sendPhoto returned ok:true  -> { ok: true }
-  // The DB INSERT below runs in every case so the brief is always recorded.
   let result: DeliveryResult;
 
   const telegram = extensions.get("telegram");
@@ -129,16 +132,24 @@ export async function deliverSmartDigest(
   await db
     .query(
       `INSERT INTO user_recommendation_log
-       (clerk_user_id, ticker_symbol, recommendation_type, priority, headline, message_body, timeframe_alignment)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+       (clerk_user_id, ticker_symbol, recommendation_type, priority, headline,
+        message_body, timeframe_alignment,
+        artifact_kind, artifact_id,
+        channel_type, delivery_status, delivery_failure_reason)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         target.clerkUserId,
         primary.symbol,
         primary.type,
         primary.priority,
         primary.headline,
-        JSON.stringify(brief),
+        null,
         primary.timeframeAlignment,
+        artifactRef?.kind ?? null,
+        artifactRef?.id ?? null,
+        "telegram",
+        result.ok ? "sent" : "failed",
+        result.reason ?? null,
       ],
     )
     .catch((err) => log.error({ err }, "Failed to log recommendation"));

@@ -22,6 +22,11 @@ interface LogRow {
   message_body: string | null;
   headline: string | null;
   recommendation_type: string | null;
+  artifact_kind: string | null;
+  artifact_id: number | null;
+  channel_type: string | null;
+  delivery_status: string | null;
+  delivery_failure_reason: string | null;
 }
 
 interface ParsedBrief {
@@ -69,7 +74,7 @@ async function main() {
 
   const { data: allLogs } = await supabase
     .from("user_recommendation_log")
-    .select("clerk_user_id, sent_at, message_body, headline, recommendation_type");
+    .select("clerk_user_id, sent_at, message_body, headline, recommendation_type, artifact_kind, artifact_id, channel_type, delivery_status, delivery_failure_reason");
 
   if (!allLogs) {
     check("user_recommendation_log readable", false, "query returned null");
@@ -95,13 +100,6 @@ async function main() {
       : "all within cap"
   );
 
-  const nullFields = rows.filter((l) => !l.message_body || !l.headline);
-  check(
-    "All entries have message_body and headline",
-    nullFields.length === 0,
-    `${nullFields.length} missing fields out of ${rows.length}`
-  );
-
   const shapeCounts = { json: 0, legacy_markdown: 0, empty: 0 };
   const absurdChange: Array<{ id: string; pct: number }> = [];
   for (const log of rows) {
@@ -125,6 +123,43 @@ async function main() {
           .join(", ")}`
       : "all within ±25%"
   );
+
+  // ── Artifact linkage checks (Step 15) ──
+  const recentRows = rows.filter(
+    (r) => new Date(r.sent_at).getTime() > now.getTime() - 48 * 60 * 60_000,
+  );
+  const linkedRecent = recentRows.filter(
+    (r) => r.artifact_kind != null && r.artifact_id != null,
+  );
+  const unlinkedRecent = recentRows.filter(
+    (r) => r.artifact_kind == null && r.artifact_id == null,
+  );
+  const inconsistent = recentRows.filter(
+    (r) =>
+      (r.artifact_kind == null) !== (r.artifact_id == null),
+  );
+
+  check(
+    "No inconsistent artifact pair (kind without id or vice versa)",
+    inconsistent.length === 0,
+    `${inconsistent.length} inconsistent out of ${recentRows.length} recent rows`,
+  );
+
+  console.log("\n── Artifact linkage (last 48 h) ──");
+  console.log(`  linked:   ${linkedRecent.length}`);
+  console.log(`  unlinked: ${unlinkedRecent.length} (legacy / flag-off)`);
+  console.log(`  total:    ${recentRows.length}`);
+
+  // ── Delivery status distribution (Step 15) ──
+  const statusCounts = new Map<string, number>();
+  for (const r of recentRows) {
+    const s = r.delivery_status ?? "(null)";
+    statusCounts.set(s, (statusCounts.get(s) ?? 0) + 1);
+  }
+  console.log("\n── delivery_status (last 48 h) ──");
+  for (const [status, count] of [...statusCounts.entries()].sort((a, b) => b[1] - a[1])) {
+    console.log(`  ${status}: ${count}`);
+  }
 
   console.log("\n── message_body shape distribution ──");
   console.log(`  json: ${shapeCounts.json}`);

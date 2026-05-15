@@ -4,7 +4,7 @@
  * Composes the four Smart Digest layers in a top-down read:
  *   1. signal detection + Redis dedup     (this module)
  *   2. eligibility (watchers + throttle)  (`digest-eligibility.ts`)
- *   3. brief generation                    (`digest-brief-generator.ts`)
+ *   3. brief generation                    (`digest-brief-generator.js`)
  *   4. card render                         (`digest-delivery.ts`)
  *   5. delivery + log                      (`digest-delivery.ts`)
  *
@@ -12,8 +12,7 @@
  * artifact-persist step runs between signal detection and fanout:
  *   - canonical artifact written to `analysis_smart_digest`
  *   - brief loaded from the persisted artifact for fanout
- * Delivery (`deliverSmartDigest` / `user_recommendation_log` INSERT)
- * is unchanged in either mode — artifact linkage is Step 15.
+ *   - artifact ref threaded to delivery for ledger linkage (Step 15)
  *
  * `processRecommendations` is the entry point used by both
  * `/internal/check-recommendations` and the RabbitMQ pipeline consumer.
@@ -40,17 +39,8 @@ import {
 import {
   renderSmartDigestCard,
   deliverSmartDigest,
+  type ArtifactRef,
 } from "./digest-delivery.js";
-import {
-  getCurrentArtifact,
-} from "./smart-digest-repository.js";
-import {
-  computeTruthFingerprint,
-  computeContextFingerprint,
-  CURRENT_DIGEST_BRIEF_SCHEMA_VERSION,
-  CURRENT_GENERATOR_VERSION,
-  CURRENT_PROMPT_VERSION,
-} from "./smart-digest-fingerprint.js";
 import { orchestrateDigestArtifact } from "./smart-digest-orchestrator.js";
 import { newRunContext, type RunContext } from "./artifact-logging.js";
 import type { DigestBrief } from "./digest-brief-generator.js";
@@ -120,8 +110,9 @@ export async function processRecommendations(
       arr.push(s);
     }
 
+    let artifactRefs: Map<string, ArtifactRef> | undefined;
     if (deps.canonicalArtifactEnabled && runCtx) {
-      await persistCanonicalArtifacts(deps, runCtx, type, bySymbol, {
+      artifactRefs = await persistCanonicalArtifacts(deps, runCtx, type, bySymbol, {
         macroContext,
         newsOneLinerMap,
         memoryTextMap,
@@ -139,6 +130,7 @@ export async function processRecommendations(
         newsOneLinerMap,
         memoryTextMap,
         analysisDateMap,
+        artifactRefs?.get(symbol) ?? null,
       );
       totalSent += sent;
     }
@@ -198,8 +190,9 @@ async function persistCanonicalArtifacts(
     memoryTextMap?: Map<string, TickerMemoryText>;
     analysisDateMap?: Map<string, string>;
   },
-): Promise<void> {
+): Promise<Map<string, ArtifactRef>> {
   const { log } = deps;
+  const refs = new Map<string, ArtifactRef>();
 
   for (const [symbol, signals] of bySymbol) {
     try {
@@ -211,6 +204,9 @@ async function persistCanonicalArtifacts(
         signals,
         context,
       );
+      if (result.artifactId != null) {
+        refs.set(symbol, { kind: "smart_digest", id: result.artifactId });
+      }
       if (result.source === "reuse") {
         log.info(
           { symbol, externalId: result.externalId, runId: runCtx.runId },
@@ -226,6 +222,8 @@ async function persistCanonicalArtifacts(
       log.error({ err, symbol, runId: runCtx.runId }, "Failed to persist canonical artifact");
     }
   }
+
+  return refs;
 }
 
 // ── Per-symbol fan-out ────────────────────────────────────────────────
@@ -236,10 +234,10 @@ async function persistCanonicalArtifacts(
  * watchlist + prefs + cap) is fully owned by `digest-eligibility.ts`;
  * delivery (sendPhoto + log INSERT) is fully owned by `digest-delivery.ts`.
  *
- * When `canonicalArtifactEnabled` is true, the brief is loaded from the
- * canonical artifact row instead of in-memory generation. The
- * `deliverSmartDigest` call is NOT modified — same arguments, same
- * Telegram sendPhoto, same `user_recommendation_log` INSERT shape.
+ * When `canonicalArtifactEnabled` is true, the brief is already loaded from
+ * the orchestrator result in `persistCanonicalArtifacts` — the `artifactRef`
+ * threads through so delivery can link the ledger row to the canonical
+ * artifact via `(artifact_kind, artifact_id)`.
  */
 async function fanOutToWatchers(
   deps: ProcessRecommendationsDeps,
@@ -250,56 +248,22 @@ async function fanOutToWatchers(
   newsOneLinerMap?: Map<string, string>,
   memoryTextMap?: Map<string, TickerMemoryText>,
   analysisDateMap?: Map<string, string>,
+  artifactRef: ArtifactRef | null = null,
 ): Promise<number> {
   const { db, redis, extensions, log } = deps;
 
   const watchers = await listDigestWatchersForSymbol({ db, redis }, symbol);
   if (watchers.length === 0) return 0;
 
-  let brief: DigestBrief;
-
-  if (deps.canonicalArtifactEnabled) {
-    const briefMode = deps.briefMode ?? "strict";
-    const { hash: truthHash } = await computeTruthFingerprint(db, symbol);
-    const { hash: contextHash } = await computeContextFingerprint(db, symbol);
-
-    const artifact = await getCurrentArtifact({
-      db,
-      symbol,
-      assetType,
-      briefMode,
-      truthHash,
-      contextHash,
-      schemaVersion: CURRENT_DIGEST_BRIEF_SCHEMA_VERSION,
-      generatorVersion: CURRENT_GENERATOR_VERSION,
-      promptVersion: CURRENT_PROMPT_VERSION,
-      maxAgeMs: 24 * 60 * 60 * 1000,
-    });
-
-    if (artifact) {
-      brief = artifact.payload as unknown as DigestBrief;
-    } else {
-      brief = generateDigestBrief({
-        signals,
-        symbol,
-        macroContext,
-        newsOneLinerMap,
-        memoryTextMap,
-        analysisDateMap,
-        mode: briefMode,
-      });
-    }
-  } else {
-    brief = generateDigestBrief({
-      signals,
-      symbol,
-      macroContext,
-      newsOneLinerMap,
-      memoryTextMap,
-      analysisDateMap,
-      mode: deps.briefMode ?? "strict",
-    });
-  }
+  const brief = generateDigestBrief({
+    signals,
+    symbol,
+    macroContext,
+    newsOneLinerMap,
+    memoryTextMap,
+    analysisDateMap,
+    mode: deps.briefMode ?? "strict",
+  });
 
   const rendered = await renderSmartDigestCard(brief, log);
   const primary = signals[0]!;
@@ -318,6 +282,7 @@ async function fanOutToWatchers(
         brief,
         primary,
         rendered,
+        artifactRef,
       );
       sent++;
     } catch (err) {

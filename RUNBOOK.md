@@ -210,11 +210,41 @@ Response should include `eligible: true/false` and `reason` if ineligible.
 ### Recent recommendations sent
 
 ```sql
-SELECT recommendation_type, priority, COUNT(*) AS total,
+SELECT recommendation_type, priority, delivery_status, COUNT(*) AS total,
        MIN(sent_at) AS earliest, MAX(sent_at) AS latest
 FROM user_recommendation_log
 WHERE sent_at > NOW() - INTERVAL '24 hours'
-GROUP BY recommendation_type, priority
+GROUP BY recommendation_type, priority, delivery_status
+ORDER BY total DESC;
+```
+
+### Artifact-linked delivery rows (Step 15)
+
+```sql
+SELECT u.sent_at, u.delivery_status, u.artifact_kind, u.artifact_id,
+       u.channel_type, u.delivery_failure_reason, u.ticker_symbol,
+       CASE
+         WHEN u.artifact_kind = 'smart_digest' THEN
+           (SELECT a.symbol FROM analysis_smart_digest a WHERE a.id = u.artifact_id)
+         WHEN u.artifact_kind = 'daily_overview' THEN
+           (SELECT o.session_type FROM analysis_daily_overview o WHERE o.id = u.artifact_id)
+       END AS artifact_detail
+FROM user_recommendation_log u
+WHERE u.sent_at > NOW() - INTERVAL '24 hours'
+  AND u.artifact_kind IS NOT NULL
+ORDER BY u.sent_at DESC
+LIMIT 20;
+```
+
+### Delivery failure audit
+
+```sql
+SELECT delivery_failure_reason, COUNT(*) AS total,
+       MIN(sent_at) AS earliest, MAX(sent_at) AS latest
+FROM user_recommendation_log
+WHERE delivery_status = 'failed'
+  AND sent_at > NOW() - INTERVAL '7 days'
+GROUP BY delivery_failure_reason
 ORDER BY total DESC;
 ```
 
