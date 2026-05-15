@@ -106,7 +106,6 @@ import {
   markFailed,
 } from "../smart-digest-repository.js";
 import { computeTruthFingerprint, computeContextFingerprint } from "../smart-digest-fingerprint.js";
-import { evaluateTriggers } from "../digest-trigger.js";
 import { detectSignals } from "../recommendation-engine.js";
 import { listDigestWatchersForSymbol } from "../digest-eligibility.js";
 import { deliverSmartDigest, renderSmartDigestCard } from "../digest-delivery.js";
