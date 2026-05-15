@@ -634,3 +634,54 @@ Step 14.3 extracts the shared artifact-generation orchestration into a single `r
 - No retry framework (next-trigger-arrival remains the retry mechanism).
 - No `analysis_runs` table (structured logging covers observability).
 - `resolveDemandSet` remains unused (reserved for future scheduled-window generation).
+
+---
+
+## Step 14.4 — Artifact system hardening
+
+Step 14.4 adds operator-facing inspection, explain, and lifecycle endpoints to both artifact tables so that the system can be operated without raw SQL. This is the trust-building step before Step 15 moves delivery onto the artifact layer.
+
+### New / enhanced endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/internal/artifacts/recent` | Enhanced: now accepts `status` filter, `summary=true` (omits `payload`/`truth_refs`/`snapshot_refs`). Backwards-compatible. |
+| GET | `/internal/artifacts/inflight?kind=...&olderThanSec=...` | Lists `pending` / `generating` rows older than threshold. Read-only — no sweep. |
+| GET | `/internal/artifacts/:kind/:id` | Uniform detail for any artifact by numeric id, regardless of kind. |
+| GET | `/internal/artifacts/explain-current?kind=...&...` | Returns chosen row (or null), up to 5 fingerprint-matching candidates, up to 3 same-slot peers with different fingerprints. Answers "which row is current and why?". |
+| POST | `/internal/artifacts/:kind/:id/invalidate` | CAS-guarded: only `ready` → `invalidated`. Requires `reason` (1..500 chars). Audited via `app.log.warn`. |
+
+All endpoints require `x-service-key` matching `INTERNAL_SERVICE_KEY`.
+
+### New modules
+
+| File | Purpose |
+|---|---|
+| `artifact-admin-service.ts` | Kind-aware dispatch layer: `getArtifactById`, `listInflightArtifacts`, `listRecentArtifacts`, `explainCurrentDigest`, `explainCurrentOverview`, `invalidateArtifact`. |
+
+### Repository additions (both `smart-digest-repository.ts` and `daily-overview-repository.ts`)
+
+- `selectById` / `selectOverviewById` — lookup by numeric `id`.
+- `markInvalidated` / `markOverviewInvalidated` — CAS `ready` → `invalidated`, sets `invalidated_at`, stores `reason` in `error_message`. Returns updated row or `null`.
+- `listInflight` / `listInflightOverviews` — `status IN (pending, generating)` with freshness threshold.
+- `findCurrentCandidates` / `findCurrentOverviewCandidates` — shares the same `WHERE` clause as `getCurrentArtifact` / `getCurrentOverviewArtifact` but returns top N instead of `LIMIT 1`.
+- `findSlotPeers` / `findOverviewSlotPeers` — same slot keys, any fingerprints.
+- `listRecent` / `listRecentOverviews` enhanced with optional `status` and `summary` parameters.
+
+### Invalidation contract
+
+- Only rows in `ready` status can be invalidated (CAS guard: `WHERE status = 'ready'`).
+- `invalidated_at` set to `NOW()`, `error_message` set to the operator-provided reason.
+- No bulk invalidation endpoint. No force flag.
+- Invalidated rows are excluded from `getCurrentArtifact` reuse queries (the `status = 'ready'` filter already handles this).
+- The invalidation is logged via `app.log.warn` with `actor: "service-key"`.
+
+### What this step intentionally does NOT do
+
+- No cron sweeper for stuck `pending`/`generating` rows (deferred to Step 16). The `inflight` endpoint is read-only.
+- No auto-supersession of older `ready` rows (deferred to Step 16).
+- No delivery-layer changes (`deliverSmartDigest`, `user_recommendation_log` shape, Redis dedup) — that is Step 15.
+- No digest `buildFallback` parity (deferred).
+- No schema migrations — all changes use existing columns already defined in 14.1/14.2.
+- No changes to generation, fingerprinting, or orchestrator selection behavior.
+- No back-office UI or frontend pages for artifacts.

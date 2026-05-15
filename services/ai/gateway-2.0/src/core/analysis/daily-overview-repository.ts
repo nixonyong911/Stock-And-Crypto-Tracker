@@ -95,12 +95,7 @@ export interface MarkOverviewFailedParams {
 
 // ── getCurrentOverviewArtifact ────────────────────────────────────────
 
-export async function getCurrentOverviewArtifact(
-  params: GetCurrentOverviewParams,
-): Promise<DailyOverviewRow | null> {
-  const { rows } = await params.db.query<DailyOverviewRow>(
-    `SELECT *
-     FROM analysis_daily_overview
+const CURRENT_OVERVIEW_WHERE = `
      WHERE overview_date = $1
        AND session_type  = $2
        AND locale        = $3
@@ -110,7 +105,14 @@ export async function getCurrentOverviewArtifact(
        AND schema_version    = $6
        AND generator_version = $7
        AND prompt_version IS NOT DISTINCT FROM $8
-       AND model_name    = $9
+       AND model_name    = $9`;
+
+export async function getCurrentOverviewArtifact(
+  params: GetCurrentOverviewParams,
+): Promise<DailyOverviewRow | null> {
+  const { rows } = await params.db.query<DailyOverviewRow>(
+    `SELECT *
+     FROM analysis_daily_overview${CURRENT_OVERVIEW_WHERE}
      ORDER BY generated_at DESC
      LIMIT 1`,
     [
@@ -126,6 +128,52 @@ export async function getCurrentOverviewArtifact(
     ],
   );
   return rows[0] ?? null;
+}
+
+// ── findCurrentOverviewCandidates ─────────────────────────────────────
+
+export async function findCurrentOverviewCandidates(
+  params: GetCurrentOverviewParams & { candidateLimit?: number },
+): Promise<DailyOverviewRow[]> {
+  const { rows } = await params.db.query<DailyOverviewRow>(
+    `SELECT *
+     FROM analysis_daily_overview${CURRENT_OVERVIEW_WHERE}
+     ORDER BY generated_at DESC
+     LIMIT $10`,
+    [
+      params.overviewDate,
+      params.sessionType,
+      params.locale,
+      params.snapshotHash,
+      params.contextHash,
+      params.schemaVersion,
+      params.generatorVersion,
+      params.promptVersion,
+      params.modelName,
+      params.candidateLimit ?? 5,
+    ],
+  );
+  return rows;
+}
+
+// ── findOverviewSlotPeers ─────────────────────────────────────────────
+
+export async function findOverviewSlotPeers(
+  db: Pool,
+  opts: { overviewDate: string; sessionType: string; locale: string; limit?: number },
+): Promise<DailyOverviewRow[]> {
+  const { rows } = await db.query<DailyOverviewRow>(
+    `SELECT *
+     FROM analysis_daily_overview
+     WHERE overview_date = $1
+       AND session_type = $2
+       AND locale = $3
+       AND status = 'ready'
+     ORDER BY generated_at DESC
+     LIMIT $4`,
+    [opts.overviewDate, opts.sessionType, opts.locale, opts.limit ?? 3],
+  );
+  return rows;
 }
 
 // ── acquireOverviewSlot ───────────────────────────────────────────────
@@ -247,28 +295,94 @@ export async function selectByOverviewId(
   return rows[0] ?? null;
 }
 
+// ── selectOverviewById ───────────────────────────────────────────────
+
+export async function selectOverviewById(
+  db: Pool,
+  id: number,
+): Promise<DailyOverviewRow | null> {
+  const { rows } = await db.query<DailyOverviewRow>(
+    `SELECT * FROM analysis_daily_overview WHERE id = $1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+// ── markOverviewInvalidated ──────────────────────────────────────────
+
+export async function markOverviewInvalidated(params: {
+  db: Pool;
+  id: number;
+  reason: string;
+}): Promise<DailyOverviewRow | null> {
+  const { rows } = await params.db.query<DailyOverviewRow>(
+    `UPDATE analysis_daily_overview
+       SET status = 'invalidated',
+           invalidated_at = NOW(),
+           error_message = $2
+     WHERE id = $1 AND status = 'ready'
+     RETURNING *`,
+    [params.id, params.reason],
+  );
+  return rows[0] ?? null;
+}
+
+// ── listInflightOverviews ────────────────────────────────────────────
+
+export async function listInflightOverviews(
+  db: Pool,
+  opts: { olderThanMs?: number; limit?: number } = {},
+): Promise<DailyOverviewRow[]> {
+  const olderThanSec = Math.floor((opts.olderThanMs ?? 0) / 1000);
+  const { rows } = await db.query<DailyOverviewRow>(
+    `SELECT * FROM analysis_daily_overview
+     WHERE status IN ('pending','generating')
+       AND requested_at < NOW() - ($1 || ' seconds')::interval
+     ORDER BY requested_at ASC
+     LIMIT $2`,
+    [String(olderThanSec), opts.limit ?? 100],
+  );
+  return rows;
+}
+
 // ── listRecentOverviews ───────────────────────────────────────────────
+
+const OVERVIEW_SUMMARY_COLUMNS = `id, overview_id, overview_date, session_type,
+  locale, trigger_reason, snapshot_hash, context_hash, schema_version,
+  generator_version, prompt_version, model_name, code_version, status,
+  synthesis_source, attempt_number, requested_at, generation_started_at,
+  generated_at, invalidated_at, created_at, llm_duration_ms,
+  narrative, top_stories, message_format,
+  error_code, error_message`;
 
 export async function listRecentOverviews(
   db: Pool,
-  opts: { sessionType?: string; limit?: number } = {},
+  opts: { sessionType?: string; status?: DailyOverviewStatus; summary?: boolean; limit?: number } = {},
 ): Promise<DailyOverviewRow[]> {
   const limit = opts.limit ?? 20;
+  const cols = opts.summary ? OVERVIEW_SUMMARY_COLUMNS : "*";
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
+
   if (opts.sessionType) {
-    const { rows } = await db.query<DailyOverviewRow>(
-      `SELECT * FROM analysis_daily_overview
-       WHERE session_type = $1
-       ORDER BY created_at DESC
-       LIMIT $2`,
-      [opts.sessionType, limit],
-    );
-    return rows;
+    conditions.push(`session_type = $${idx++}`);
+    params.push(opts.sessionType);
   }
+  if (opts.status) {
+    conditions.push(`status = $${idx++}`);
+    params.push(opts.status);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  params.push(limit);
+
   const { rows } = await db.query<DailyOverviewRow>(
-    `SELECT * FROM analysis_daily_overview
+    `SELECT ${cols} FROM analysis_daily_overview
+     ${where}
      ORDER BY created_at DESC
-     LIMIT $1`,
-    [limit],
+     LIMIT $${idx}`,
+    params,
   );
   return rows;
 }

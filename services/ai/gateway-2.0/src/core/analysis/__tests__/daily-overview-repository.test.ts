@@ -1,12 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   getCurrentOverviewArtifact,
+  findCurrentOverviewCandidates,
+  findOverviewSlotPeers,
   acquireOverviewSlot,
   markOverviewGenerating,
   markOverviewReady,
   markOverviewFailed,
+  markOverviewInvalidated,
   selectByOverviewId,
+  selectOverviewById,
   listRecentOverviews,
+  listInflightOverviews,
 } from "../daily-overview-repository.js";
 
 // ── Mock pool ─────────────────────────────────────────────────────────
@@ -301,20 +306,147 @@ describe("selectByOverviewId", () => {
   });
 });
 
+// ── findCurrentOverviewCandidates ─────────────────────────────────────
+
+describe("findCurrentOverviewCandidates", () => {
+  const baseParams = {
+    overviewDate: "2026-05-13",
+    sessionType: "pre_market",
+    locale: "en",
+    snapshotHash: "snap-abc",
+    contextHash: "ctx-def",
+    schemaVersion: 1,
+    generatorVersion: "1",
+    promptVersion: "overview.v1",
+    modelName: "claude-4.6-sonnet-medium",
+  };
+
+  it("shares the same WHERE clause as getCurrentOverviewArtifact", async () => {
+    const { pool: pool1, queries: q1 } = makeMockPool();
+    const { pool: pool2, queries: q2 } = makeMockPool();
+    await getCurrentOverviewArtifact({ db: pool1, ...baseParams });
+    await findCurrentOverviewCandidates({ db: pool2, ...baseParams });
+    const where1 = q1[0]!.sql.split("ORDER BY")[0]!.replace(/SELECT \*/, "");
+    const where2 = q2[0]!.sql.split("ORDER BY")[0]!.replace(/SELECT \*/, "");
+    expect(where2).toBe(where1);
+  });
+
+  it("defaults candidateLimit to 5", async () => {
+    const { pool, queries } = makeMockPool();
+    await findCurrentOverviewCandidates({ db: pool, ...baseParams });
+    expect(queries[0]!.params![9]).toBe(5);
+  });
+});
+
+// ── findOverviewSlotPeers ─────────────────────────────────────────────
+
+describe("findOverviewSlotPeers", () => {
+  it("filters by slot keys and status ready", async () => {
+    const { pool, queries } = makeMockPool();
+    await findOverviewSlotPeers(pool, {
+      overviewDate: "2026-05-13",
+      sessionType: "pre_market",
+      locale: "en",
+    });
+    const sql = queries[0]!.sql;
+    expect(sql).toContain("overview_date = $1");
+    expect(sql).toContain("session_type = $2");
+    expect(sql).toContain("locale = $3");
+    expect(sql).toContain("status = 'ready'");
+  });
+
+  it("defaults limit to 3", async () => {
+    const { pool, queries } = makeMockPool();
+    await findOverviewSlotPeers(pool, {
+      overviewDate: "2026-05-13",
+      sessionType: "pre_market",
+      locale: "en",
+    });
+    expect(queries[0]!.params![3]).toBe(3);
+  });
+});
+
+// ── selectOverviewById ────────────────────────────────────────────────
+
+describe("selectOverviewById", () => {
+  it("returns the row when found", async () => {
+    const fakeRow = { id: 42, overview_id: "uuid-1" };
+    const { pool } = makeMockPool({
+      queryResult: { rows: [fakeRow], rowCount: 1 },
+    });
+    const result = await selectOverviewById(pool, 42);
+    expect(result).toEqual(fakeRow);
+  });
+
+  it("returns null when not found", async () => {
+    const { pool } = makeMockPool();
+    const result = await selectOverviewById(pool, 999);
+    expect(result).toBeNull();
+  });
+});
+
+// ── markOverviewInvalidated ──────────────────────────────────────────
+
+describe("markOverviewInvalidated", () => {
+  it("returns updated row when CAS succeeds", async () => {
+    const fakeRow = { id: 42, status: "invalidated" };
+    const { pool } = makeMockPool({
+      queryResult: { rows: [fakeRow], rowCount: 1 },
+    });
+    const result = await markOverviewInvalidated({ db: pool, id: 42, reason: "bad data" });
+    expect(result).toEqual(fakeRow);
+  });
+
+  it("returns null when row is not in ready status", async () => {
+    const { pool } = makeMockPool();
+    const result = await markOverviewInvalidated({ db: pool, id: 42, reason: "test" });
+    expect(result).toBeNull();
+  });
+
+  it("uses CAS guard status = ready", async () => {
+    const { pool, queries } = makeMockPool();
+    await markOverviewInvalidated({ db: pool, id: 42, reason: "test" });
+    expect(queries[0]!.sql).toContain("status = 'ready'");
+    expect(queries[0]!.sql).toContain("RETURNING *");
+  });
+});
+
+// ── listInflightOverviews ────────────────────────────────────────────
+
+describe("listInflightOverviews", () => {
+  it("filters by pending/generating status", async () => {
+    const { pool, queries } = makeMockPool();
+    await listInflightOverviews(pool);
+    expect(queries[0]!.sql).toContain("IN ('pending','generating')");
+  });
+
+  it("applies olderThanMs threshold", async () => {
+    const { pool, queries } = makeMockPool();
+    await listInflightOverviews(pool, { olderThanMs: 600_000 });
+    expect(queries[0]!.params![0]).toBe("600");
+  });
+
+  it("orders by requested_at ASC", async () => {
+    const { pool, queries } = makeMockPool();
+    await listInflightOverviews(pool);
+    expect(queries[0]!.sql).toContain("ORDER BY requested_at ASC");
+  });
+});
+
 // ── listRecentOverviews ───────────────────────────────────────────────
 
 describe("listRecentOverviews", () => {
   it("queries without session_type filter when not provided", async () => {
     const { pool, queries } = makeMockPool();
     await listRecentOverviews(pool);
-    expect(queries[0]!.sql).not.toContain("WHERE session_type");
-    expect(queries[0]!.params).toEqual([20]);
+    expect(queries[0]!.sql).not.toContain("WHERE");
+    expect(queries[0]!.params).toContain(20);
   });
 
   it("queries with session_type filter when provided", async () => {
     const { pool, queries } = makeMockPool();
     await listRecentOverviews(pool, { sessionType: "pre_market" });
-    expect(queries[0]!.sql).toContain("WHERE session_type = $1");
+    expect(queries[0]!.sql).toContain("session_type = $1");
     expect(queries[0]!.params![0]).toBe("pre_market");
   });
 
@@ -322,5 +454,28 @@ describe("listRecentOverviews", () => {
     const { pool, queries } = makeMockPool();
     await listRecentOverviews(pool, { limit: 5 });
     expect(queries[0]!.params).toContain(5);
+  });
+
+  it("filters by status when provided", async () => {
+    const { pool, queries } = makeMockPool();
+    await listRecentOverviews(pool, { status: "failed" });
+    expect(queries[0]!.sql).toContain("status = $1");
+    expect(queries[0]!.params![0]).toBe("failed");
+  });
+
+  it("uses summary projection when summary=true", async () => {
+    const { pool, queries } = makeMockPool();
+    await listRecentOverviews(pool, { summary: true });
+    const sql = queries[0]!.sql;
+    expect(sql).not.toContain("SELECT *");
+    expect(sql).not.toContain("snapshot_refs");
+    expect(sql).toContain("overview_id");
+    expect(sql).toContain("status");
+  });
+
+  it("uses SELECT * when summary not set", async () => {
+    const { pool, queries } = makeMockPool();
+    await listRecentOverviews(pool);
+    expect(queries[0]!.sql).toContain("SELECT *");
   });
 });

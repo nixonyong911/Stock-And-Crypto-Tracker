@@ -103,13 +103,7 @@ export interface MarkFailedParams {
 
 // ── getCurrentArtifact ────────────────────────────────────────────────
 
-export async function getCurrentArtifact(
-  params: GetCurrentArtifactParams,
-): Promise<SmartDigestRow | null> {
-  const maxAgeInterval = `${Math.floor(params.maxAgeMs / 1000)} seconds`;
-  const { rows } = await params.db.query<SmartDigestRow>(
-    `SELECT *
-     FROM analysis_smart_digest
+const CURRENT_ARTIFACT_WHERE = `
      WHERE symbol = $1
        AND asset_type = $2
        AND brief_mode = $3
@@ -119,7 +113,15 @@ export async function getCurrentArtifact(
        AND schema_version = $6
        AND generator_version = $7
        AND prompt_version IS NOT DISTINCT FROM $8
-       AND generated_at > NOW() - $9::interval
+       AND generated_at > NOW() - $9::interval`;
+
+export async function getCurrentArtifact(
+  params: GetCurrentArtifactParams,
+): Promise<SmartDigestRow | null> {
+  const maxAgeInterval = `${Math.floor(params.maxAgeMs / 1000)} seconds`;
+  const { rows } = await params.db.query<SmartDigestRow>(
+    `SELECT *
+     FROM analysis_smart_digest${CURRENT_ARTIFACT_WHERE}
      ORDER BY generated_at DESC
      LIMIT 1`,
     [
@@ -135,6 +137,54 @@ export async function getCurrentArtifact(
     ],
   );
   return rows[0] ?? null;
+}
+
+// ── findCurrentCandidates ─────────────────────────────────────────────
+
+export async function findCurrentCandidates(
+  params: GetCurrentArtifactParams & { candidateLimit?: number },
+): Promise<SmartDigestRow[]> {
+  const maxAgeInterval = `${Math.floor(params.maxAgeMs / 1000)} seconds`;
+  const { rows } = await params.db.query<SmartDigestRow>(
+    `SELECT *
+     FROM analysis_smart_digest${CURRENT_ARTIFACT_WHERE}
+     ORDER BY generated_at DESC
+     LIMIT $10`,
+    [
+      params.symbol,
+      params.assetType,
+      params.briefMode,
+      params.truthHash,
+      params.contextHash,
+      params.schemaVersion,
+      params.generatorVersion,
+      params.promptVersion,
+      maxAgeInterval,
+      params.candidateLimit ?? 5,
+    ],
+  );
+  return rows;
+}
+
+// ── findSlotPeers ─────────────────────────────────────────────────────
+// Same slot keys, any fingerprints — for "why didn't reuse" diagnostics.
+
+export async function findSlotPeers(
+  db: Pool,
+  opts: { symbol: string; assetType: string; briefMode: string; limit?: number },
+): Promise<SmartDigestRow[]> {
+  const { rows } = await db.query<SmartDigestRow>(
+    `SELECT *
+     FROM analysis_smart_digest
+     WHERE symbol = $1
+       AND asset_type = $2
+       AND brief_mode = $3
+       AND status = 'ready'
+     ORDER BY generated_at DESC
+     LIMIT $4`,
+    [opts.symbol, opts.assetType, opts.briefMode, opts.limit ?? 3],
+  );
+  return rows;
 }
 
 // ── acquireInFlightSlot ───────────────────────────────────────────────
@@ -254,28 +304,94 @@ export async function selectByDigestId(
   return rows[0] ?? null;
 }
 
+// ── selectById ────────────────────────────────────────────────────────
+
+export async function selectById(
+  db: Pool,
+  id: number,
+): Promise<SmartDigestRow | null> {
+  const { rows } = await db.query<SmartDigestRow>(
+    `SELECT * FROM analysis_smart_digest WHERE id = $1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+// ── markInvalidated ───────────────────────────────────────────────────
+
+export async function markInvalidated(params: {
+  db: Pool;
+  id: number;
+  reason: string;
+}): Promise<SmartDigestRow | null> {
+  const { rows } = await params.db.query<SmartDigestRow>(
+    `UPDATE analysis_smart_digest
+       SET status = 'invalidated',
+           invalidated_at = NOW(),
+           error_message = $2
+     WHERE id = $1 AND status = 'ready'
+     RETURNING *`,
+    [params.id, params.reason],
+  );
+  return rows[0] ?? null;
+}
+
+// ── listInflight ──────────────────────────────────────────────────────
+
+export async function listInflight(
+  db: Pool,
+  opts: { olderThanMs?: number; limit?: number } = {},
+): Promise<SmartDigestRow[]> {
+  const olderThanSec = Math.floor((opts.olderThanMs ?? 0) / 1000);
+  const { rows } = await db.query<SmartDigestRow>(
+    `SELECT * FROM analysis_smart_digest
+     WHERE status IN ('pending','generating')
+       AND requested_at < NOW() - ($1 || ' seconds')::interval
+     ORDER BY requested_at ASC
+     LIMIT $2`,
+    [String(olderThanSec), opts.limit ?? 100],
+  );
+  return rows;
+}
+
 // ── listRecent ────────────────────────────────────────────────────────
+
+const SUMMARY_COLUMNS = `id, digest_id, symbol, asset_type, digest_date, mode,
+  window_start, window_end, trigger_reason, brief_mode, truth_hash,
+  context_hash, schema_version, generator_version, prompt_version,
+  code_version, model_name, status, attempt_number, requested_at,
+  generation_started_at, generated_at, invalidated_at, created_at,
+  title, summary, primary_signal_type, confidence, stance_label, stance_tone,
+  error_code, error_message`;
 
 export async function listRecent(
   db: Pool,
-  opts: { symbol?: string; limit?: number } = {},
+  opts: { symbol?: string; status?: SmartDigestStatus; summary?: boolean; limit?: number } = {},
 ): Promise<SmartDigestRow[]> {
   const limit = opts.limit ?? 20;
+  const cols = opts.summary ? SUMMARY_COLUMNS : "*";
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
+
   if (opts.symbol) {
-    const { rows } = await db.query<SmartDigestRow>(
-      `SELECT * FROM analysis_smart_digest
-       WHERE symbol = $1
-       ORDER BY created_at DESC
-       LIMIT $2`,
-      [opts.symbol, limit],
-    );
-    return rows;
+    conditions.push(`symbol = $${idx++}`);
+    params.push(opts.symbol);
   }
+  if (opts.status) {
+    conditions.push(`status = $${idx++}`);
+    params.push(opts.status);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  params.push(limit);
+
   const { rows } = await db.query<SmartDigestRow>(
-    `SELECT * FROM analysis_smart_digest
+    `SELECT ${cols} FROM analysis_smart_digest
+     ${where}
      ORDER BY created_at DESC
-     LIMIT $1`,
-    [limit],
+     LIMIT $${idx}`,
+    params,
   );
   return rows;
 }

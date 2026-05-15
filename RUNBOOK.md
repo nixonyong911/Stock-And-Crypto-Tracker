@@ -319,3 +319,75 @@ curl -s https://api.stripe.com/v1/coupons/AFFILIATE_5_OFF \
 ```
 
 Verify the coupon is `valid: true` and has the expected discount amount.
+
+---
+
+## Artifact ops (Smart Digest + Daily Overview)
+
+The gateway exposes `/internal/artifacts/*` endpoints for inspecting and managing canonical artifact rows in `analysis_smart_digest` and `analysis_daily_overview`. All require `x-service-key` header matching `INTERNAL_SERVICE_KEY`.
+
+### List recent artifacts (triage view)
+
+```bash
+# Summary projection (omits payload/truth_refs) — fast triage
+curl -s -H "x-service-key: $INTERNAL_SERVICE_KEY" \
+  "https://<gateway>/internal/artifacts/recent?kind=smart_digest&summary=true&limit=10"
+
+# Filter by status
+curl -s -H "x-service-key: $INTERNAL_SERVICE_KEY" \
+  "https://<gateway>/internal/artifacts/recent?kind=smart_digest&status=failed&limit=20"
+
+# Daily overviews by session type
+curl -s -H "x-service-key: $INTERNAL_SERVICE_KEY" \
+  "https://<gateway>/internal/artifacts/recent?kind=daily_overview&sessionType=pre_market&summary=true"
+```
+
+### List inflight (stuck-row detection)
+
+```bash
+# Rows stuck in pending/generating for >10 minutes
+curl -s -H "x-service-key: $INTERNAL_SERVICE_KEY" \
+  "https://<gateway>/internal/artifacts/inflight?kind=smart_digest&olderThanSec=600"
+```
+
+Treat inflight rows older than 10 minutes as stuck. Root-cause before acting — there is no auto-sweep. If a stuck row is blocking slot acquisition (via the partial unique index), it must be manually resolved at the DB level until Step 16 adds a sweeper.
+
+### Fetch artifact by id
+
+```bash
+curl -s -H "x-service-key: $INTERNAL_SERVICE_KEY" \
+  "https://<gateway>/internal/artifacts/smart_digest/42"
+
+curl -s -H "x-service-key: $INTERNAL_SERVICE_KEY" \
+  "https://<gateway>/internal/artifacts/daily_overview/15"
+```
+
+### Explain current-artifact selection
+
+```bash
+# "Which artifact would be chosen for this slot + fingerprint, and why?"
+curl -s -H "x-service-key: $INTERNAL_SERVICE_KEY" \
+  "https://<gateway>/internal/artifacts/explain-current?kind=smart_digest&symbol=AAPL&truthHash=abc123&contextHash=def456&generatorVersion=1"
+
+curl -s -H "x-service-key: $INTERNAL_SERVICE_KEY" \
+  "https://<gateway>/internal/artifacts/explain-current?kind=daily_overview&overviewDate=2026-05-15&snapshotHash=snap123&contextHash=ctx456&generatorVersion=1&modelName=claude-4.6-sonnet-medium"
+```
+
+Response includes:
+- `current` — the chosen row (or null)
+- `candidates` — up to 5 rows matching the full fingerprint
+- `slotPeers` — up to 3 same-slot `ready` rows with different fingerprints (for "why didn't reuse?" diagnostics)
+
+### Invalidate a ready artifact
+
+```bash
+curl -s -X POST -H "x-service-key: $INTERNAL_SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "corrupt payload detected in manual review"}' \
+  "https://<gateway>/internal/artifacts/smart_digest/42/invalidate"
+```
+
+- Only `ready` rows can be invalidated (CAS guard). Returns 409 if the row is not in `ready` status.
+- `reason` is required (1–500 chars) and stored in `error_message`. `invalidated_at` is set to NOW.
+- The invalidated row is immediately excluded from future reuse queries.
+- The next generation trigger for that slot will produce a fresh artifact.

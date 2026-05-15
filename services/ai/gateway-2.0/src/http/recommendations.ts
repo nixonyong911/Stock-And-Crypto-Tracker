@@ -20,8 +20,18 @@ import {
 } from "../core/analysis/digest-delivery.js";
 import { buildDigestDebugReport } from "../core/analysis/digest-debug.js";
 import type { BriefMode } from "../core/analysis/digest-brief-truth.js";
-import { selectByDigestId, listRecent } from "../core/analysis/smart-digest-repository.js";
-import { selectByOverviewId, listRecentOverviews } from "../core/analysis/daily-overview-repository.js";
+import { selectByDigestId } from "../core/analysis/smart-digest-repository.js";
+import { selectByOverviewId } from "../core/analysis/daily-overview-repository.js";
+import {
+  isValidKind,
+  getArtifactById,
+  listInflightArtifacts,
+  listRecentArtifacts,
+  explainCurrentDigest,
+  explainCurrentOverview,
+  invalidateArtifact,
+} from "../core/analysis/artifact-admin-service.js";
+import type { ArtifactKind } from "../core/analysis/artifact-admin-service.js";
 
 interface CheckRecommendationsBody {
   assetType?: "stock" | "crypto";
@@ -424,44 +434,215 @@ export function registerRecommendationRoutes(
     }
   });
 
-  // ── Admin: recent artifacts listing ──────────────────────────────────
+  // ── Admin: artifact endpoints ─────────────────────────────────────────
 
+  const checkServiceKey = (request: { headers: Record<string, unknown> }) => {
+    const sk = request.headers["x-service-key"] as string | undefined;
+    return !!(config.internalServiceKey && sk && sk === config.internalServiceKey);
+  };
+
+  // GET /internal/artifacts/recent  (enhanced: +status, +summary)
   app.get<{
     Querystring: {
-      kind?: "smart_digest" | "daily_overview";
+      kind?: string;
       limit?: string;
       symbol?: string;
       sessionType?: string;
+      status?: string;
+      summary?: string;
     };
   }>("/internal/artifacts/recent", async (request, reply) => {
-    const serviceKey = request.headers["x-service-key"] as string | undefined;
-    if (
-      !config.internalServiceKey ||
-      !serviceKey ||
-      serviceKey !== config.internalServiceKey
-    ) {
+    if (!checkServiceKey(request)) {
       return reply.status(401).send({ error: "Unauthorized" });
     }
 
-    const kind = request.query.kind ?? "smart_digest";
+    const kind = (request.query.kind ?? "smart_digest") as ArtifactKind;
+    if (!isValidKind(kind)) {
+      return reply.status(400).send({ error: "Invalid kind" });
+    }
     const limit = Math.min(Number(request.query.limit) || 20, 100);
+    const summary = request.query.summary === "true";
 
     try {
-      if (kind === "daily_overview") {
-        const rows = await listRecentOverviews(db, {
-          sessionType: request.query.sessionType,
-          limit,
-        });
-        return reply.send({ ok: true, kind, rows });
-      }
-
-      const rows = await listRecent(db, {
+      const rows = await listRecentArtifacts(db, kind, {
         symbol: request.query.symbol?.toUpperCase(),
+        sessionType: request.query.sessionType,
+        status: request.query.status,
+        summary,
         limit,
       });
       return reply.send({ ok: true, kind, rows });
     } catch (err) {
       app.log.error({ err, kind }, "Error listing recent artifacts");
+      return reply.status(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // GET /internal/artifacts/inflight
+  app.get<{
+    Querystring: { kind?: string; olderThanSec?: string; limit?: string };
+  }>("/internal/artifacts/inflight", async (request, reply) => {
+    if (!checkServiceKey(request)) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const kind = (request.query.kind ?? "smart_digest") as ArtifactKind;
+    if (!isValidKind(kind)) {
+      return reply.status(400).send({ error: "Invalid kind" });
+    }
+    const olderThanMs = (Number(request.query.olderThanSec) || 0) * 1000;
+    const limit = Math.min(Number(request.query.limit) || 100, 100);
+
+    try {
+      const rows = await listInflightArtifacts(db, kind, { olderThanMs, limit });
+      return reply.send({ ok: true, kind, rows });
+    } catch (err) {
+      app.log.error({ err, kind }, "Error listing inflight artifacts");
+      return reply.status(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // GET /internal/artifacts/explain-current
+  app.get<{
+    Querystring: {
+      kind?: string;
+      // smart_digest params
+      symbol?: string;
+      assetType?: string;
+      briefMode?: string;
+      truthHash?: string;
+      contextHash?: string;
+      schemaVersion?: string;
+      generatorVersion?: string;
+      promptVersion?: string;
+      maxAgeMs?: string;
+      // daily_overview params
+      overviewDate?: string;
+      sessionType?: string;
+      locale?: string;
+      snapshotHash?: string;
+      modelName?: string;
+    };
+  }>("/internal/artifacts/explain-current", async (request, reply) => {
+    if (!checkServiceKey(request)) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const kind = (request.query.kind ?? "smart_digest") as ArtifactKind;
+    if (!isValidKind(kind)) {
+      return reply.status(400).send({ error: "Invalid kind" });
+    }
+
+    try {
+      if (kind === "smart_digest") {
+        const { symbol, assetType, briefMode, truthHash, contextHash,
+          schemaVersion, generatorVersion, promptVersion, maxAgeMs } = request.query;
+        if (!symbol || !truthHash || !contextHash || !generatorVersion) {
+          return reply.status(400).send({
+            error: "Required: symbol, truthHash, contextHash, generatorVersion",
+          });
+        }
+        const result = await explainCurrentDigest(db, {
+          symbol: symbol.toUpperCase(),
+          assetType: assetType ?? "stock",
+          briefMode: briefMode ?? "strict",
+          truthHash,
+          contextHash,
+          schemaVersion: Number(schemaVersion) || 1,
+          generatorVersion,
+          promptVersion: promptVersion ?? null,
+          maxAgeMs: Number(maxAgeMs) || 86_400_000,
+        });
+        return reply.send({ ok: true, ...result });
+      }
+
+      const { overviewDate, sessionType, locale, snapshotHash, contextHash,
+        schemaVersion, generatorVersion, promptVersion, modelName } = request.query;
+      if (!overviewDate || !snapshotHash || !contextHash || !generatorVersion || !modelName) {
+        return reply.status(400).send({
+          error: "Required: overviewDate, snapshotHash, contextHash, generatorVersion, modelName",
+        });
+      }
+      const result = await explainCurrentOverview(db, {
+        overviewDate,
+        sessionType: sessionType ?? "post_close",
+        locale: locale ?? "en",
+        snapshotHash,
+        contextHash,
+        schemaVersion: Number(schemaVersion) || 1,
+        generatorVersion,
+        promptVersion: promptVersion ?? "overview.v1",
+        modelName,
+      });
+      return reply.send({ ok: true, ...result });
+    } catch (err) {
+      app.log.error({ err, kind }, "Error explaining current artifact");
+      return reply.status(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // GET /internal/artifacts/:kind/:id
+  app.get<{
+    Params: { kind: string; id: string };
+  }>("/internal/artifacts/:kind/:id", async (request, reply) => {
+    if (!checkServiceKey(request)) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const kind = request.params.kind as ArtifactKind;
+    if (!isValidKind(kind)) {
+      return reply.status(400).send({ error: "Invalid kind" });
+    }
+    const id = Number(request.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return reply.status(400).send({ error: "Invalid id" });
+    }
+
+    try {
+      const artifact = await getArtifactById(db, kind, id);
+      if (!artifact) {
+        return reply.status(404).send({ error: "Not found" });
+      }
+      return reply.send({ ok: true, kind, artifact });
+    } catch (err) {
+      app.log.error({ err, kind, id }, "Error fetching artifact by id");
+      return reply.status(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // POST /internal/artifacts/:kind/:id/invalidate
+  app.post<{
+    Params: { kind: string; id: string };
+    Body: { reason?: string };
+  }>("/internal/artifacts/:kind/:id/invalidate", async (request, reply) => {
+    if (!checkServiceKey(request)) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const kind = request.params.kind as ArtifactKind;
+    if (!isValidKind(kind)) {
+      return reply.status(400).send({ error: "Invalid kind" });
+    }
+    const id = Number(request.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return reply.status(400).send({ error: "Invalid id" });
+    }
+    const reason = (request.body?.reason ?? "").trim();
+    if (!reason || reason.length > 500) {
+      return reply.status(400).send({ error: "reason required (1..500 chars)" });
+    }
+
+    try {
+      const result = await invalidateArtifact({ db, log: app.log }, { kind, id, reason });
+      if (result.status === "not_found") {
+        return reply.status(404).send({ error: "Not found" });
+      }
+      if (result.status === "not_ready") {
+        return reply.status(409).send({ error: "Artifact not in 'ready' status" });
+      }
+      return reply.send({ ok: true, kind, artifact: result.row });
+    } catch (err) {
+      app.log.error({ err, kind, id }, "Error invalidating artifact");
       return reply.status(500).send({ error: "Internal server error" });
     }
   });

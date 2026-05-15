@@ -1,12 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   getCurrentArtifact,
+  findCurrentCandidates,
+  findSlotPeers,
   acquireInFlightSlot,
   markGenerating,
   markReady,
   markFailed,
+  markInvalidated,
   selectByDigestId,
+  selectById,
   listRecent,
+  listInflight,
 } from "../smart-digest-repository.js";
 
 // ── Mock pool ─────────────────────────────────────────────────────────
@@ -315,20 +320,167 @@ describe("selectByDigestId", () => {
   });
 });
 
+// ── findCurrentCandidates ─────────────────────────────────────────────
+
+describe("findCurrentCandidates", () => {
+  const baseParams = {
+    symbol: "AAPL",
+    assetType: "stock",
+    briefMode: "strict",
+    truthHash: "abc",
+    contextHash: "def",
+    schemaVersion: 1,
+    generatorVersion: "1",
+    promptVersion: null,
+    maxAgeMs: 86_400_000,
+  };
+
+  it("shares the same WHERE clause as getCurrentArtifact", async () => {
+    const { pool: pool1, queries: q1 } = makeMockPool();
+    const { pool: pool2, queries: q2 } = makeMockPool();
+    await getCurrentArtifact({ db: pool1, ...baseParams });
+    await findCurrentCandidates({ db: pool2, ...baseParams });
+    const where1 = q1[0]!.sql.split("ORDER BY")[0]!.replace(/SELECT \*/, "");
+    const where2 = q2[0]!.sql.split("ORDER BY")[0]!.replace(/SELECT \*/, "");
+    expect(where2).toBe(where1);
+  });
+
+  it("returns up to candidateLimit rows", async () => {
+    const { pool, queries } = makeMockPool();
+    await findCurrentCandidates({ db: pool, ...baseParams, candidateLimit: 3 });
+    expect(queries[0]!.params![9]).toBe(3);
+  });
+
+  it("defaults candidateLimit to 5", async () => {
+    const { pool, queries } = makeMockPool();
+    await findCurrentCandidates({ db: pool, ...baseParams });
+    expect(queries[0]!.params![9]).toBe(5);
+  });
+});
+
+// ── findSlotPeers ─────────────────────────────────────────────────────
+
+describe("findSlotPeers", () => {
+  it("filters by slot keys and status ready", async () => {
+    const { pool, queries } = makeMockPool();
+    await findSlotPeers(pool, { symbol: "AAPL", assetType: "stock", briefMode: "strict" });
+    const sql = queries[0]!.sql;
+    expect(sql).toContain("symbol = $1");
+    expect(sql).toContain("asset_type = $2");
+    expect(sql).toContain("brief_mode = $3");
+    expect(sql).toContain("status = 'ready'");
+  });
+
+  it("defaults limit to 3", async () => {
+    const { pool, queries } = makeMockPool();
+    await findSlotPeers(pool, { symbol: "AAPL", assetType: "stock", briefMode: "strict" });
+    expect(queries[0]!.params![3]).toBe(3);
+  });
+});
+
+// ── selectById ────────────────────────────────────────────────────────
+
+describe("selectById", () => {
+  it("returns the row when found", async () => {
+    const fakeRow = { id: 42, digest_id: "uuid-1" };
+    const { pool } = makeMockPool({
+      queryResult: { rows: [fakeRow], rowCount: 1 },
+    });
+    const result = await selectById(pool, 42);
+    expect(result).toEqual(fakeRow);
+  });
+
+  it("returns null when not found", async () => {
+    const { pool } = makeMockPool();
+    const result = await selectById(pool, 999);
+    expect(result).toBeNull();
+  });
+});
+
+// ── markInvalidated ───────────────────────────────────────────────────
+
+describe("markInvalidated", () => {
+  it("returns updated row when CAS succeeds", async () => {
+    const fakeRow = { id: 42, status: "invalidated" };
+    const { pool } = makeMockPool({
+      queryResult: { rows: [fakeRow], rowCount: 1 },
+    });
+    const result = await markInvalidated({ db: pool, id: 42, reason: "bad data" });
+    expect(result).toEqual(fakeRow);
+  });
+
+  it("returns null when row is not in ready status", async () => {
+    const { pool } = makeMockPool();
+    const result = await markInvalidated({ db: pool, id: 42, reason: "test" });
+    expect(result).toBeNull();
+  });
+
+  it("uses CAS guard status = ready", async () => {
+    const { pool, queries } = makeMockPool();
+    await markInvalidated({ db: pool, id: 42, reason: "test" });
+    expect(queries[0]!.sql).toContain("status = 'ready'");
+    expect(queries[0]!.sql).toContain("RETURNING *");
+  });
+
+  it("sets invalidated_at and error_message", async () => {
+    const { pool, queries } = makeMockPool();
+    await markInvalidated({ db: pool, id: 42, reason: "corrupt payload" });
+    const sql = queries[0]!.sql;
+    expect(sql).toContain("invalidated_at = NOW()");
+    expect(sql).toContain("error_message = $2");
+    expect(queries[0]!.params![1]).toBe("corrupt payload");
+  });
+});
+
+// ── listInflight ──────────────────────────────────────────────────────
+
+describe("listInflight", () => {
+  it("filters by pending/generating status", async () => {
+    const { pool, queries } = makeMockPool();
+    await listInflight(pool);
+    const sql = queries[0]!.sql;
+    expect(sql).toContain("IN ('pending','generating')");
+  });
+
+  it("applies olderThanMs threshold", async () => {
+    const { pool, queries } = makeMockPool();
+    await listInflight(pool, { olderThanMs: 600_000 });
+    expect(queries[0]!.params![0]).toBe("600");
+  });
+
+  it("defaults olderThanMs to 0", async () => {
+    const { pool, queries } = makeMockPool();
+    await listInflight(pool);
+    expect(queries[0]!.params![0]).toBe("0");
+  });
+
+  it("respects custom limit", async () => {
+    const { pool, queries } = makeMockPool();
+    await listInflight(pool, { limit: 10 });
+    expect(queries[0]!.params![1]).toBe(10);
+  });
+
+  it("orders by requested_at ASC", async () => {
+    const { pool, queries } = makeMockPool();
+    await listInflight(pool);
+    expect(queries[0]!.sql).toContain("ORDER BY requested_at ASC");
+  });
+});
+
 // ── listRecent ────────────────────────────────────────────────────────
 
 describe("listRecent", () => {
   it("queries without symbol filter when symbol not provided", async () => {
     const { pool, queries } = makeMockPool();
     await listRecent(pool);
-    expect(queries[0]!.sql).not.toContain("WHERE symbol");
-    expect(queries[0]!.params).toEqual([20]);
+    expect(queries[0]!.sql).not.toContain("WHERE");
+    expect(queries[0]!.params).toContain(20);
   });
 
   it("queries with symbol filter when provided", async () => {
     const { pool, queries } = makeMockPool();
     await listRecent(pool, { symbol: "AAPL" });
-    expect(queries[0]!.sql).toContain("WHERE symbol = $1");
+    expect(queries[0]!.sql).toContain("symbol = $1");
     expect(queries[0]!.params![0]).toBe("AAPL");
   });
 
@@ -336,5 +488,38 @@ describe("listRecent", () => {
     const { pool, queries } = makeMockPool();
     await listRecent(pool, { limit: 5 });
     expect(queries[0]!.params).toContain(5);
+  });
+
+  it("filters by status when provided", async () => {
+    const { pool, queries } = makeMockPool();
+    await listRecent(pool, { status: "ready" });
+    expect(queries[0]!.sql).toContain("status = $1");
+    expect(queries[0]!.params![0]).toBe("ready");
+  });
+
+  it("combines symbol and status filters", async () => {
+    const { pool, queries } = makeMockPool();
+    await listRecent(pool, { symbol: "AAPL", status: "failed" });
+    expect(queries[0]!.sql).toContain("symbol = $1");
+    expect(queries[0]!.sql).toContain("status = $2");
+    expect(queries[0]!.params![0]).toBe("AAPL");
+    expect(queries[0]!.params![1]).toBe("failed");
+  });
+
+  it("uses summary projection when summary=true", async () => {
+    const { pool, queries } = makeMockPool();
+    await listRecent(pool, { summary: true });
+    const sql = queries[0]!.sql;
+    expect(sql).not.toContain("SELECT *");
+    expect(sql).not.toContain("payload");
+    expect(sql).not.toContain("truth_refs");
+    expect(sql).toContain("digest_id");
+    expect(sql).toContain("status");
+  });
+
+  it("uses SELECT * when summary not set", async () => {
+    const { pool, queries } = makeMockPool();
+    await listRecent(pool);
+    expect(queries[0]!.sql).toContain("SELECT *");
   });
 });
