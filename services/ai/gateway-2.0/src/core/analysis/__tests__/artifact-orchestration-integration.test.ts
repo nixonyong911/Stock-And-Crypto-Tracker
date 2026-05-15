@@ -128,7 +128,7 @@ const overviewRunCtx: RunContext = { runId: "o-run-1", artifactType: "daily_over
 
 const makeSignal = () => ({
   symbol: "AAPL", assetType: "stock" as const,
-  type: "entry_zone", priority: "high", timeframeAlignment: "full",
+  type: "entry_zone" as const, priority: "high" as const, timeframeAlignment: "full" as const,
   headline: "AAPL signal", rawData: { close: 100, daySignal: "bullish", swingSignal: "bullish", longTermSignal: "bullish" },
 });
 

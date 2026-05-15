@@ -186,7 +186,7 @@ describe("GET /internal/artifacts/:kind/:id", () => {
 describe("GET /internal/artifacts/explain-current", () => {
   it("returns explain result for smart_digest", async () => {
     const fakeResult = {
-      kind: "smart_digest",
+      kind: "smart_digest" as const,
       inputs: {},
       current: { id: 1, artifactId: "d-1", generatedAt: "2026-05-13" },
       candidates: [],
@@ -213,7 +213,7 @@ describe("GET /internal/artifacts/explain-current", () => {
 
   it("returns explain result for daily_overview", async () => {
     const fakeResult = {
-      kind: "daily_overview",
+      kind: "daily_overview" as const,
       inputs: {},
       current: null,
       candidates: [],

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { runArtifactJob, type JobSpec, type JobResult } from "../artifact-orchestrator.js";
+import { runArtifactJob, type JobSpec } from "../artifact-orchestrator.js";
 import type { RunContext } from "../artifact-logging.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -205,10 +205,14 @@ describe("runArtifactJob", () => {
     });
 
     it("passes slotKey to logger via child", async () => {
-      const baseLog = makeLog();
-      const spec = makeSpec({ baseLog, slotKey: { symbol: "TSLA", assetType: "stock" } });
+      const logImpl = {
+        info: vi.fn(), warn: vi.fn(), error: vi.fn(),
+        debug: vi.fn(), trace: vi.fn(), fatal: vi.fn(),
+        child: vi.fn().mockReturnThis(), level: "info",
+      };
+      const spec = makeSpec({ baseLog: logImpl as never, slotKey: { symbol: "TSLA", assetType: "stock" } });
       await runArtifactJob(spec);
-      expect(baseLog.child).toHaveBeenCalledWith(
+      expect(logImpl.child).toHaveBeenCalledWith(
         expect.objectContaining({
           runId: "test-run-id",
           artifactType: "smart_digest",
