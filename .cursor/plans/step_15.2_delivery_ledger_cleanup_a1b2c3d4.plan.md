@@ -274,6 +274,17 @@ Files explicitly **not** changing in 15.2:
 - 24h after rollout, run RUNBOOK §4 "Delivery failure audit" and confirm the only `delivery_failure_reason` values present are members of the unified union.
 - Confirm `linked_recent_count > 0` in the artifact-linked query — i.e. the cutover didn't regress.
 
+### Coordination note — `inspect-digest.ts` hotfix dependency
+
+A post-15.2 runtime hotfix landed on `main` at commit **`930b593d6d0d634a4ce83782637900ef4e1f7ad3`** (`fix(verify): use ticker_symbol column in inspect-digest.ts`). Pre-hotfix, the script queried the non-existent column `symbol` on `user_recommendation_log` (canonical column is `ticker_symbol`, per migrations 015/026), so its output rendered every row's ticker as `(null)` and `--replay` always early-exited. The script is a local-only verification tool — no docker image rebuild is required; the fix is "deployed" the moment the operator/runner pulls `main` past `930b593`.
+
+The §7 end-to-end check on line 266 (`tsx scripts/verify/inspect-digest.ts --user <known_user> --limit 10`) is therefore subject to this dependency:
+
+- **Any `inspect-digest.ts` run on a checkout older than `930b593` is invalid** for Step 15.2 verification — it will misreport ticker as `(null)` and silently skip `--replay` even on healthy artifact-linked rows. Do not treat such a run as final evidence.
+- **Final Step 15.2 verification must `git pull` to a commit ≥ `930b593` before re-running** the inspect-digest check. Capture the commit SHA used in the verification report.
+- The re-run must confirm: `ticker_symbol` column resolves correctly on artifact-linked rows, `--replay` proceeds (no spurious "row has no symbol" skip on rows where `ticker_symbol IS NOT NULL`), and broken-link / legacy-pre-15.1 labelling still works as specified in §3 slice H.
+- `verify-digest.ts` is **not** affected by this hotfix and earlier runs of it remain valid evidence.
+
 ---
 
 ## 8. Out of scope
