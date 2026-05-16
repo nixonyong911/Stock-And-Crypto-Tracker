@@ -34,20 +34,37 @@ on:
         description: 'Migration filename under services/ai/gateway-2.0/migrations/ (e.g. 026_user_recommendation_log_drop_ticker_not_null.sql)'
         required: true
         type: string
+  # Allows triggering via `POST /repos/.../dispatches` with `event_type:
+  # apply_migration` and `client_payload: {"filename": "<file>.sql"}`.
+  # Useful for tokens that have `repo` scope but not `actions: write`
+  # (which workflow_dispatch requires).
+  repository_dispatch:
+    types: [apply_migration]
 
 jobs:
   apply:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate filename
+      - name: Resolve filename input
+        id: resolve
         env:
-          FN: ${{ github.event.inputs.migration_filename }}
+          DISPATCH_FN: ${{ github.event.inputs.migration_filename }}
+          REPO_DISPATCH_FN: ${{ github.event.client_payload.filename }}
         run: |
+          if [ -n "$DISPATCH_FN" ]; then
+            FN="$DISPATCH_FN"
+          elif [ -n "$REPO_DISPATCH_FN" ]; then
+            FN="$REPO_DISPATCH_FN"
+          else
+            echo "::error::No filename supplied"
+            exit 1
+          fi
           if [[ ! "$FN" =~ ^[0-9]{3}_[a-zA-Z0-9_]+\.sql$ ]]; then
             echo "::error::Invalid migration filename: $FN"
             echo "Expected pattern: NNN_snake_case.sql"
             exit 1
           fi
+          echo "fn=$FN" >> "$GITHUB_OUTPUT"
           echo "Will apply: $FN"
 
       - name: Setup SSH
@@ -65,7 +82,7 @@ jobs:
 
       - name: Apply migration on VM
         env:
-          FN: ${{ github.event.inputs.migration_filename }}
+          FN: ${{ steps.resolve.outputs.fn }}
         run: |
           echo "=========================================="
           echo "Applying migration $FN"
@@ -123,5 +140,6 @@ jobs:
         run: |
           echo "## Migration apply" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- File: \`${{ github.event.inputs.migration_filename }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- File: \`${{ steps.resolve.outputs.fn }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Trigger: \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Result: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
