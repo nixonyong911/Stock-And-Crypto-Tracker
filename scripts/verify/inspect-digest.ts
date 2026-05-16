@@ -61,7 +61,7 @@ interface LogRow {
   clerk_user_id: string;
   sent_at: string;
   recommendation_type: string | null;
-  symbol: string | null;
+  ticker_symbol: string | null;
   headline: string | null;
   message_body: string | null;
   artifact_kind: string | null;
@@ -131,7 +131,7 @@ function printBrief(row: LogRow, parsed: ParsedBrief): void {
   console.log(`sent_at         ${row.sent_at}`);
   console.log(`user            ${row.clerk_user_id}`);
   console.log(`type            ${row.recommendation_type ?? "(null)"}`);
-  console.log(`symbol          ${row.symbol ?? "(null)"}`);
+  console.log(`ticker_symbol   ${row.ticker_symbol ?? "(null)"}`);
   console.log(`headline        ${row.headline ?? "(null)"}`);
   console.log(`artifact_kind   ${row.artifact_kind ?? "(null)"}`);
   console.log(`artifact_id     ${row.artifact_id ?? "(null)"}`);
@@ -241,7 +241,7 @@ async function main() {
   let query = supabase
     .from("user_recommendation_log")
     .select(
-      "id, clerk_user_id, sent_at, recommendation_type, symbol, headline, message_body, artifact_kind, artifact_id, channel_type, delivery_status, delivery_failure_reason",
+      "id, clerk_user_id, sent_at, recommendation_type, ticker_symbol, headline, message_body, artifact_kind, artifact_id, channel_type, delivery_status, delivery_failure_reason",
     )
     .order("sent_at", { ascending: false })
     .limit(args.limit);
@@ -290,7 +290,7 @@ async function main() {
     }
     printBrief(row, parsed);
     if (args.replay) {
-      await maybeReplay(row.symbol);
+      await maybeReplay(row.ticker_symbol);
     }
   }
 }
