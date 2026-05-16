@@ -1,0 +1,127 @@
+# ===========================================
+# Apply DB Migration to Azure VM Postgres
+# ===========================================
+# Manual one-shot workflow to apply a single SQL migration file from
+# `services/ai/gateway-2.0/migrations/` to the runtime postgres container
+# on the Azure VM.
+#
+# The deploy-vm.yml workflow rebuilds and ships container images but does
+# NOT touch the database schema. This workflow is the operator-friendly
+# replacement for "SSH in and run psql manually".
+#
+# Safety:
+#   - workflow_dispatch ONLY (never auto-fires)
+#   - filename input is regex-validated against `^[0-9]{3}_[a-zA-Z0-9_]+\.sql$`
+#   - migration file is read from the latest `main` checkout on the VM
+#     (the deploy workflow already syncs the repo to /opt/stocktracker/repo)
+#   - run is captured and the post-apply `\d user_recommendation_log` is
+#     printed for audit
+#
+# Auth model:
+#   - SSH uses ${{ secrets.VM_SSH_PRIVATE_KEY }} (same key the deploy
+#     workflow already uses)
+#   - Postgres uses peer auth via `docker exec postgres psql -U postgres`
+#     against the container's local unix socket — no password needed for
+#     the superuser inside the container.
+# ===========================================
+
+name: Apply DB Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration_filename:
+        description: 'Migration filename under services/ai/gateway-2.0/migrations/ (e.g. 026_user_recommendation_log_drop_ticker_not_null.sql)'
+        required: true
+        type: string
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate filename
+        env:
+          FN: ${{ github.event.inputs.migration_filename }}
+        run: |
+          if [[ ! "$FN" =~ ^[0-9]{3}_[a-zA-Z0-9_]+\.sql$ ]]; then
+            echo "::error::Invalid migration filename: $FN"
+            echo "Expected pattern: NNN_snake_case.sql"
+            exit 1
+          fi
+          echo "Will apply: $FN"
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          cat >> ~/.ssh/config << 'SSHCONFIG'
+          Host 20.17.176.1
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            LogLevel ERROR
+          SSHCONFIG
+          chmod 600 ~/.ssh/config
+
+      - name: Apply migration on VM
+        env:
+          FN: ${{ github.event.inputs.migration_filename }}
+        run: |
+          echo "=========================================="
+          echo "Applying migration $FN"
+          echo "=========================================="
+
+          ssh -o ServerAliveInterval=60 azureuser@20.17.176.1 \
+            "FN='$FN' bash -s" << 'EOF'
+          set -e
+          DEPLOY_PATH="/opt/stocktracker"
+          REPO_PATH="$DEPLOY_PATH/repo"
+          MIG_PATH="services/ai/gateway-2.0/migrations/$FN"
+
+          echo "=== Sync repo to latest main ==="
+          cd "$REPO_PATH"
+          git fetch origin main
+          git reset --hard origin/main
+          git log -1 --oneline
+
+          if [ ! -f "$MIG_PATH" ]; then
+            echo "::error::Migration file not found: $REPO_PATH/$MIG_PATH"
+            ls -la services/ai/gateway-2.0/migrations/ | tail -10
+            exit 1
+          fi
+
+          echo ""
+          echo "=== Migration contents ==="
+          cat "$MIG_PATH"
+          echo ""
+
+          echo "=== Pre-apply schema (user_recommendation_log) ==="
+          docker exec postgres psql -U postgres -d stocktracker \
+            -c "\d user_recommendation_log" || true
+
+          echo ""
+          echo "=== Applying $FN ==="
+          docker exec -i postgres psql -U postgres -d stocktracker \
+            -v ON_ERROR_STOP=1 < "$MIG_PATH"
+
+          echo ""
+          echo "=== Post-apply schema (user_recommendation_log) ==="
+          docker exec postgres psql -U postgres -d stocktracker \
+            -c "\d user_recommendation_log"
+
+          echo ""
+          echo "=== Reload PostgREST schema cache ==="
+          docker exec postgres psql -U postgres -d stocktracker \
+            -c "NOTIFY pgrst, 'reload schema';" || true
+
+          echo ""
+          echo "✅ Migration $FN applied"
+          EOF
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Migration apply" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- File: \`${{ github.event.inputs.migration_filename }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Result: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
