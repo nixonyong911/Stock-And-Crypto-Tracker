@@ -16,6 +16,7 @@
 import type { Pool } from "pg";
 import type { Redis } from "ioredis";
 import { secondsUntilMidnightUTC } from "./wishlist-calculator.js";
+import { loadDeliveryPrefsForUser } from "./digest-preferences.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -162,11 +163,11 @@ export async function checkDigestThrottle(
     return { ok: false, reason: "daily_cap_reached" };
   }
 
-  const prefResult = await db.query<{ is_enabled: boolean }>(
-    "SELECT is_enabled FROM user_digest_preferences WHERE clerk_user_id = $1",
-    [clerkUserId],
-  );
-  if (prefResult.rows[0]?.is_enabled === false) {
+  // Step 15.2 (slice E): preference resolution lives in
+  // `digest-preferences.ts` so Smart Digest and Daily Overview agree on
+  // defaults (missing row → enabled). Throttle still owns the cap.
+  const prefs = await loadDeliveryPrefsForUser(db, clerkUserId);
+  if (!prefs.smartDigestEnabled) {
     return { ok: false, reason: "disabled" };
   }
 
