@@ -1,5 +1,7 @@
 # Step 15.2 — Delivery-ledger cleanup & consistency
 
+> **Status:** Implemented in this branch. See `docs/upstream-trust-map.md` for the executed write-up; this file is preserved as the original plan-of-record.
+>
 > Positioning: this is **what remains after 15.1**, not a new feature step and not Step 16 pruning/perf work.
 > Step 15.1 already proved the canonical-artifact + ledger-row pivot for both Smart Digest and Daily Overview in production. Step 15.2 is about closing the remaining gaps that 15.1 deliberately left open or papered over.
 
