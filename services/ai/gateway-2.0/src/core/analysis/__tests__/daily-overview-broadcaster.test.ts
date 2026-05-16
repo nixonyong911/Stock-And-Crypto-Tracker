@@ -432,14 +432,6 @@ describe("delivery ledger — Step 15 artifact linkage", () => {
     expect(insert!.params![2]).toBe("daily_overview");
   });
 
-  it("ticker_symbol is still 'MARKET'", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![1]).toBe("MARKET");
-  });
-
   it("always inserts a row even on send failure", async () => {
     const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
     (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -451,5 +443,240 @@ describe("delivery ledger — Step 15 artifact linkage", () => {
     expect(insert).toBeDefined();
     expect(insert!.params![10]).toBe("failed");
     expect(insert!.params![11]).toBe("send_failed");
+  });
+});
+
+// ── F. Step 15.2 — synthetic denorm placeholders are NULL (slice G) ──
+
+describe("Step 15.2 — synthetic denorm placeholders are NULL", () => {
+  it("ticker_symbol is NULL (no longer 'MARKET')", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![1]).toBeNull();
+  });
+
+  it("priority is NULL (no longer 'low')", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![3]).toBeNull();
+  });
+
+  it("headline is NULL (no longer 'Daily Morning Brief')", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![4]).toBeNull();
+  });
+
+  it("timeframe_alignment is NULL (no longer 'full')", async () => {
+    const insertAt = (params: unknown[]): unknown => params[6];
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insertAt(insert!.params!)).toBeNull();
+  });
+
+  it("flag-off path also writes NULL denorms (consistent shape)", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: false });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![1]).toBeNull();
+    expect(insert!.params![3]).toBeNull();
+    expect(insert!.params![4]).toBeNull();
+    expect(insert!.params![6]).toBeNull();
+  });
+});
+
+// ── G. Step 15.2 — failed-path coverage (slice B) ────────────────────
+
+describe("Step 15.2 — failed-path delivery", () => {
+  it("sendText returns ok=false → delivery_status='failed', reason 'send_failed'", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
+      sendText: vi.fn(async () => ({ ok: false })),
+    });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![10]).toBe("failed");
+    expect(insert!.params![11]).toBe("send_failed");
+  });
+
+  it("sendText throws → delivery_status='failed', reason 'send_error'", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
+      sendText: vi.fn(async () => {
+        throw new Error("network blew up");
+      }),
+    });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![10]).toBe("failed");
+    expect(insert!.params![11]).toBe("send_error");
+  });
+
+  it("failed delivery still carries artifact link on flag-on path", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
+      sendText: vi.fn(async () => ({ ok: false })),
+    });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![7]).toBe("daily_overview");
+    expect(insert!.params![8]).toBe(1);
+  });
+
+  it("failed delivery still has message_body=NULL", async () => {
+    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
+      sendText: vi.fn(async () => ({ ok: false })),
+    });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert!.params![5]).toBeNull();
+  });
+});
+
+// ── H. Step 15.2 — per-user ledger dedup (slice C) ───────────────────
+
+describe("Step 15.2 — per-user ledger dedup", () => {
+  function makeDepsWithDedup(
+    alreadyDeliveredUserIds: string[],
+    overrides: Partial<BroadcastDeps> = {},
+  ): BroadcastDeps & { _queries: CapturedQuery[]; _sendTextCalls: unknown[][] } {
+    const queries: CapturedQuery[] = [];
+    const sendTextCalls: unknown[][] = [];
+    return {
+      db: {
+        query: vi.fn(async (sql: string, params?: unknown[]) => {
+          queries.push({ sql, params });
+          if (sql.includes("SELECT DISTINCT ca.clerk_user_id")) {
+            return {
+              rows: [
+                { clerk_user_id: "user-1", platform_user_id: "chat-1" },
+                { clerk_user_id: "user-2", platform_user_id: "chat-2" },
+              ],
+              rowCount: 2,
+            };
+          }
+          if (sql.includes("FROM user_recommendation_log") && sql.includes("artifact_kind")) {
+            return {
+              rows: alreadyDeliveredUserIds.map((id) => ({ clerk_user_id: id })),
+              rowCount: alreadyDeliveredUserIds.length,
+            };
+          }
+          return { rows: [], rowCount: 0 };
+        }),
+      } as never,
+      redis: {
+        get: vi.fn(async () => null),
+        set: vi.fn(async () => "OK"),
+      } as never,
+      extensions: {
+        get: vi.fn(() => ({
+          sendText: vi.fn(async (...args: unknown[]) => {
+            sendTextCalls.push(args);
+            return { ok: true };
+          }),
+        })),
+      } as never,
+      log: {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+        trace: vi.fn(),
+        fatal: vi.fn(),
+        child: vi.fn(),
+        level: "info",
+      } as never,
+      _queries: queries,
+      _sendTextCalls: sendTextCalls,
+      ...overrides,
+    };
+  }
+
+  it("skips recipients already in ledger for this artifact (no send, no row)", async () => {
+    const deps = makeDepsWithDedup(["user-1"], { canonicalArtifactEnabled: true });
+    const result = await broadcastDailyOverview(deps, "pre_market");
+
+    expect(deps._sendTextCalls.length).toBe(1);
+    const inserts = deps._queries.filter((q) =>
+      q.sql.includes("INSERT INTO user_recommendation_log"),
+    );
+    expect(inserts.length).toBe(1);
+    expect(inserts[0]!.params![0]).toBe("user-2");
+    expect(result.sent).toBe(1);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("does not consult ledger when no artifact ref (flag-off path)", async () => {
+    const deps = makeDepsWithDedup(["user-1"], { canonicalArtifactEnabled: false });
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const dedupQuery = deps._queries.find(
+      (q) => q.sql.includes("FROM user_recommendation_log") && q.sql.includes("artifact_kind"),
+    );
+    expect(dedupQuery).toBeUndefined();
+    expect(deps._sendTextCalls.length).toBe(2);
+  });
+
+  it("ledger query failure degrades to no-dedup (does not block broadcast)", async () => {
+    const queries: CapturedQuery[] = [];
+    const sendTextCalls: unknown[][] = [];
+    const deps: BroadcastDeps & { _queries: CapturedQuery[]; _sendTextCalls: unknown[][] } = {
+      db: {
+        query: vi.fn(async (sql: string, params?: unknown[]) => {
+          queries.push({ sql, params });
+          if (sql.includes("SELECT DISTINCT ca.clerk_user_id")) {
+            return {
+              rows: [{ clerk_user_id: "user-1", platform_user_id: "chat-1" }],
+              rowCount: 1,
+            };
+          }
+          if (sql.includes("FROM user_recommendation_log") && sql.includes("artifact_kind")) {
+            throw new Error("ledger query failed");
+          }
+          return { rows: [], rowCount: 0 };
+        }),
+      } as never,
+      redis: { get: vi.fn(async () => null), set: vi.fn(async () => "OK") } as never,
+      extensions: {
+        get: vi.fn(() => ({
+          sendText: vi.fn(async (...args: unknown[]) => {
+            sendTextCalls.push(args);
+            return { ok: true };
+          }),
+        })),
+      } as never,
+      log: {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+        trace: vi.fn(),
+        fatal: vi.fn(),
+        child: vi.fn(),
+        level: "info",
+      } as never,
+      canonicalArtifactEnabled: true,
+      _queries: queries,
+      _sendTextCalls: sendTextCalls,
+    };
+
+    const result = await broadcastDailyOverview(deps, "pre_market");
+
+    expect(sendTextCalls.length).toBe(1);
+    expect(result.sent).toBe(1);
   });
 });

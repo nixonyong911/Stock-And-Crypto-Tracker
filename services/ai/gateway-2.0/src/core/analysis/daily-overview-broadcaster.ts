@@ -14,12 +14,10 @@ import {
 import { newRunContext } from "./artifact-logging.js";
 import type { ArtifactTriggerSource } from "./artifact-trigger.js";
 import type { ArtifactRef } from "./digest-delivery.js";
+import type { DeliveryFailureReason } from "./delivery-failure.js";
+import { loadAlreadyDeliveredUserIds } from "./delivery-ledger-queries.js";
 
 const SEND_DELAY_MS = 50;
-const ALLOWED_USERS = (process.env["OVERVIEW_ALLOWED_USERS"] ?? "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
 
 export interface BroadcastDeps {
   db: Pool;
@@ -100,10 +98,9 @@ export async function broadcastDailyOverview(
     ? formatMorningBrief(snapshot, synthesis)
     : formatEveningRecap(snapshot, synthesis);
 
-  const allowlistClause = ALLOWED_USERS.length > 0
-    ? `AND ca.clerk_user_id IN (${ALLOWED_USERS.map((_, i) => `$${i + 1}`).join(", ")})`
-    : "";
-
+  // Step 15.2 (slice F): the OVERVIEW_ALLOWED_USERS allowlist — a 14.2-era
+  // staging guardrail — is removed. Daily overview is now production-cutover
+  // and uses `daily_overview_enabled` prefs only.
   const recipients = await db.query<{
     clerk_user_id: string;
     platform_user_id: string;
@@ -117,25 +114,47 @@ export async function broadcastDailyOverview(
      LEFT JOIN user_digest_preferences dp
        ON dp.clerk_user_id = ca.clerk_user_id
      WHERE ca.channel_type = 'telegram'
-       AND COALESCE(dp.daily_overview_enabled, true) = true
-       ${allowlistClause}`,
-    ALLOWED_USERS.length > 0 ? ALLOWED_USERS : undefined,
+       AND COALESCE(dp.daily_overview_enabled, true) = true`,
   );
+
+  // Step 15.2 (slice C): authoritative per-user dedup against the ledger.
+  // The Redis short-circuit above remains the cheap fast-path; this is
+  // the second gate that survives Redis TTL expiry / crash recovery /
+  // manual replay. Only consulted when an artifact ref exists — the
+  // flag-off path keeps the legacy "no per-user dedup" behavior.
+  let alreadyDeliveredUserIds: Set<string> = new Set();
+  if (artifactRef) {
+    try {
+      alreadyDeliveredUserIds = await loadAlreadyDeliveredUserIds(db, artifactRef);
+    } catch (err) {
+      log.error(
+        { err, artifact: artifactRef },
+        "Failed to load already-delivered user IDs; proceeding without per-user dedup",
+      );
+    }
+  }
 
   log.info(
-    { sessionType, recipientCount: recipients.rows.length },
+    {
+      sessionType,
+      recipientCount: recipients.rows.length,
+      alreadyDeliveredCount: alreadyDeliveredUserIds.size,
+    },
     "Broadcasting daily overview",
   );
-
-  const headline = `Daily ${sessionType === "pre_market" ? "Morning Brief" : "Market Recap"}`;
 
   let sent = 0;
   let skipped = 0;
   let errors = 0;
 
   for (const recipient of recipients.rows) {
+    if (alreadyDeliveredUserIds.has(recipient.clerk_user_id)) {
+      skipped++;
+      continue;
+    }
+
     let deliveryStatus: "sent" | "failed" = "failed";
-    let deliveryFailureReason: string | null = null;
+    let deliveryFailureReason: DeliveryFailureReason | null = null;
 
     try {
       const result = await telegram.sendText({
@@ -164,6 +183,11 @@ export async function broadcastDailyOverview(
       );
     }
 
+    // Step 15.2 (slice G): synthetic denorm placeholders are now NULL.
+    // The artifact (`analysis_daily_overview`) is the source of truth for
+    // narrative / top stories. `recommendation_type` stays populated as the
+    // legitimate row-type discriminator that RUNBOOK §4 audit queries
+    // group by. `ticker_symbol` is now nullable per migration 026.
     await db
       .query(
         `INSERT INTO user_recommendation_log
@@ -174,12 +198,12 @@ export async function broadcastDailyOverview(
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           recipient.clerk_user_id,
-          "MARKET",
-          "daily_overview",
-          "low",
-          headline,
           null,
-          "full",
+          "daily_overview",
+          null,
+          null,
+          null,
+          null,
           artifactRef?.kind ?? null,
           artifactRef?.id ?? null,
           "telegram",

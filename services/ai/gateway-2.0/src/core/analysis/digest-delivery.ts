@@ -19,6 +19,9 @@ import { renderCard, buildCardCaption } from "./card-renderer.js";
 import type { DigestBrief } from "./digest-brief-generator.js";
 import type { TickerSignal } from "./recommendation-engine.js";
 import type { DigestTarget } from "./digest-eligibility.js";
+import type { DeliveryFailureReason } from "./delivery-failure.js";
+
+export type { DeliveryFailureReason } from "./delivery-failure.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -31,11 +34,6 @@ export interface RenderedDigestCard {
   photo: Buffer;
   caption: string;
 }
-
-export type DeliveryFailureReason =
-  | "telegram_unavailable"
-  | "send_failed"
-  | "render_or_send_error";
 
 export interface DeliveryResult {
   ok: boolean;
@@ -103,7 +101,10 @@ export async function deliverSmartDigest(
   if (!telegram?.sendPhoto) {
     result = { ok: false, reason: "telegram_unavailable" };
   } else if (!rendered) {
-    result = { ok: false, reason: "render_or_send_error" };
+    // `renderSmartDigestCard` returned null — the brief never produced a
+    // photo buffer. This is distinct from a downstream send error so the
+    // operator can attribute regressions to the rendering pipeline.
+    result = { ok: false, reason: "render_failed" };
   } else {
     try {
       const r = await telegram.sendPhoto({
@@ -125,7 +126,7 @@ export async function deliverSmartDigest(
         { err, clerkUserId: target.clerkUserId, symbol: brief.ticker },
         "Failed to send Smart Digest card",
       );
-      result = { ok: false, reason: "render_or_send_error" };
+      result = { ok: false, reason: "send_error" };
     }
   }
 

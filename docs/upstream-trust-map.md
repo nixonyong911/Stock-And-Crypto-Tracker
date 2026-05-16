@@ -728,3 +728,45 @@ New indexes: `idx_url_artifact (artifact_kind, artifact_id)`, `idx_url_failed (d
 - No backfill of old rows (pre-Step-15 rows keep `artifact_kind=NULL` forever).
 - No real foreign key to artifact tables.
 - No multi-channel delivery (schema is ready but code stays Telegram-only).
+
+---
+
+## Step 15.2 — Delivery-ledger cleanup & consistency
+
+Migration: `026_user_recommendation_log_drop_ticker_not_null.sql`
+Writers: `digest-delivery.ts`, `daily-overview-broadcaster.ts`
+New modules: `delivery-failure.ts`, `delivery-ledger-queries.ts`, `digest-preferences.ts`
+
+Step 15.2 closes the gaps that Step 15.1 deliberately left open after the canonical-artifact + ledger-row pivot. No schema drops, no backfill, no flag removal — those remain Step 16.
+
+### What changed
+
+| Slice | Theme |
+|---|---|
+| A | Unified `DeliveryFailureReason` taxonomy: `'telegram_unavailable' \| 'render_failed' \| 'send_failed' \| 'send_error'`. Smart Digest's overloaded `'render_or_send_error'` is split into `'render_failed'` (no card buffer) and `'send_error'` (channel call threw). Daily Overview's inline string literals are replaced with the typed values. |
+| B | Failed-path test coverage on both writers (`digest-delivery.failed-paths.test.ts`, broadcaster failure block). Closes the Step 15.1 caveat that the failed shape was unverified at runtime. |
+| C | Daily Overview now consults `user_recommendation_log` per-user before sending. The Redis short-circuit `digest:overview:sent:{date}:{session}` remains the cheap fast-path; `loadAlreadyDeliveredUserIds(db, artifact)` in `delivery-ledger-queries.ts` is the authoritative second gate. Survives Redis TTL expiry, crash recovery, manual replay. |
+| D | Smart Digest cap counts only successful sends. `recordDigestSent` was moved from before `deliverSmartDigest` to after, gated on `delivery.ok`. A user whose `sendPhoto` fails no longer "spends" a daily slot to errors. |
+| E | Unified preference resolution in `digest-preferences.ts`. Both Smart Digest (via `checkDigestThrottle`) and Daily Overview (defense-in-depth, behind the existing DB filter) now agree on the default-on policy when a `user_digest_preferences` row is missing. |
+| F | `OVERVIEW_ALLOWED_USERS` allowlist removed. Was a 14.2-era staging guardrail; production cutover is complete. |
+| G | Daily Overview ledger row stops carrying synthetic denorms: `ticker_symbol`, `priority`, `headline`, `timeframe_alignment` are now `NULL` on the new path. `recommendation_type` stays populated as the legitimate row-type discriminator that the RUNBOOK §4 audit query groups by. Migration 026 drops `NOT NULL` from `ticker_symbol` to make this safe. |
+| H | `verify-digest.ts`: cap audit scoped to `recommendation_type != 'daily_overview' AND delivery_status='sent'`; tri-bucket row-shape distribution (`artifact_linked` / `legacy_message_body` / `legacy_empty`); new failure-reason vocabulary check; ≥95% artifact-linkage floor when ≥20 recent rows. `inspect-digest.ts`: distinct labels for `broken_artifact_link` vs `legacy_pre_15_1`. |
+| I | Ledger-row invariant tests pin the 5 invariants every new write must satisfy: status enum, artifact pair, `message_body=NULL`, failed→reason set & valid, sent→reason null. Asserted across both writers via captured INSERT params. |
+
+### Key design choices
+
+- **Per-artifact, per-user dedup, not per-day.** Slice C's lookup keys on `(artifact_kind, artifact_id)` from migration 025's `idx_url_artifact`. Re-broadcasting the same artifact is idempotent at the user level; broadcasting a *different* artifact (later in the day, after the Redis key expires) is allowed and produces a new row.
+- **`recommendation_type` is the row-type discriminator that survives.** All other denorm columns are NULL on the new path; this one stays because RUNBOOK §4 groups by it and `verify-digest.ts` uses it to scope the cap audit.
+- **DB-level pref filter kept as fast-path.** Slice E adds the typed helper but does not remove the `COALESCE(dp.daily_overview_enabled, true) = true` filter in the recipient SQL — that collapse is a Step 16 concern.
+- **`render_or_send_error` is gone.** Anyone grepping production logs for that string will find nothing post-deploy. The two replacement values (`render_failed`, `send_error`) are documented in RUNBOOK §4.
+
+### What this step intentionally does NOT do
+
+- No `DROP COLUMN` against `user_recommendation_log` (`message_body`, `headline`, `priority`, `timeframe_alignment` columns remain — Step 16).
+- No backfill of pre-Step-15 rows.
+- No real foreign keys to `analysis_smart_digest.id` / `analysis_daily_overview.id` (Step 16).
+- No removal of `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED` / `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED` flags. Flag-off remains the regression escape hatch.
+- No multi-channel delivery (`channel_type` stays effectively constant).
+- No sweepers / supersession of stuck artifacts (Step 16).
+- No replacement of the per-user Redis Smart Digest cap with a ledger-derived cap (Step 16).
+- No reopening of Step 12 (memory) or Step 13 (curator).

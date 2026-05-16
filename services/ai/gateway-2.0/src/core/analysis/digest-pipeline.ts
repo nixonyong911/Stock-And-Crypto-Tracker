@@ -274,9 +274,13 @@ async function fanOutToWatchers(
       const throttle = await checkDigestThrottle({ db, redis }, target.clerkUserId);
       if (!throttle.ok) continue;
 
-      await recordDigestSent({ db, redis }, target.clerkUserId);
-
-      await deliverSmartDigest(
+      // Step 15.2 (slice D): cap is consumed only on a successful send.
+      // Pre-15.2 we incremented the counter before delivery, so a watcher
+      // whose `sendPhoto` failed (e.g. `telegram_unavailable`,
+      // `render_failed`, `send_error`) still "spent" a slot and could
+      // silently lose all 6 daily sends to errors. The new ledger
+      // `delivery_status` makes this safe to gate on success.
+      const delivery = await deliverSmartDigest(
         { db, extensions, log },
         target,
         brief,
@@ -284,7 +288,10 @@ async function fanOutToWatchers(
         rendered,
         artifactRef,
       );
-      sent++;
+      if (delivery.ok) {
+        await recordDigestSent({ db, redis }, target.clerkUserId);
+        sent++;
+      }
     } catch (err) {
       log.error(
         { err, clerkUserId: target.clerkUserId, symbol },

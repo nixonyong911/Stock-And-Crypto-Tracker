@@ -72,13 +72,29 @@ interface LogRow {
 }
 
 interface ParsedBrief {
-  shape: "json" | "legacy_markdown" | "empty" | "artifact_linked";
+  shape:
+    | "json"
+    | "legacy_markdown"
+    | "legacy_pre_15_1"
+    | "broken_artifact_link"
+    | "artifact_linked";
   brief?: Record<string, unknown>;
   raw?: string;
 }
 
-function parseMessageBody(body: string | null): ParsedBrief {
-  if (!body || body.trim().length === 0) return { shape: "empty" };
+/**
+ * Step 15.2: cutover happened on 2026-04-01 in production. Anything
+ * older than that with `message_body=NULL` and no `artifact_kind` is
+ * an expected legacy shape, not data corruption.
+ */
+const STEP_15_1_CUTOVER = new Date("2026-04-01T00:00:00Z").getTime();
+
+function parseMessageBody(row: LogRow): ParsedBrief {
+  const body = row.message_body;
+  if (!body || body.trim().length === 0) {
+    const isPreCutover = new Date(row.sent_at).getTime() < STEP_15_1_CUTOVER;
+    return { shape: isPreCutover ? "legacy_pre_15_1" : "broken_artifact_link" };
+  }
   const trimmed = body.trim();
   if (trimmed.startsWith("{")) {
     try {
@@ -260,11 +276,17 @@ async function main() {
           console.log(`  top_stories: ${JSON.stringify(artifact["top_stories"])?.slice(0, 200)}`);
         }
       } else {
-        parsed = parseMessageBody(row.message_body);
-        console.log(`\n[artifact] WARN: ${row.artifact_kind} #${row.artifact_id} not found in artifact table`);
+        // Step 15.2: this is a real anomaly — the row claims an
+        // artifact link but the artifact has been deleted, invalidated,
+        // or never existed. Distinct from "no artifact_kind set".
+        parsed = { shape: "broken_artifact_link" };
+        console.log(
+          `\n[artifact] WARN: link broken — ${row.artifact_kind} #${row.artifact_id} ` +
+            `not found in artifact table (deleted, invalidated, or never persisted)`,
+        );
       }
     } else {
-      parsed = parseMessageBody(row.message_body);
+      parsed = parseMessageBody(row);
     }
     printBrief(row, parsed);
     if (args.replay) {

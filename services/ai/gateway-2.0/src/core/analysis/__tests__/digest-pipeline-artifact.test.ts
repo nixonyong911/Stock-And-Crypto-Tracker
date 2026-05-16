@@ -533,3 +533,77 @@ describe("delivery — Step 15 artifact ref threading", () => {
     expect(brief).toHaveProperty("confidence");
   });
 });
+
+// ── F. Step 15.2 — cap-not-incremented-on-failure (slice D) ──────────
+
+describe("Step 15.2 — cap consumed only on successful delivery", () => {
+  it("recordDigestSent is invoked when delivery succeeds", async () => {
+    const { recordDigestSent } = await import("../digest-eligibility.js");
+    setupDetectSignals("AAPL", "stock");
+    vi.mocked(deliverSmartDigest).mockResolvedValueOnce({ ok: true });
+    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+
+    await processRecommendations(deps, "stock");
+
+    expect(recordDigestSent).toHaveBeenCalledTimes(1);
+    expect(recordDigestSent).toHaveBeenCalledWith(
+      expect.anything(),
+      "user-1",
+    );
+  });
+
+  it("recordDigestSent is NOT invoked when delivery fails (telegram_unavailable)", async () => {
+    const { recordDigestSent } = await import("../digest-eligibility.js");
+    setupDetectSignals("AAPL", "stock");
+    vi.mocked(deliverSmartDigest).mockResolvedValueOnce({
+      ok: false,
+      reason: "telegram_unavailable",
+    });
+    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+
+    await processRecommendations(deps, "stock");
+
+    expect(recordDigestSent).not.toHaveBeenCalled();
+  });
+
+  it("recordDigestSent is NOT invoked when delivery fails (render_failed)", async () => {
+    const { recordDigestSent } = await import("../digest-eligibility.js");
+    setupDetectSignals("AAPL", "stock");
+    vi.mocked(deliverSmartDigest).mockResolvedValueOnce({
+      ok: false,
+      reason: "render_failed",
+    });
+    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+
+    await processRecommendations(deps, "stock");
+
+    expect(recordDigestSent).not.toHaveBeenCalled();
+  });
+
+  it("recordDigestSent is NOT invoked when delivery fails (send_error)", async () => {
+    const { recordDigestSent } = await import("../digest-eligibility.js");
+    setupDetectSignals("AAPL", "stock");
+    vi.mocked(deliverSmartDigest).mockResolvedValueOnce({
+      ok: false,
+      reason: "send_error",
+    });
+    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+
+    await processRecommendations(deps, "stock");
+
+    expect(recordDigestSent).not.toHaveBeenCalled();
+  });
+
+  it("`sent` count reflects only successful deliveries", async () => {
+    setupDetectSignals("AAPL", "stock");
+    vi.mocked(deliverSmartDigest).mockResolvedValueOnce({
+      ok: false,
+      reason: "send_failed",
+    });
+    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+
+    const result = await processRecommendations(deps, "stock");
+
+    expect(result.sent).toBe(0);
+  });
+});

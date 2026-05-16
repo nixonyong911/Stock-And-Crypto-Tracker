@@ -248,6 +248,21 @@ GROUP BY delivery_failure_reason
 ORDER BY total DESC;
 ```
 
+**Step 15.2 vocabulary** (the only values that should appear on rows
+written by the post-15.2 code):
+
+| value                  | source                                                                |
+| ---------------------- | --------------------------------------------------------------------- |
+| `telegram_unavailable` | Telegram extension missing or `sendPhoto` not registered              |
+| `render_failed`        | Smart Digest card render returned no buffer (split from old `render_or_send_error`) |
+| `send_failed`          | Channel resolved with `{ ok: false }`                                 |
+| `send_error`           | Channel call threw                                                    |
+
+The pre-15.2 value `render_or_send_error` should not appear on rows
+written after the Step 15.2 deploy. The `OVERVIEW_ALLOWED_USERS` env was
+also removed in 15.2 — daily overview now respects only the
+`daily_overview_enabled` preference column.
+
 ### Check daily cap enforcement
 
 No user should receive more than 6 recommendations per day:
