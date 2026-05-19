@@ -791,3 +791,46 @@ Step 15.3 closes the last asymmetry between Smart Digest and Daily Overview ledg
 - No removal of flag-off test coverage — those code paths are still exercisable.
 - No `DROP COLUMN` on either table.
 - No schema migration.
+
+## Step 15.4 — Operator surface alignment
+
+> Positioning: aligns operator-facing surfaces (RUNBOOK audit queries, verify/inspect scripts) with the fully-normalized post-15.3 ledger. No production runtime behavior changes, no schema changes, no flag removal.
+
+After 15.3 the delivery code is correct and fully normalized — both Smart Digest and Daily Overview write NULL for `priority`, `headline`, `message_body`, and `timeframe_alignment` on every new ledger row. What remained was an **operator surface mismatch**: the RUNBOOK, verify/inspect scripts, and labels still carried assumptions from the transitional 15.1–15.2 era. Step 15.4 closes that gap.
+
+### Prerequisite (gate)
+
+Before any code change, a live-DB query confirmed that no row in the last 48 hours carried non-NULL legacy denorms. The same invariant is enforced going forward by `verify-digest.ts` (Slice B) and the new rolling RUNBOOK query (Slice A).
+
+### Changes
+
+| Slice | Description |
+|-------|-------------|
+| A | `RUNBOOK.md` SS4: "Recent recommendations sent" now groups by `artifact_kind` instead of the always-NULL `priority`; "Check daily cap enforcement" is now scoped to Smart Digest + sent-only deliveries, matching `verify-digest.ts`; added a rolling 7-day denorm-clean audit query. |
+| B | `scripts/verify/verify-digest.ts`: added a recent-window denorm integrity check (`No recent row has non-NULL legacy denorms (last 48 h)`) reusing the existing `recentRows` slice; added `priority` to the row SELECT and `LogRow` type; updated the row-shape section header (no longer references "Step 15.2") and the "unlinked" line label. |
+| C | `scripts/verify/inspect-digest.ts`: added a new `unlinked_post_15_1` shape that uses the existing `STEP_15_1_CUTOVER` boundary to distinguish post-cutover unlinked rows (flag-off or unconfigured) from pre-15.1 legacy empty rows. The previous `broken_artifact_link` shape remains, restricted to its real meaning — `artifact_kind`/`artifact_id` set but the artifact row missing. Updated the module doc comment to describe the post-15.3 shape. |
+| D | This `upstream-trust-map.md` section and a brief completion note in `RUNBOOK.md` SS4. |
+
+### What this step intentionally does NOT do
+
+- No removal of `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED` / `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED` flags — Step 16.
+- No removal of `synthesizeOverview` from broadcaster or `market-overview.ts` — Step 16.
+- No removal of `canonicalArtifactEnabled` from deps interfaces — Step 16.
+- No removal of flag-off test coverage — Step 16.
+- No `DROP COLUMN` on `user_recommendation_log` or `analysis_daily_overview` — Step 16.
+- No backfill of pre-Step-15 rows with artifact links — Step 16.
+- No real foreign keys (`artifact_id` → artifact tables) — Step 16.
+- No sweeping of stuck/pending artifacts or auto-supersession — Step 16.
+- No replacement of the per-user Redis Smart Digest cap with a ledger-derived cap — Step 16.
+- No UI / back-office surfacing of the ledger.
+- No reopening of Step 12 (memory) or Step 13 (curator).
+- No production code comment or test section-name normalization (`// Step 15.2 (slice G): …`, `describe("Step 15.2 — …")`) — archaeologically useful, directionally correct, defer to organic cleanup.
+
+### Files touched
+
+- `RUNBOOK.md` — SS4 audit queries
+- `scripts/verify/verify-digest.ts`
+- `scripts/verify/inspect-digest.ts`
+- `docs/upstream-trust-map.md` (this section)
+
+No production gateway `.ts` files, no migrations, no tests, no frontend.

@@ -6,6 +6,14 @@
  * stored in `message_body`, and prints a human-readable summary that a
  * reviewer can use to debug a specific delivery.
  *
+ * Post-15.3 ledger shape: every new row from both writers (Smart Digest
+ * and Daily Overview) has NULL denorms (`priority`, `headline`,
+ * `message_body`, `timeframe_alignment`). The only meaningful content
+ * lives in the artifact tables (`analysis_smart_digest`,
+ * `analysis_daily_overview`). A flag-off row produces a valid but
+ * content-sparse ledger entry — same NULL shape as a pre-15.1 empty row,
+ * distinguished here by `sent_at` against `STEP_15_1_CUTOVER`.
+ *
  * If `--replay` is supplied the script also runs the live debug builder
  * (the same code path as `POST /internal/debug-digest`) for the same
  * symbol against the current DB and prints the resulting `truthFlags`
@@ -76,6 +84,7 @@ interface ParsedBrief {
     | "json"
     | "legacy_markdown"
     | "legacy_pre_15_1"
+    | "unlinked_post_15_1"
     | "broken_artifact_link"
     | "artifact_linked";
   brief?: Record<string, unknown>;
@@ -83,9 +92,21 @@ interface ParsedBrief {
 }
 
 /**
- * Step 15.2: cutover happened on 2026-04-01 in production. Anything
- * older than that with `message_body=NULL` and no `artifact_kind` is
- * an expected legacy shape, not data corruption.
+ * Step 15.1 cutover happened on 2026-04-01 in production. Used to
+ * distinguish two NULL-denorm shapes that look identical:
+ *
+ *   - `legacy_pre_15_1`    — `sent_at < STEP_15_1_CUTOVER`. Pre-cutover
+ *                            empty row from before the delivery-ledger
+ *                            pivot; expected legacy shape.
+ *   - `unlinked_post_15_1` — `sent_at >= STEP_15_1_CUTOVER`. Post-cutover
+ *                            ledger row with no artifact link. This is
+ *                            the normal shape for a flag-off path (when
+ *                            `*_CANONICAL_ARTIFACT_ENABLED` is off) or
+ *                            an unconfigured writer. Not corruption.
+ *
+ * A genuinely broken link — `artifact_kind`/`artifact_id` set but the
+ * artifact row missing — is reported separately as `broken_artifact_link`
+ * downstream in the resolve path.
  */
 const STEP_15_1_CUTOVER = new Date("2026-04-01T00:00:00Z").getTime();
 
@@ -93,7 +114,7 @@ function parseMessageBody(row: LogRow): ParsedBrief {
   const body = row.message_body;
   if (!body || body.trim().length === 0) {
     const isPreCutover = new Date(row.sent_at).getTime() < STEP_15_1_CUTOVER;
-    return { shape: isPreCutover ? "legacy_pre_15_1" : "broken_artifact_link" };
+    return { shape: isPreCutover ? "legacy_pre_15_1" : "unlinked_post_15_1" };
   }
   const trimmed = body.trim();
   if (trimmed.startsWith("{")) {

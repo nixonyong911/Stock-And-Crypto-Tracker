@@ -21,6 +21,7 @@ interface LogRow {
   sent_at: string;
   message_body: string | null;
   headline: string | null;
+  priority: string | null;
   recommendation_type: string | null;
   artifact_kind: string | null;
   artifact_id: number | null;
@@ -93,7 +94,7 @@ async function main() {
 
   const { data: allLogs } = await supabase
     .from("user_recommendation_log")
-    .select("clerk_user_id, sent_at, message_body, headline, recommendation_type, artifact_kind, artifact_id, channel_type, delivery_status, delivery_failure_reason");
+    .select("clerk_user_id, sent_at, message_body, headline, priority, recommendation_type, artifact_kind, artifact_id, channel_type, delivery_status, delivery_failure_reason");
 
   if (!allLogs) {
     check("user_recommendation_log readable", false, "query returned null");
@@ -178,6 +179,23 @@ async function main() {
     `${inconsistent.length} inconsistent out of ${recentRows.length} recent rows`,
   );
 
+  // Step 15.4: post-15.3 invariant — no recent ledger row should carry
+  // legacy denorm values. The prerequisite DB query confirmed this held
+  // before the script change landed; this check enforces it on every
+  // subsequent run so a regression that reintroduces denorm writes is
+  // caught immediately.
+  const recentDenormLeaks = recentRows.filter(
+    (r) =>
+      r.priority != null || r.headline != null || r.message_body != null,
+  );
+  check(
+    "No recent row has non-NULL legacy denorms (last 48 h)",
+    recentDenormLeaks.length === 0,
+    recentDenormLeaks.length > 0
+      ? `${recentDenormLeaks.length} of ${recentRows.length} recent rows have non-NULL denorms`
+      : `${recentRows.length} recent rows, all clean`,
+  );
+
   // Step 15.2 (slice H): post-cutover floor — at least 95% of recent rows
   // must be artifact-linked. Slack threshold: skip the floor if there are
   // very few recent rows (avoids noise in low-traffic windows).
@@ -197,7 +215,9 @@ async function main() {
 
   console.log("\n── Artifact linkage (last 48 h) ──");
   console.log(`  linked:   ${linkedRecent.length}`);
-  console.log(`  unlinked: ${unlinkedRecent.length} (legacy / flag-off)`);
+  console.log(
+    `  unlinked: ${unlinkedRecent.length} (pre-15.1 legacy or current flag-off)`,
+  );
   console.log(`  total:    ${recentRows.length}`);
 
   // ── Delivery status distribution (Step 15) ──
@@ -237,7 +257,7 @@ async function main() {
       : "all in {telegram_unavailable, render_failed, send_failed, send_error}",
   );
 
-  console.log("\n── Step 15.2 row-shape distribution ──");
+  console.log("\n── Row-shape distribution ──");
   console.log(`  artifact_linked:     ${shapeCounts.artifact_linked}`);
   console.log(`  legacy_message_body: ${shapeCounts.legacy_message_body}`);
   console.log(`  legacy_empty:        ${shapeCounts.legacy_empty}`);

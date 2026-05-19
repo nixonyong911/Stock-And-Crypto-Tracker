@@ -210,13 +210,19 @@ Response should include `eligible: true/false` and `reason` if ineligible.
 ### Recent recommendations sent
 
 ```sql
-SELECT recommendation_type, priority, delivery_status, COUNT(*) AS total,
+SELECT recommendation_type, artifact_kind, delivery_status,
+       COUNT(*) AS total,
        MIN(sent_at) AS earliest, MAX(sent_at) AS latest
 FROM user_recommendation_log
 WHERE sent_at > NOW() - INTERVAL '24 hours'
-GROUP BY recommendation_type, priority, delivery_status
+GROUP BY recommendation_type, artifact_kind, delivery_status
 ORDER BY total DESC;
 ```
+
+Post-15.3 the `priority` column is always NULL on new rows, so it was
+dropped from this audit in favour of `artifact_kind`, which distinguishes
+flag-on rows (`smart_digest` / `daily_overview`) from flag-off rows
+(`NULL`).
 
 ### Artifact-linked delivery rows (Step 15)
 
@@ -270,14 +276,43 @@ artifact tables (`analysis_smart_digest`, `analysis_daily_overview`) are
 the source of truth for content. The `*_CANONICAL_ARTIFACT_ENABLED` env
 flags remain available as an emergency rollback mechanism.
 
+**Step 15.4 operator alignment:** The audit queries in this section
+have been aligned with the post-15.3 ledger — `priority` was removed
+from the recommendations breakdown (always NULL), the cap query is now
+scoped to Smart Digest + sent-only deliveries, and the rolling
+denorm-clean audit below is the operator-facing counterpart of the
+`No recent row has non-NULL legacy denorms (last 48 h)` invariant that
+`verify-digest.ts` now enforces on every run.
+
+### Rolling denorm-clean audit (Step 15.4)
+
+A rolling-window check that does not depend on any hardcoded cutover
+date. Any non-zero result is a regression signal — a recent code path
+has reintroduced legacy denorm writes:
+
+```sql
+SELECT COUNT(*) FROM user_recommendation_log
+WHERE sent_at > NOW() - INTERVAL '7 days'
+  AND (priority IS NOT NULL OR headline IS NOT NULL
+       OR message_body IS NOT NULL OR timeframe_alignment IS NOT NULL);
+```
+
+Should return **zero**. `verify-digest.ts` enforces the same invariant
+over the last 48 hours on every run.
+
 ### Check daily cap enforcement
 
-No user should receive more than 6 recommendations per day:
+No user should receive more than 6 Smart Digest recommendations per day.
+The cap applies only to Smart Digest deliveries that actually went out —
+daily-overview rows and failed deliveries do not count. This matches the
+scoping used by `verify-digest.ts`:
 
 ```sql
 SELECT clerk_user_id, sent_at::date AS day, COUNT(*) AS daily_count
 FROM user_recommendation_log
 WHERE sent_at > NOW() - INTERVAL '7 days'
+  AND recommendation_type != 'daily_overview'
+  AND delivery_status = 'sent'
 GROUP BY clerk_user_id, sent_at::date
 HAVING COUNT(*) > 6
 ORDER BY daily_count DESC;
