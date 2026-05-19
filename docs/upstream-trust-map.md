@@ -770,3 +770,24 @@ Step 15.2 closes the gaps that Step 15.1 deliberately left open after the canoni
 - No sweepers / supersession of stuck artifacts (Step 16).
 - No replacement of the per-user Redis Smart Digest cap with a ledger-derived cap (Step 16).
 - No reopening of Step 12 (memory) or Step 13 (curator).
+
+## Step 15.3 — Final denorm normalization
+
+> Positioning: completes the ledger normalization that 15.2 began. No schema changes, no flag removal, no architectural lock-in.
+
+Step 15.3 closes the last asymmetry between Smart Digest and Daily Overview ledger writes, and removes a dead write on the artifact table.
+
+### Changes
+
+| Slice | Description |
+|-------|-------------|
+| A | Smart Digest ledger INSERT now writes NULL for `priority`, `headline`, `message_body`, and `timeframe_alignment` — matching Daily Overview's shape from 15.2 slice G. `ticker_symbol` and `recommendation_type` remain populated (they carry real, non-legacy data on the Smart Digest path). |
+| B | `analysis_daily_overview.message_body` is no longer written by the orchestrator. The `messageBody` param is removed from `MarkOverviewReadyParams` and the UPDATE SQL. The column stays in the schema; it was already NULL on every row written post-15.1. |
+
+### What this step intentionally does NOT do
+
+- No removal of `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED` / `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED` flags — those are an operational escape hatch preserved for Step 16.
+- No removal of `synthesizeOverview` from the broadcaster — still reachable via the flag-off path.
+- No removal of flag-off test coverage — those code paths are still exercisable.
+- No `DROP COLUMN` on either table.
+- No schema migration.

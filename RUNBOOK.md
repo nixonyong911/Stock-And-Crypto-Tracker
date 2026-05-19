@@ -263,6 +263,13 @@ written after the Step 15.2 deploy. The `OVERVIEW_ALLOWED_USERS` env was
 also removed in 15.2 — daily overview now respects only the
 `daily_overview_enabled` preference column.
 
+**Step 15.3 denorm normalization:** As of Step 15.3, both Smart Digest
+and Daily Overview write NULL for `priority`, `headline`,
+`message_body`, and `timeframe_alignment` on every new ledger row. The
+artifact tables (`analysis_smart_digest`, `analysis_daily_overview`) are
+the source of truth for content. The `*_CANONICAL_ARTIFACT_ENABLED` env
+flags remain available as an emergency rollback mechanism.
+
 ### Check daily cap enforcement
 
 No user should receive more than 6 recommendations per day:

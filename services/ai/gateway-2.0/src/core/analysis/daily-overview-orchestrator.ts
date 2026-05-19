@@ -163,7 +163,6 @@ export async function orchestrateDailyOverviewArtifact(
         },
         narrative: b.narrative,
         topStories: b.topStories,
-        messageBody: null,
         llmDurationMs: b.durationMs,
       });
     },

@@ -216,7 +216,6 @@ describe("markOverviewReady", () => {
       payload: { snapshot: {}, synthesis: {} },
       narrative: "Markets were up",
       topStories: ["Story 1"],
-      messageBody: "*Morning Brief*\nMarkets were up",
       llmDurationMs: 5000,
     });
     expect(ok).toBe(true);
@@ -233,7 +232,6 @@ describe("markOverviewReady", () => {
       payload: {},
       narrative: null,
       topStories: null,
-      messageBody: null,
       llmDurationMs: null,
     });
     expect(queries[0]!.sql).toContain("IN ('pending', 'generating')");
@@ -250,7 +248,6 @@ describe("markOverviewReady", () => {
       payload: {},
       narrative: "Template narrative",
       topStories: [],
-      messageBody: null,
       llmDurationMs: null,
     });
     expect(queries[0]!.params).toContain("template_fallback");

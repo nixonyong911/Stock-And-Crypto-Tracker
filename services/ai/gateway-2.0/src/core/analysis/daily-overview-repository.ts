@@ -81,7 +81,6 @@ export interface MarkOverviewReadyParams {
   payload: Record<string, unknown>;
   narrative: string | null;
   topStories: string[] | null;
-  messageBody: string | null;
   llmDurationMs: number | null;
 }
 
@@ -249,8 +248,7 @@ export async function markOverviewReady(
          payload          = $3,
          narrative        = $4,
          top_stories      = $5,
-         message_body     = $6,
-         llm_duration_ms  = $7
+         llm_duration_ms  = $6
      WHERE id = $1 AND status IN ('pending', 'generating')`,
     [
       params.id,
@@ -258,7 +256,6 @@ export async function markOverviewReady(
       JSON.stringify(params.payload),
       params.narrative,
       params.topStories ? JSON.stringify(params.topStories) : null,
-      params.messageBody,
       params.llmDurationMs,
     ],
   );
