@@ -308,8 +308,9 @@ also removed in 15.2 — daily overview now respects only the
 and Daily Overview write NULL for `priority`, `headline`,
 `message_body`, and `timeframe_alignment` on every new ledger row. The
 artifact tables (`analysis_smart_digest`, `analysis_daily_overview`) are
-the source of truth for content. The `*_CANONICAL_ARTIFACT_ENABLED` env
-flags remain available as an emergency rollback mechanism.
+the sole source of truth for content. As of Step 16.1, the canonical
+artifact path is the only code path — the `*_CANONICAL_ARTIFACT_ENABLED`
+env flags and their fallback branches have been removed.
 
 **Step 15.4 operator alignment:** The audit queries in this section
 have been aligned with the post-15.3 ledger — `priority` was removed

@@ -52,7 +52,6 @@ import type { DigestTarget } from "../digest-eligibility.js";
 
 vi.mock("../market-overview.js", () => ({
   buildMarketSnapshot: vi.fn(),
-  synthesizeOverview: vi.fn(),
   synthesizeOverviewCore: vi.fn(),
   formatMorningBrief: vi.fn(() => "Morning"),
   formatEveningRecap: vi.fn(() => "Recap"),
@@ -69,7 +68,6 @@ vi.mock("../daily-overview-orchestrator.js", () => ({
 import { broadcastDailyOverview } from "../daily-overview-broadcaster.js";
 import {
   buildMarketSnapshot,
-  synthesizeOverview,
 } from "../market-overview.js";
 import { orchestrateDailyOverviewArtifact } from "../daily-overview-orchestrator.js";
 
@@ -132,10 +130,6 @@ const MINIMAL_SNAPSHOT = {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(buildMarketSnapshot).mockResolvedValue(MINIMAL_SNAPSHOT);
-  vi.mocked(synthesizeOverview).mockResolvedValue({
-    narrative: "Legacy narrative",
-    topStories: [],
-  });
   vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
     source: "fresh",
     artifactId: 11,
@@ -184,13 +178,11 @@ function makeSDDeps(opts: { telegram: unknown }): {
 function makeDODeps(
   recipients: Array<{ clerk_user_id: string; platform_user_id: string }>,
   telegramSendText: () => Promise<unknown>,
-  canonicalArtifactEnabled: boolean,
 ): {
   db: { query: ReturnType<typeof vi.fn> };
   redis: Record<string, ReturnType<typeof vi.fn>>;
   extensions: { get: ReturnType<typeof vi.fn> };
   log: Record<string, ReturnType<typeof vi.fn>>;
-  canonicalArtifactEnabled: boolean;
   _queries: CapturedQuery[];
 } {
   const queries: CapturedQuery[] = [];
@@ -217,7 +209,6 @@ function makeDODeps(
       fatal: vi.fn(),
       child: vi.fn(),
     },
-    canonicalArtifactEnabled,
     _queries: queries,
   };
 }
@@ -300,7 +291,7 @@ describe("ledger invariants — Smart Digest writer", () => {
       artifact: SD_ARTIFACT as ArtifactRef | null,
     },
     {
-      label: "flag-off (no artifact ref)",
+      label: "no artifact ref (orchestrator fallback)",
       telegram: { sendPhoto: vi.fn(async () => ({ ok: true })) },
       rendered: { photo: Buffer.from("png"), caption: "cap" },
       artifact: null as ArtifactRef | null,
@@ -328,37 +319,23 @@ describe("ledger invariants — Smart Digest writer", () => {
 describe("ledger invariants — Daily Overview writer", () => {
   it.each([
     {
-      label: "happy path (flag-on)",
+      label: "happy path",
       send: async () => ({ ok: true }),
-      flag: true,
     },
     {
-      label: "send_failed (flag-on)",
+      label: "send_failed",
       send: async () => ({ ok: false }),
-      flag: true,
     },
     {
-      label: "send_error (flag-on)",
+      label: "send_error",
       send: async () => {
         throw new Error("network");
       },
-      flag: true,
     },
-    {
-      label: "happy path (flag-off)",
-      send: async () => ({ ok: true }),
-      flag: false,
-    },
-    {
-      label: "send_failed (flag-off)",
-      send: async () => ({ ok: false }),
-      flag: false,
-    },
-  ])("upholds all 5 invariants — $label", async ({ send, flag }) => {
+  ])("upholds all 5 invariants — $label", async ({ send }) => {
     const deps = makeDODeps(
       [{ clerk_user_id: "u-1", platform_user_id: "c-1" }],
       send,
-      flag,
     );
 
     await broadcastDailyOverview(deps as never, "pre_market");
@@ -388,7 +365,6 @@ describe("ledger invariants — both writers share the column shape", () => {
     const doDeps = makeDODeps(
       [{ clerk_user_id: "u-1", platform_user_id: "c-1" }],
       async () => ({ ok: true }),
-      true,
     );
     await broadcastDailyOverview(doDeps as never, "pre_market");
 

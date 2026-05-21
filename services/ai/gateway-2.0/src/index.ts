@@ -103,7 +103,6 @@ async function main(): Promise<void> {
       extensions: result.extensions,
       log: app.log,
       briefMode: config.smartDigestBriefBlend ? "blended" : "strict",
-      canonicalArtifactEnabled: config.smartDigestCanonicalArtifactEnabled,
     });
     closePipelineConsumer = consumer.close;
 
@@ -124,8 +123,6 @@ async function main(): Promise<void> {
       curatorLlmTimeoutMs: config.curatorLlmTimeoutMs,
       curatorMaxStories: config.curatorMaxStories,
       curatorMaxStoriesPerBatch: config.curatorMaxStoriesPerBatch,
-      canonicalArtifactEnabled:
-        config.dailyOverviewCanonicalArtifactEnabled,
     });
     stopDigestScheduler = digestScheduler.stop;
   } catch (err) {

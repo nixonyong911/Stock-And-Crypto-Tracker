@@ -80,8 +80,6 @@ export function registerRecommendationRoutes(
             extensions,
             log: app.log,
             briefMode: config.smartDigestBriefBlend ? "blended" : "strict",
-            canonicalArtifactEnabled:
-              config.smartDigestCanonicalArtifactEnabled,
           },
           request.body?.assetType,
         );
@@ -135,8 +133,6 @@ export function registerRecommendationRoutes(
             redis,
             extensions,
             log: app.log,
-            canonicalArtifactEnabled:
-              config.dailyOverviewCanonicalArtifactEnabled,
             triggerReason: "http:trigger",
             triggerSource: "http_trigger" as const,
           },
@@ -340,28 +336,26 @@ export function registerRecommendationRoutes(
         }
 
         let artifactRef: ArtifactRef | null = null;
-        if (config.smartDigestCanonicalArtifactEnabled) {
-          try {
-            const { hash: truthHash } = await computeTruthFingerprint(db, symbol);
-            const { hash: contextHash } = await computeContextFingerprint(db, symbol);
-            const artifact = await getCurrentArtifact({
-              db,
-              symbol,
-              assetType,
-              briefMode,
-              truthHash,
-              contextHash,
-              schemaVersion: CURRENT_DIGEST_BRIEF_SCHEMA_VERSION,
-              generatorVersion: CURRENT_GENERATOR_VERSION,
-              promptVersion: CURRENT_PROMPT_VERSION,
-              maxAgeMs: 24 * 60 * 60 * 1000,
-            });
-            if (artifact) {
-              artifactRef = { kind: "smart_digest", id: artifact.id };
-            }
-          } catch (err) {
-            app.log.warn({ err, symbol }, "Opportunistic artifact lookup failed in force-send");
+        try {
+          const { hash: truthHash } = await computeTruthFingerprint(db, symbol);
+          const { hash: contextHash } = await computeContextFingerprint(db, symbol);
+          const artifact = await getCurrentArtifact({
+            db,
+            symbol,
+            assetType,
+            briefMode,
+            truthHash,
+            contextHash,
+            schemaVersion: CURRENT_DIGEST_BRIEF_SCHEMA_VERSION,
+            generatorVersion: CURRENT_GENERATOR_VERSION,
+            promptVersion: CURRENT_PROMPT_VERSION,
+            maxAgeMs: 24 * 60 * 60 * 1000,
+          });
+          if (artifact) {
+            artifactRef = { kind: "smart_digest", id: artifact.id };
           }
+        } catch (err) {
+          app.log.warn({ err, symbol }, "Opportunistic artifact lookup failed in force-send");
         }
 
         const rendered = await renderSmartDigestCard(brief, app.log);

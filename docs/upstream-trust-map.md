@@ -486,7 +486,7 @@ Optional narrowing: `--theme-id <uuid>`, `--limit N`.
 
 ## Step 14.1 — `analysis_smart_digest` (canonical per-ticker digest artifact)
 
-Writer: `services/ai/gateway-2.0/src/core/analysis/digest-pipeline.ts` (flag-gated via `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED`)
+Writer: `services/ai/gateway-2.0/src/core/analysis/digest-pipeline.ts` (unconditional since Step 16.1)
 Migration: `023_analysis_smart_digest.sql`
 
 ### Purpose
@@ -525,13 +525,13 @@ Decouples **content generation** from **per-user delivery**. Each generation att
 
 - Does not modify `deliverSmartDigest` or the `user_recommendation_log` INSERT shape.
 - Does not add `digest_id` to `user_recommendation_log` (Step 15).
-- Does not add maintenance jobs for superseding/reaping old rows (Step 16).
+- Does not add maintenance jobs for superseding/reaping old rows (deferred).
 - Does not cover Daily Overview canonicalization (Step 14.2).
 - Does not add LLM calls to per-ticker briefs (`prompt_version` remains NULL).
 
 ## Step 14.2 — `analysis_daily_overview` (canonical per-session daily overview artifact)
 
-Writer: `services/ai/gateway-2.0/src/core/analysis/daily-overview-broadcaster.ts` (flag-gated)
+Writer: `services/ai/gateway-2.0/src/core/analysis/daily-overview-broadcaster.ts` (unconditional since Step 16.1)
 Repository: `services/ai/gateway-2.0/src/core/analysis/daily-overview-repository.ts`
 Fingerprint: `services/ai/gateway-2.0/src/core/analysis/daily-overview-fingerprint.ts`
 Migration: `024_analysis_daily_overview.sql`
@@ -580,13 +580,13 @@ Decouples **LLM synthesis** from **per-user delivery**. Each generation attempt 
 - **Selection by query:** "current artifact" = `status='ready'` + matching hashes/versions + `overview_date` bound. No rolling freshness ceiling (the date IS the freshness bound). No `is_current` flag.
 - **Deploy-agnostic reuse:** `code_version` is stored for forensics but excluded from the reuse WHERE clause. Only `generator_version`, `prompt_version`, and `model_name` (all manually controlled) invalidate artifacts.
 - **Template fallback visibility:** when the LLM fails, a `ready` row with `synthesis_source='template_fallback'` is written so the broadcast still proceeds and the failure is auditable.
-- **Feature flag:** `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED` (default `false`). When off, the existing Redis-cached LLM path is used unchanged.
+- **Feature flag:** Removed in Step 16.1. The canonical path is now the only path.
 
 ### What this step intentionally does NOT do
 
 - Does not modify the `user_recommendation_log` INSERT shape or the Telegram fanout loop.
 - Does not add `overview_id` to `user_recommendation_log` (Step 15).
-- Does not add maintenance jobs for superseding/reaping old rows (Step 16).
+- Does not add maintenance jobs for superseding/reaping old rows (deferred).
 - Does not migrate `fetchPriorOverviews` to read from `analysis_daily_overview.narrative` instead of scraping `user_recommendation_log.message_body` (deferred to Step 14.2.x or Step 15).
 - Does not add per-locale synthesis (schema reserves `locale` column).
 
@@ -678,8 +678,8 @@ All endpoints require `x-service-key` matching `INTERNAL_SERVICE_KEY`.
 
 ### What this step intentionally does NOT do
 
-- No cron sweeper for stuck `pending`/`generating` rows (deferred to Step 16). The `inflight` endpoint is read-only.
-- No auto-supersession of older `ready` rows (deferred to Step 16).
+- No cron sweeper for stuck `pending`/`generating` rows (deferred). The `inflight` endpoint is read-only.
+- No auto-supersession of older `ready` rows (deferred).
 - No delivery-layer changes (`deliverSmartDigest`, `user_recommendation_log` shape, Redis dedup) — that is Step 15.
 - No digest `buildFallback` parity (deferred).
 - No schema migrations — all changes use existing columns already defined in 14.1/14.2.
@@ -762,13 +762,13 @@ Step 15.2 closes the gaps that Step 15.1 deliberately left open after the canoni
 
 ### What this step intentionally does NOT do
 
-- No `DROP COLUMN` against `user_recommendation_log` (`message_body`, `headline`, `priority`, `timeframe_alignment` columns remain — Step 16).
+- No `DROP COLUMN` against `user_recommendation_log` (`message_body`, `headline`, `priority`, `timeframe_alignment` columns remain — Step 16.2).
 - No backfill of pre-Step-15 rows.
-- No real foreign keys to `analysis_smart_digest.id` / `analysis_daily_overview.id` (Step 16).
-- No removal of `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED` / `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED` flags. Flag-off remains the regression escape hatch.
+- No real foreign keys to `analysis_smart_digest.id` / `analysis_daily_overview.id` (deferred).
+- Flag removal landed in Step 16.1.
 - No multi-channel delivery (`channel_type` stays effectively constant).
-- No sweepers / supersession of stuck artifacts (Step 16).
-- No replacement of the per-user Redis Smart Digest cap with a ledger-derived cap (Step 16).
+- No sweepers / supersession of stuck artifacts (deferred).
+- No replacement of the per-user Redis Smart Digest cap with a ledger-derived cap (deferred).
 - No reopening of Step 12 (memory) or Step 13 (curator).
 
 ## Step 15.3 — Final denorm normalization
@@ -786,9 +786,8 @@ Step 15.3 closes the last asymmetry between Smart Digest and Daily Overview ledg
 
 ### What this step intentionally does NOT do
 
-- No removal of `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED` / `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED` flags — those are an operational escape hatch preserved for Step 16.
-- No removal of `synthesizeOverview` from the broadcaster — still reachable via the flag-off path.
-- No removal of flag-off test coverage — those code paths are still exercisable.
+- Flag removal and `synthesizeOverview` wrapper deletion landed in Step 16.1.
+- Flag-off test coverage removed in Step 16.1.
 - No `DROP COLUMN` on either table.
 - No schema migration.
 
@@ -813,15 +812,12 @@ Before any code change, a live-DB query confirmed that no row in the last 48 hou
 
 ### What this step intentionally does NOT do
 
-- No removal of `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED` / `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED` flags — Step 16.
-- No removal of `synthesizeOverview` from broadcaster or `market-overview.ts` — Step 16.
-- No removal of `canonicalArtifactEnabled` from deps interfaces — Step 16.
-- No removal of flag-off test coverage — Step 16.
-- No `DROP COLUMN` on `user_recommendation_log` or `analysis_daily_overview` — Step 16.
-- No backfill of pre-Step-15 rows with artifact links — Step 16.
-- No real foreign keys (`artifact_id` → artifact tables) — Step 16.
-- No sweeping of stuck/pending artifacts or auto-supersession — Step 16.
-- No replacement of the per-user Redis Smart Digest cap with a ledger-derived cap — Step 16.
+- Flag removal, `synthesizeOverview` wrapper deletion, `canonicalArtifactEnabled` removal, and flag-off test cleanup all landed in Step 16.1.
+- No `DROP COLUMN` on `user_recommendation_log` or `analysis_daily_overview` — Step 16.2.
+- No backfill of pre-Step-15 rows with artifact links (deferred).
+- No real foreign keys (`artifact_id` → artifact tables) — deferred.
+- No sweeping of stuck/pending artifacts or auto-supersession (deferred).
+- No replacement of the per-user Redis Smart Digest cap with a ledger-derived cap (deferred).
 - No UI / back-office surfacing of the ledger.
 - No reopening of Step 12 (memory) or Step 13 (curator).
 - No production code comment or test section-name normalization (`// Step 15.2 (slice G): …`, `describe("Step 15.2 — …")`) — archaeologically useful, directionally correct, defer to organic cleanup.
@@ -834,3 +830,30 @@ Before any code change, a live-DB query confirmed that no row in the last 48 hou
 - `docs/upstream-trust-map.md` (this section)
 
 No production gateway `.ts` files, no migrations, no tests, no frontend.
+
+---
+
+## Step 16.1 — Architectural lock-in (escape-hatch removal)
+
+> Positioning: removes the `*_CANONICAL_ARTIFACT_ENABLED` feature flags, their fallback branches, the `synthesizeOverview` wrapper, and all flag-off test coverage. After this step, the canonical artifact path is the only code path through Smart Digest and Daily Overview.
+
+### What changed
+
+| Item | Description |
+|------|-------------|
+| A | `smartDigestCanonicalArtifactEnabled` and `dailyOverviewCanonicalArtifactEnabled` removed from `GatewayConfig`, `loadConfig()`, `PipelineConsumerDeps`, `ProcessRecommendationsDeps`, `DigestSchedulerDeps`, `BroadcastDeps`, and all call sites (`index.ts`, `pipeline-consumer.ts`, `digest-scheduler.ts`, `digest-pipeline.ts`, `daily-overview-broadcaster.ts`, `http/recommendations.ts`). |
+| B | `digest-pipeline.ts`: `runCtx` and `persistCanonicalArtifacts` are now unconditional. |
+| C | `daily-overview-broadcaster.ts`: the `if (deps.canonicalArtifactEnabled) { orchestrator } else { synthesizeOverview }` branch collapsed into the orchestrator-only path. `synthesizeOverview` import removed. |
+| D | `market-overview.ts`: the `synthesizeOverview()` wrapper deleted. `synthesizeOverviewCore`, `fetchPriorOverviews`, snapshot/format helpers all preserved — they are used by the orchestrator. |
+| E | `http/recommendations.ts`: artifact lookup in `force-send-digest` is now unconditional. |
+| F | Test files: `describe("flag OFF — legacy parity")` blocks deleted from `digest-pipeline-artifact.test.ts`, `daily-overview-broadcaster.test.ts`, `ledger-invariants.test.ts`. `canonicalArtifactEnabled` removed from `makeBaseDeps`/fixture configs in `artifact-admin-routes.test.ts`. At least one "INSERT SQL has the expected shape" assertion survives. |
+| G | `RUNBOOK.md`: escape-hatch wording updated to reflect the canonical path is the only path. |
+| H | `docker-compose.yml`: `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED=true` and `DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED=true` added as a pre-deploy step (flags were not set before; the gateway now ignores them either way). |
+
+### What this step intentionally does NOT do
+
+- No `DROP COLUMN` on `user_recommendation_log` or `analysis_daily_overview` — Step 16.2.
+- No changes to `scripts/verify/*.ts` or `scripts/verify/inspect-digest.ts` — those still read the legacy columns until Step 16.2.
+- No changes to `digest-delivery.ts` INSERT shape — the four NULL-writing denorm columns stay until Step 16.2.a.
+- No migration files.
+- No backfill, no FKs, no sweepers (deferred).

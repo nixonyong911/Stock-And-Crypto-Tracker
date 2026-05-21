@@ -40,8 +40,6 @@ function buildApp(): FastifyInstance {
       internalServiceKey: SERVICE_KEY,
       apiKey: "ak",
       smartDigestBriefBlend: false,
-      smartDigestCanonicalArtifactEnabled: false,
-      dailyOverviewCanonicalArtifactEnabled: false,
       telegramBotToken: "",
       telegramErrorChatId: "",
     } as never,

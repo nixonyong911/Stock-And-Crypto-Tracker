@@ -1,15 +1,17 @@
 /**
- * Step 14.2/14.3 + Step 15 broadcaster-level tests.
+ * Broadcaster-level tests (post-Step 16.1 — canonical path is the only path).
  *
  * Covers:
- *   A. Flag-off parity — legacy synthesizeOverview path, no artifact writes
- *   B. Flag-on write path — orchestrator invoked, synthesis from artifact
- *   C. Flag-on reuse path — existing artifact reused, synthesis skipped
- *   D. Fallback path visibility — template_fallback from orchestrator, broadcast proceeds
- *   E. Delivery ledger — Step 15 artifact linkage (artifact_kind, artifact_id),
- *      delivery_status, message_body=NULL cutover, always-insert semantics
+ *   A. Write path — orchestrator invoked, synthesis from artifact
+ *   B. Reuse path — existing artifact reused, synthesis skipped
+ *   C. Fallback path visibility — template_fallback from orchestrator, broadcast proceeds
+ *   D. Delivery ledger — artifact linkage (artifact_kind, artifact_id),
+ *      delivery_status, message_body=NULL, always-insert semantics
+ *   E. Synthetic denorm placeholders are NULL
+ *   F. Failed-path delivery
+ *   G. Per-user ledger dedup
  *
- * After 14.3, the broadcaster delegates to `orchestrateDailyOverviewArtifact`
+ * The broadcaster delegates to `orchestrateDailyOverviewArtifact`
  * which is mocked at the module boundary. The repo/fingerprint layer is tested
  * in `daily-overview-orchestrator.test.ts` instead.
  */
@@ -20,7 +22,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../market-overview.js", () => ({
   buildMarketSnapshot: vi.fn(),
-  synthesizeOverview: vi.fn(),
   synthesizeOverviewCore: vi.fn(),
   formatMorningBrief: vi.fn(
     (_snap: unknown, synth: { narrative: string } | null) =>
@@ -43,7 +44,6 @@ vi.mock("../daily-overview-orchestrator.js", () => ({
 import { broadcastDailyOverview, type BroadcastDeps } from "../daily-overview-broadcaster.js";
 import {
   buildMarketSnapshot,
-  synthesizeOverview,
   formatMorningBrief,
 } from "../market-overview.js";
 import { orchestrateDailyOverviewArtifact } from "../daily-overview-orchestrator.js";
@@ -150,10 +150,6 @@ function makeDepsWithRecipients(
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(buildMarketSnapshot).mockResolvedValue(MINIMAL_SNAPSHOT);
-  vi.mocked(synthesizeOverview).mockResolvedValue({
-    narrative: "Legacy narrative from LLM",
-    topStories: ["Story A"],
-  });
   vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
     source: "fresh",
     artifactId: 1,
@@ -169,53 +165,18 @@ beforeEach(() => {
   });
 });
 
-// ── A. Flag-off parity ────────────────────────────────────────────────
+// ── A. Artifact write path via orchestrator ───────────────────────────
 
-describe("flag OFF — legacy parity", () => {
-  it("does not call orchestrator", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    expect(orchestrateDailyOverviewArtifact).not.toHaveBeenCalled();
-  });
-
-  it("calls legacy synthesizeOverview path", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    expect(synthesizeOverview).toHaveBeenCalledTimes(1);
-  });
-
-  it("defaults to flag-off when canonicalArtifactEnabled is undefined", async () => {
+describe("artifact write path via orchestrator", () => {
+  it("calls orchestrator for every broadcast", async () => {
     const deps = makeBaseDeps();
     await broadcastDailyOverview(deps, "pre_market");
 
-    expect(synthesizeOverview).toHaveBeenCalledTimes(1);
-    expect(orchestrateDailyOverviewArtifact).not.toHaveBeenCalled();
-  });
-
-  it("still formats and broadcasts through the same path", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: false });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    expect(formatMorningBrief).toHaveBeenCalledTimes(1);
-    expect(deps._sendTextCalls.length).toBe(1);
-  });
-});
-
-// ── B. Flag-on write path ─────────────────────────────────────────────
-
-describe("flag ON — artifact write path via orchestrator", () => {
-  it("calls orchestrator when flag is on", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(deps, "pre_market");
-
     expect(orchestrateDailyOverviewArtifact).toHaveBeenCalledTimes(1);
-    expect(synthesizeOverview).not.toHaveBeenCalled();
   });
 
   it("uses orchestrator result for formatting", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
     await broadcastDailyOverview(deps, "pre_market");
 
     const formatCall = vi.mocked(formatMorningBrief).mock.calls[0]!;
@@ -225,16 +186,16 @@ describe("flag ON — artifact write path via orchestrator", () => {
   });
 
   it("still broadcasts after orchestrator returns", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     expect(deps._sendTextCalls.length).toBe(1);
   });
 });
 
-// ── C. Flag-on reuse path ─────────────────────────────────────────────
+// ── B. Artifact reuse path ────────────────────────────────────────────
 
-describe("flag ON — artifact reuse path", () => {
+describe("artifact reuse path", () => {
   beforeEach(() => {
     vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
       source: "reuse",
@@ -252,7 +213,7 @@ describe("flag ON — artifact reuse path", () => {
   });
 
   it("uses reused artifact narrative for formatting", async () => {
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
     await broadcastDailyOverview(deps, "pre_market");
 
     const formatCall = vi.mocked(formatMorningBrief).mock.calls[0]!;
@@ -262,16 +223,16 @@ describe("flag ON — artifact reuse path", () => {
   });
 
   it("still broadcasts to recipients", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     expect(deps._sendTextCalls.length).toBe(1);
   });
 });
 
-// ── D. Fallback path visibility ───────────────────────────────────────
+// ── C. Fallback path visibility ───────────────────────────────────────
 
-describe("flag ON — template fallback from orchestrator", () => {
+describe("template fallback from orchestrator", () => {
   it("uses fallback narrative when orchestrator returns fallback source", async () => {
     vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
       source: "fallback",
@@ -285,7 +246,7 @@ describe("flag ON — template fallback from orchestrator", () => {
       durationMs: 50,
     });
 
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
     await broadcastDailyOverview(deps, "pre_market");
 
     const formatCall = vi.mocked(formatMorningBrief).mock.calls[0]!;
@@ -306,7 +267,7 @@ describe("flag ON — template fallback from orchestrator", () => {
       durationMs: 300,
     });
 
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
     await broadcastDailyOverview(deps, "pre_market");
 
     const formatCall = vi.mocked(formatMorningBrief).mock.calls[0]!;
@@ -327,7 +288,7 @@ describe("flag ON — template fallback from orchestrator", () => {
       durationMs: 50,
     });
 
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     const result = await broadcastDailyOverview(deps, "pre_market");
 
     expect(result.sent).toBe(1);
@@ -335,41 +296,11 @@ describe("flag ON — template fallback from orchestrator", () => {
   });
 });
 
-// ── E. Delivery ledger — Step 15 artifact linkage + message_body=NULL ──
+// ── D. Delivery ledger — artifact linkage + message_body=NULL ─────────
 
-describe("delivery ledger — Step 15 artifact linkage", () => {
-  it("INSERT SQL is identical in flag-off and flag-on paths", async () => {
-    const depsOff = makeDepsWithRecipients({ canonicalArtifactEnabled: false });
-    await broadcastDailyOverview(depsOff, "pre_market");
-    const insertOff = depsOff._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-
-    vi.clearAllMocks();
-    vi.mocked(buildMarketSnapshot).mockResolvedValue(MINIMAL_SNAPSHOT);
-    vi.mocked(orchestrateDailyOverviewArtifact).mockResolvedValue({
-      source: "fresh",
-      artifactId: 1,
-      externalId: "uuid-1",
-      brief: {
-        narrative: "Orchestrated narrative",
-        topStories: ["Story"],
-        synthesisSource: "llm" as const,
-        durationMs: 2000,
-      },
-      attempt: 1,
-      durationMs: 100,
-    });
-
-    const depsOn = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
-    await broadcastDailyOverview(depsOn, "pre_market");
-    const insertOn = depsOn._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-
-    expect(insertOff).toBeDefined();
-    expect(insertOn).toBeDefined();
-    expect(insertOff!.sql).toBe(insertOn!.sql);
-  });
-
+describe("delivery ledger — artifact linkage", () => {
   it("INSERT has exactly 12 positional params (ledger shape)", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -378,7 +309,7 @@ describe("delivery ledger — Step 15 artifact linkage", () => {
   });
 
   it("INSERT contains artifact_kind and artifact_id columns", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -390,7 +321,7 @@ describe("delivery ledger — Step 15 artifact linkage", () => {
   });
 
   it("flag-on: artifact_kind='daily_overview', artifact_id populated", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -398,17 +329,8 @@ describe("delivery ledger — Step 15 artifact linkage", () => {
     expect(insert!.params![8]).toBe(1);
   });
 
-  it("flag-off: artifact_kind and artifact_id are null", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: false });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![7]).toBeNull();
-    expect(insert!.params![8]).toBeNull();
-  });
-
-  it("message_body is NULL (Step 15 cutover)", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+  it("message_body is NULL", async () => {
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -416,7 +338,7 @@ describe("delivery ledger — Step 15 artifact linkage", () => {
   });
 
   it("delivery_status='sent' on successful send", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -425,7 +347,7 @@ describe("delivery ledger — Step 15 artifact linkage", () => {
   });
 
   it("recommendation_type is still 'daily_overview'", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -433,7 +355,7 @@ describe("delivery ledger — Step 15 artifact linkage", () => {
   });
 
   it("always inserts a row even on send failure", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
       sendText: vi.fn(async () => ({ ok: false })),
     });
@@ -446,11 +368,11 @@ describe("delivery ledger — Step 15 artifact linkage", () => {
   });
 });
 
-// ── F. Step 15.2 — synthetic denorm placeholders are NULL (slice G) ──
+// ── E. Synthetic denorm placeholders are NULL ─────────────────────────
 
 describe("Step 15.2 — synthetic denorm placeholders are NULL", () => {
   it("ticker_symbol is NULL (no longer 'MARKET')", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -458,7 +380,7 @@ describe("Step 15.2 — synthetic denorm placeholders are NULL", () => {
   });
 
   it("priority is NULL (no longer 'low')", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -466,7 +388,7 @@ describe("Step 15.2 — synthetic denorm placeholders are NULL", () => {
   });
 
   it("headline is NULL (no longer 'Daily Morning Brief')", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
@@ -475,30 +397,20 @@ describe("Step 15.2 — synthetic denorm placeholders are NULL", () => {
 
   it("timeframe_alignment is NULL (no longer 'full')", async () => {
     const insertAt = (params: unknown[]): unknown => params[6];
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
     expect(insertAt(insert!.params!)).toBeNull();
   });
 
-  it("flag-off path also writes NULL denorms (consistent shape)", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: false });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![1]).toBeNull();
-    expect(insert!.params![3]).toBeNull();
-    expect(insert!.params![4]).toBeNull();
-    expect(insert!.params![6]).toBeNull();
-  });
 });
 
-// ── G. Step 15.2 — failed-path coverage (slice B) ────────────────────
+// ── F. Failed-path coverage ───────────────────────────────────────────
 
 describe("Step 15.2 — failed-path delivery", () => {
   it("sendText returns ok=false → delivery_status='failed', reason 'send_failed'", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
       sendText: vi.fn(async () => ({ ok: false })),
     });
@@ -510,7 +422,7 @@ describe("Step 15.2 — failed-path delivery", () => {
   });
 
   it("sendText throws → delivery_status='failed', reason 'send_error'", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
       sendText: vi.fn(async () => {
         throw new Error("network blew up");
@@ -524,7 +436,7 @@ describe("Step 15.2 — failed-path delivery", () => {
   });
 
   it("failed delivery still carries artifact link on flag-on path", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
       sendText: vi.fn(async () => ({ ok: false })),
     });
@@ -536,7 +448,7 @@ describe("Step 15.2 — failed-path delivery", () => {
   });
 
   it("failed delivery still has message_body=NULL", async () => {
-    const deps = makeDepsWithRecipients({ canonicalArtifactEnabled: true });
+    const deps = makeDepsWithRecipients();
     (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
       sendText: vi.fn(async () => ({ ok: false })),
     });
@@ -547,7 +459,7 @@ describe("Step 15.2 — failed-path delivery", () => {
   });
 });
 
-// ── H. Step 15.2 — per-user ledger dedup (slice C) ───────────────────
+// ── G. Per-user ledger dedup ──────────────────────────────────────────
 
 describe("Step 15.2 — per-user ledger dedup", () => {
   function makeDepsWithDedup(
@@ -607,7 +519,7 @@ describe("Step 15.2 — per-user ledger dedup", () => {
   }
 
   it("skips recipients already in ledger for this artifact (no send, no row)", async () => {
-    const deps = makeDepsWithDedup(["user-1"], { canonicalArtifactEnabled: true });
+    const deps = makeDepsWithDedup(["user-1"]);
     const result = await broadcastDailyOverview(deps, "pre_market");
 
     expect(deps._sendTextCalls.length).toBe(1);
@@ -618,17 +530,6 @@ describe("Step 15.2 — per-user ledger dedup", () => {
     expect(inserts[0]!.params![0]).toBe("user-2");
     expect(result.sent).toBe(1);
     expect(result.skipped).toBe(1);
-  });
-
-  it("does not consult ledger when no artifact ref (flag-off path)", async () => {
-    const deps = makeDepsWithDedup(["user-1"], { canonicalArtifactEnabled: false });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    const dedupQuery = deps._queries.find(
-      (q) => q.sql.includes("FROM user_recommendation_log") && q.sql.includes("artifact_kind"),
-    );
-    expect(dedupQuery).toBeUndefined();
-    expect(deps._sendTextCalls.length).toBe(2);
   });
 
   it("ledger query failure degrades to no-dedup (does not block broadcast)", async () => {
@@ -669,7 +570,6 @@ describe("Step 15.2 — per-user ledger dedup", () => {
         child: vi.fn(),
         level: "info",
       } as never,
-      canonicalArtifactEnabled: true,
       _queries: queries,
       _sendTextCalls: sendTextCalls,
     };

@@ -1,12 +1,12 @@
 /**
- * Step 14.1 + Step 15 artifact-layer pipeline tests.
+ * Artifact-layer pipeline tests.
  *
  * Covers:
- *   A. Flag-off parity — legacy flow unchanged when canonical artifact disabled
- *   B. Flag-on write path — artifact persisted via orchestrator
- *   C. Flag-on: brief always from generateDigestBrief, artifact ref threaded
- *   D. Crypto asset type flows through persistence path (no stock-hardcoding)
- *   E. Delivery — deliverSmartDigest receives ArtifactRef when flag-on (Step 15)
+ *   A. Write path — artifact persisted via orchestrator
+ *   B. Brief always from generateDigestBrief, artifact ref threaded
+ *   C. Crypto asset type flows through persistence path (no stock-hardcoding)
+ *   D. Delivery — deliverSmartDigest receives ArtifactRef (Step 15)
+ *   E. Cap consumed only on successful delivery (Step 15.2)
  *
  * These tests mock the repository and fingerprint layers at the module
  * boundary so the pipeline orchestration logic is exercised without a
@@ -98,14 +98,6 @@ vi.mock("../digest-brief-generator.js", () => ({
 
 import { processRecommendations } from "../digest-pipeline.js";
 import type { ProcessRecommendationsDeps } from "../digest-pipeline.js";
-import {
-  getCurrentArtifact,
-  acquireInFlightSlot,
-  markGenerating,
-  markReady,
-  markFailed,
-} from "../smart-digest-repository.js";
-import { computeTruthFingerprint, computeContextFingerprint } from "../smart-digest-fingerprint.js";
 import { detectSignals } from "../recommendation-engine.js";
 import { listDigestWatchersForSymbol } from "../digest-eligibility.js";
 import { deliverSmartDigest, renderSmartDigestCard } from "../digest-delivery.js";
@@ -167,7 +159,24 @@ const fakeWatcher = {
 // ── Setup ─────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
+  vi.mocked(generateDigestBrief).mockReturnValue({
+    ticker: "AAPL",
+    status: { label: "Watch zone", tone: "watch" },
+    price: 190,
+    changePercent: 1.5,
+    confidence: "High",
+    updatedAt: null,
+    whatHappening: "AAPL hit entry zone",
+    whatToWatch: { holdAbove: "185", breakBelowTarget: "180" },
+    context: "",
+    hasMaterialContext: false,
+  });
+  vi.mocked(renderSmartDigestCard).mockResolvedValue({
+    photo: Buffer.from("png-stub"),
+    caption: "caption-stub",
+  });
+  vi.mocked(deliverSmartDigest).mockResolvedValue({ ok: true });
   vi.mocked(listDigestWatchersForSymbol).mockResolvedValue([fakeWatcher]);
   vi.mocked(orchestrateDigestArtifact).mockResolvedValue({
     source: "fresh",
@@ -204,80 +213,16 @@ function setupDetectSignals(symbol: string, assetType: "stock" | "crypto") {
   });
 }
 
-// ── A. Flag-off parity ────────────────────────────────────────────────
+// ── A. Write path ─────────────────────────────────────────────────────
 
-describe("canonical artifact flag OFF (legacy parity)", () => {
-  it("does not call any artifact repository functions", async () => {
-    setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
-
-    await processRecommendations(deps, "stock");
-
-    expect(getCurrentArtifact).not.toHaveBeenCalled();
-    expect(acquireInFlightSlot).not.toHaveBeenCalled();
-    expect(markGenerating).not.toHaveBeenCalled();
-    expect(markReady).not.toHaveBeenCalled();
-    expect(markFailed).not.toHaveBeenCalled();
-  });
-
-  it("does not call fingerprint computation", async () => {
-    setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
-
-    await processRecommendations(deps, "stock");
-
-    expect(computeTruthFingerprint).not.toHaveBeenCalled();
-    expect(computeContextFingerprint).not.toHaveBeenCalled();
-  });
-
-  it("calls generateDigestBrief in-memory (legacy path)", async () => {
-    setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
-
-    await processRecommendations(deps, "stock");
-
-    expect(generateDigestBrief).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls deliverSmartDigest for each watcher", async () => {
-    setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
-
-    await processRecommendations(deps, "stock");
-
-    expect(deliverSmartDigest).toHaveBeenCalledTimes(1);
-  });
-
-  it("defaults canonicalArtifactEnabled to undefined (off)", async () => {
+describe("canonical artifact write path", () => {
+  it("calls orchestrator for every signal batch", async () => {
     setupDetectSignals("AAPL", "stock");
     const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
-    expect(getCurrentArtifact).not.toHaveBeenCalled();
-    expect(generateDigestBrief).toHaveBeenCalledTimes(1);
-  });
-});
-
-// ── B. Flag-on write path ─────────────────────────────────────────────
-
-describe("canonical artifact flag ON — write path", () => {
-  it("calls orchestrator when flag is on", async () => {
-    setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
-
-    await processRecommendations(deps, "stock");
-
     expect(orchestrateDigestArtifact).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not call orchestrator when flag is off", async () => {
-    setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
-
-    await processRecommendations(deps, "stock");
-
-    expect(orchestrateDigestArtifact).not.toHaveBeenCalled();
   });
 
   it("handles orchestrator failure gracefully", async () => {
@@ -286,7 +231,7 @@ describe("canonical artifact flag ON — write path", () => {
     );
 
     setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
@@ -296,12 +241,12 @@ describe("canonical artifact flag ON — write path", () => {
   });
 });
 
-// ── C. Flag-on: brief always from generateDigestBrief, artifact ref threaded ──
+// ── B. Brief always from generateDigestBrief, artifact ref threaded ──
 
-describe("canonical artifact flag ON — brief source and artifact ref", () => {
+describe("brief source and artifact ref", () => {
   it("always uses generateDigestBrief for the delivery brief", async () => {
     setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
@@ -314,7 +259,7 @@ describe("canonical artifact flag ON — brief source and artifact ref", () => {
 
   it("passes artifact ref to deliverSmartDigest when artifact persisted", async () => {
     setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
@@ -344,7 +289,7 @@ describe("canonical artifact flag ON — brief source and artifact ref", () => {
     });
 
     setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
@@ -355,7 +300,7 @@ describe("canonical artifact flag ON — brief source and artifact ref", () => {
   });
 });
 
-// ── D. Crypto asset type flows through persistence path ───────────────
+// ── C. Crypto asset type flows through persistence path ───────────────
 
 describe("crypto artifact persistence uses correct assetType", () => {
   beforeEach(() => {
@@ -404,7 +349,7 @@ describe("crypto artifact persistence uses correct assetType", () => {
       memoryTextMap: new Map(),
       analysisDateMap: new Map(),
     });
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "crypto");
 
@@ -427,7 +372,7 @@ describe("crypto artifact persistence uses correct assetType", () => {
       memoryTextMap: new Map(),
       analysisDateMap: new Map(),
     });
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "crypto");
 
@@ -437,21 +382,10 @@ describe("crypto artifact persistence uses correct assetType", () => {
   });
 });
 
-// ── E. Delivery — Step 15 artifact ref threading ──────────────────────
+// ── D. Delivery — artifact ref threading ──────────────────────────────
 
-describe("delivery — Step 15 artifact ref threading", () => {
-  it("flag-off: deliverSmartDigest receives null artifactRef", async () => {
-    setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
-
-    await processRecommendations(deps, "stock");
-
-    expect(deliverSmartDigest).toHaveBeenCalledTimes(1);
-    const call = vi.mocked(deliverSmartDigest).mock.calls[0]!;
-    expect(call[5]).toBeNull();
-  });
-
-  it("flag-on: deliverSmartDigest receives ArtifactRef when artifact persisted", async () => {
+describe("delivery — artifact ref threading", () => {
+  it("deliverSmartDigest receives ArtifactRef when artifact persisted", async () => {
     vi.mocked(orchestrateDigestArtifact).mockResolvedValueOnce({
       source: "fresh",
       artifactId: 7,
@@ -473,7 +407,7 @@ describe("delivery — Step 15 artifact ref threading", () => {
     });
 
     setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
     await processRecommendations(deps, "stock");
 
     expect(deliverSmartDigest).toHaveBeenCalledTimes(1);
@@ -481,47 +415,22 @@ describe("delivery — Step 15 artifact ref threading", () => {
     expect(call[5]).toEqual({ kind: "smart_digest", id: 7 });
   });
 
-  it("first 5 args are identical between flag-off and flag-on", async () => {
+  it("deliverSmartDigest receives expected arg shape (ledger-INSERT contract)", async () => {
     setupDetectSignals("AAPL", "stock");
-    const depsOff = makeBaseDeps({ canonicalArtifactEnabled: false });
-    await processRecommendations(depsOff, "stock");
-    const callOff = vi.mocked(deliverSmartDigest).mock.calls[0]!;
+    const deps = makeBaseDeps();
+    await processRecommendations(deps, "stock");
 
-    vi.clearAllMocks();
-    vi.mocked(listDigestWatchersForSymbol).mockResolvedValue([fakeWatcher]);
-    vi.mocked(orchestrateDigestArtifact).mockResolvedValue({
-      source: "fresh",
-      artifactId: 2,
-      externalId: "uuid-2",
-      brief: {
-        ticker: "AAPL",
-        status: { label: "Watch zone", tone: "watch" },
-        price: 190,
-        changePercent: 1.5,
-        confidence: "High",
-        updatedAt: null,
-        whatHappening: "AAPL hit entry zone",
-        whatToWatch: { holdAbove: "185", breakBelowTarget: "180" },
-        context: "",
-        hasMaterialContext: false,
-      },
-      attempt: 1,
-      durationMs: 50,
-    });
-    setupDetectSignals("AAPL", "stock");
-
-    const depsOn = makeBaseDeps({ canonicalArtifactEnabled: true });
-    await processRecommendations(depsOn, "stock");
-    const callOn = vi.mocked(deliverSmartDigest).mock.calls[0]!;
-
-    expect(callOff[1]).toEqual(callOn[1]);
-    expect(callOff[2]).toEqual(callOn[2]);
-    expect(callOff[3]).toEqual(callOn[3]);
+    expect(deliverSmartDigest).toHaveBeenCalledTimes(1);
+    const call = vi.mocked(deliverSmartDigest).mock.calls[0]!;
+    expect(call[1]).toEqual(fakeWatcher);
+    expect(call[2]).toHaveProperty("ticker", "AAPL");
+    expect(call[2]).toHaveProperty("whatHappening");
+    expect(call[5]).toEqual({ kind: "smart_digest", id: 1 });
   });
 
-  it("renderSmartDigestCard is called with the same brief shape", async () => {
+  it("renderSmartDigestCard is called with the expected brief shape", async () => {
     setupDetectSignals("AAPL", "stock");
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: true });
+    const deps = makeBaseDeps();
     await processRecommendations(deps, "stock");
 
     expect(renderSmartDigestCard).toHaveBeenCalledTimes(1);
@@ -534,14 +443,14 @@ describe("delivery — Step 15 artifact ref threading", () => {
   });
 });
 
-// ── F. Step 15.2 — cap-not-incremented-on-failure (slice D) ──────────
+// ── E. Step 15.2 — cap-not-incremented-on-failure (slice D) ──────────
 
 describe("Step 15.2 — cap consumed only on successful delivery", () => {
   it("recordDigestSent is invoked when delivery succeeds", async () => {
     const { recordDigestSent } = await import("../digest-eligibility.js");
     setupDetectSignals("AAPL", "stock");
     vi.mocked(deliverSmartDigest).mockResolvedValueOnce({ ok: true });
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
@@ -559,7 +468,7 @@ describe("Step 15.2 — cap consumed only on successful delivery", () => {
       ok: false,
       reason: "telegram_unavailable",
     });
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
@@ -573,7 +482,7 @@ describe("Step 15.2 — cap consumed only on successful delivery", () => {
       ok: false,
       reason: "render_failed",
     });
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
@@ -587,7 +496,7 @@ describe("Step 15.2 — cap consumed only on successful delivery", () => {
       ok: false,
       reason: "send_error",
     });
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+    const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
@@ -600,7 +509,7 @@ describe("Step 15.2 — cap consumed only on successful delivery", () => {
       ok: false,
       reason: "send_failed",
     });
-    const deps = makeBaseDeps({ canonicalArtifactEnabled: false });
+    const deps = makeBaseDeps();
 
     const result = await processRecommendations(deps, "stock");
 

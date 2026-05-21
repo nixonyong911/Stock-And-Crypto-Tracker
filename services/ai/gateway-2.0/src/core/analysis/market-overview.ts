@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import type { Pool } from "pg";
-import type { Redis } from "ioredis";
 import type { FastifyBaseLogger } from "fastify";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -81,8 +80,6 @@ const YIELD_SERIES = [
   { seriesId: "DGS2", displayName: "2Y" },
 ];
 
-const TRAJECTORY_SYMBOLS = ["SPX500", "OIL"];
-const TRAJECTORY_CRYPTO = ["BTC/USD", "ETH/USD"];
 const TRAJECTORY_NAMES: Record<string, string> = {
   SPX500: "S&P 500",
   OIL: "Oil (WTI)",
@@ -90,7 +87,6 @@ const TRAJECTORY_NAMES: Record<string, string> = {
   "ETH/USD": "ETH",
 };
 
-const DEFAULT_OVERVIEW_MODEL = "claude-4.6-sonnet-medium";
 const LLM_TIMEOUT_MS = 60_000;
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]/g;
 const MAX_PRIOR_NARRATIVE_CHARS = 300;
@@ -620,42 +616,6 @@ RULES:
     log.warn({ err }, "LLM synthesis failed for market overview");
     return null;
   }
-}
-
-export async function synthesizeOverview(
-  snapshot: MarketSnapshot,
-  db: Pool,
-  redis: Redis,
-  log: FastifyBaseLogger,
-): Promise<{ narrative: string; topStories: string[] } | null> {
-  const dateStr = snapshot.timestamp.toISOString().slice(0, 10);
-  const dedupKey = `digest:overview:llm:${snapshot.sessionType}:${dateStr}`;
-  const cached = await redis.get(dedupKey);
-  if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch { /* regenerate */ }
-  }
-
-  const [priorOverviews, stockTrajectory, cryptoTrajectory] = await Promise.all([
-    fetchPriorOverviews(db).catch(() => [] as PriorOverview[]),
-    fetchStockPriceTrajectory(db, TRAJECTORY_SYMBOLS, HISTORY_DAYS).catch(() => [] as PricePoint[]),
-    fetchCryptoPriceTrajectory(db, TRAJECTORY_CRYPTO, HISTORY_DAYS).catch(() => [] as PricePoint[]),
-  ]);
-
-  const result = await synthesizeOverviewCore({
-    snapshot,
-    priorOverviews,
-    stockTrajectory,
-    cryptoTrajectory,
-    model: DEFAULT_OVERVIEW_MODEL,
-    log,
-  });
-  if (!result) return null;
-
-  const out = { narrative: result.narrative, topStories: result.topStories };
-  await redis.set(dedupKey, JSON.stringify(out), "EX", 43200).catch(() => {});
-  return out;
 }
 
 // ── Message formatters ────────────────────────────────────────────────

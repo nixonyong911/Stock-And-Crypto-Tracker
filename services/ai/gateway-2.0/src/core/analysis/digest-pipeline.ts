@@ -1,18 +1,13 @@
 /**
  * Smart Digest pipeline orchestrator.
  *
- * Composes the four Smart Digest layers in a top-down read:
+ * Composes the Smart Digest layers in a top-down read:
  *   1. signal detection + Redis dedup     (this module)
  *   2. eligibility (watchers + throttle)  (`digest-eligibility.ts`)
  *   3. brief generation                    (`digest-brief-generator.js`)
- *   4. card render                         (`digest-delivery.ts`)
- *   5. delivery + log                      (`digest-delivery.ts`)
- *
- * When `SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED` is true, an additional
- * artifact-persist step runs between signal detection and fanout:
- *   - canonical artifact written to `analysis_smart_digest`
- *   - brief loaded from the persisted artifact for fanout
- *   - artifact ref threaded to delivery for ledger linkage (Step 15)
+ *   4. canonical artifact persistence      (`smart-digest-orchestrator.ts`)
+ *   5. card render                         (`digest-delivery.ts`)
+ *   6. delivery + log                      (`digest-delivery.ts`)
  *
  * `processRecommendations` is the entry point used by both
  * `/internal/check-recommendations` and the RabbitMQ pipeline consumer.
@@ -58,8 +53,6 @@ export interface ProcessRecommendationsDeps {
    * `strict` when missing so the legacy callers do not break.
    */
   briefMode?: BriefMode;
-  /** When true, persist canonical artifacts before fanout. */
-  canonicalArtifactEnabled?: boolean;
 }
 
 // ── Entry point ───────────────────────────────────────────────────────
@@ -73,9 +66,7 @@ export async function processRecommendations(
     ? [assetType]
     : ["stock", "crypto"];
 
-  const runCtx = deps.canonicalArtifactEnabled
-    ? newRunContext("smart_digest")
-    : undefined;
+  const runCtx = newRunContext("smart_digest");
 
   let totalSignals = 0;
   let totalSent = 0;
@@ -110,15 +101,12 @@ export async function processRecommendations(
       arr.push(s);
     }
 
-    let artifactRefs: Map<string, ArtifactRef> | undefined;
-    if (deps.canonicalArtifactEnabled && runCtx) {
-      artifactRefs = await persistCanonicalArtifacts(deps, runCtx, type, bySymbol, {
-        macroContext,
-        newsOneLinerMap,
-        memoryTextMap,
-        analysisDateMap,
-      });
-    }
+    const artifactRefs = await persistCanonicalArtifacts(deps, runCtx, type, bySymbol, {
+      macroContext,
+      newsOneLinerMap,
+      memoryTextMap,
+      analysisDateMap,
+    });
 
     for (const [symbol, tickerSignals] of bySymbol) {
       const sent = await fanOutToWatchers(
@@ -177,7 +165,7 @@ export async function filterDedupSignals(
   return result;
 }
 
-// ── Canonical artifact persistence (flag-gated) ──────────────────────
+// ── Canonical artifact persistence ────────────────────────────────────
 
 async function persistCanonicalArtifacts(
   deps: ProcessRecommendationsDeps,
@@ -234,10 +222,8 @@ async function persistCanonicalArtifacts(
  * watchlist + prefs + cap) is fully owned by `digest-eligibility.ts`;
  * delivery (sendPhoto + log INSERT) is fully owned by `digest-delivery.ts`.
  *
- * When `canonicalArtifactEnabled` is true, the brief is already loaded from
- * the orchestrator result in `persistCanonicalArtifacts` — the `artifactRef`
- * threads through so delivery can link the ledger row to the canonical
- * artifact via `(artifact_kind, artifact_id)`.
+ * The `artifactRef` threads through so delivery can link the ledger row to
+ * the canonical artifact via `(artifact_kind, artifact_id)`.
  */
 async function fanOutToWatchers(
   deps: ProcessRecommendationsDeps,

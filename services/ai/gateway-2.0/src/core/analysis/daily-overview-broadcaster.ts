@@ -4,7 +4,6 @@ import type { FastifyBaseLogger } from "fastify";
 import type { ExtensionRegistry } from "../../extension/registry.js";
 import {
   buildMarketSnapshot,
-  synthesizeOverview,
   formatMorningBrief,
   formatEveningRecap,
 } from "./market-overview.js";
@@ -24,7 +23,6 @@ export interface BroadcastDeps {
   redis: Redis;
   extensions: ExtensionRegistry;
   log: FastifyBaseLogger;
-  canonicalArtifactEnabled?: boolean;
   triggerReason?: string;
   triggerSource?: ArtifactTriggerSource;
 }
@@ -64,35 +62,28 @@ export async function broadcastDailyOverview(
     return { sent: 0, skipped: 0, errors: 0 };
   }
 
-  let synthesis: { narrative: string; topStories: string[] } | null;
-  let artifactRef: ArtifactRef | null = null;
-
-  if (deps.canonicalArtifactEnabled) {
-    const runCtx = newRunContext("daily_overview");
-    log.info(
-      { runId: runCtx.runId, artifactType: "daily_overview", sessionType },
-      "Starting artifact-based daily overview synthesis",
-    );
-    const result = await orchestrateDailyOverviewArtifact(
-      { db, log, triggerSource: deps.triggerSource },
-      runCtx,
-      snapshot,
-      sessionType,
-      dateStr,
-    );
-    log.info(
-      { runId: runCtx.runId, source: result.source, durationMs: result.durationMs },
-      "Artifact orchestration complete",
-    );
-    synthesis = result.brief
-      ? { narrative: result.brief.narrative, topStories: result.brief.topStories }
-      : null;
-    if (result.artifactId != null) {
-      artifactRef = { kind: "daily_overview", id: result.artifactId };
-    }
-  } else {
-    synthesis = await synthesizeOverview(snapshot, db, redis, log);
-  }
+  const runCtx = newRunContext("daily_overview");
+  log.info(
+    { runId: runCtx.runId, artifactType: "daily_overview", sessionType },
+    "Starting artifact-based daily overview synthesis",
+  );
+  const result = await orchestrateDailyOverviewArtifact(
+    { db, log, triggerSource: deps.triggerSource },
+    runCtx,
+    snapshot,
+    sessionType,
+    dateStr,
+  );
+  log.info(
+    { runId: runCtx.runId, source: result.source, durationMs: result.durationMs },
+    "Artifact orchestration complete",
+  );
+  const synthesis: { narrative: string; topStories: string[] } | null = result.brief
+    ? { narrative: result.brief.narrative, topStories: result.brief.topStories }
+    : null;
+  const artifactRef: ArtifactRef | null = result.artifactId != null
+    ? { kind: "daily_overview", id: result.artifactId }
+    : null;
 
   const message = sessionType === "pre_market"
     ? formatMorningBrief(snapshot, synthesis)
@@ -120,8 +111,7 @@ export async function broadcastDailyOverview(
   // Step 15.2 (slice C): authoritative per-user dedup against the ledger.
   // The Redis short-circuit above remains the cheap fast-path; this is
   // the second gate that survives Redis TTL expiry / crash recovery /
-  // manual replay. Only consulted when an artifact ref exists — the
-  // flag-off path keeps the legacy "no per-user dedup" behavior.
+  // manual replay.
   let alreadyDeliveredUserIds: Set<string> = new Set();
   if (artifactRef) {
     try {
