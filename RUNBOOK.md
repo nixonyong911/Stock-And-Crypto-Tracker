@@ -286,19 +286,52 @@ denorm-clean audit below is the operator-facing counterpart of the
 
 ### Rolling denorm-clean audit (Step 15.4)
 
-A rolling-window check that does not depend on any hardcoded cutover
-date. Any non-zero result is a regression signal — a recent code path
-has reintroduced legacy denorm writes:
+There are two related questions an operator may ask. Use the right
+query for the right question.
+
+#### Strict regression invariant (last 48 h) — must be zero
 
 ```sql
-SELECT COUNT(*) FROM user_recommendation_log
-WHERE sent_at > NOW() - INTERVAL '7 days'
+SELECT COUNT(*) AS recent_denorm_leaks_48h
+FROM user_recommendation_log
+WHERE sent_at > NOW() - INTERVAL '48 hours'
   AND (priority IS NOT NULL OR headline IS NOT NULL
        OR message_body IS NOT NULL OR timeframe_alignment IS NOT NULL);
 ```
 
-Should return **zero**. `verify-digest.ts` enforces the same invariant
-over the last 48 hours on every run.
+Must return **zero** on any run more than 48 hours after the Step 15.3
+runtime rollout (`2026-05-19 06:35 UTC`; confirmed against container
+start time and `MAX(sent_at)` over denorm-bearing rows). This is the
+operator-facing counterpart of the
+`No recent row has non-NULL legacy denorms (last 48 h)` check
+`verify-digest.ts` enforces on every run. A non-zero result here is a
+real regression — investigate immediately.
+
+#### Historical aging-tail view (last 7 d) — informational
+
+```sql
+SELECT
+  date_trunc('day', sent_at) AS day,
+  COUNT(*)                   AS rows_with_denorms,
+  MIN(sent_at)               AS earliest,
+  MAX(sent_at)               AS latest
+FROM user_recommendation_log
+WHERE sent_at > NOW() - INTERVAL '7 days'
+  AND (priority IS NOT NULL OR headline IS NOT NULL
+       OR message_body IS NOT NULL OR timeframe_alignment IS NOT NULL)
+GROUP BY 1
+ORDER BY 1;
+```
+
+Pre-15.3 rows naturally remain inside this rolling window for up to 7
+days after the Step 15.3 runtime rollout (`2026-05-19 06:35 UTC`).
+Non-zero results are expected and acceptable while
+`MAX(sent_at) < 2026-05-19 06:35 UTC` and the day-over-day count is
+decreasing. The total reaches zero around **2026-05-26** and stays
+there.
+
+A row with `sent_at >= 2026-05-19 06:35 UTC` in this output is the
+same regression signal as a non-zero strict invariant above.
 
 ### Check daily cap enforcement
 

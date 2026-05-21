@@ -806,7 +806,7 @@ Before any code change, a live-DB query confirmed that no row in the last 48 hou
 
 | Slice | Description |
 |-------|-------------|
-| A | `RUNBOOK.md` SS4: "Recent recommendations sent" now groups by `artifact_kind` instead of the always-NULL `priority`; "Check daily cap enforcement" is now scoped to Smart Digest + sent-only deliveries, matching `verify-digest.ts`; added a rolling 7-day denorm-clean audit query. |
+| A | `RUNBOOK.md` SS4: "Recent recommendations sent" now groups by `artifact_kind` instead of the always-NULL `priority`; "Check daily cap enforcement" is now scoped to Smart Digest + sent-only deliveries, matching `verify-digest.ts`; rolling denorm-clean audit is split into a strict 48 h regression invariant (must be zero) and an informational 7-day historical aging-tail view (non-zero expected while pre-15.3 rows are still inside the window). |
 | B | `scripts/verify/verify-digest.ts`: added a recent-window denorm integrity check (`No recent row has non-NULL legacy denorms (last 48 h)`) reusing the existing `recentRows` slice; added `priority` to the row SELECT and `LogRow` type; updated the row-shape section header (no longer references "Step 15.2") and the "unlinked" line label. |
 | C | `scripts/verify/inspect-digest.ts`: added a new `unlinked_post_15_1` shape that uses the existing `STEP_15_1_CUTOVER` boundary to distinguish post-cutover unlinked rows (flag-off or unconfigured) from pre-15.1 legacy empty rows. The previous `broken_artifact_link` shape remains, restricted to its real meaning — `artifact_kind`/`artifact_id` set but the artifact row missing. Updated the module doc comment to describe the post-15.3 shape. |
 | D | This `upstream-trust-map.md` section and a brief completion note in `RUNBOOK.md` SS4. |
