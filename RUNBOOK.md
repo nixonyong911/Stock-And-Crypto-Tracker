@@ -341,17 +341,29 @@ daily-overview rows and failed deliveries do not count. This matches the
 scoping used by `verify-digest.ts`:
 
 ```sql
-SELECT clerk_user_id, sent_at::date AS day, COUNT(*) AS daily_count
+SELECT clerk_user_id, (sent_at AT TIME ZONE 'UTC')::date AS day_utc,
+       COUNT(*) AS daily_count
 FROM user_recommendation_log
 WHERE sent_at > NOW() - INTERVAL '7 days'
   AND recommendation_type != 'daily_overview'
   AND delivery_status = 'sent'
-GROUP BY clerk_user_id, sent_at::date
+GROUP BY clerk_user_id, (sent_at AT TIME ZONE 'UTC')::date
 HAVING COUNT(*) > 6
 ORDER BY daily_count DESC;
 ```
 
 Should return **zero rows**.
+
+**Known exception — `force-send-digest` bypass.** The
+`POST /internal/force-send-digest` endpoint deliberately bypasses the
+Redis cap check (`applyThrottle: false`) and does not increment the cap
+counter (`recordDigestSent` is never called). This is the intended
+manual verification path for operator testing. Any cap violation
+surfaced by this query should be cross-checked against force-send usage
+before treating it as a runtime cap bug. Hallmarks of a force-send
+violation: tight time clustering (multiple sends within minutes),
+repeated identical ticker/signal type, and — after Step 15.1 — mixed
+artifact-linked and legacy format rows on the same day.
 
 ### Check Redis dedup keys (via SSH)
 

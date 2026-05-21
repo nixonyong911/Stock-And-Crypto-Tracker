@@ -122,8 +122,9 @@ async function main() {
     "No user exceeds 6 sent Smart Digest entries/day cap",
     overCap.length === 0,
     overCap.length > 0
-      ? `${overCap.length} violations, worst: ${Math.max(...overCap.map(([, v]) => v))}`
-      : "all within cap"
+      ? `${overCap.length} violation(s): ${overCap.map(([k, v]) => `${k} (${v})`).join(", ")}` +
+        ` — check /internal/force-send-digest usage before assuming a runtime cap bug`
+      : "all within cap",
   );
 
   const shapeCounts: Record<RowShape, number> = {
