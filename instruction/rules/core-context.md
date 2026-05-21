@@ -6,7 +6,7 @@ A microservices-based stock and cryptocurrency tracking application with:
 - **Frontend**: Next.js on Vercel (public-facing)
 - **Back-office**: Next.js admin UI on Azure VM (internal tools)
 - **Backend**: .NET 8 workers + TypeScript AI services on Azure VM (Docker + Caddy)
-- **Database**: Supabase (PostgreSQL) with SQL migrations (data-fetcher-2.0/migrations/)
+- **Database**: Self-hosted PostgreSQL 17 on Azure VM (Supabase is a daily backup mirror only)
 - **Observability**: Grafana Cloud (metrics + logs via Alloy)
 - **Purpose**: Fetch market data, store 10-min candles, enable AI trading analysis
 
@@ -18,7 +18,7 @@ A microservices-based stock and cryptocurrency tracking application with:
 | Back-office | Next.js 16, TypeScript, Tailwind, shadcn/ui (VM) |
 | Backend Workers | .NET 8, Dapper, ASP.NET Core |
 | AI Services | TypeScript, Fastify (gateway-2.0 in Docker) |
-| Database | PostgreSQL (Supabase), SQL migrations in data-fetcher-2.0/migrations/ |
+| Database | Self-hosted PostgreSQL 17 (VM Docker), SQL migrations in data-fetcher-2.0/migrations/ |
 | Shared Library | StockTracker.Common (utilities) |
 | CI/CD | GitHub Actions → SSH → Azure VM |
 | Reverse Proxy | Caddy (auto HTTPS via Let's Encrypt) |
@@ -74,7 +74,7 @@ A microservices-based stock and cryptocurrency tracking application with:
 4. **RLS is enabled** - `data_sources` requires service role key
 5. **Local development** - Use `infisical run --env=prod -- <command>` to inject secrets
 6. **10-min candle data** - 90 day retention for intraday analysis
-7. **Supabase MCP available** - Use for database queries in AI conversations
+7. **Database queries** - Use VM Postgres (`docker exec postgres psql ...`) for live data; Supabase is a daily backup mirror only
 8. **`.infisical.json` is safe to commit** - Only contains workspace ID, no secrets
 9. **Caddy worker endpoints** - When adding new Caddy reverse proxy routes, update `instruction/skills/cli-caddy/SKILL.md`
 10. **VM deployment** - Backend services run on Azure VM (`nx-linux-server-azure`), not Container Apps

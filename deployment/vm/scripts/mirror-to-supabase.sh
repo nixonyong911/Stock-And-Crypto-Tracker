@@ -28,7 +28,7 @@ CONTAINER="postgres"
 BACKUP_DIR="/backups"
 ENV_FILE="/opt/stocktracker/.env.mirror"
 MAX_RETRIES=3
-VERIFY_TABLES="users stock_tickers stock_prices"
+VERIFY_TABLES="users stock_tickers crypto_tickers lookup_data_sources stock_prices"
 
 log() { echo "[$(date)] $1"; }
 
@@ -70,8 +70,27 @@ fi
 
 log "Using dump: ${DUMP_FILE}"
 
+pre_clean_supabase() {
+  # pg_restore --clean issues DROP TABLE before CREATE, but reference tables
+  # (stock_tickers, crypto_tickers, lookup_data_sources) can't be dropped when
+  # other tables hold FK refs to them. Pre-truncating with CASCADE clears all
+  # data so the subsequent DROP/CREATE cycle in pg_restore succeeds cleanly.
+  log "Pre-cleaning Supabase public schema..."
+  docker exec "${CONTAINER}" psql "${SUPABASE_MIRROR_URL}" -c "
+DO \$\$ DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE 'TRUNCATE TABLE public.' || quote_ident(r.tablename) || ' CASCADE';
+  END LOOP;
+END \$\$;
+" 2>&1
+}
+
 restore_to_supabase() {
   local output
+
+  pre_clean_supabase || log "WARNING: Pre-clean had errors (continuing with restore)"
+
   output=$(docker exec "${CONTAINER}" pg_restore \
     --schema=public \
     --clean \

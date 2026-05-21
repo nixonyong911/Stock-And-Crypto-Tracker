@@ -1,6 +1,8 @@
 # Database - Stock and Crypto Tracker
 
-PostgreSQL database hosted on Supabase.
+Self-hosted PostgreSQL 17 on the Azure VM (Docker container `postgres`).
+Supabase cloud exists only as a once-daily backup mirror — see
+[RUNBOOK.md § Database Topology & Mirror Health](../../RUNBOOK.md) for details.
 
 ## Overview
 
@@ -19,7 +21,7 @@ Database schema is managed via **SQL migrations** in:
 services/workers/data-fetcher-2.0/migrations/
 ```
 
-Migrations are plain `.sql` files applied via Supabase MCP `apply_migration` or directly. EF Core migrations (`StockTracker.Data.Migrations`) have been deleted.
+Migrations are plain `.sql` files applied via `psql` on the VM (`docker exec postgres psql ...`) or directly. EF Core migrations (`StockTracker.Data.Migrations`) have been deleted.
 
 ## Tables
 

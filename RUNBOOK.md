@@ -4,9 +4,44 @@ Manual investigation procedures for when automated scripts flag issues.
 
 ## Prerequisites
 
-- Supabase dashboard access or `psql` connection
 - SSH access to VM: `ssh -i "$HOME\.ssh\nx-linux-server-azure_key (1).pem" azureuser@20.17.176.1`
 - Docker access on VM (all services run as containers)
+- `psql` via: `docker exec -it postgres psql -U postgres -d stocktracker`
+
+> **VM Postgres is the live source of truth** for all runtime verification,
+> ad-hoc queries, and debugging. Supabase is a once-daily backup mirror —
+> never query Supabase to answer "what is the system doing right now."
+
+---
+
+## Database Topology & Mirror Health
+
+**Live database:** Self-hosted PostgreSQL 17 in the Docker `postgres`
+container on the VM (`127.0.0.1:5432`). All runtime services connect here.
+
+**Backup mirror:** Supabase cloud, refreshed once daily by VM-host cron:
+
+| Schedule | Script | Action |
+|----------|--------|--------|
+| `0 3 * * *` | `/opt/stocktracker/scripts/backup-postgres.sh` | `pg_dump` full + public-schema dumps |
+| `0 4 * * *` | `/opt/stocktracker/scripts/mirror-to-supabase.sh` | `pg_restore` public dump → Supabase |
+
+Some lag between VM and Supabase is expected (up to one daily mirror cycle).
+The mirror script verifies row counts for key tables and sends Telegram
+alerts on success (🟢), mismatch (🟡), or failure (🔴).
+
+**Mirror health checks:**
+
+```bash
+# Most recent backup dump (should be from the latest 03:00 cycle)
+docker exec postgres ls -1t /backups/stocktracker_public_*.custom | head -1
+
+# Most recent mirror log (should end with "Mirror complete" from today)
+sudo tail -20 /var/log/stocktracker/mirror.log
+
+# Cron entries (both must be present)
+crontab -l | grep -E 'backup-postgres|mirror-to-supabase'
+```
 
 ---
 
