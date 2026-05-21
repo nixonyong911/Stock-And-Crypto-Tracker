@@ -467,6 +467,8 @@ services:
       - SMART_DIGEST_INCLUDE_INFERRED_ONLY=${SMART_DIGEST_INCLUDE_INFERRED_ONLY:-false}
       - MEMORY_CURATOR_BROAD_TICKER_TIER=${MEMORY_CURATOR_BROAD_TICKER_TIER:-v2}
       - MEMORY_CURATOR_RESANITIZE_ON_UPDATE=${MEMORY_CURATOR_RESANITIZE_ON_UPDATE:-false}
+      - SMART_DIGEST_CANONICAL_ARTIFACT_ENABLED=true
+      - DAILY_OVERVIEW_CANONICAL_ARTIFACT_ENABLED=true
     volumes:
       # cursor-agent CLI: mount the entire versions dir (contains node binary + JS chunks)
       # The bash wrapper script resolves SCRIPT_DIR via realpath, so the directory containing
