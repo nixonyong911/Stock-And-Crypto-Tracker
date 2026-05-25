@@ -1,8 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
 
 const supabase = createClient(
   process.env.DATABASE_URL_JS!,
-  process.env.DATABASE_SERVICE_ROLE_KEY!
+  process.env.DATABASE_SERVICE_ROLE_KEY!,
+  { realtime: { transport: ws as never } },
 );
 
 let failures = 0;
