@@ -503,7 +503,7 @@ describe("deriveSignals — levels cascade", () => {
     expect(d.breakBelowTarget).toBe("178.00");
   });
 
-  it("target_reached: falls back entryHigh then ema20 for holdAbove when target missing", () => {
+  it("target_reached: inversion guard activates when target missing (hold=entryHigh=break), falls to default", () => {
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "target_reached",
@@ -512,16 +512,21 @@ describe("deriveSignals — levels cascade", () => {
           daySignal: "bullish",
           swingSignal: "bullish",
           longTermSignal: "bullish",
+          entryLow: 168,
           entryHigh: 178,
+          stopLoss: 162,
           ema20: 171,
         },
       }),
     });
     const d = deriveSignals(truth);
-    expect(d.holdAbove).toBe("178.00");
+    // Without target, both hold and break select entryHigh (178) → equal → guard
+    // falls back to default: entryLow / stopLoss
+    expect(d.holdAbove).toBe("168.00");
+    expect(d.breakBelowTarget).toBe("162.00");
   });
 
-  it("stop_loss_warning: holdAbove uses stopLoss, breakBelowTarget uses periodLow", () => {
+  it("stop_loss_warning: uses default cascade (entryLow / stopLoss) since stop < periodLow by construction", () => {
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "stop_loss_warning",
@@ -539,8 +544,31 @@ describe("deriveSignals — levels cascade", () => {
       }),
     });
     const d = deriveSignals(truth);
-    expect(d.holdAbove).toBe("162.00");
-    expect(d.breakBelowTarget).toBe("155.00");
+    expect(d.holdAbove).toBe("168.00");
+    expect(d.breakBelowTarget).toBe("162.00");
+  });
+
+  it("inversion safety: falls back to default cascade when holdAbove <= breakBelowTarget", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
+        rawData: {
+          close: 210,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          // No target, no entryHigh — holdAbove would use ema20,
+          // breakBelowTarget would also use ema20 → equal → inversion guard
+          ema20: 171,
+          entryLow: 168,
+          stopLoss: 162,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    // Safety guard falls back to default: entryLow / stopLoss
+    expect(d.holdAbove).toBe("168.00");
+    expect(d.breakBelowTarget).toBe("162.00");
   });
 });
 

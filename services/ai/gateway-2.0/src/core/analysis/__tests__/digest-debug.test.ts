@@ -307,7 +307,7 @@ describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
     });
   });
 
-  it("stop_loss_warning: holdAbove uses stopLoss, breakBelow uses periodLow", () => {
+  it("stop_loss_warning: uses default cascade (entryLow / stopLoss)", () => {
     const truth = gatherTruth({
       signal: makeSignal({
         type: "stop_loss_warning",
@@ -324,8 +324,8 @@ describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
       }),
     });
     expect(inferLevelFallback(truth)).toEqual({
-      holdAboveSource: "stopLoss",
-      breakBelowSource: "periodLow",
+      holdAboveSource: "entryLow",
+      breakBelowSource: "stopLoss",
     });
   });
 });

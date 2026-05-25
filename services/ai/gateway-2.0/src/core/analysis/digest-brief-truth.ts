@@ -986,18 +986,22 @@ function deriveLevelsFromTruth(truth: BriefTruth): {
       breakRaw = lvl.entryHigh ?? lvl.ema20 ?? lvl.stopLoss;
       break;
 
-    case "stop_loss_warning":
-      // Price is pressing the stop; hold the stop as the critical floor
-      // and reference the structural low below it.
-      holdRaw = lvl.stopLoss ?? lvl.entryLow ?? lvl.periodLow;
-      breakRaw = lvl.periodLow ?? lvl.ema50;
-      break;
-
     default:
-      // entry_zone, signal_change, momentum_shift, notable_pattern, etc.
+      // entry_zone, stop_loss_warning, signal_change, momentum_shift, etc.
       holdRaw = lvl.entryLow ?? lvl.periodLow ?? lvl.ema20;
       breakRaw = lvl.stopLoss;
       break;
+  }
+
+  // Safety: if the selected levels invert (holdAbove <= breakBelow),
+  // the card text becomes nonsensical. Fall back to the default cascade.
+  if (
+    isFinitePositive(holdRaw) &&
+    isFinitePositive(breakRaw) &&
+    holdRaw <= breakRaw
+  ) {
+    holdRaw = lvl.entryLow ?? lvl.periodLow ?? lvl.ema20;
+    breakRaw = lvl.stopLoss;
   }
 
   const holdAbove = isFinitePositive(holdRaw) ? fmtPrice(holdRaw) : "—";

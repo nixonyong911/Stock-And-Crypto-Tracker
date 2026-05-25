@@ -246,8 +246,8 @@ export interface DebugMacroSection {
 }
 
 export interface DebugFallbacks {
-  holdAboveSource: "entryLow" | "periodLow" | "ema20" | "target" | "entryHigh" | "stopLoss" | "none";
-  breakBelowSource: "stopLoss" | "entryHigh" | "ema20" | "periodLow" | "ema50" | "none";
+  holdAboveSource: "entryLow" | "periodLow" | "ema20" | "target" | "entryHigh" | "none";
+  breakBelowSource: "stopLoss" | "entryHigh" | "ema20" | "none";
   contextSource: "news_one_liner" | "macro" | "none" | "omitted_low_score";
   /** True iff context line was trimmed by the sentence-boundary cap. */
   contextTrimmed: boolean;
@@ -510,15 +510,6 @@ export function inferLevelFallback(truth: BriefTruth): {
       if (isFinitePositive(lvl.entryHigh)) breakBelowSource = "entryHigh";
       else if (isFinitePositive(lvl.ema20)) breakBelowSource = "ema20";
       else if (isFinitePositive(lvl.stopLoss)) breakBelowSource = "stopLoss";
-      break;
-
-    case "stop_loss_warning":
-      if (isFinitePositive(lvl.stopLoss)) holdAboveSource = "stopLoss";
-      else if (isFinitePositive(lvl.entryLow)) holdAboveSource = "entryLow";
-      else if (isFinitePositive(lvl.periodLow)) holdAboveSource = "periodLow";
-
-      if (isFinitePositive(lvl.periodLow)) breakBelowSource = "periodLow";
-      else if (isFinitePositive(lvl.ema50)) breakBelowSource = "ema50";
       break;
 
     default:
