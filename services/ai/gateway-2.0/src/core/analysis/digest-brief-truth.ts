@@ -967,22 +967,41 @@ function deriveLevelsFromTruth(truth: BriefTruth): {
   holdAbove: string;
   breakBelowTarget: string;
 } {
-  // No truth at all (price guard upstream) -> em-dash on both ends.
   if (!isFinitePositive(truth.price)) {
     return { holdAbove: "—", breakBelowTarget: "—" };
   }
 
-  // holdAbove cascade: entry_price_low -> metadata.low_period -> metadata.ema_20.
-  // Deliberately drops the legacy `close` fallback: close is the price, not a level.
-  const holdRaw =
-    truth.levels.entryLow ?? truth.levels.periodLow ?? truth.levels.ema20;
-  const holdAbove = isFinitePositive(holdRaw) ? fmtPrice(holdRaw) : "—";
+  const lvl = truth.levels;
+  const signalType = truth.signalFacts.type;
 
-  // breakBelowTarget: stop_loss only. No `* 0.97` invention.
-  const breakRaw = truth.levels.stopLoss;
-  const breakBelowTarget = isFinitePositive(breakRaw)
-    ? fmtPrice(breakRaw)
-    : "—";
+  let holdRaw: number | undefined;
+  let breakRaw: number | undefined;
+
+  switch (signalType) {
+    case "target_reached":
+      // Price has reached/exceeded the target; the broken target becomes
+      // the new support floor, and the nearest level below it (entry top
+      // or EMA-20) is the invalidation line.
+      holdRaw = lvl.target ?? lvl.entryHigh ?? lvl.ema20;
+      breakRaw = lvl.entryHigh ?? lvl.ema20 ?? lvl.stopLoss;
+      break;
+
+    case "stop_loss_warning":
+      // Price is pressing the stop; hold the stop as the critical floor
+      // and reference the structural low below it.
+      holdRaw = lvl.stopLoss ?? lvl.entryLow ?? lvl.periodLow;
+      breakRaw = lvl.periodLow ?? lvl.ema50;
+      break;
+
+    default:
+      // entry_zone, signal_change, momentum_shift, notable_pattern, etc.
+      holdRaw = lvl.entryLow ?? lvl.periodLow ?? lvl.ema20;
+      breakRaw = lvl.stopLoss;
+      break;
+  }
+
+  const holdAbove = isFinitePositive(holdRaw) ? fmtPrice(holdRaw) : "—";
+  const breakBelowTarget = isFinitePositive(breakRaw) ? fmtPrice(breakRaw) : "—";
 
   return { holdAbove, breakBelowTarget };
 }

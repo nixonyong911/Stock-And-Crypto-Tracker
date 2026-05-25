@@ -479,6 +479,69 @@ describe("deriveSignals — levels cascade", () => {
     });
     expect(deriveSignals(ema20Truth).holdAbove).toBe("172.00");
   });
+
+  it("target_reached: holdAbove uses target, breakBelowTarget uses entryHigh", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
+        rawData: {
+          close: 210,
+          latestOpen: 205,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          entryHigh: 178,
+          stopLoss: 162,
+          targetPrice: 200,
+          ema20: 171,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("200.00");
+    expect(d.breakBelowTarget).toBe("178.00");
+  });
+
+  it("target_reached: falls back entryHigh then ema20 for holdAbove when target missing", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
+        rawData: {
+          close: 210,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryHigh: 178,
+          ema20: 171,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("178.00");
+  });
+
+  it("stop_loss_warning: holdAbove uses stopLoss, breakBelowTarget uses periodLow", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "stop_loss_warning",
+        rawData: {
+          close: 163,
+          latestOpen: 165,
+          daySignal: "bearish",
+          swingSignal: "bearish",
+          longTermSignal: "neutral",
+          entryLow: 168,
+          stopLoss: 162,
+          periodLow: 155,
+          ema50: 160,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("162.00");
+    expect(d.breakBelowTarget).toBe("155.00");
+  });
 });
 
 describe("deriveSignals — context", () => {

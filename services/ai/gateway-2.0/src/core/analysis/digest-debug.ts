@@ -246,8 +246,8 @@ export interface DebugMacroSection {
 }
 
 export interface DebugFallbacks {
-  holdAboveSource: "entryLow" | "periodLow" | "ema20" | "none";
-  breakBelowSource: "stopLoss" | "none";
+  holdAboveSource: "entryLow" | "periodLow" | "ema20" | "target" | "entryHigh" | "stopLoss" | "none";
+  breakBelowSource: "stopLoss" | "entryHigh" | "ema20" | "periodLow" | "ema50" | "none";
   contextSource: "news_one_liner" | "macro" | "none" | "omitted_low_score";
   /** True iff context line was trimmed by the sentence-boundary cap. */
   contextTrimmed: boolean;
@@ -483,10 +483,7 @@ export function rankCandidates(signals: TickerSignal[]): CandidateRanking {
 }
 
 /**
- * Mirror of the level cascade in `deriveLevelsFromTruth`:
- *   holdAbove: entryLow -> periodLow -> ema20 -> "—" (none)
- *   breakBelowTarget: stopLoss -> "—" (none)
- *
+ * Mirror of the signal-aware level cascade in `deriveLevelsFromTruth`.
  * Returns the source name a reviewer can compare to the production answer
  * without re-implementing the format logic.
  */
@@ -498,17 +495,40 @@ export function inferLevelFallback(truth: BriefTruth): {
     return { holdAboveSource: "none", breakBelowSource: "none" };
   }
 
-  let holdAboveSource: DebugFallbacks["holdAboveSource"] = "none";
-  if (isFinitePositive(truth.levels.entryLow)) {
-    holdAboveSource = "entryLow";
-  } else if (isFinitePositive(truth.levels.periodLow)) {
-    holdAboveSource = "periodLow";
-  } else if (isFinitePositive(truth.levels.ema20)) {
-    holdAboveSource = "ema20";
-  }
+  const lvl = truth.levels;
+  const signalType = truth.signalFacts.type;
 
-  const breakBelowSource: DebugFallbacks["breakBelowSource"] =
-    isFinitePositive(truth.levels.stopLoss) ? "stopLoss" : "none";
+  let holdAboveSource: DebugFallbacks["holdAboveSource"] = "none";
+  let breakBelowSource: DebugFallbacks["breakBelowSource"] = "none";
+
+  switch (signalType) {
+    case "target_reached":
+      if (isFinitePositive(lvl.target)) holdAboveSource = "target";
+      else if (isFinitePositive(lvl.entryHigh)) holdAboveSource = "entryHigh";
+      else if (isFinitePositive(lvl.ema20)) holdAboveSource = "ema20";
+
+      if (isFinitePositive(lvl.entryHigh)) breakBelowSource = "entryHigh";
+      else if (isFinitePositive(lvl.ema20)) breakBelowSource = "ema20";
+      else if (isFinitePositive(lvl.stopLoss)) breakBelowSource = "stopLoss";
+      break;
+
+    case "stop_loss_warning":
+      if (isFinitePositive(lvl.stopLoss)) holdAboveSource = "stopLoss";
+      else if (isFinitePositive(lvl.entryLow)) holdAboveSource = "entryLow";
+      else if (isFinitePositive(lvl.periodLow)) holdAboveSource = "periodLow";
+
+      if (isFinitePositive(lvl.periodLow)) breakBelowSource = "periodLow";
+      else if (isFinitePositive(lvl.ema50)) breakBelowSource = "ema50";
+      break;
+
+    default:
+      if (isFinitePositive(lvl.entryLow)) holdAboveSource = "entryLow";
+      else if (isFinitePositive(lvl.periodLow)) holdAboveSource = "periodLow";
+      else if (isFinitePositive(lvl.ema20)) holdAboveSource = "ema20";
+
+      breakBelowSource = isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
+      break;
+  }
 
   return { holdAboveSource, breakBelowSource };
 }

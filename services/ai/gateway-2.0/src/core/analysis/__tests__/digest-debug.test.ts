@@ -283,6 +283,51 @@ describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
     expect(inferLevelFallback(truth).holdAboveSource).toBe("none");
     expect(inferLevelFallback(truth).breakBelowSource).toBe("none");
   });
+
+  it("target_reached: holdAbove uses target, breakBelow uses entryHigh", () => {
+    const truth = gatherTruth({
+      signal: makeSignal({
+        type: "target_reached",
+        rawData: {
+          close: 210,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          entryHigh: 178,
+          stopLoss: 162,
+          targetPrice: 200,
+          ema20: 171,
+        },
+      }),
+    });
+    expect(inferLevelFallback(truth)).toEqual({
+      holdAboveSource: "target",
+      breakBelowSource: "entryHigh",
+    });
+  });
+
+  it("stop_loss_warning: holdAbove uses stopLoss, breakBelow uses periodLow", () => {
+    const truth = gatherTruth({
+      signal: makeSignal({
+        type: "stop_loss_warning",
+        rawData: {
+          close: 163,
+          daySignal: "bearish",
+          swingSignal: "bearish",
+          longTermSignal: "neutral",
+          entryLow: 168,
+          stopLoss: 162,
+          periodLow: 155,
+          ema50: 160,
+        },
+      }),
+    });
+    expect(inferLevelFallback(truth)).toEqual({
+      holdAboveSource: "stopLoss",
+      breakBelowSource: "periodLow",
+    });
+  });
 });
 
 // ── inferContextFallback ────────────────────────────────────────────
