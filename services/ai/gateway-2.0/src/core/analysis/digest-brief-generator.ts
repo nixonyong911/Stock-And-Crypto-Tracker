@@ -73,7 +73,11 @@ export interface DigestBrief {
    */
   updatedAt: Date | null;
   whatHappening: string;
-  whatToWatch: { holdAbove: string; breakBelowTarget: string };
+  whatToWatch: {
+    holdAbove: string;
+    breakBelowTarget: string;
+    watchCategory?: import("./digest-brief-truth.js").WatchCategory;
+  };
   context: string;
   hasMaterialContext: boolean;
 }
@@ -347,6 +351,7 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
     whatToWatch: {
       holdAbove: derived.holdAbove,
       breakBelowTarget: derived.breakBelowTarget,
+      watchCategory: derived.watchCategory,
     },
     context: derived.context,
     hasMaterialContext: derived.hasMaterialContext,

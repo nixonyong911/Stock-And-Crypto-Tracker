@@ -20,6 +20,8 @@ import { fileURLToPath } from "node:url";
 
 export type StatusTone = "watch" | "trigger" | "neutral";
 
+export type WatchCategory = "setup" | "breakout" | "defensive";
+
 export interface CardData {
   ticker: string;
   status: { label: string; tone: StatusTone };
@@ -34,7 +36,11 @@ export interface CardData {
    */
   updatedAt: Date | null;
   whatHappening: string;
-  whatToWatch: { holdAbove: string; breakBelowTarget: string };
+  whatToWatch: {
+    holdAbove: string;
+    breakBelowTarget: string;
+    watchCategory?: WatchCategory;
+  };
   context: string;
 }
 
@@ -251,6 +257,62 @@ function deltaPill(pct: number): SatoriNode {
     changeArrow(pct),
     fmtChangePct(pct),
   );
+}
+
+function dollarChip(value: string): SatoriNode {
+  const display = value === "—" ? value : `$${value}`;
+  return levelChip(display);
+}
+
+function buildWatchSentence(data: CardData): SatoriNode {
+  const cat = data.whatToWatch.watchCategory ?? "setup";
+  const hold = data.whatToWatch.holdAbove;
+  const brk = data.whatToWatch.breakBelowTarget;
+  const hasBreak = brk !== "—";
+
+  const watchStyle = {
+    display: "flex" as const,
+    flexWrap: "wrap" as const,
+    alignItems: "baseline" as const,
+    fontSize: "14px",
+    lineHeight: 1.7,
+    color: COLORS.ink2,
+  };
+
+  if (!hasBreak) {
+    return h("div", { style: watchStyle },
+      "Key level to watch: ",
+      dollarChip(hold),
+      ".",
+    );
+  }
+
+  switch (cat) {
+    case "breakout":
+      return h("div", { style: watchStyle },
+        "Holding above ",
+        dollarChip(hold),
+        " keeps the breakout intact. Losing ",
+        dollarChip(brk),
+        " reopens the prior range.",
+      );
+    case "defensive":
+      return h("div", { style: watchStyle },
+        "Reclaiming ",
+        dollarChip(hold),
+        " would stabilize the setup. Below ",
+        dollarChip(brk),
+        ", further downside opens up.",
+      );
+    default:
+      return h("div", { style: watchStyle },
+        "Hold above ",
+        dollarChip(hold),
+        " — a daily close below ",
+        dollarChip(brk),
+        " opens room to the downside.",
+      );
+  }
 }
 
 function levelChip(value: string): SatoriNode {
@@ -492,25 +554,8 @@ function buildCard(data: CardData): SatoriNode {
           marginBottom: "18px",
         },
       },
-      sectionLabel("What to watch", true),
-      h(
-        "div",
-        {
-          style: {
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "baseline",
-            fontSize: "14px",
-            lineHeight: 1.7,
-            color: COLORS.ink2,
-          },
-        },
-        "Hold above ",
-        levelChip(data.whatToWatch.holdAbove),
-        " keeps the setup constructive. A daily close below opens room toward ",
-        levelChip(data.whatToWatch.breakBelowTarget),
-        ".",
-      ),
+      sectionLabel("What to watch from here", true),
+      buildWatchSentence(data),
     ),
 
     // ── Context (only if present) ───────────────────────────────

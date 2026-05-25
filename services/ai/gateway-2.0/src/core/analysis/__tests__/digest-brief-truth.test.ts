@@ -1306,3 +1306,121 @@ describe("composeBrief — stop_loss_warning copy adaptation", () => {
     expect(out.whatHappening).toMatch(/~15\.0%/);
   });
 });
+
+// ── watchCategory ────────────────────────────────────────────────────
+
+describe("deriveSignals — watchCategory", () => {
+  it("entry_zone -> setup", () => {
+    const truth = gatherTruth({ signal: makeStockSignal({ type: "entry_zone" }) });
+    expect(deriveSignals(truth).watchCategory).toBe("setup");
+  });
+
+  it("target_reached -> breakout", () => {
+    const truth = gatherTruth({ signal: makeCryptoSignal({ type: "target_reached" }) });
+    expect(deriveSignals(truth).watchCategory).toBe("breakout");
+  });
+
+  it("stop_loss_warning -> defensive", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "stop_loss_warning",
+        rawData: {
+          close: 163,
+          daySignal: "bearish",
+          swingSignal: "bearish",
+          longTermSignal: "neutral",
+          entryLow: 168,
+          stopLoss: 162,
+        },
+      }),
+    });
+    expect(deriveSignals(truth).watchCategory).toBe("defensive");
+  });
+
+  it("momentum_shift -> setup (default)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({ type: "momentum_shift" }),
+    });
+    expect(deriveSignals(truth).watchCategory).toBe("setup");
+  });
+});
+
+// ── fmtPrice unification (commas for >= 10k) ────────────────────────
+
+describe("deriveSignals — fmtPrice commas for levels >= 10k", () => {
+  it("crypto levels get comma separators", () => {
+    const truth = gatherTruth({ signal: makeCryptoSignal() });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("74,900");
+    expect(d.breakBelowTarget).toBe("73,500");
+  });
+
+  it("stock levels under 10k keep decimals", () => {
+    const truth = gatherTruth({ signal: makeStockSignal() });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("168.00");
+    expect(d.breakBelowTarget).toBe("162.00");
+  });
+});
+
+// ── Distance sanity guard ────────────────────────────────────────────
+
+describe("deriveSignals — distance sanity guard", () => {
+  it("degrades to ema20 only when both levels are >20% from spot", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 70,
+          stopLoss: 65,
+          ema20: 98,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("98.00");
+    expect(d.breakBelowTarget).toBe("—");
+  });
+
+  it("does NOT trigger when at least one level is within 20%", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 85,
+          stopLoss: 65,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("85.00");
+    expect(d.breakBelowTarget).toBe("65.00");
+  });
+
+  it("preserves hold=em-dash when ema20 also missing in distance fallback", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 70,
+          stopLoss: 65,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("—");
+    expect(d.breakBelowTarget).toBe("—");
+  });
+});

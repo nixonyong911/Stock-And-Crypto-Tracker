@@ -180,6 +180,7 @@ export interface BriefDerived {
   /** Strings ready for `whatToWatch`; "—" when no qualifying truth. */
   holdAbove: string;
   breakBelowTarget: string;
+  watchCategory: WatchCategory;
   changePercent: number;
   hasMaterialContext: boolean;
   /** Resolved context line; `""` when no qualifying source. */
@@ -234,6 +235,12 @@ export type BriefStanceLabel =
   | "Constructive"
   | "Caution"
   | "Neutral";
+
+/**
+ * UX category for the "What to watch" section wording. The truth layer
+ * classifies the signal; the renderer picks from sentence variants.
+ */
+export type WatchCategory = "setup" | "breakout" | "defensive";
 
 // ── Source-of-truth gates ─────────────────────────────────────────────
 
@@ -300,6 +307,8 @@ function memoryWithinFreshness(
 // ── Helpers ───────────────────────────────────────────────────────────
 
 function fmtPrice(n: number): string {
+  if (n >= 10_000)
+    return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
   if (n >= 1) return n.toFixed(2);
   if (n >= 0.01) return n.toFixed(4);
   return n.toPrecision(4);
@@ -334,6 +343,13 @@ const PRICE_OPEN_SANE_LOG_RATIO = Math.log(2);
  */
 const LEVEL_PRICE_BAND_LOW = 0.05;
 const LEVEL_PRICE_BAND_HIGH = 20;
+
+/**
+ * If BOTH computed watch levels are farther than 20% from spot, the
+ * analysis structure is too stale to anchor "What to watch from here."
+ * We degrade to EMA-20 only so the card still has one near-spot anchor.
+ */
+const MAX_LEVEL_DISTANCE = 0.2;
 
 function priceOpenSane(close: number, open: number): boolean {
   if (!isFinitePositive(close) || !isFinitePositive(open)) return false;
@@ -766,6 +782,7 @@ export function deriveSignals(truth: BriefTruth): BriefDerived {
   const signalStrength = deriveStrengthFromTruth(truth);
   const { confidence, confidenceSource } = deriveConfidenceFromTruth(truth, signalStrength);
   const { holdAbove, breakBelowTarget } = deriveLevelsFromTruth(truth);
+  const watchCategory = deriveWatchCategory(truth);
   const changePercent = deriveChangePercentFromTruth(truth);
   const { context, contextSource, contextTrimmed } = deriveContextFromTruth(truth);
   const hasMaterialContext = context !== "";
@@ -775,6 +792,7 @@ export function deriveSignals(truth: BriefTruth): BriefDerived {
     confidence,
     holdAbove,
     breakBelowTarget,
+    watchCategory,
     changePercent,
     hasMaterialContext,
     context,
@@ -963,6 +981,17 @@ function deriveConfidenceFromTruth(truth: BriefTruth, signalStrength: number): {
   return { confidence: "Medium", confidenceSource: "alignment_only" };
 }
 
+function deriveWatchCategory(truth: BriefTruth): WatchCategory {
+  switch (truth.signalFacts.type) {
+    case "target_reached":
+      return "breakout";
+    case "stop_loss_warning":
+      return "defensive";
+    default:
+      return "setup";
+  }
+}
+
 function deriveLevelsFromTruth(truth: BriefTruth): {
   holdAbove: string;
   breakBelowTarget: string;
@@ -1012,6 +1041,23 @@ function deriveLevelsFromTruth(truth: BriefTruth): {
   ) {
     holdRaw = lvl.entryLow ?? lvl.periodLow ?? lvl.ema20;
     breakRaw = lvl.stopLoss;
+  }
+
+  // Distance guard: if BOTH levels sit >20% from spot, the analysis
+  // structure is too stale to present as "near-term watch." Fall back to
+  // EMA-20 as the sole anchor and omit break-below rather than showing
+  // numbers that feel disconnected from the current price.
+  if (
+    isFinitePositive(truth.price) &&
+    isFinitePositive(holdRaw) &&
+    isFinitePositive(breakRaw)
+  ) {
+    const holdDist = Math.abs(holdRaw / truth.price - 1);
+    const breakDist = Math.abs(breakRaw / truth.price - 1);
+    if (holdDist > MAX_LEVEL_DISTANCE && breakDist > MAX_LEVEL_DISTANCE) {
+      holdRaw = lvl.ema20;
+      breakRaw = undefined;
+    }
   }
 
   const holdAbove = isFinitePositive(holdRaw) ? fmtPrice(holdRaw) : "—";
