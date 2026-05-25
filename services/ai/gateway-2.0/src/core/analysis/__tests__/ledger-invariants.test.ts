@@ -1,34 +1,29 @@
 /**
- * Step 15.2 (slice I) — ledger-row invariant tests.
+ * Step 15.2 (slice I) / Step 16.2.a — ledger-row invariant tests.
  *
- * Pins the 5 invariants that every new write to `user_recommendation_log`
+ * Pins the invariants that every new write to `user_recommendation_log`
  * must satisfy. These are cheap statics over the captured INSERT param
  * arrays from both writers (Smart Digest `deliverSmartDigest` and Daily
  * Overview `broadcastDailyOverview`).
  *
- * Invariants (positional indices follow the column order baked into both
- * writers' INSERT — keep this comment in sync if either writer changes):
+ * Step 16.2.a positional layout (8 columns, legacy denorms removed):
  *
  *   params[0]  clerk_user_id            string, non-null
  *   params[1]  ticker_symbol            string|null
  *   params[2]  recommendation_type      string, non-null (row-type discriminator)
- *   params[3]  priority                 string|null
- *   params[4]  headline                 string|null
- *   params[5]  message_body             always NULL on the new path
- *   params[6]  timeframe_alignment      string|null
- *   params[7]  artifact_kind            'smart_digest' | 'daily_overview' | null
- *   params[8]  artifact_id              number | null
- *   params[9]  channel_type             string, non-null ('telegram' today)
- *   params[10] delivery_status          'sent' | 'failed'
- *   params[11] delivery_failure_reason  DeliveryFailureReason | null
+ *   params[3]  artifact_kind            'smart_digest' | 'daily_overview' | null
+ *   params[4]  artifact_id              number | null
+ *   params[5]  channel_type             string, non-null ('telegram' today)
+ *   params[6]  delivery_status          'sent' | 'failed'
+ *   params[7]  delivery_failure_reason  DeliveryFailureReason | null
  *
  * Invariants asserted:
  *   1. delivery_status ∈ {'sent','failed'}
  *   2. (artifact_kind === null) === (artifact_id === null)
- *   3. message_body === null
- *   4. delivery_status === 'failed' ⟹ delivery_failure_reason !== null
+ *   3. delivery_status === 'failed' ⟹ delivery_failure_reason !== null
  *      AND delivery_failure_reason is a valid DeliveryFailureReason
- *   5. delivery_status === 'sent' ⟹ delivery_failure_reason === null
+ *   4. delivery_status === 'sent' ⟹ delivery_failure_reason === null
+ *   5. INSERT SQL does not reference legacy denorm columns
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -219,17 +214,16 @@ function findInserts(queries: CapturedQuery[]): CapturedQuery[] {
   );
 }
 
-// ── The 5 invariants — applied to a single captured INSERT ──────────
+// ── The invariants — applied to a single captured INSERT ─────────────
 
 function assertLedgerInvariants(insert: CapturedQuery): void {
   expect(insert.params).toBeDefined();
-  expect(insert.params!.length).toBe(12);
+  expect(insert.params!.length).toBe(8);
 
-  const status = insert.params![10];
-  const reason = insert.params![11];
-  const messageBody = insert.params![5];
-  const artifactKind = insert.params![7];
-  const artifactId = insert.params![8];
+  const status = insert.params![6];
+  const reason = insert.params![7];
+  const artifactKind = insert.params![3];
+  const artifactId = insert.params![4];
 
   // 1. delivery_status ∈ {'sent','failed'}
   expect(status === "sent" || status === "failed").toBe(true);
@@ -237,19 +231,23 @@ function assertLedgerInvariants(insert: CapturedQuery): void {
   // 2. artifact pair: both null or both non-null
   expect(artifactKind === null).toBe(artifactId === null);
 
-  // 3. message_body === null on the new path
-  expect(messageBody).toBeNull();
-
-  // 4. failed ⟹ reason set AND valid
+  // 3. failed ⟹ reason set AND valid
   if (status === "failed") {
     expect(reason).not.toBeNull();
     expect(isDeliveryFailureReason(reason)).toBe(true);
   }
 
-  // 5. sent ⟹ reason null
+  // 4. sent ⟹ reason null
   if (status === "sent") {
     expect(reason).toBeNull();
   }
+
+  // 5. INSERT SQL does not reference legacy denorm columns
+  const sql = insert.sql;
+  expect(sql).not.toContain("priority");
+  expect(sql).not.toContain("headline");
+  expect(sql).not.toContain("message_body");
+  expect(sql).not.toContain("timeframe_alignment");
 }
 
 // ── Smart Digest writer — exercise sent + 4 failure paths ────────────
@@ -296,7 +294,7 @@ describe("ledger invariants — Smart Digest writer", () => {
       rendered: { photo: Buffer.from("png"), caption: "cap" },
       artifact: null as ArtifactRef | null,
     },
-  ])("upholds all 5 invariants — $label", async ({ telegram, rendered, artifact }) => {
+  ])("upholds all invariants — $label", async ({ telegram, rendered, artifact }) => {
     const deps = makeSDDeps({ telegram });
 
     await deliverSmartDigest(
@@ -332,7 +330,7 @@ describe("ledger invariants — Daily Overview writer", () => {
         throw new Error("network");
       },
     },
-  ])("upholds all 5 invariants — $label", async ({ send }) => {
+  ])("upholds all invariants — $label", async ({ send }) => {
     const deps = makeDODeps(
       [{ clerk_user_id: "u-1", platform_user_id: "c-1" }],
       send,
@@ -346,10 +344,10 @@ describe("ledger invariants — Daily Overview writer", () => {
   });
 });
 
-// ── Cross-writer parity — INSERT shape is byte-identical (12 cols) ──
+// ── Cross-writer parity — INSERT shape is identical (8 cols) ─────────
 
 describe("ledger invariants — both writers share the column shape", () => {
-  it("both writers INSERT the same 12 columns in the same order", async () => {
+  it("both writers INSERT the same 8 columns in the same order", async () => {
     const sdDeps = makeSDDeps({
       telegram: { sendPhoto: vi.fn(async () => ({ ok: true })) },
     });
@@ -375,6 +373,6 @@ describe("ledger invariants — both writers share the column shape", () => {
     const norm = (s: string) => s.replace(/\s+/g, " ").trim();
     expect(norm(sdInsert.sql)).toBe(norm(doInsert.sql));
     expect(sdInsert.params!.length).toBe(doInsert.params!.length);
-    expect(sdInsert.params!.length).toBe(12);
+    expect(sdInsert.params!.length).toBe(8);
   });
 });

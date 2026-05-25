@@ -81,9 +81,8 @@ export async function renderSmartDigestCard(
  * recorded" guarantee from the legacy `fanOutToWatchers` implementation.
  *
  * When `artifactRef` is provided, the ledger row links to the canonical
- * artifact via `(artifact_kind, artifact_id)`. When null (flag-off or
- * fallback path), those columns are written as NULL — preserving the
- * pre-Step-15 row shape.
+ * artifact via `(artifact_kind, artifact_id)`. When null (fallback path),
+ * those columns are written as NULL.
  */
 export async function deliverSmartDigest(
   deps: DeliveryDeps,
@@ -133,19 +132,14 @@ export async function deliverSmartDigest(
   await db
     .query(
       `INSERT INTO user_recommendation_log
-       (clerk_user_id, ticker_symbol, recommendation_type, priority, headline,
-        message_body, timeframe_alignment,
+       (clerk_user_id, ticker_symbol, recommendation_type,
         artifact_kind, artifact_id,
         channel_type, delivery_status, delivery_failure_reason)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         target.clerkUserId,
         primary.symbol,
         primary.type,
-        null,
-        null,
-        null,
-        null,
         artifactRef?.kind ?? null,
         artifactRef?.id ?? null,
         "telegram",

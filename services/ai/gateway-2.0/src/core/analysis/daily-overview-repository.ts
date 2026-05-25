@@ -23,7 +23,6 @@ export interface DailyOverviewRow {
   payload: Record<string, unknown>;
   narrative: string | null;
   top_stories: string[] | null;
-  message_body: string | null;
   message_format: string;
   synthesis_source: string;
   schema_version: number;

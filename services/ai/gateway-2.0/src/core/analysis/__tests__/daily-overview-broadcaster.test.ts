@@ -6,10 +6,22 @@
  *   B. Reuse path — existing artifact reused, synthesis skipped
  *   C. Fallback path visibility — template_fallback from orchestrator, broadcast proceeds
  *   D. Delivery ledger — artifact linkage (artifact_kind, artifact_id),
- *      delivery_status, message_body=NULL, always-insert semantics
- *   E. Synthetic denorm placeholders are NULL
+ *      delivery_status, always-insert semantics
+ *   E. INSERT SQL does not reference legacy denorm columns
  *   F. Failed-path delivery
  *   G. Per-user ledger dedup
+ *
+ * Step 16.2.a: positional layout is now 8 columns (legacy denorm
+ * columns removed from the INSERT).
+ *
+ *   params[0]  clerk_user_id
+ *   params[1]  ticker_symbol
+ *   params[2]  recommendation_type
+ *   params[3]  artifact_kind
+ *   params[4]  artifact_id
+ *   params[5]  channel_type
+ *   params[6]  delivery_status
+ *   params[7]  delivery_failure_reason
  *
  * The broadcaster delegates to `orchestrateDailyOverviewArtifact`
  * which is mocked at the module boundary. The repo/fingerprint layer is tested
@@ -296,16 +308,16 @@ describe("template fallback from orchestrator", () => {
   });
 });
 
-// ── D. Delivery ledger — artifact linkage + message_body=NULL ─────────
+// ── D. Delivery ledger — artifact linkage ─────────────────────────────
 
 describe("delivery ledger — artifact linkage", () => {
-  it("INSERT has exactly 12 positional params (ledger shape)", async () => {
+  it("INSERT has exactly 8 positional params (ledger shape)", async () => {
     const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
     expect(insert).toBeDefined();
-    expect(insert!.params).toHaveLength(12);
+    expect(insert!.params).toHaveLength(8);
   });
 
   it("INSERT contains artifact_kind and artifact_id columns", async () => {
@@ -320,21 +332,13 @@ describe("delivery ledger — artifact linkage", () => {
     expect(insert!.sql).toContain("channel_type");
   });
 
-  it("flag-on: artifact_kind='daily_overview', artifact_id populated", async () => {
+  it("artifact_kind='daily_overview', artifact_id populated", async () => {
     const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![7]).toBe("daily_overview");
-    expect(insert!.params![8]).toBe(1);
-  });
-
-  it("message_body is NULL", async () => {
-    const deps = makeDepsWithRecipients();
-    await broadcastDailyOverview(deps, "pre_market");
-
-    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![5]).toBeNull();
+    expect(insert!.params![3]).toBe("daily_overview");
+    expect(insert!.params![4]).toBe(1);
   });
 
   it("delivery_status='sent' on successful send", async () => {
@@ -342,8 +346,8 @@ describe("delivery ledger — artifact linkage", () => {
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![10]).toBe("sent");
-    expect(insert!.params![11]).toBeNull();
+    expect(insert!.params![6]).toBe("sent");
+    expect(insert!.params![7]).toBeNull();
   });
 
   it("recommendation_type is still 'daily_overview'", async () => {
@@ -363,47 +367,34 @@ describe("delivery ledger — artifact linkage", () => {
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
     expect(insert).toBeDefined();
-    expect(insert!.params![10]).toBe("failed");
-    expect(insert!.params![11]).toBe("send_failed");
+    expect(insert!.params![6]).toBe("failed");
+    expect(insert!.params![7]).toBe("send_failed");
   });
 });
 
-// ── E. Synthetic denorm placeholders are NULL ─────────────────────────
+// ── E. INSERT SQL does not reference legacy denorm columns ────────────
 
-describe("Step 15.2 — synthetic denorm placeholders are NULL", () => {
-  it("ticker_symbol is NULL (no longer 'MARKET')", async () => {
+describe("Step 16.2.a — INSERT SQL shape lock-in", () => {
+  it("INSERT SQL does not reference legacy denorm columns", async () => {
+    const deps = makeDepsWithRecipients();
+    await broadcastDailyOverview(deps, "pre_market");
+
+    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
+    expect(insert).toBeDefined();
+    const sql = insert!.sql;
+    expect(sql).not.toContain("priority");
+    expect(sql).not.toContain("headline");
+    expect(sql).not.toContain("message_body");
+    expect(sql).not.toContain("timeframe_alignment");
+  });
+
+  it("ticker_symbol is NULL for daily_overview rows", async () => {
     const deps = makeDepsWithRecipients();
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
     expect(insert!.params![1]).toBeNull();
   });
-
-  it("priority is NULL (no longer 'low')", async () => {
-    const deps = makeDepsWithRecipients();
-    await broadcastDailyOverview(deps, "pre_market");
-
-    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![3]).toBeNull();
-  });
-
-  it("headline is NULL (no longer 'Daily Morning Brief')", async () => {
-    const deps = makeDepsWithRecipients();
-    await broadcastDailyOverview(deps, "pre_market");
-
-    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![4]).toBeNull();
-  });
-
-  it("timeframe_alignment is NULL (no longer 'full')", async () => {
-    const insertAt = (params: unknown[]): unknown => params[6];
-    const deps = makeDepsWithRecipients();
-    await broadcastDailyOverview(deps, "pre_market");
-
-    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insertAt(insert!.params!)).toBeNull();
-  });
-
 });
 
 // ── F. Failed-path coverage ───────────────────────────────────────────
@@ -417,8 +408,8 @@ describe("Step 15.2 — failed-path delivery", () => {
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![10]).toBe("failed");
-    expect(insert!.params![11]).toBe("send_failed");
+    expect(insert!.params![6]).toBe("failed");
+    expect(insert!.params![7]).toBe("send_failed");
   });
 
   it("sendText throws → delivery_status='failed', reason 'send_error'", async () => {
@@ -431,11 +422,11 @@ describe("Step 15.2 — failed-path delivery", () => {
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![10]).toBe("failed");
-    expect(insert!.params![11]).toBe("send_error");
+    expect(insert!.params![6]).toBe("failed");
+    expect(insert!.params![7]).toBe("send_error");
   });
 
-  it("failed delivery still carries artifact link on flag-on path", async () => {
+  it("failed delivery still carries artifact link", async () => {
     const deps = makeDepsWithRecipients();
     (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
       sendText: vi.fn(async () => ({ ok: false })),
@@ -443,19 +434,8 @@ describe("Step 15.2 — failed-path delivery", () => {
     await broadcastDailyOverview(deps, "pre_market");
 
     const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![7]).toBe("daily_overview");
-    expect(insert!.params![8]).toBe(1);
-  });
-
-  it("failed delivery still has message_body=NULL", async () => {
-    const deps = makeDepsWithRecipients();
-    (deps.extensions.get as ReturnType<typeof vi.fn>).mockReturnValue({
-      sendText: vi.fn(async () => ({ ok: false })),
-    });
-    await broadcastDailyOverview(deps, "pre_market");
-
-    const insert = deps._queries.find((q) => q.sql.includes("INSERT INTO user_recommendation_log"));
-    expect(insert!.params![5]).toBeNull();
+    expect(insert!.params![3]).toBe("daily_overview");
+    expect(insert!.params![4]).toBe(1);
   });
 });
 

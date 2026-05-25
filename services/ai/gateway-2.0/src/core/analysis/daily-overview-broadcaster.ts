@@ -173,27 +173,22 @@ export async function broadcastDailyOverview(
       );
     }
 
-    // Step 15.2 (slice G): synthetic denorm placeholders are now NULL.
-    // The artifact (`analysis_daily_overview`) is the source of truth for
-    // narrative / top stories. `recommendation_type` stays populated as the
-    // legitimate row-type discriminator that RUNBOOK §4 audit queries
-    // group by. `ticker_symbol` is now nullable per migration 026.
+    // Step 16.2.a: legacy denorm columns (priority, headline, message_body,
+    // timeframe_alignment) no longer written. The artifact
+    // (`analysis_daily_overview`) is the source of truth for narrative /
+    // top stories. `recommendation_type` stays populated as the legitimate
+    // row-type discriminator. `ticker_symbol` is nullable per migration 026.
     await db
       .query(
         `INSERT INTO user_recommendation_log
-         (clerk_user_id, ticker_symbol, recommendation_type, priority, headline,
-          message_body, timeframe_alignment,
+         (clerk_user_id, ticker_symbol, recommendation_type,
           artifact_kind, artifact_id,
           channel_type, delivery_status, delivery_failure_reason)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           recipient.clerk_user_id,
           null,
           "daily_overview",
-          null,
-          null,
-          null,
-          null,
           artifactRef?.kind ?? null,
           artifactRef?.id ?? null,
           "telegram",

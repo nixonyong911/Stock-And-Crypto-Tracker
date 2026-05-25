@@ -17,7 +17,18 @@
  *   - delivery_status='failed' and delivery_failure_reason matches
  *   - artifact_kind/artifact_id are still threaded when an ArtifactRef
  *     is supplied (Step 15.1 contract preserved)
- *   - message_body is NULL (Step 15.1 cutover invariant)
+ *
+ * Step 16.2.a: positional layout is now 8 columns (legacy denorm
+ * columns removed from the INSERT).
+ *
+ *   params[0]  clerk_user_id
+ *   params[1]  ticker_symbol
+ *   params[2]  recommendation_type
+ *   params[3]  artifact_kind
+ *   params[4]  artifact_id
+ *   params[5]  channel_type
+ *   params[6]  delivery_status
+ *   params[7]  delivery_failure_reason
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -134,12 +145,11 @@ describe("Smart Digest delivery — failed paths (Step 15.2 slice B)", () => {
     expect(result.reason).toBe("telegram_unavailable");
 
     const insert = getInsert(deps._queries);
-    expect(insert.params![10]).toBe("failed");
-    expect(insert.params![11]).toBe("telegram_unavailable");
-    expect(insert.params![5]).toBeNull(); // message_body
-    expect(insert.params![7]).toBe("smart_digest");
-    expect(insert.params![8]).toBe(42);
-    expect(isDeliveryFailureReason(insert.params![11])).toBe(true);
+    expect(insert.params![6]).toBe("failed");
+    expect(insert.params![7]).toBe("telegram_unavailable");
+    expect(insert.params![3]).toBe("smart_digest");
+    expect(insert.params![4]).toBe(42);
+    expect(isDeliveryFailureReason(insert.params![7])).toBe(true);
   });
 
   it("telegram present but sendPhoto missing → 'telegram_unavailable'", async () => {
@@ -178,12 +188,11 @@ describe("Smart Digest delivery — failed paths (Step 15.2 slice B)", () => {
     expect(result.reason).toBe("render_failed");
 
     const insert = getInsert(deps._queries);
-    expect(insert.params![10]).toBe("failed");
-    expect(insert.params![11]).toBe("render_failed");
-    expect(insert.params![5]).toBeNull();
-    expect(insert.params![7]).toBe("smart_digest");
-    expect(insert.params![8]).toBe(42);
-    expect(isDeliveryFailureReason(insert.params![11])).toBe(true);
+    expect(insert.params![6]).toBe("failed");
+    expect(insert.params![7]).toBe("render_failed");
+    expect(insert.params![3]).toBe("smart_digest");
+    expect(insert.params![4]).toBe(42);
+    expect(isDeliveryFailureReason(insert.params![7])).toBe(true);
   });
 
   it("sendPhoto resolves { ok: false } → 'send_failed'", async () => {
@@ -206,12 +215,11 @@ describe("Smart Digest delivery — failed paths (Step 15.2 slice B)", () => {
     expect(result.reason).toBe("send_failed");
 
     const insert = getInsert(deps._queries);
-    expect(insert.params![10]).toBe("failed");
-    expect(insert.params![11]).toBe("send_failed");
-    expect(insert.params![5]).toBeNull();
-    expect(insert.params![7]).toBe("smart_digest");
-    expect(insert.params![8]).toBe(42);
-    expect(isDeliveryFailureReason(insert.params![11])).toBe(true);
+    expect(insert.params![6]).toBe("failed");
+    expect(insert.params![7]).toBe("send_failed");
+    expect(insert.params![3]).toBe("smart_digest");
+    expect(insert.params![4]).toBe(42);
+    expect(isDeliveryFailureReason(insert.params![7])).toBe(true);
   });
 
   it("sendPhoto throws → 'send_error'", async () => {
@@ -236,12 +244,11 @@ describe("Smart Digest delivery — failed paths (Step 15.2 slice B)", () => {
     expect(result.reason).toBe("send_error");
 
     const insert = getInsert(deps._queries);
-    expect(insert.params![10]).toBe("failed");
-    expect(insert.params![11]).toBe("send_error");
-    expect(insert.params![5]).toBeNull();
-    expect(insert.params![7]).toBe("smart_digest");
-    expect(insert.params![8]).toBe(42);
-    expect(isDeliveryFailureReason(insert.params![11])).toBe(true);
+    expect(insert.params![6]).toBe("failed");
+    expect(insert.params![7]).toBe("send_error");
+    expect(insert.params![3]).toBe("smart_digest");
+    expect(insert.params![4]).toBe(42);
+    expect(isDeliveryFailureReason(insert.params![7])).toBe(true);
   });
 
   it("flag-off: failed-path still writes ledger row with NULL artifact link", async () => {
@@ -257,11 +264,10 @@ describe("Smart Digest delivery — failed paths (Step 15.2 slice B)", () => {
     );
 
     const insert = getInsert(deps._queries);
-    expect(insert.params![10]).toBe("failed");
-    expect(insert.params![11]).toBe("telegram_unavailable");
-    expect(insert.params![7]).toBeNull();
-    expect(insert.params![8]).toBeNull();
-    expect(insert.params![5]).toBeNull();
+    expect(insert.params![6]).toBe("failed");
+    expect(insert.params![7]).toBe("telegram_unavailable");
+    expect(insert.params![3]).toBeNull();
+    expect(insert.params![4]).toBeNull();
   });
 
   it("happy path: delivery_status='sent', delivery_failure_reason=NULL", async () => {
@@ -283,11 +289,10 @@ describe("Smart Digest delivery — failed paths (Step 15.2 slice B)", () => {
     expect(result.ok).toBe(true);
 
     const insert = getInsert(deps._queries);
-    expect(insert.params![10]).toBe("sent");
-    expect(insert.params![11]).toBeNull();
-    expect(insert.params![5]).toBeNull();
-    expect(insert.params![7]).toBe("smart_digest");
-    expect(insert.params![8]).toBe(42);
+    expect(insert.params![6]).toBe("sent");
+    expect(insert.params![7]).toBeNull();
+    expect(insert.params![3]).toBe("smart_digest");
+    expect(insert.params![4]).toBe(42);
   });
 
   // Sanity: the union members named at runtime must round-trip the guard.
@@ -302,5 +307,27 @@ describe("Smart Digest delivery — failed paths (Step 15.2 slice B)", () => {
       expect(isDeliveryFailureReason(r)).toBe(true);
     }
     expect(isDeliveryFailureReason("render_or_send_error")).toBe(false);
+  });
+
+  it("INSERT SQL does not reference legacy denorm columns", async () => {
+    const deps = makeDeps({
+      telegram: { sendPhoto: vi.fn(async () => ({ ok: true })) },
+    });
+
+    await deliverSmartDigest(
+      deps as never,
+      TARGET,
+      BRIEF,
+      PRIMARY,
+      { photo: Buffer.from("png"), caption: "cap" },
+      ARTIFACT,
+    );
+
+    const insert = getInsert(deps._queries);
+    const sql = insert.sql;
+    expect(sql).not.toContain("priority");
+    expect(sql).not.toContain("headline");
+    expect(sql).not.toContain("message_body");
+    expect(sql).not.toContain("timeframe_alignment");
   });
 });
