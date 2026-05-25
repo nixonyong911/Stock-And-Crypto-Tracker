@@ -480,7 +480,7 @@ describe("deriveSignals — levels cascade", () => {
     expect(deriveSignals(ema20Truth).holdAbove).toBe("172.00");
   });
 
-  it("target_reached: holdAbove uses target, breakBelowTarget uses entryHigh", () => {
+  it("target_reached (fresh hit): holdAbove=target, breakBelow=ema20 when target > ema20", () => {
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "target_reached",
@@ -500,7 +500,30 @@ describe("deriveSignals — levels cascade", () => {
     });
     const d = deriveSignals(truth);
     expect(d.holdAbove).toBe("200.00");
-    expect(d.breakBelowTarget).toBe("178.00");
+    expect(d.breakBelowTarget).toBe("171.00");
+  });
+
+  it("target_reached (extended): holdAbove=ema20, breakBelow=target when ema20 > target", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
+        rawData: {
+          close: 240,
+          latestOpen: 235,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          entryHigh: 178,
+          stopLoss: 162,
+          targetPrice: 200,
+          ema20: 225,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("225.00");
+    expect(d.breakBelowTarget).toBe("200.00");
   });
 
   it("target_reached: inversion guard activates when target missing (hold=entryHigh=break), falls to default", () => {

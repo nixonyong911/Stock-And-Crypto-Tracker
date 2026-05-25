@@ -978,13 +978,23 @@ function deriveLevelsFromTruth(truth: BriefTruth): {
   let breakRaw: number | undefined;
 
   switch (signalType) {
-    case "target_reached":
-      // Price has reached/exceeded the target; the broken target becomes
-      // the new support floor, and the nearest level below it (entry top
-      // or EMA-20) is the invalidation line.
-      holdRaw = lvl.target ?? lvl.entryHigh ?? lvl.ema20;
-      breakRaw = lvl.entryHigh ?? lvl.ema20 ?? lvl.stopLoss;
+    case "target_reached": {
+      // Use whichever of target or EMA-20 sits closer to the current
+      // price as the watch floor; the other becomes the invalidation.
+      // On a fresh hit target > ema20 (natural support at the breakout);
+      // once price extends, ema20 drifts above target and becomes the
+      // tighter, more spot-relevant level.
+      const t = lvl.target;
+      const ema = lvl.ema20;
+      if (isFinitePositive(t) && isFinitePositive(ema)) {
+        holdRaw = Math.max(t, ema);
+        breakRaw = Math.min(t, ema);
+      } else {
+        holdRaw = t ?? ema ?? lvl.entryHigh;
+        breakRaw = lvl.entryHigh ?? ema ?? lvl.stopLoss;
+      }
       break;
+    }
 
     default:
       // entry_zone, stop_loss_warning, signal_change, momentum_shift, etc.

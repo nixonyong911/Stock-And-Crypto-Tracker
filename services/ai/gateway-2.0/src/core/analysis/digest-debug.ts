@@ -247,7 +247,7 @@ export interface DebugMacroSection {
 
 export interface DebugFallbacks {
   holdAboveSource: "entryLow" | "periodLow" | "ema20" | "target" | "entryHigh" | "none";
-  breakBelowSource: "stopLoss" | "entryHigh" | "ema20" | "none";
+  breakBelowSource: "stopLoss" | "entryHigh" | "ema20" | "target" | "none";
   contextSource: "news_one_liner" | "macro" | "none" | "omitted_low_score";
   /** True iff context line was trimmed by the sentence-boundary cap. */
   contextTrimmed: boolean;
@@ -502,15 +502,22 @@ export function inferLevelFallback(truth: BriefTruth): {
   let breakBelowSource: DebugFallbacks["breakBelowSource"] = "none";
 
   switch (signalType) {
-    case "target_reached":
-      if (isFinitePositive(lvl.target)) holdAboveSource = "target";
-      else if (isFinitePositive(lvl.entryHigh)) holdAboveSource = "entryHigh";
-      else if (isFinitePositive(lvl.ema20)) holdAboveSource = "ema20";
-
-      if (isFinitePositive(lvl.entryHigh)) breakBelowSource = "entryHigh";
-      else if (isFinitePositive(lvl.ema20)) breakBelowSource = "ema20";
-      else if (isFinitePositive(lvl.stopLoss)) breakBelowSource = "stopLoss";
+    case "target_reached": {
+      const t = lvl.target;
+      const ema = lvl.ema20;
+      if (isFinitePositive(t) && isFinitePositive(ema)) {
+        holdAboveSource = t >= ema ? "target" : "ema20";
+        breakBelowSource = t >= ema ? "ema20" : "target";
+      } else {
+        holdAboveSource = isFinitePositive(t) ? "target"
+          : isFinitePositive(ema) ? "ema20"
+          : isFinitePositive(lvl.entryHigh) ? "entryHigh" : "none";
+        breakBelowSource = isFinitePositive(lvl.entryHigh) ? "entryHigh"
+          : isFinitePositive(ema) ? "ema20"
+          : isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
+      }
       break;
+    }
 
     default:
       if (isFinitePositive(lvl.entryLow)) holdAboveSource = "entryLow";

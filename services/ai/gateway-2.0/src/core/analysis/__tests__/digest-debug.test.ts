@@ -284,7 +284,7 @@ describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
     expect(inferLevelFallback(truth).breakBelowSource).toBe("none");
   });
 
-  it("target_reached: holdAbove uses target, breakBelow uses entryHigh", () => {
+  it("target_reached (fresh): holdAbove=target, breakBelow=ema20 when target > ema20", () => {
     const truth = gatherTruth({
       signal: makeSignal({
         type: "target_reached",
@@ -303,7 +303,30 @@ describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
     });
     expect(inferLevelFallback(truth)).toEqual({
       holdAboveSource: "target",
-      breakBelowSource: "entryHigh",
+      breakBelowSource: "ema20",
+    });
+  });
+
+  it("target_reached (extended): holdAbove=ema20, breakBelow=target when ema20 > target", () => {
+    const truth = gatherTruth({
+      signal: makeSignal({
+        type: "target_reached",
+        rawData: {
+          close: 240,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          entryHigh: 178,
+          stopLoss: 162,
+          targetPrice: 200,
+          ema20: 225,
+        },
+      }),
+    });
+    expect(inferLevelFallback(truth)).toEqual({
+      holdAboveSource: "ema20",
+      breakBelowSource: "target",
     });
   });
 
