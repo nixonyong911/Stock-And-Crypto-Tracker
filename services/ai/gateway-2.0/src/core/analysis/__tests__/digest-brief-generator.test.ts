@@ -396,6 +396,9 @@ describe("buildWhatToWatch", () => {
   });
 
   it("falls back to periodLow then ema20 for holdAbove", () => {
+    // When both periodLow and ema20 are present in the default branch,
+    // the post-fix cascade picks the tighter one (max → closer to spot).
+    // periodLow=168, ema20=172 → ema20 wins.
     const s = makeSignal({
       rawData: {
         close: 175,
@@ -406,7 +409,19 @@ describe("buildWhatToWatch", () => {
         ema20: 172,
       },
     });
-    expect(buildWhatToWatch(s).holdAbove).toBe("168.00");
+    expect(buildWhatToWatch(s).holdAbove).toBe("172.00");
+
+    // periodLow only (no ema20) → cascade returns periodLow.
+    const periodLowOnly = makeSignal({
+      rawData: {
+        close: 175,
+        daySignal: "bullish",
+        swingSignal: "bullish",
+        longTermSignal: "bullish",
+        periodLow: 168,
+      },
+    });
+    expect(buildWhatToWatch(periodLowOnly).holdAbove).toBe("168.00");
   });
 
   it("returns em-dash for breakBelowTarget when stopLoss missing (no *0.97 invention)", () => {

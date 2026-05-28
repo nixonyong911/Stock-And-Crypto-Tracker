@@ -247,7 +247,14 @@ export interface DebugMacroSection {
 
 export interface DebugFallbacks {
   holdAboveSource: "entryLow" | "periodLow" | "ema20" | "target" | "entryHigh" | "none";
-  breakBelowSource: "stopLoss" | "entryHigh" | "ema20" | "target" | "none";
+  breakBelowSource:
+    | "stopLoss"
+    | "entryHigh"
+    | "ema20"
+    | "target"
+    | "entryLow"
+    | "periodLow"
+    | "none";
   contextSource: "news_one_liner" | "macro" | "none" | "omitted_low_score";
   /** True iff context line was trimmed by the sentence-boundary cap. */
   contextTrimmed: boolean;
@@ -519,13 +526,41 @@ export function inferLevelFallback(truth: BriefTruth): {
       break;
     }
 
-    default:
-      if (isFinitePositive(lvl.entryLow)) holdAboveSource = "entryLow";
-      else if (isFinitePositive(lvl.periodLow)) holdAboveSource = "periodLow";
-      else if (isFinitePositive(lvl.ema20)) holdAboveSource = "ema20";
-
-      breakBelowSource = isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
+    default: {
+      // Mirror of `deriveLevelsFromTruth` default branch: prefer the
+      // tighter of `structHold` (entryLow ?? periodLow) and `ema20` for
+      // the hold anchor. Keep stopLoss as the wider invalidation; only
+      // fall back to `min(structHold, ema20)` for break when stopLoss
+      // is missing.
+      let structSource: "entryLow" | "periodLow" | "none" = "none";
+      let structVal: number | undefined;
+      if (isFinitePositive(lvl.entryLow)) {
+        structSource = "entryLow";
+        structVal = lvl.entryLow;
+      } else if (isFinitePositive(lvl.periodLow)) {
+        structSource = "periodLow";
+        structVal = lvl.periodLow;
+      }
+      const ema = lvl.ema20;
+      if (structVal != null && isFinitePositive(ema)) {
+        const emaIsTighter = ema > structVal;
+        holdAboveSource = emaIsTighter ? "ema20" : structSource;
+        breakBelowSource = isFinitePositive(lvl.stopLoss)
+          ? "stopLoss"
+          : emaIsTighter
+            ? structSource
+            : "ema20";
+      } else if (structVal != null) {
+        holdAboveSource = structSource;
+        breakBelowSource = isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
+      } else if (isFinitePositive(ema)) {
+        holdAboveSource = "ema20";
+        breakBelowSource = isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
+      } else {
+        breakBelowSource = isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
+      }
       break;
+    }
   }
 
   return { holdAboveSource, breakBelowSource };
