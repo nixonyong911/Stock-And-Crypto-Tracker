@@ -1429,8 +1429,10 @@ describe("deriveSignals — fmtPrice commas for levels >= 10k", () => {
 describe("deriveSignals — distance sanity guard", () => {
   it("default-branch anchor already resolves the 'both far' case when ema20 is available", () => {
     // With the post-fix default cascade, hold = max(entryLow=70, ema20=98)
-    // = 98 (ema20, ~2% from spot). The distance guard is no longer the
-    // mechanism that rescues this case — it's resolved by the anchor.
+    // = 98 (ema20, ~2% from spot). The both-sides 20% guard is no longer
+    // the mechanism that rescues this case — it's resolved by the anchor.
+    // Note: the single-side polish (Rule A) does drop break=65 (-35%)
+    // because hold is inside 25% — see the dedicated section below.
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "entry_zone",
@@ -1447,10 +1449,14 @@ describe("deriveSignals — distance sanity guard", () => {
     });
     const d = deriveSignals(truth);
     expect(d.holdAbove).toBe("98.00");
-    expect(d.breakBelowTarget).toBe("65.00");
+    expect(d.breakBelowTarget).toBe("—");
   });
 
-  it("does NOT trigger when at least one level is within 20%", () => {
+  it("does NOT collapse to em-dash when only one level is within 20% (single-side polish handles break-far)", () => {
+    // entryLow=85 (-15%, inside 20%), stopLoss=65 (-35%, outside 20%).
+    // Both-sides guard does not fire. Hold is preserved; the single-side
+    // polish drops the far break — see the dedicated section below for
+    // that assertion.
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "entry_zone",
@@ -1466,7 +1472,9 @@ describe("deriveSignals — distance sanity guard", () => {
     });
     const d = deriveSignals(truth);
     expect(d.holdAbove).toBe("85.00");
-    expect(d.breakBelowTarget).toBe("65.00");
+    // Single-side break-far rule (>25%) suppresses break — see
+    // "single-side distance polish" describe block.
+    expect(d.breakBelowTarget).toBe("—");
   });
 
   it("preserves hold=em-dash when ema20 also missing in distance fallback", () => {
@@ -1514,5 +1522,232 @@ describe("deriveSignals — distance sanity guard", () => {
     const d = deriveSignals(truth);
     expect(d.holdAbove).toBe("210.00");
     expect(d.breakBelowTarget).toBe("182.00");
+  });
+});
+
+// ── Single-side distance polish (Rule A + Rule B) ────────────────────
+
+describe("deriveSignals — single-side distance polish", () => {
+  // Rule A: hold anchored within 25%, break > 25% from spot → break dropped
+
+  it("Rule A: target_reached extension drops break-far (AMD-style)", () => {
+    // AMD-style live shape: price=490, target=396 (~-19%, inside 25%),
+    // ema20=234 (~-52%, outside 25%). Pre-polish: break=234. Polished:
+    // hold=396 preserved, break dropped to em-dash so the renderer
+    // shows the single-line "Key level to watch:" form.
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        symbol: "AMD",
+        type: "target_reached",
+        rawData: {
+          close: 490,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          targetPrice: 396,
+          ema20: 234,
+          stopLoss: 269,
+          entryLow: 272,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("396.00");
+    expect(d.breakBelowTarget).toBe("—");
+  });
+
+  it("Rule A: default-branch break-far suppression (UNH-style stopLoss too far)", () => {
+    // Spot=100. ema20=95 (-5%, inside 25%). entryLow=85 (-15%, inside).
+    // stopLoss=70 (-30%, outside 25%). Hold=max(85,95)=95 anchored
+    // within 25% → break (stopLoss=70) suppressed by single-side rule.
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 85,
+          stopLoss: 70,
+          ema20: 95,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("95.00");
+    expect(d.breakBelowTarget).toBe("—");
+  });
+
+  it("Rule A no-op: both levels within 25% (healthy setup unchanged)", () => {
+    // Spot=100. entryLow=90 (-10%), ema20=95 (-5%), stopLoss=80 (-20%).
+    // Hold=95, break=80. Both inside 25% → Rule A skips, both shown.
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 90,
+          stopLoss: 80,
+          ema20: 95,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("95.00");
+    expect(d.breakBelowTarget).toBe("80.00");
+  });
+
+  it("Rule A no-op when hold is also far (yields to existing both-sides 20% guard)", () => {
+    // Spot=100. entryLow=70, stopLoss=65, ema20=72. Default-branch
+    // hold=max(70,72)=72 (-28%). Both >20% → both-sides guard fires
+    // first and degrades to ema20-only — Rule A never sees a
+    // hold-inside scenario.
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 70,
+          stopLoss: 65,
+          ema20: 72,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("72.00");
+    expect(d.breakBelowTarget).toBe("—");
+  });
+
+  // Rule B: default-branch hold > 25% above spot → swap to closer alternate
+
+  it("Rule B: swaps hold to entryLow when ema20 sits >25% above spot and entryLow is closer", () => {
+    // Spot=100. entryLow=98 (-2%, just below spot), ema20=130 (+30%
+    // above spot), stopLoss=80 (-20%). Pre-polish:
+    // hold=max(98,130)=130 (+30% above). Polished: ema20 is far above
+    // spot, entryLow=98 is closer AND > break — swap to entryLow.
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 98,
+          stopLoss: 80,
+          ema20: 130,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("98.00");
+    expect(d.breakBelowTarget).toBe("80.00");
+  });
+
+  it("Rule B no-op: target_reached is exempt", () => {
+    // target_reached has its own anchoring semantic (max(target,
+    // ema20)) — we deliberately leave it alone even when hold lands
+    // far above spot, because the breakout wording handles a far hold
+    // differently and the upstream signal logic owns that decision.
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "target_reached",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          targetPrice: 130,
+          ema20: 95,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("130.00");
+    // 95 is -5% from spot, within both 20% and 25%, so break preserved.
+    expect(d.breakBelowTarget).toBe("95.00");
+  });
+
+  it("Rule B no-op: hold below spot (entryLow above ema20, both below spot)", () => {
+    // Spot=100. entryLow=95 (-5%), ema20=92 (-8%). Pre-polish:
+    // hold=max(95,92)=95 (below spot). Rule B requires hold > spot —
+    // doesn't fire.
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 95,
+          stopLoss: 88,
+          ema20: 92,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("95.00");
+    expect(d.breakBelowTarget).toBe("88.00");
+  });
+
+  it("Rule B no-op: alternate would invert with break (hold stays put)", () => {
+    // Spot=100. entryLow=70 (would invert with stopLoss=80), ema20=130
+    // (+30% above spot). Pre-polish: hold=130. Polished: entryLow=70
+    // is closer to spot but <= break=80 → invariant violated, no swap.
+    // ema20 is the current hold so it can't substitute itself. No
+    // valid alternate → hold preserved.
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 70,
+          stopLoss: 80,
+          ema20: 130,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    // No substitution possible. The hold (130) is also outside the 25%
+    // band above spot, but Rule A doesn't suppress (break 80 is inside).
+    expect(d.holdAbove).toBe("130.00");
+    expect(d.breakBelowTarget).toBe("80.00");
+  });
+
+  it("Rule B firing leaves break untouched when break is already anchored", () => {
+    // Spot=100. entryLow=98 (-2%), ema20=130 (+30%), stopLoss=85 (-15%).
+    // Pre-polish: hold = max(98,130) = 130, break = stopLoss = 85.
+    // Both-sides 20% guard: hold 30% / break 15% → not both >20%, skip.
+    // Rule A: hold not inside 25% → skip.
+    // Rule B: hold > spot, dist 30% > 25% → swap to entryLow=98 (closer
+    //   to spot AND > break=85). Break preserved.
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 98,
+          stopLoss: 85,
+          ema20: 130,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("98.00");
+    expect(d.breakBelowTarget).toBe("85.00");
   });
 });

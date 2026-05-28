@@ -53,6 +53,7 @@ import {
   macroPassesGate,
   decideSurfacing,
   getMemoryFreshnessHours,
+  selectLevels,
   MACRO_SENTIMENT_GATE,
   type BriefTruth,
   type BriefDerived,
@@ -372,10 +373,6 @@ function toNum(val: string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function isFinitePositive(n: number | undefined): n is number {
-  return typeof n === "number" && Number.isFinite(n) && n > 0;
-}
-
 /**
  * Apply `PRIORITY_ORDER` to the candidate signals using a stable sort and
  * return everything a reviewer needs to understand the selection: the
@@ -490,80 +487,22 @@ export function rankCandidates(signals: TickerSignal[]): CandidateRanking {
 }
 
 /**
- * Mirror of the signal-aware level cascade in `deriveLevelsFromTruth`.
- * Returns the source name a reviewer can compare to the production answer
- * without re-implementing the format logic.
+ * Returns the source labels a reviewer can compare to the production
+ * answer. Delegates to `selectLevels` in `digest-brief-truth.ts` so the
+ * debug layer never drifts out of sync with the runtime path — both
+ * functions share a single source of truth, which previously lived as a
+ * mirrored copy here and required updates in two places on every
+ * watch-level change.
  */
 export function inferLevelFallback(truth: BriefTruth): {
   holdAboveSource: DebugFallbacks["holdAboveSource"];
   breakBelowSource: DebugFallbacks["breakBelowSource"];
 } {
-  if (!isFinitePositive(truth.price)) {
-    return { holdAboveSource: "none", breakBelowSource: "none" };
-  }
-
-  const lvl = truth.levels;
-  const signalType = truth.signalFacts.type;
-
-  let holdAboveSource: DebugFallbacks["holdAboveSource"] = "none";
-  let breakBelowSource: DebugFallbacks["breakBelowSource"] = "none";
-
-  switch (signalType) {
-    case "target_reached": {
-      const t = lvl.target;
-      const ema = lvl.ema20;
-      if (isFinitePositive(t) && isFinitePositive(ema)) {
-        holdAboveSource = t >= ema ? "target" : "ema20";
-        breakBelowSource = t >= ema ? "ema20" : "target";
-      } else {
-        holdAboveSource = isFinitePositive(t) ? "target"
-          : isFinitePositive(ema) ? "ema20"
-          : isFinitePositive(lvl.entryHigh) ? "entryHigh" : "none";
-        breakBelowSource = isFinitePositive(lvl.entryHigh) ? "entryHigh"
-          : isFinitePositive(ema) ? "ema20"
-          : isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
-      }
-      break;
-    }
-
-    default: {
-      // Mirror of `deriveLevelsFromTruth` default branch: prefer the
-      // tighter of `structHold` (entryLow ?? periodLow) and `ema20` for
-      // the hold anchor. Keep stopLoss as the wider invalidation; only
-      // fall back to `min(structHold, ema20)` for break when stopLoss
-      // is missing.
-      let structSource: "entryLow" | "periodLow" | "none" = "none";
-      let structVal: number | undefined;
-      if (isFinitePositive(lvl.entryLow)) {
-        structSource = "entryLow";
-        structVal = lvl.entryLow;
-      } else if (isFinitePositive(lvl.periodLow)) {
-        structSource = "periodLow";
-        structVal = lvl.periodLow;
-      }
-      const ema = lvl.ema20;
-      if (structVal != null && isFinitePositive(ema)) {
-        const emaIsTighter = ema > structVal;
-        holdAboveSource = emaIsTighter ? "ema20" : structSource;
-        breakBelowSource = isFinitePositive(lvl.stopLoss)
-          ? "stopLoss"
-          : emaIsTighter
-            ? structSource
-            : "ema20";
-      } else if (structVal != null) {
-        holdAboveSource = structSource;
-        breakBelowSource = isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
-      } else if (isFinitePositive(ema)) {
-        holdAboveSource = "ema20";
-        breakBelowSource = isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
-      } else {
-        breakBelowSource = isFinitePositive(lvl.stopLoss) ? "stopLoss" : "none";
-      }
-      break;
-    }
-  }
-
-  return { holdAboveSource, breakBelowSource };
+  const sel = selectLevels(truth);
+  return {
+    holdAboveSource: sel.holdSource,
+    breakBelowSource: sel.breakSource,
+  };
 }
 
 /**

@@ -393,6 +393,56 @@ describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
       breakBelowSource: "entryLow",
     });
   });
+
+  // Single-side polish: source labels reflect the post-polish state so
+  // the debug envelope and the rendered card stay in lock-step.
+
+  it("Rule A: break source becomes 'none' when stopLoss > 25% from spot and hold is anchored", () => {
+    // Spot=100, ema20=95 (-5%), entryLow=85 (-15%), stopLoss=70 (-30%).
+    // Hold anchored to ema20 (within 25%); break dropped by Rule A.
+    const truth = gatherTruth({
+      signal: makeSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 85,
+          stopLoss: 70,
+          ema20: 95,
+        },
+      }),
+    });
+    expect(inferLevelFallback(truth)).toEqual({
+      holdAboveSource: "ema20",
+      breakBelowSource: "none",
+    });
+  });
+
+  it("Rule B: hold source becomes the closer alternate after substitution", () => {
+    // Spot=100, entryLow=98 (-2%), stopLoss=80 (-20%), ema20=130
+    // (+30%). Pre-polish hold = max(98,130) = 130 (ema20). Rule B
+    // swaps to entryLow because it is closer to spot AND > break.
+    const truth = gatherTruth({
+      signal: makeSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 100,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 98,
+          stopLoss: 80,
+          ema20: 130,
+        },
+      }),
+    });
+    expect(inferLevelFallback(truth)).toEqual({
+      holdAboveSource: "entryLow",
+      breakBelowSource: "stopLoss",
+    });
+  });
 });
 
 // ── inferContextFallback ────────────────────────────────────────────

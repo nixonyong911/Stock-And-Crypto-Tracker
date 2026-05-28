@@ -10,7 +10,15 @@ export const CURRENT_DIGEST_BRIEF_SCHEMA_VERSION = 1;
 // `entryLow ?? periodLow ?? ema20` cascade. The bump forces the 24 h
 // reuse cache to evict so users see new wording immediately rather than
 // after natural expiry.
-export const CURRENT_GENERATOR_VERSION = "2";
+//
+// Bumped to "3" for the single-side polish pass: a `breakBelow` farther
+// than 25% from spot now collapses to em-dash (renderer falls back to
+// the single-line "Key level to watch:" form), and a default-branch
+// `holdAbove` more than 25% above spot is swapped to whichever of
+// `entryLow`, `periodLow`, or `ema20` is closer to spot (when one
+// exists). Cached `v2` artifacts that pre-date the polish are evicted
+// so users see the new behavior immediately.
+export const CURRENT_GENERATOR_VERSION = "3";
 
 export const CURRENT_PROMPT_VERSION: string | null = null;
 

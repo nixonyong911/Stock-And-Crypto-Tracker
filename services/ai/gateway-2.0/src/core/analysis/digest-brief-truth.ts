@@ -351,6 +351,18 @@ const LEVEL_PRICE_BAND_HIGH = 20;
  */
 const MAX_LEVEL_DISTANCE = 0.2;
 
+/**
+ * Single-side polish threshold. A notch looser than `MAX_LEVEL_DISTANCE`
+ * by design — the both-sides guard is a hard floor for "everything is
+ * stale," whereas the single-side rules below address one-tail outliers
+ * where the other side is still anchored. 25% is the value the watch-
+ * level polish brief landed on; it cleanly catches break levels that
+ * have drifted >25% from spot (e.g. EMA-20 trailing a sharp rally past
+ * the original target) without disturbing healthy 10–20% structural
+ * setups. See `selectLevels` for the two rules that consume this.
+ */
+const MAX_SINGLE_SIDE_DISTANCE = 0.25;
+
 function priceOpenSane(close: number, open: number): boolean {
   if (!isFinitePositive(close) || !isFinitePositive(open)) return false;
   return Math.abs(Math.log(close / open)) < PRICE_OPEN_SANE_LOG_RATIO;
@@ -992,12 +1004,62 @@ function deriveWatchCategory(truth: BriefTruth): WatchCategory {
   }
 }
 
-function deriveLevelsFromTruth(truth: BriefTruth): {
-  holdAbove: string;
-  breakBelowTarget: string;
-} {
+/**
+ * Source label for `selectLevels` results. Mirrors the existing
+ * `DebugFallbacks` source unions in `digest-debug.ts` so the debug
+ * inspection layer can delegate to `selectLevels` directly without
+ * re-deriving labels.
+ */
+export type LevelHoldSource =
+  | "entryLow"
+  | "periodLow"
+  | "ema20"
+  | "target"
+  | "entryHigh"
+  | "none";
+
+export type LevelBreakSource =
+  | "stopLoss"
+  | "entryHigh"
+  | "ema20"
+  | "target"
+  | "entryLow"
+  | "periodLow"
+  | "none";
+
+export interface LevelSelection {
+  holdRaw: number | undefined;
+  breakRaw: number | undefined;
+  holdSource: LevelHoldSource;
+  breakSource: LevelBreakSource;
+}
+
+/**
+ * Single source of truth for "What to watch from here" level selection.
+ *
+ * Returns both the numeric values the renderer formats AND the source
+ * labels the debug inspection layer surfaces, so the two layers cannot
+ * drift out of sync (which they did during the previous fix pass and
+ * required separate updates in two places).
+ *
+ * Stages, in order:
+ *   1. Signal-aware initial selection (target_reached vs default)
+ *   2. Inversion guard — fall back to default cascade if hold ≤ break
+ *   3. Both-sides 20% guard — degrade to EMA-20 only when nothing fits
+ *   4. Single-side break-far suppression (Rule A, 25%)
+ *   5. Single-side hold-far-above-spot substitution (Rule B, 25%, default
+ *      branch only)
+ *
+ * Pure / no I/O. Exported for the debug inspection layer and tests.
+ */
+export function selectLevels(truth: BriefTruth): LevelSelection {
   if (!isFinitePositive(truth.price)) {
-    return { holdAbove: "—", breakBelowTarget: "—" };
+    return {
+      holdRaw: undefined,
+      breakRaw: undefined,
+      holdSource: "none",
+      breakSource: "none",
+    };
   }
 
   const lvl = truth.levels;
@@ -1005,7 +1067,10 @@ function deriveLevelsFromTruth(truth: BriefTruth): {
 
   let holdRaw: number | undefined;
   let breakRaw: number | undefined;
+  let holdSource: LevelHoldSource = "none";
+  let breakSource: LevelBreakSource = "none";
 
+  // ── 1. Signal-aware initial selection ───────────────────────────────
   switch (signalType) {
     case "target_reached": {
       // Use whichever of target or EMA-20 sits closer to the current
@@ -1016,11 +1081,38 @@ function deriveLevelsFromTruth(truth: BriefTruth): {
       const t = lvl.target;
       const ema = lvl.ema20;
       if (isFinitePositive(t) && isFinitePositive(ema)) {
-        holdRaw = Math.max(t, ema);
-        breakRaw = Math.min(t, ema);
+        if (t >= ema) {
+          holdRaw = t;
+          holdSource = "target";
+          breakRaw = ema;
+          breakSource = "ema20";
+        } else {
+          holdRaw = ema;
+          holdSource = "ema20";
+          breakRaw = t;
+          breakSource = "target";
+        }
       } else {
-        holdRaw = t ?? ema ?? lvl.entryHigh;
-        breakRaw = lvl.entryHigh ?? ema ?? lvl.stopLoss;
+        if (isFinitePositive(t)) {
+          holdRaw = t;
+          holdSource = "target";
+        } else if (isFinitePositive(ema)) {
+          holdRaw = ema;
+          holdSource = "ema20";
+        } else if (isFinitePositive(lvl.entryHigh)) {
+          holdRaw = lvl.entryHigh;
+          holdSource = "entryHigh";
+        }
+        if (isFinitePositive(lvl.entryHigh)) {
+          breakRaw = lvl.entryHigh;
+          breakSource = "entryHigh";
+        } else if (isFinitePositive(ema)) {
+          breakRaw = ema;
+          breakSource = "ema20";
+        } else if (isFinitePositive(lvl.stopLoss)) {
+          breakRaw = lvl.stopLoss;
+          breakSource = "stopLoss";
+        }
       }
       break;
     }
@@ -1038,21 +1130,55 @@ function deriveLevelsFromTruth(truth: BriefTruth): {
       // structural floor by construction. If `stopLoss` is missing we
       // fall back to `min(structHold, ema20)` so the card still has a
       // sane lower anchor instead of an em-dash.
+      const structSource: "entryLow" | "periodLow" | "none" =
+        isFinitePositive(lvl.entryLow)
+          ? "entryLow"
+          : isFinitePositive(lvl.periodLow)
+            ? "periodLow"
+            : "none";
       const structHold = lvl.entryLow ?? lvl.periodLow;
       const ema = lvl.ema20;
       if (isFinitePositive(structHold) && isFinitePositive(ema)) {
-        holdRaw = Math.max(structHold, ema);
-        breakRaw = isFinitePositive(lvl.stopLoss)
-          ? lvl.stopLoss
-          : Math.min(structHold, ema);
-      } else {
-        holdRaw = structHold ?? ema;
+        if (structHold >= ema) {
+          holdRaw = structHold;
+          holdSource = structSource;
+        } else {
+          holdRaw = ema;
+          holdSource = "ema20";
+        }
+        if (isFinitePositive(lvl.stopLoss)) {
+          breakRaw = lvl.stopLoss;
+          breakSource = "stopLoss";
+        } else if (structHold < ema) {
+          breakRaw = structHold;
+          breakSource = structSource;
+        } else {
+          breakRaw = ema;
+          breakSource = "ema20";
+        }
+      } else if (isFinitePositive(structHold)) {
+        holdRaw = structHold;
+        holdSource = structSource;
+        if (isFinitePositive(lvl.stopLoss)) {
+          breakRaw = lvl.stopLoss;
+          breakSource = "stopLoss";
+        }
+      } else if (isFinitePositive(ema)) {
+        holdRaw = ema;
+        holdSource = "ema20";
+        if (isFinitePositive(lvl.stopLoss)) {
+          breakRaw = lvl.stopLoss;
+          breakSource = "stopLoss";
+        }
+      } else if (isFinitePositive(lvl.stopLoss)) {
         breakRaw = lvl.stopLoss;
+        breakSource = "stopLoss";
       }
       break;
     }
   }
 
+  // ── 2. Inversion guard ──────────────────────────────────────────────
   // Safety: if the selected levels invert (holdAbove <= breakBelow),
   // the card text becomes nonsensical. Fall back to the default cascade
   // (`structHold ?? ema20` for hold, `stopLoss` for break) — the simplest
@@ -1064,31 +1190,125 @@ function deriveLevelsFromTruth(truth: BriefTruth): {
     isFinitePositive(breakRaw) &&
     holdRaw <= breakRaw
   ) {
-    holdRaw = lvl.entryLow ?? lvl.periodLow ?? lvl.ema20;
-    breakRaw = lvl.stopLoss;
-  }
-
-  // Distance guard: if BOTH levels sit >20% from spot, the analysis
-  // structure is too stale to present as "near-term watch." Fall back to
-  // EMA-20 as the sole anchor and omit break-below rather than showing
-  // numbers that feel disconnected from the current price.
-  if (
-    isFinitePositive(truth.price) &&
-    isFinitePositive(holdRaw) &&
-    isFinitePositive(breakRaw)
-  ) {
-    const holdDist = Math.abs(holdRaw / truth.price - 1);
-    const breakDist = Math.abs(breakRaw / truth.price - 1);
-    if (holdDist > MAX_LEVEL_DISTANCE && breakDist > MAX_LEVEL_DISTANCE) {
+    if (isFinitePositive(lvl.entryLow)) {
+      holdRaw = lvl.entryLow;
+      holdSource = "entryLow";
+    } else if (isFinitePositive(lvl.periodLow)) {
+      holdRaw = lvl.periodLow;
+      holdSource = "periodLow";
+    } else if (isFinitePositive(lvl.ema20)) {
       holdRaw = lvl.ema20;
+      holdSource = "ema20";
+    } else {
+      holdRaw = undefined;
+      holdSource = "none";
+    }
+    if (isFinitePositive(lvl.stopLoss)) {
+      breakRaw = lvl.stopLoss;
+      breakSource = "stopLoss";
+    } else {
       breakRaw = undefined;
+      breakSource = "none";
     }
   }
 
-  const holdAbove = isFinitePositive(holdRaw) ? fmtPrice(holdRaw) : "—";
-  const breakBelowTarget = isFinitePositive(breakRaw) ? fmtPrice(breakRaw) : "—";
+  // ── 3. Both-sides 20% guard ─────────────────────────────────────────
+  // If BOTH levels sit >20% from spot, the analysis structure is too
+  // stale to present as "near-term watch." Fall back to EMA-20 as the
+  // sole anchor and omit break-below rather than showing numbers that
+  // feel disconnected from the current price.
+  if (isFinitePositive(holdRaw) && isFinitePositive(breakRaw)) {
+    const holdDist = Math.abs(holdRaw / truth.price - 1);
+    const breakDist = Math.abs(breakRaw / truth.price - 1);
+    if (holdDist > MAX_LEVEL_DISTANCE && breakDist > MAX_LEVEL_DISTANCE) {
+      if (isFinitePositive(lvl.ema20)) {
+        holdRaw = lvl.ema20;
+        holdSource = "ema20";
+      } else {
+        holdRaw = undefined;
+        holdSource = "none";
+      }
+      breakRaw = undefined;
+      breakSource = "none";
+    }
+  }
 
-  return { holdAbove, breakBelowTarget };
+  // ── 4. Rule A — single-side break-far suppression ──────────────────
+  // If `holdAbove` is already anchored within 25% of spot but
+  // `breakBelow` lands further than 25% from spot, the break number is
+  // too distant to feel like a useful "what to watch from here" anchor
+  // (e.g. AMD target_reached extension where EMA-20 trails the rally by
+  // 50%+, or any setup where stopLoss has drifted very far from spot).
+  // Drop break to undefined; the renderer falls back to the single-line
+  // "Key level to watch:" form. The both-sides guard above continues to
+  // handle the cataclysmic case where hold is also far.
+  if (isFinitePositive(holdRaw) && isFinitePositive(breakRaw)) {
+    const holdDist = Math.abs(holdRaw / truth.price - 1);
+    const breakDist = Math.abs(breakRaw / truth.price - 1);
+    if (
+      holdDist <= MAX_SINGLE_SIDE_DISTANCE &&
+      breakDist > MAX_SINGLE_SIDE_DISTANCE
+    ) {
+      breakRaw = undefined;
+      breakSource = "none";
+    }
+  }
+
+  // ── 5. Rule B — hold-far-above-spot substitution (default branch) ──
+  // If the chosen `holdAbove` sits more than 25% ABOVE current price,
+  // the wording "Hold above $X" reads awkwardly because price is well
+  // below the level. Swap to whichever of `entryLow`, `periodLow`, or
+  // `ema20` is closest to spot AND keeps hold > break (preserves the
+  // inversion invariant). target_reached is excluded because its
+  // anchoring semantic (max(target, ema20)) is intentional and the
+  // breakout wording handles a far hold differently.
+  if (
+    signalType !== "target_reached" &&
+    isFinitePositive(holdRaw) &&
+    holdRaw > truth.price &&
+    holdRaw / truth.price - 1 > MAX_SINGLE_SIDE_DISTANCE
+  ) {
+    const candidates: { val: number; src: LevelHoldSource }[] = [];
+    if (isFinitePositive(lvl.entryLow) && lvl.entryLow !== holdRaw) {
+      candidates.push({ val: lvl.entryLow, src: "entryLow" });
+    }
+    if (isFinitePositive(lvl.periodLow) && lvl.periodLow !== holdRaw) {
+      candidates.push({ val: lvl.periodLow, src: "periodLow" });
+    }
+    if (isFinitePositive(lvl.ema20) && lvl.ema20 !== holdRaw) {
+      candidates.push({ val: lvl.ema20, src: "ema20" });
+    }
+    let best: { val: number; src: LevelHoldSource } | undefined;
+    let bestDist = Math.abs(holdRaw / truth.price - 1);
+    for (const c of candidates) {
+      const d = Math.abs(c.val / truth.price - 1);
+      const keepsInvariant =
+        !isFinitePositive(breakRaw) || c.val > breakRaw;
+      if (d < bestDist && keepsInvariant) {
+        bestDist = d;
+        best = c;
+      }
+    }
+    if (best !== undefined) {
+      holdRaw = best.val;
+      holdSource = best.src;
+    }
+  }
+
+  return { holdRaw, breakRaw, holdSource, breakSource };
+}
+
+function deriveLevelsFromTruth(truth: BriefTruth): {
+  holdAbove: string;
+  breakBelowTarget: string;
+} {
+  const sel = selectLevels(truth);
+  return {
+    holdAbove: isFinitePositive(sel.holdRaw) ? fmtPrice(sel.holdRaw) : "—",
+    breakBelowTarget: isFinitePositive(sel.breakRaw)
+      ? fmtPrice(sel.breakRaw)
+      : "—",
+  };
 }
 
 function deriveChangePercentFromTruth(truth: BriefTruth): number {
