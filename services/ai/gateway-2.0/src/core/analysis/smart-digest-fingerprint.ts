@@ -5,7 +5,12 @@ import type { Pool } from "pg";
 
 export const CURRENT_DIGEST_BRIEF_SCHEMA_VERSION = 1;
 
-export const CURRENT_GENERATOR_VERSION = "1";
+// Bumped to "2" when the default-branch level cascade was changed to
+// anchor `holdAbove` to `max(structHold, ema20)` instead of the legacy
+// `entryLow ?? periodLow ?? ema20` cascade. The bump forces the 24 h
+// reuse cache to evict so users see new wording immediately rather than
+// after natural expiry.
+export const CURRENT_GENERATOR_VERSION = "2";
 
 export const CURRENT_PROMPT_VERSION: string | null = null;
 

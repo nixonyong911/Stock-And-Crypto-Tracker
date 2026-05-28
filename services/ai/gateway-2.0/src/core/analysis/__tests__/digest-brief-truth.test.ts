@@ -395,11 +395,54 @@ describe("gatherTruth — asset coverage", () => {
 // ── deriveSignals ────────────────────────────────────────────────────
 
 describe("deriveSignals — levels cascade", () => {
-  it("uses stopLoss for breakBelowTarget and entryLow for holdAbove", () => {
+  it("default branch: holdAbove prefers ema20 over entryLow when ema20 is tighter to spot; break stays stopLoss", () => {
+    // makeStockSignal default: close=175, entryLow=168, ema20=171, stopLoss=162.
+    // max(entryLow=168, ema20=171) = 171 → ema20 wins because it sits
+    // closer to spot. stopLoss is preserved as the wider invalidation.
     const truth = gatherTruth({ signal: makeStockSignal() });
     const d = deriveSignals(truth);
-    expect(d.holdAbove).toBe("168.00");
+    expect(d.holdAbove).toBe("171.00");
     expect(d.breakBelowTarget).toBe("162.00");
+  });
+
+  it("default branch: holdAbove falls to entryLow when ema20 is below entryLow (entry zone above spot)", () => {
+    // Bullish setup waiting to be claimed: price below entryLow, ema20
+    // also below spot. max(entryLow, ema20) = entryLow → keeps the
+    // structural narrative ("wait for it to reclaim $X").
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 165,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 170,
+          ema20: 164,
+          stopLoss: 158,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("170.00");
+    expect(d.breakBelowTarget).toBe("158.00");
+  });
+
+  it("default branch: when stopLoss is missing, break falls back to min(structHold, ema20)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          ema20: 171,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("171.00");
+    expect(d.breakBelowTarget).toBe("168.00");
   });
 
   it("returns em-dash for breakBelowTarget when stopLoss is missing", () => {
@@ -452,6 +495,7 @@ describe("deriveSignals — levels cascade", () => {
   });
 
   it("falls back periodLow then ema20 when entryLow missing", () => {
+    // periodLow=168 + ema20=172 → max(168,172)=172 wins (ema20 closer to spot).
     const periodLowTruth = gatherTruth({
       signal: makeStockSignal({
         rawData: {
@@ -464,8 +508,23 @@ describe("deriveSignals — levels cascade", () => {
         },
       }),
     });
-    expect(deriveSignals(periodLowTruth).holdAbove).toBe("168.00");
+    expect(deriveSignals(periodLowTruth).holdAbove).toBe("172.00");
 
+    // periodLow=170 only (no ema20) → falls through cascade to periodLow.
+    const periodLowOnly = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          periodLow: 170,
+        },
+      }),
+    });
+    expect(deriveSignals(periodLowOnly).holdAbove).toBe("170.00");
+
+    // ema20 only → falls through cascade to ema20.
     const ema20Truth = gatherTruth({
       signal: makeStockSignal({
         rawData: {
@@ -1356,9 +1415,11 @@ describe("deriveSignals — fmtPrice commas for levels >= 10k", () => {
   });
 
   it("stock levels under 10k keep decimals", () => {
+    // makeStockSignal default: ema20=171 (tighter than entryLow=168) wins
+    // for hold; stopLoss=162 stays as break.
     const truth = gatherTruth({ signal: makeStockSignal() });
     const d = deriveSignals(truth);
-    expect(d.holdAbove).toBe("168.00");
+    expect(d.holdAbove).toBe("171.00");
     expect(d.breakBelowTarget).toBe("162.00");
   });
 });
@@ -1366,7 +1427,10 @@ describe("deriveSignals — fmtPrice commas for levels >= 10k", () => {
 // ── Distance sanity guard ────────────────────────────────────────────
 
 describe("deriveSignals — distance sanity guard", () => {
-  it("degrades to ema20 only when both levels are >20% from spot", () => {
+  it("default-branch anchor already resolves the 'both far' case when ema20 is available", () => {
+    // With the post-fix default cascade, hold = max(entryLow=70, ema20=98)
+    // = 98 (ema20, ~2% from spot). The distance guard is no longer the
+    // mechanism that rescues this case — it's resolved by the anchor.
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "entry_zone",
@@ -1383,7 +1447,7 @@ describe("deriveSignals — distance sanity guard", () => {
     });
     const d = deriveSignals(truth);
     expect(d.holdAbove).toBe("98.00");
-    expect(d.breakBelowTarget).toBe("—");
+    expect(d.breakBelowTarget).toBe("65.00");
   });
 
   it("does NOT trigger when at least one level is within 20%", () => {
@@ -1406,6 +1470,8 @@ describe("deriveSignals — distance sanity guard", () => {
   });
 
   it("preserves hold=em-dash when ema20 also missing in distance fallback", () => {
+    // GOLD-style case: structural levels are far (>20%) and there is no
+    // ema20 to fall back to — both anchors collapse to em-dash.
     const truth = gatherTruth({
       signal: makeStockSignal({
         type: "entry_zone",
@@ -1422,5 +1488,31 @@ describe("deriveSignals — distance sanity guard", () => {
     const d = deriveSignals(truth);
     expect(d.holdAbove).toBe("—");
     expect(d.breakBelowTarget).toBe("—");
+  });
+
+  it("real-world NVDA shape: price 214, entryLow 184, stopLoss 182, ema20 210 → hold=210, break=182", () => {
+    // Reproduces the symptom from the live screenshot. After the fix:
+    // hold anchors to ema20 (~2% from spot) and break preserves stopLoss
+    // (~15% — the wider structural invalidation).
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        symbol: "NVDA",
+        type: "entry_zone",
+        rawData: {
+          close: 214,
+          latestOpen: 212,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 184,
+          stopLoss: 182,
+          ema20: 210,
+          periodLow: 180,
+        },
+      }),
+    });
+    const d = deriveSignals(truth);
+    expect(d.holdAbove).toBe("210.00");
+    expect(d.breakBelowTarget).toBe("182.00");
   });
 });

@@ -210,15 +210,34 @@ describe("rankCandidates — candidate selection mechanics", () => {
 // ── inferLevelFallback (mirror of deriveLevelsFromTruth cascade) ────
 
 describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
-  it("uses entryLow first when available", () => {
+  it("default branch: prefers ema20 over entryLow when ema20 is tighter to spot", () => {
+    // makeSignal default: close=175, entryLow=168, ema20=171 → ema20 wins.
     const truth = gatherTruth({ signal: makeSignal() });
     expect(inferLevelFallback(truth)).toEqual({
-      holdAboveSource: "entryLow",
+      holdAboveSource: "ema20",
       breakBelowSource: "stopLoss",
     });
   });
 
-  it("falls back to periodLow when entryLow is missing", () => {
+  it("default branch: keeps periodLow when ema20 sits below periodLow", () => {
+    // ema20=95 < periodLow=92? No, 95>92, so ema20 wins.
+    // To keep periodLow, drop ema20.
+    const truth = gatherTruth({
+      signal: makeSignal({
+        rawData: {
+          close: 100,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+          periodLow: 92,
+          stopLoss: 88,
+        },
+      }),
+    });
+    expect(inferLevelFallback(truth).holdAboveSource).toBe("periodLow");
+  });
+
+  it("default branch: prefers ema20 over periodLow when ema20 is tighter", () => {
     const truth = gatherTruth({
       signal: makeSignal({
         rawData: {
@@ -232,7 +251,7 @@ describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
         },
       }),
     });
-    expect(inferLevelFallback(truth).holdAboveSource).toBe("periodLow");
+    expect(inferLevelFallback(truth).holdAboveSource).toBe("ema20");
   });
 
   it("falls back to ema20 when entryLow and periodLow are missing", () => {
@@ -330,7 +349,8 @@ describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
     });
   });
 
-  it("stop_loss_warning: uses default cascade (entryLow / stopLoss)", () => {
+  it("stop_loss_warning: uses default cascade (entryLow / stopLoss) when ema20 missing", () => {
+    // No ema20 → cascade falls through to (entryLow, stopLoss).
     const truth = gatherTruth({
       signal: makeSignal({
         type: "stop_loss_warning",
@@ -349,6 +369,28 @@ describe("inferLevelFallback — holdAbove / breakBelow cascade", () => {
     expect(inferLevelFallback(truth)).toEqual({
       holdAboveSource: "entryLow",
       breakBelowSource: "stopLoss",
+    });
+  });
+
+  it("default branch: break falls back to entryLow when stopLoss is missing and ema20 is tighter", () => {
+    // entryLow=168, ema20=171, no stopLoss → hold=ema20 (tighter),
+    // break=min(structHold, ema20)=entryLow.
+    const truth = gatherTruth({
+      signal: makeSignal({
+        type: "entry_zone",
+        rawData: {
+          close: 175,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          ema20: 171,
+        },
+      }),
+    });
+    expect(inferLevelFallback(truth)).toEqual({
+      holdAboveSource: "ema20",
+      breakBelowSource: "entryLow",
     });
   });
 });

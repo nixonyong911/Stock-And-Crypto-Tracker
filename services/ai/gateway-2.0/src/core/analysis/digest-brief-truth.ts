@@ -1025,15 +1025,40 @@ function deriveLevelsFromTruth(truth: BriefTruth): {
       break;
     }
 
-    default:
+    default: {
       // entry_zone, stop_loss_warning, signal_change, momentum_shift, etc.
-      holdRaw = lvl.entryLow ?? lvl.periodLow ?? lvl.ema20;
-      breakRaw = lvl.stopLoss;
+      //
+      // Static `entry_price_low` / `stop_loss` drift away from spot as
+      // price extends past the original setup. When EMA-20 is available
+      // we prefer the tighter of the two as the watch floor so the
+      // "hold above" anchor stays close to current price regardless of
+      // how far the structure is. `stopLoss` is kept as the wider
+      // invalidation — that preserves the defensive narrative
+      // ("Below $X further downside opens up") and is the meaningful
+      // structural floor by construction. If `stopLoss` is missing we
+      // fall back to `min(structHold, ema20)` so the card still has a
+      // sane lower anchor instead of an em-dash.
+      const structHold = lvl.entryLow ?? lvl.periodLow;
+      const ema = lvl.ema20;
+      if (isFinitePositive(structHold) && isFinitePositive(ema)) {
+        holdRaw = Math.max(structHold, ema);
+        breakRaw = isFinitePositive(lvl.stopLoss)
+          ? lvl.stopLoss
+          : Math.min(structHold, ema);
+      } else {
+        holdRaw = structHold ?? ema;
+        breakRaw = lvl.stopLoss;
+      }
       break;
+    }
   }
 
   // Safety: if the selected levels invert (holdAbove <= breakBelow),
-  // the card text becomes nonsensical. Fall back to the default cascade.
+  // the card text becomes nonsensical. Fall back to the default cascade
+  // (`structHold ?? ema20` for hold, `stopLoss` for break) — the simplest
+  // form that cannot itself invert because stopLoss < entryLow by
+  // construction. Mirrors the legacy guard so unusual data shapes still
+  // degrade gracefully.
   if (
     isFinitePositive(holdRaw) &&
     isFinitePositive(breakRaw) &&
