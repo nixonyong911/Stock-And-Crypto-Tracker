@@ -6,6 +6,7 @@
  * handlers.  The caller is responsible for calling `app.listen()`.
  */
 
+import { randomUUID } from "node:crypto";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import fastifyCors from "@fastify/cors";
@@ -29,6 +30,7 @@ import { CLIExecutor } from "./core/cli/executor.js";
 import { OutputFilter } from "./core/filter/filter.js";
 import { KeywordFilter } from "./core/filter/keyword-filter.js";
 import { MetricsCollector } from "./core/metrics/collector.js";
+import { logMessage } from "./core/logging/conversation-logger.js";
 
 // Extension system
 import { ExtensionRegistry } from "./extension/registry.js";
@@ -184,6 +186,14 @@ export async function createServer(deps: ServerDeps): Promise<ServerResult> {
       platformUserId: params.platformUserId,
     });
 
+    // Trace id ties the inbound log row to its outbound row(s). Generated once
+    // per turn here (the single channel-agnostic chokepoint). Allow an upstream
+    // override for future cross-service correlation.
+    const traceId =
+      (typeof params.metadata?.["traceId"] === "string"
+        ? (params.metadata["traceId"] as string)
+        : undefined) ?? randomUUID();
+
     // 1. Resolve tier (needed before security check for tier-aware rules)
     const tier = await resolveUserTier(
       params.platformUserId,
@@ -299,6 +309,19 @@ export async function createServer(deps: ServerDeps): Promise<ServerResult> {
           }
         }
 
+        // Log the inbound message (what is sent to the agent). Best-effort —
+        // written here, after all guards pass, so only messages that actually
+        // reach the agent are recorded.
+        logMessage(pool, app.log, {
+          traceId,
+          direction: "inbound",
+          channel: params.channelType,
+          externalUserId: params.platformUserId,
+          clerkUserId: sess.clerkUserId,
+          sessionId: sess.cliSessionId,
+          messageText: params.message,
+        }).catch(() => {});
+
         // 8. Execute CLI
         const cliResult = await cli.execute({
           message: messageWithContext,
@@ -316,6 +339,19 @@ export async function createServer(deps: ServerDeps): Promise<ServerResult> {
 
         // 8. Filter output
         const filtered = filter.apply(cliResult.output, parseTier(tier));
+
+        // Log the outbound reply (generated reply prepared for send). This
+        // records that the system produced a reply, NOT that the channel/
+        // provider confirmed delivery (the actual send happens downstream).
+        logMessage(pool, app.log, {
+          traceId,
+          direction: "outbound",
+          channel: params.channelType,
+          externalUserId: params.platformUserId,
+          clerkUserId: sess.clerkUserId,
+          sessionId: sess.cliSessionId,
+          messageText: filtered,
+        }).catch(() => {});
 
         // 9. Update session activity
         session.updateLastActive(String(sess.id));
