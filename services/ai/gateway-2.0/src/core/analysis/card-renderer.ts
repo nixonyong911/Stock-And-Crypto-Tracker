@@ -41,6 +41,19 @@ export interface CardData {
     breakBelowTarget: string;
     watchCategory?: WatchCategory;
   };
+  /**
+   * Wall Street analyst Buy/Hold/Sell mix. When present, the "What to watch"
+   * section renders the Analyst Mix breakdown instead of price levels.
+   * Percentages are integers summing to 100. Absent for crypto/ETF/index or
+   * stocks without analyst coverage.
+   */
+  analystMix?: {
+    buyPct: number;
+    holdPct: number;
+    sellPct: number;
+    total: number;
+    consensus: string | null;
+  };
   context: string;
 }
 
@@ -63,6 +76,11 @@ const COLORS = {
   watchYellowBg: "rgba(234,179,8,0.16)",
   watchYellowBorder: "rgba(234,179,8,0.28)",
   neutralBg: "#F3F4F6",
+  // Analyst mix bar segments
+  mixBuy: "#16A34A",
+  mixHold: "#EAB308",
+  mixSell: "#EF4444",
+  mixTrack: "#E5E7EB",
 };
 
 // ── Element helper (avoids JSX dependency) ────────────────────────────
@@ -337,6 +355,217 @@ function levelChip(value: string): SatoriNode {
   );
 }
 
+// ── Analyst mix (Buy/Hold/Sell) ───────────────────────────────────────
+
+type AnalystMixData = NonNullable<CardData["analystMix"]>;
+
+/** Buy/Hold/Sell verb from consensus (preferred) or the dominant bucket. */
+function analystVerb(mix: AnalystMixData): "buy" | "hold" | "sell" {
+  switch (mix.consensus) {
+    case "strong_buy":
+    case "buy":
+      return "buy";
+    case "sell":
+    case "strong_sell":
+      return "sell";
+    case "hold":
+      return "hold";
+    default:
+      break;
+  }
+  if (mix.buyPct >= mix.holdPct && mix.buyPct >= mix.sellPct) return "buy";
+  if (mix.sellPct >= mix.holdPct && mix.sellPct >= mix.buyPct) return "sell";
+  return "hold";
+}
+
+/**
+ * Deterministic qualitative tail for the analyst headline. Thresholds only —
+ * no LLM, consistent with the renderer's "never invent" design.
+ */
+function analystQualifier(mix: AnalystMixData): string {
+  if (mix.buyPct >= 75) return "strong conviction across the Street";
+  if (mix.buyPct >= 55) return "leaning bullish, but not a crowded trade";
+  if (mix.sellPct >= 40) return "skewed bearish — caution warranted";
+  if (mix.holdPct >= 50) return "mostly sidelined — a wait-and-see book";
+  return "a mixed book with no clear consensus";
+}
+
+function analystToneColor(verb: "buy" | "hold" | "sell"): string {
+  if (verb === "buy") return COLORS.mixBuy;
+  if (verb === "sell") return COLORS.mixSell;
+  return COLORS.ink;
+}
+
+function mixLegendDot(color: string, label: string): SatoriNode {
+  return h(
+    "div",
+    { style: { display: "flex", alignItems: "center", gap: "5px" } },
+    h("div", {
+      style: {
+        display: "flex",
+        width: "8px",
+        height: "8px",
+        borderRadius: "2px",
+        backgroundColor: color,
+      },
+    }),
+    h(
+      "div",
+      { style: { display: "flex", fontSize: "11px", color: COLORS.ink3 } },
+      label,
+    ),
+  );
+}
+
+/** Stacked Buy/Hold/Sell bar. Segment widths are the integer percentages. */
+function mixBar(mix: AnalystMixData): SatoriNode {
+  const segs: Array<{ pct: number; color: string }> = [
+    { pct: mix.buyPct, color: COLORS.mixBuy },
+    { pct: mix.holdPct, color: COLORS.mixHold },
+    { pct: mix.sellPct, color: COLORS.mixSell },
+  ];
+  return h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        width: "100%",
+        height: "10px",
+        borderRadius: "5px",
+        overflow: "hidden",
+        backgroundColor: COLORS.mixTrack,
+      },
+    },
+    ...segs
+      .filter((s) => s.pct > 0)
+      .map((s) =>
+        h("div", {
+          style: {
+            display: "flex",
+            width: `${s.pct}%`,
+            height: "100%",
+            backgroundColor: s.color,
+          },
+        }),
+      ),
+  );
+}
+
+function buildAnalystMixPanel(ticker: string, mix: AnalystMixData): SatoriNode {
+  const verb = analystVerb(mix);
+  const toneColor = analystToneColor(verb);
+
+  return h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        padding: "12px 14px",
+        backgroundColor: COLORS.brandTintBg,
+        borderRadius: "10px",
+        borderLeft: `3px solid ${COLORS.brand}`,
+        marginBottom: "18px",
+      },
+    },
+
+    // Header: section label left, "ANALYST MIX · N FIRMS" right
+    h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        },
+      },
+      sectionLabel("What to watch from here", true),
+      h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            fontSize: "10px",
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: COLORS.ink4,
+          },
+        },
+        `Analyst mix \u00B7 ${mix.total} ${mix.total === 1 ? "firm" : "firms"}`,
+      ),
+    ),
+
+    // Headline: big buy% + sentence
+    h(
+      "div",
+      {
+        style: {
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "baseline",
+          gap: "8px",
+          fontSize: "14px",
+          lineHeight: 1.5,
+          color: COLORS.ink2,
+        },
+      },
+      h(
+        "div",
+        {
+          style: {
+            fontSize: "26px",
+            fontWeight: 700,
+            color: toneColor,
+            letterSpacing: "-0.01em",
+            lineHeight: 1,
+          },
+        },
+        `${mix.buyPct}%`,
+      ),
+      h(
+        "div",
+        { style: { display: "flex", flex: 1 } },
+        `of coverage rates ${ticker} a ${verb} \u2014 ${analystQualifier(mix)}.`,
+      ),
+    ),
+
+    // Stacked bar
+    mixBar(mix),
+
+    // Legend
+    h(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: "14px" } },
+      mixLegendDot(COLORS.mixBuy, `Buy ${mix.buyPct}%`),
+      mixLegendDot(COLORS.mixHold, `Hold ${mix.holdPct}%`),
+      mixLegendDot(COLORS.mixSell, `Sell ${mix.sellPct}%`),
+    ),
+  );
+}
+
+/** Price-level "What to watch" accent panel (fallback when no analyst mix). */
+function buildWatchPanel(data: CardData): SatoriNode {
+  return h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        padding: "12px 14px",
+        backgroundColor: COLORS.brandTintBg,
+        borderRadius: "10px",
+        borderLeft: `3px solid ${COLORS.brand}`,
+        marginBottom: "18px",
+      },
+    },
+    sectionLabel("What to watch from here", true),
+    buildWatchSentence(data),
+  );
+}
+
 function clockIcon(): SatoriNode {
   return h(
     "svg",
@@ -540,23 +769,11 @@ function buildCard(data: CardData): SatoriNode {
     ),
 
     // ── What to watch (accent panel) ────────────────────────────
-    h(
-      "div",
-      {
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-          padding: "12px 14px",
-          backgroundColor: COLORS.brandTintBg,
-          borderRadius: "10px",
-          borderLeft: `3px solid ${COLORS.brand}`,
-          marginBottom: "18px",
-        },
-      },
-      sectionLabel("What to watch from here", true),
-      buildWatchSentence(data),
-    ),
+    // Analyst Buy/Hold/Sell mix when available (stocks with Finnhub
+    // coverage); otherwise fall back to the price-level watch sentence.
+    data.analystMix
+      ? buildAnalystMixPanel(data.ticker, data.analystMix)
+      : buildWatchPanel(data),
 
     // ── Context (only if present) ───────────────────────────────
     data.context

@@ -866,6 +866,7 @@ describe("buildDigestDebugReport — composed envelope", () => {
         newsOneLinerMap: new Map(),
         memoryTextMap: new Map<string, TickerMemoryText>(),
         analysisDateMap: new Map(),
+        analystMixMap: new Map(),
         ...overrides,
       });
     return detectSpy;
@@ -1103,6 +1104,7 @@ describe("digest-debug — affinity surface", () => {
       newsOneLinerMap: new Map(),
       memoryTextMap: new Map<string, TickerMemoryText>(),
       analysisDateMap: new Map(),
+      analystMixMap: new Map(),
     });
   }
   function makeDebugDeps(rows: unknown[]) {

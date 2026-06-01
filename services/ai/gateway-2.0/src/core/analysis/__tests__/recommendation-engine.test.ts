@@ -7,6 +7,8 @@ import {
   detectNewsSentimentSignals,
   fetchTickerMemoryText,
   fetchMacroContext,
+  fetchAnalystMix,
+  computeAnalystMix,
   freshnessDecay,
   compositeAssociationScore,
   type TickerCtx,
@@ -1403,6 +1405,133 @@ describe("fetchTickerMemoryText — slice 7 behavioral parity (default path)", (
     // Score: text_hit(+2) + penalty(0) + narrow(+1) = 3 >= threshold 2 → passes
     expect(out.get("SPX500")).toBeDefined();
     expect(out.get("SPX500")?.newsOneLiner).toMatch(/ETF rotation/);
+  });
+});
+
+// ── computeAnalystMix ────────────────────────────────────────────────────
+
+describe("computeAnalystMix", () => {
+  it("aggregates buckets and rounds percentages to sum 100", () => {
+    // AAPL-like: 15/24/13/2/0 → total 54
+    const mix = computeAnalystMix(15, 24, 13, 2, 0, "buy");
+    expect(mix).not.toBeNull();
+    expect(mix!.total).toBe(54);
+    expect(mix!.buyPct + mix!.holdPct + mix!.sellPct).toBe(100);
+    // (39/54)=72.2, (13/54)=24.1, (2/54)=3.7
+    expect(mix!.buyPct).toBe(72);
+    expect(mix!.holdPct).toBe(24);
+    expect(mix!.sellPct).toBe(4);
+    expect(mix!.consensus).toBe("buy");
+  });
+
+  it("distributes rounding remainder to the largest fractional bucket", () => {
+    // 1/1/1 across buy/hold/sell-ish: total 3 → 66.67 / 33.33 / 0
+    const mix = computeAnalystMix(0, 2, 1, 0, 0, "buy");
+    expect(mix!.total).toBe(3);
+    expect(mix!.buyPct).toBe(67);
+    expect(mix!.holdPct).toBe(33);
+    expect(mix!.sellPct).toBe(0);
+    expect(mix!.buyPct + mix!.holdPct + mix!.sellPct).toBe(100);
+  });
+
+  it("folds strongBuy into buy and strongSell into sell", () => {
+    const mix = computeAnalystMix(10, 10, 0, 5, 5, "buy");
+    // buy=20, sell=10, hold=0, total=30 → 66.7 / 0 / 33.3
+    expect(mix!.buyPct).toBe(67);
+    expect(mix!.holdPct).toBe(0);
+    expect(mix!.sellPct).toBe(33);
+  });
+
+  it("returns null when there is no coverage (total 0)", () => {
+    expect(computeAnalystMix(0, 0, 0, 0, 0, null)).toBeNull();
+  });
+
+  it("coerces nullish/negative counts to zero", () => {
+    const mix = computeAnalystMix(
+      // @ts-expect-error exercising defensive coercion
+      undefined,
+      5,
+      0,
+      -3,
+      0,
+      "buy",
+    );
+    expect(mix!.total).toBe(5);
+    expect(mix!.buyPct).toBe(100);
+  });
+});
+
+// ── fetchAnalystMix ──────────────────────────────────────────────────────
+
+function makeAnalystRow(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    ticker_symbol: "AAPL",
+    analyst_strong_buy: 15,
+    analyst_buy: 24,
+    analyst_hold: 13,
+    analyst_sell: 2,
+    analyst_strong_sell: 0,
+    analyst_consensus: "buy",
+    ...overrides,
+  };
+}
+
+function makeAnalystPool(rows: Record<string, unknown>[]): Pool {
+  const pool = {
+    query: async <R extends QueryResultRow>(): Promise<QueryResult<R>> => ({
+      rows: rows as unknown as R[],
+      rowCount: rows.length,
+      command: "SELECT",
+      oid: 0,
+      fields: [],
+    }),
+  };
+  return pool as unknown as Pool;
+}
+
+describe("fetchAnalystMix", () => {
+  it("returns an empty map when no rows match", async () => {
+    const out = await fetchAnalystMix(makeAnalystPool([]));
+    expect(out.size).toBe(0);
+  });
+
+  it("keys the mix by upper-cased symbol", async () => {
+    const out = await fetchAnalystMix(
+      makeAnalystPool([makeAnalystRow({ ticker_symbol: "aapl" })]),
+    );
+    const mix = out.get("AAPL");
+    expect(mix).toBeDefined();
+    expect(mix!.total).toBe(54);
+    expect(mix!.buyPct).toBe(72);
+    expect(mix!.consensus).toBe("buy");
+  });
+
+  it("skips rows that compute to no coverage", async () => {
+    const out = await fetchAnalystMix(
+      makeAnalystPool([
+        makeAnalystRow({
+          ticker_symbol: "ZERO",
+          analyst_strong_buy: 0,
+          analyst_buy: 0,
+          analyst_hold: 0,
+          analyst_sell: 0,
+          analyst_strong_sell: 0,
+        }),
+      ]),
+    );
+    expect(out.has("ZERO")).toBe(false);
+  });
+
+  it("degrades to an empty map when the query throws", async () => {
+    const pool = {
+      query: async () => {
+        throw new Error("relation does not exist");
+      },
+    } as unknown as Pool;
+    const out = await fetchAnalystMix(pool);
+    expect(out.size).toBe(0);
   });
 });
 

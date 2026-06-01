@@ -110,6 +110,40 @@ export interface CandlestickRow {
   }>;
 }
 
+/**
+ * Wall Street analyst recommendation mix for a single stock, derived from
+ * Finnhub recommendation trends stored in `analysis_indicators_stock_pro`.
+ * Percentages are integers that always sum to 100 (largest-remainder
+ * rounding). `null` consensus / zero total rows are filtered out upstream.
+ */
+export interface AnalystMix {
+  strongBuy: number;
+  buy: number;
+  hold: number;
+  sell: number;
+  strongSell: number;
+  /** Total covering firms = sum of all five buckets. */
+  total: number;
+  /** (strongBuy + buy) / total, rounded so buy+hold+sell = 100. */
+  buyPct: number;
+  /** hold / total. */
+  holdPct: number;
+  /** (sell + strongSell) / total. */
+  sellPct: number;
+  /** Derived label: strong_buy | buy | hold | sell | strong_sell. */
+  consensus: string | null;
+}
+
+interface AnalystMixRow {
+  ticker_symbol: string;
+  analyst_strong_buy: number | null;
+  analyst_buy: number | null;
+  analyst_hold: number | null;
+  analyst_sell: number | null;
+  analyst_strong_sell: number | null;
+  analyst_consensus: string | null;
+}
+
 type SignalDir = "bullish" | "bearish" | "neutral";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -139,6 +173,72 @@ function fmtPrice(n: number): string {
   if (n >= 1) return n.toFixed(2);
   if (n >= 0.01) return n.toFixed(4);
   return n.toPrecision(4);
+}
+
+/**
+ * Round three percentages (that sum to ~100 before rounding) to integers
+ * that sum to exactly 100, using the largest-remainder method. Input order
+ * is [buy, hold, sell]; output preserves that order.
+ */
+function roundPctTo100(
+  buy: number,
+  hold: number,
+  sell: number,
+): [number, number, number] {
+  const raw = [buy, hold, sell];
+  const result = raw.map((v) => Math.floor(v));
+  const remainder = 100 - result.reduce((a, b) => a + b, 0);
+  if (remainder > 0) {
+    const order = raw
+      .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+      .sort((a, b) => b.frac - a.frac);
+    for (let k = 0; k < remainder; k++) {
+      const idx = order[k % order.length]!.i;
+      result[idx] = (result[idx] ?? 0) + 1;
+    }
+  }
+  return [result[0] ?? 0, result[1] ?? 0, result[2] ?? 0];
+}
+
+/**
+ * Build an `AnalystMix` from raw Finnhub recommendation counts. Returns
+ * `null` when there is no coverage (total === 0) so callers can omit the
+ * section rather than render an empty bar. Pure / no I/O.
+ */
+export function computeAnalystMix(
+  strongBuy: number,
+  buy: number,
+  hold: number,
+  sell: number,
+  strongSell: number,
+  consensus: string | null,
+): AnalystMix | null {
+  const sb = Math.max(0, Math.trunc(Number(strongBuy) || 0));
+  const b = Math.max(0, Math.trunc(Number(buy) || 0));
+  const h = Math.max(0, Math.trunc(Number(hold) || 0));
+  const s = Math.max(0, Math.trunc(Number(sell) || 0));
+  const ss = Math.max(0, Math.trunc(Number(strongSell) || 0));
+  const total = sb + b + h + s + ss;
+  if (total <= 0) return null;
+
+  const [buyPct, holdPct, sellPct] = roundPctTo100(
+    ((sb + b) / total) * 100,
+    (h / total) * 100,
+    ((s + ss) / total) * 100,
+  );
+
+  return {
+    strongBuy: sb,
+    buy: b,
+    hold: h,
+    sell: s,
+    strongSell: ss,
+    total,
+    buyPct,
+    holdPct,
+    sellPct,
+    consensus: consensus ?? null,
+  };
 }
 
 /** ETF / index proxies when memory lists SPY/QQQ but digest symbol is platform index (eToro). */
@@ -292,6 +392,62 @@ async function fetchIndicators(
     params,
   );
   return rows;
+}
+
+/**
+ * Latest analyst recommendation mix per stock from
+ * `analysis_indicators_stock_pro`. Analyst columns are written on separate
+ * rows than the technical-indicator rows, so we filter to rows that
+ * actually carry a consensus and take the most recent per symbol.
+ *
+ * Stocks only (crypto/ETF/index have no Wall Street coverage). Resilient by
+ * design: any DB error degrades to an empty map so the digest still renders
+ * via the price-level fallback. Returns a map keyed by UPPER(symbol).
+ */
+export async function fetchAnalystMix(
+  db: Pool,
+  symbolFilter?: string,
+): Promise<Map<string, AnalystMix>> {
+  const out = new Map<string, AnalystMix>();
+  try {
+    const params: unknown[] = [];
+    let symbolClause = "";
+    if (symbolFilter) {
+      symbolClause = " AND UPPER(t.symbol) = UPPER($1)";
+      params.push(symbolFilter);
+    }
+
+    const { rows } = await db.query<AnalystMixRow>(
+      `SELECT DISTINCT ON (t.symbol)
+              t.symbol AS ticker_symbol,
+              p.analyst_strong_buy,
+              p.analyst_buy,
+              p.analyst_hold,
+              p.analyst_sell,
+              p.analyst_strong_sell,
+              p.analyst_consensus
+       FROM analysis_indicators_stock_pro p
+       JOIN stock_tickers t ON t.id = p.stock_ticker_id
+       WHERE p.analyst_consensus IS NOT NULL${symbolClause}
+       ORDER BY t.symbol, p.indicator_time DESC`,
+      params,
+    );
+
+    for (const r of rows) {
+      const mix = computeAnalystMix(
+        r.analyst_strong_buy ?? 0,
+        r.analyst_buy ?? 0,
+        r.analyst_hold ?? 0,
+        r.analyst_sell ?? 0,
+        r.analyst_strong_sell ?? 0,
+        r.analyst_consensus,
+      );
+      if (mix) out.set(r.ticker_symbol.toUpperCase(), mix);
+    }
+  } catch {
+    /* non-critical: missing pro table / analyst cols degrade to empty map */
+  }
+  return out;
 }
 
 async function fetchCandlesticks(
@@ -1184,17 +1340,22 @@ export interface DetectSignalsResult {
   memoryTextMap: Map<string, TickerMemoryText>;
   /** Per-symbol ISO YYYY-MM-DD analysis_date driving the price truth. */
   analysisDateMap: Map<string, string>;
+  /** Per-stock Wall Street analyst Buy/Hold/Sell mix (stocks only). */
+  analystMixMap: Map<string, AnalystMix>;
 }
 
 export async function detectSignals(
   db: Pool,
   assetType: "stock" | "crypto",
 ): Promise<DetectSignalsResult> {
-  const [targets, indicators, candles, macroContext] = await Promise.all([
+  const [targets, indicators, candles, macroContext, analystMixMap] = await Promise.all([
     fetchPriceTargets(db, assetType),
     fetchIndicators(db, assetType),
     fetchCandlesticks(db, assetType),
     fetchMacroContext(db).catch(() => ({ headlines: [], dominantTheme: null, overallSentiment: 0 }) as MacroContext),
+    assetType === "stock"
+      ? fetchAnalystMix(db)
+      : Promise.resolve(new Map<string, AnalystMix>()),
   ]);
 
   let newsRows: NewsSentimentRow[] = [];
@@ -1247,6 +1408,7 @@ export async function detectSignals(
     newsOneLinerMap: oneLinerMap,
     memoryTextMap,
     analysisDateMap,
+    analystMixMap,
   };
 }
 
@@ -1255,11 +1417,14 @@ export async function detectSignalsForTicker(
   symbol: string,
   assetType: "stock" | "crypto",
 ): Promise<DetectSignalsResult> {
-  const [targets, indicators, candles, macroContext] = await Promise.all([
+  const [targets, indicators, candles, macroContext, analystMixMap] = await Promise.all([
     fetchPriceTargets(db, assetType, symbol),
     fetchIndicators(db, assetType, symbol),
     fetchCandlesticks(db, assetType, symbol),
     fetchMacroContext(db).catch(() => ({ headlines: [], dominantTheme: null, overallSentiment: 0 }) as MacroContext),
+    assetType === "stock"
+      ? fetchAnalystMix(db, symbol)
+      : Promise.resolve(new Map<string, AnalystMix>()),
   ]);
 
   let newsRows: NewsSentimentRow[] = [];
@@ -1312,5 +1477,6 @@ export async function detectSignalsForTicker(
     newsOneLinerMap: oneLinerMap,
     memoryTextMap,
     analysisDateMap,
+    analystMixMap,
   };
 }

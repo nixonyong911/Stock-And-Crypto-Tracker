@@ -46,31 +46,52 @@ export function AnatomySection() {
               </p>
             </div>
 
-            {/* What to watch — highlighted */}
+            {/* What to watch — analyst mix */}
             <div className="ana-watch-block">
-              <span className="ana-block-label ana-block-label-accent">
-                <span className="ana-clock-icon" aria-hidden="true">
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
+              <div className="ana-watch-head">
+                <span className="ana-block-label ana-block-label-accent">
+                  <span className="ana-clock-icon" aria-hidden="true">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                  </span>
+                  What to watch
                 </span>
-                What to watch
-              </span>
-              <p className="ana-block-text">
-                Hold above <span className="ana-lvl">256.8</span> keeps the setup
-                constructive. A daily close below opens room toward{" "}
-                <span className="ana-lvl">248</span>.
+                <span className="ana-mix-tag">Analyst mix · 41 firms</span>
+              </div>
+              <p className="ana-block-text ana-mix-headline">
+                <span className="ana-mix-pct">58%</span> of coverage rates AAPL a
+                buy — leaning bullish, but not a crowded trade.
               </p>
+              <div className="ana-mix-bar" aria-hidden="true">
+                <span className="ana-mix-seg ana-mix-buy" style={{ width: "58%" }} />
+                <span className="ana-mix-seg ana-mix-hold" style={{ width: "30%" }} />
+                <span className="ana-mix-seg ana-mix-sell" style={{ width: "12%" }} />
+              </div>
+              <div className="ana-mix-legend">
+                <span className="ana-mix-leg">
+                  <span className="ana-mix-dot ana-mix-buy" />
+                  Buy 58%
+                </span>
+                <span className="ana-mix-leg">
+                  <span className="ana-mix-dot ana-mix-hold" />
+                  Hold 30%
+                </span>
+                <span className="ana-mix-leg">
+                  <span className="ana-mix-dot ana-mix-sell" />
+                  Sell 12%
+                </span>
+              </div>
             </div>
 
             {/* Context */}
@@ -107,9 +128,9 @@ export function AnatomySection() {
                 Get the main driver behind the move without opening charts,
                 headlines, and five tabs.
               </AnatomyPoint>
-              <AnatomyPoint num="03" title="A level to watch next.">
-                Know what matters next so the brief feels actionable, not
-                random.
+              <AnatomyPoint num="03" title="Where the Street stands.">
+                See how Wall Street&apos;s analyst coverage splits across buy,
+                hold, and sell — at a glance.
               </AnatomyPoint>
             </ul>
           </div>

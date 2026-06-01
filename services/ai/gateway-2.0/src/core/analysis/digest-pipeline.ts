@@ -22,6 +22,7 @@ import {
   type TickerSignal,
   type MacroContext,
   type TickerMemoryText,
+  type AnalystMix,
 } from "./recommendation-engine.js";
 import { generateDigestBrief } from "./digest-brief-generator.js";
 import type { BriefMode } from "./digest-brief-truth.js";
@@ -78,6 +79,7 @@ export async function processRecommendations(
       newsOneLinerMap,
       memoryTextMap,
       analysisDateMap,
+      analystMixMap,
     } = await detectSignals(db, type);
     if (signals.length === 0) continue;
 
@@ -106,6 +108,7 @@ export async function processRecommendations(
       newsOneLinerMap,
       memoryTextMap,
       analysisDateMap,
+      analystMixMap,
     });
 
     for (const [symbol, tickerSignals] of bySymbol) {
@@ -119,6 +122,7 @@ export async function processRecommendations(
         memoryTextMap,
         analysisDateMap,
         artifactRefs?.get(symbol) ?? null,
+        analystMixMap,
       );
       totalSent += sent;
     }
@@ -177,6 +181,7 @@ async function persistCanonicalArtifacts(
     newsOneLinerMap?: Map<string, string>;
     memoryTextMap?: Map<string, TickerMemoryText>;
     analysisDateMap?: Map<string, string>;
+    analystMixMap?: Map<string, AnalystMix>;
   },
 ): Promise<Map<string, ArtifactRef>> {
   const { log } = deps;
@@ -235,6 +240,7 @@ async function fanOutToWatchers(
   memoryTextMap?: Map<string, TickerMemoryText>,
   analysisDateMap?: Map<string, string>,
   artifactRef: ArtifactRef | null = null,
+  analystMixMap?: Map<string, AnalystMix>,
 ): Promise<number> {
   const { db, redis, extensions, log } = deps;
 
@@ -248,6 +254,7 @@ async function fanOutToWatchers(
     newsOneLinerMap,
     memoryTextMap,
     analysisDateMap,
+    analystMixMap,
     mode: deps.briefMode ?? "strict",
   });
 

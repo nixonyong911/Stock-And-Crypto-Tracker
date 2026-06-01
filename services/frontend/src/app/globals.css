@@ -786,6 +786,41 @@
     white-space: nowrap;
   }
 
+  /* Analyst mix (Buy/Hold/Sell) inside the watch panel */
+  .ana-watch-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .ana-mix-tag {
+    font-family: var(--font-mono-stack); font-size: 10px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--ink-4);
+  }
+  .ana-mix-headline { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .ana-mix-pct {
+    font-family: var(--font-display-stack); font-weight: 600;
+    font-size: 26px; line-height: 1; letter-spacing: -0.01em;
+    color: var(--brand-ink);
+  }
+  .dark .ana-mix-pct { color: var(--brand); }
+  .ana-mix-bar {
+    display: flex; width: 100%; height: 10px; border-radius: 5px;
+    overflow: hidden; background: var(--line);
+  }
+  .ana-mix-seg { display: block; height: 100%; }
+  .ana-mix-seg.ana-mix-buy { background: #16A34A; }
+  .ana-mix-seg.ana-mix-hold { background: #EAB308; }
+  .ana-mix-seg.ana-mix-sell { background: #EF4444; }
+  .ana-mix-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .ana-mix-leg {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--font-mono-stack); font-size: 11px; color: var(--ink-3);
+  }
+  .ana-mix-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+  }
+  .ana-mix-dot.ana-mix-buy { background: #16A34A; }
+  .ana-mix-dot.ana-mix-hold { background: #EAB308; }
+  .ana-mix-dot.ana-mix-sell { background: #EF4444; }
+
   .ana-bars {
     display: inline-flex; align-items: flex-end; gap: 2px; height: 12px;
   }

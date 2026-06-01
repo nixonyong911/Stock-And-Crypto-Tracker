@@ -930,4 +930,67 @@ describe("generateDigestBrief", () => {
       expect(brief.whatHappening).not.toContain("analyst day");
     });
   });
+
+  describe("analyst mix", () => {
+    const aaplMix = {
+      strongBuy: 15,
+      buy: 24,
+      hold: 13,
+      sell: 2,
+      strongSell: 0,
+      total: 54,
+      buyPct: 72,
+      holdPct: 24,
+      sellPct: 4,
+      consensus: "buy",
+    };
+
+    it("attaches analystMix when the map contains the symbol", () => {
+      const s = makeSignal();
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "AAPL",
+        analystMixMap: new Map([["AAPL", aaplMix]]),
+      });
+      expect(brief.analystMix).toEqual(aaplMix);
+    });
+
+    it("resolves the map case-insensitively", () => {
+      const s = makeSignal({ symbol: "aapl" });
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "aapl",
+        analystMixMap: new Map([["AAPL", aaplMix]]),
+      });
+      expect(brief.analystMix?.buyPct).toBe(72);
+    });
+
+    it("leaves analystMix undefined and keeps price-level whatToWatch when absent", () => {
+      const s = makeSignal({
+        rawData: {
+          close: 175,
+          latestOpen: 170,
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+          entryLow: 168,
+          stopLoss: 162,
+        },
+      });
+      const brief = generateDigestBrief({ signals: [s], symbol: "AAPL" });
+      expect(brief.analystMix).toBeUndefined();
+      expect(brief.whatToWatch.holdAbove).toBe("168.00");
+      expect(brief.whatToWatch.breakBelowTarget).toBe("162.00");
+    });
+
+    it("does not attach a mix for a symbol missing from the map", () => {
+      const s = makeSignal({ symbol: "MSFT" });
+      const brief = generateDigestBrief({
+        signals: [s],
+        symbol: "MSFT",
+        analystMixMap: new Map([["AAPL", aaplMix]]),
+      });
+      expect(brief.analystMix).toBeUndefined();
+    });
+  });
 });

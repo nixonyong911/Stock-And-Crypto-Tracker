@@ -38,6 +38,7 @@ import {
   type TickerSignal,
   type MacroContext,
   type TickerMemoryText,
+  type AnalystMix,
 } from "./recommendation-engine.js";
 import type { CardData, StatusTone } from "./card-renderer.js";
 import {
@@ -78,6 +79,13 @@ export interface DigestBrief {
     breakBelowTarget: string;
     watchCategory?: import("./digest-brief-truth.js").WatchCategory;
   };
+  /**
+   * Wall Street analyst Buy/Hold/Sell mix (stocks with Finnhub coverage).
+   * When present the renderer shows the Analyst Mix section in place of the
+   * price-level "What to watch" panel; absent (crypto/ETF/no coverage) it
+   * falls back to `whatToWatch`.
+   */
+  analystMix?: AnalystMix;
   context: string;
   hasMaterialContext: boolean;
 }
@@ -253,6 +261,8 @@ export interface GenerateDigestBriefArgs {
   memoryTextMap?: Map<string, TickerMemoryText>;
   /** Per-digest-symbol ISO YYYY-MM-DD analysis_date from price targets. */
   analysisDateMap?: Map<string, string>;
+  /** Per-stock Wall Street analyst Buy/Hold/Sell mix (stocks only). */
+  analystMixMap?: Map<string, AnalystMix>;
   /** Test/script override for `updatedAt`. */
   now?: Date;
   /** strict (default) | blended. Falls back to `strict` if undefined. */
@@ -310,6 +320,7 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
   }
 
   const analysisDate = args.analysisDateMap?.get(upper);
+  const analystMix = args.analystMixMap?.get(upper);
 
   // Step 5: pass alias context so the truth layer's surfacing decision
   // can evaluate whether `news_one_liner` actually names the digest
@@ -353,6 +364,7 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
       breakBelowTarget: derived.breakBelowTarget,
       watchCategory: derived.watchCategory,
     },
+    analystMix,
     context: derived.context,
     hasMaterialContext: derived.hasMaterialContext,
   };

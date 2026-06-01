@@ -27,6 +27,7 @@ import type {
   TickerSignal,
   MacroContext,
   TickerMemoryText,
+  AnalystMix,
 } from "./recommendation-engine.js";
 import type { BriefMode } from "./digest-brief-truth.js";
 
@@ -41,6 +42,7 @@ export interface DigestOrchestrationContext {
   newsOneLinerMap?: Map<string, string>;
   memoryTextMap?: Map<string, TickerMemoryText>;
   analysisDateMap?: Map<string, string>;
+  analystMixMap?: Map<string, AnalystMix>;
 }
 
 export async function orchestrateDigestArtifact(
@@ -128,6 +130,7 @@ export async function orchestrateDigestArtifact(
           newsOneLinerMap: context.newsOneLinerMap,
           memoryTextMap: context.memoryTextMap,
           analysisDateMap: context.analysisDateMap,
+          analystMixMap: context.analystMixMap,
           mode: briefMode,
         }),
       ),

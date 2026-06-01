@@ -1115,6 +1115,7 @@ export async function buildDigestDebugReport(
     newsOneLinerMap,
     memoryTextMap,
     analysisDateMap,
+    analystMixMap,
   } = signalsResult;
 
   const ranking = rankCandidates(signals);
@@ -1160,6 +1161,7 @@ export async function buildDigestDebugReport(
     newsOneLinerMap,
     memoryTextMap,
     analysisDateMap,
+    analystMixMap,
     mode,
   });
 
