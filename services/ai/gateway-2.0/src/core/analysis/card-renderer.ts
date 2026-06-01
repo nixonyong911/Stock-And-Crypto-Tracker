@@ -229,32 +229,6 @@ function statusPill(status: CardData["status"]): SatoriNode {
   );
 }
 
-function confidenceBars(level: CardData["confidence"]): SatoriNode {
-  const filled = level === "High" ? 3 : level === "Medium" ? 2 : 1;
-  const heights = [5, 8, 12];
-  const bars: SatoriNode[] = [];
-  for (let i = 0; i < 3; i++) {
-    bars.push(
-      h("div", {
-        key: String(i),
-        style: {
-          width: "3px",
-          height: `${heights[i]}px`,
-          backgroundColor: i < filled ? COLORS.brand : COLORS.border,
-          borderRadius: "1px",
-        },
-      }),
-    );
-  }
-  return h(
-    "div",
-    {
-      style: { display: "flex", alignItems: "flex-end", gap: "2px", height: "12px" },
-    },
-    ...bars,
-  );
-}
-
 function deltaPill(pct: number): SatoriNode {
   const positive = pct >= 0;
   return h(
@@ -642,14 +616,13 @@ function buildCard(data: CardData): SatoriNode {
       },
     },
 
-    // ── Eyebrow bar: "Smart Digest" left, Confidence right ──────
+    // ── Eyebrow bar: "Smart Digest" ─────────────────────────────
     h(
       "div",
       {
         style: {
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
           marginBottom: "14px",
         },
       },
@@ -665,34 +638,6 @@ function buildCard(data: CardData): SatoriNode {
           },
         },
         "Smart Digest",
-      ),
-      h(
-        "div",
-        {
-          style: {
-            display: "flex",
-            alignItems: "center",
-            gap: "5px",
-            fontSize: "10px",
-            fontWeight: 700,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: COLORS.ink4,
-          },
-        },
-        confidenceBars(data.confidence),
-        h(
-          "div",
-          {
-            style: {
-              fontSize: "10px",
-              fontWeight: 700,
-              color: COLORS.ink3,
-              letterSpacing: "0.08em",
-            },
-          },
-          data.confidence.toUpperCase(),
-        ),
       ),
     ),
 
