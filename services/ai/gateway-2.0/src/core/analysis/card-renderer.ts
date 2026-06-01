@@ -497,24 +497,21 @@ function buildAnalystMixPanel(ticker: string, mix: AnalystMixData): SatoriNode {
       ),
     ),
 
-    // Headline: big buy% + sentence
+    // Headline: big buy% on its own line, sentence stacked below
     h(
       "div",
       {
         style: {
           display: "flex",
-          flexWrap: "wrap",
-          alignItems: "baseline",
-          gap: "8px",
-          fontSize: "14px",
-          lineHeight: 1.5,
-          color: COLORS.ink2,
+          flexDirection: "column",
+          gap: "6px",
         },
       },
       h(
         "div",
         {
           style: {
+            display: "flex",
             fontSize: "26px",
             fontWeight: 700,
             color: toneColor,
@@ -526,7 +523,14 @@ function buildAnalystMixPanel(ticker: string, mix: AnalystMixData): SatoriNode {
       ),
       h(
         "div",
-        { style: { display: "flex", flex: 1 } },
+        {
+          style: {
+            display: "flex",
+            fontSize: "14px",
+            lineHeight: 1.5,
+            color: COLORS.ink2,
+          },
+        },
         `of coverage rates ${ticker} a ${verb} \u2014 ${analystQualifier(mix)}.`,
       ),
     ),
