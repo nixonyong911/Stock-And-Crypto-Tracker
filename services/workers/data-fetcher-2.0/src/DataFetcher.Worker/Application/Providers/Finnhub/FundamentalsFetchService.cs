@@ -22,6 +22,8 @@ public class FundamentalsFetchService : IFundamentalsFetchService
     private readonly ILogger<FundamentalsFetchService> _logger;
     private const int KeepQuarters = 4;
     private const string MetricsPrefix = "data_fetcher_2_finnhub";
+    private const int LogoRefreshDays = 30;
+    private const int MaxLogoBytes = 200 * 1024; // 200KB safety cap
 
     public FundamentalsFetchService(
         IFinnhubApiClient finnhubClient,
@@ -153,6 +155,10 @@ public class FundamentalsFetchService : IFundamentalsFetchService
                                 _calcService.ExtractMetric(metrics, "dividendYield5Y"),
                 DividendPerShare = _calcService.ExtractMetric(metrics, "dividendPerShareAnnual") ??
                                    _calcService.ExtractMetric(metrics, "dividendPerShareTTM"),
+                Week52High = _calcService.ExtractMetric(metrics, "52WeekHigh"),
+                Week52Low = _calcService.ExtractMetric(metrics, "52WeekLow"),
+                Week52HighDate = _calcService.ExtractMetricDate(metrics, "52WeekHighDate"),
+                Week52LowDate = _calcService.ExtractMetricDate(metrics, "52WeekLowDate"),
                 RevenueTtm = _calcService.ExtractMetric(metrics, "revenuePerShareTTM") ??
                              _calcService.ExtractMetric(metrics, "revenuePerShareAnnual"),
                 EpsTtm = _calcService.ExtractMetric(metrics, "epsBasicExclExtraItemsTTM") ??
@@ -180,6 +186,9 @@ public class FundamentalsFetchService : IFundamentalsFetchService
             await _fundamentalsRepo.UpsertAsync(data);
             await _fundamentalsRepo.DeleteOldRecordsAsync(ticker.Id, KeepQuarters);
 
+            // Best-effort logo enrichment — must never fail the fundamentals run.
+            await TryEnrichLogoAsync(ticker, profile?.Logo, cancellationToken);
+
             stopwatch.Stop();
             await _metrics.IncrementCounterAsync($"{MetricsPrefix}_fetch_operations_total", 1,
                 new Dictionary<string, string> { ["symbol"] = ticker.Symbol, ["status"] = "success" });
@@ -198,6 +207,41 @@ public class FundamentalsFetchService : IFundamentalsFetchService
             await _metrics.IncrementCounterAsync($"{MetricsPrefix}_fetch_errors_total", 1,
                 new Dictionary<string, string> { ["symbol"] = ticker.Symbol, ["error_type"] = ex.GetType().Name });
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Downloads and stores the company logo when one is available and the
+    /// stored copy is missing or stale. All failures are swallowed (logged)
+    /// so logo enrichment can never break the fundamentals pipeline.
+    /// </summary>
+    private async Task TryEnrichLogoAsync(StockTicker ticker, string? logoUrl, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(logoUrl))
+                return;
+
+            if (!await _tickerRepo.NeedsLogoRefreshAsync(ticker.Id, LogoRefreshDays))
+                return;
+
+            var bytes = await _finnhubClient.GetCompanyLogoBytesAsync(logoUrl, cancellationToken);
+            if (bytes is not { Length: > 0 })
+                return;
+
+            if (bytes.Length > MaxLogoBytes)
+            {
+                _logger.LogWarning("Logo for {Symbol} is {Bytes} bytes (> {Max}), skipping store",
+                    ticker.Symbol, bytes.Length, MaxLogoBytes);
+                return;
+            }
+
+            await _tickerRepo.UpdateLogoAsync(ticker.Id, bytes, "image/png");
+            _logger.LogInformation("Stored logo ({Bytes} bytes) for {Symbol}", bytes.Length, ticker.Symbol);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Logo enrichment failed for {Symbol}, continuing", ticker.Symbol);
         }
     }
 

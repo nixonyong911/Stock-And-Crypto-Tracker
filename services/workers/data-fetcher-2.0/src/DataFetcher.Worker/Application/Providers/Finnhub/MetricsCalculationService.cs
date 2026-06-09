@@ -101,6 +101,46 @@ public class MetricsCalculationService
     }
 
     /// <summary>
+    /// Extracts a string-valued metric (e.g. "52WeekHighDate" = "2026-05-14").
+    /// Returns null when missing or not a string.
+    /// </summary>
+    public string? ExtractMetricString(Dictionary<string, object?>? metrics, string key)
+    {
+        if (metrics == null || !metrics.TryGetValue(key, out var value) || value == null)
+            return null;
+
+        try
+        {
+            if (value is System.Text.Json.JsonElement jsonElement)
+            {
+                return jsonElement.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? jsonElement.GetString()
+                    : null;
+            }
+
+            return value.ToString();
+        }
+        catch
+        {
+            _logger.LogDebug("Could not read metric {Key} as string", key);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Extracts a date-valued metric ("yyyy-MM-dd"). Returns null when missing
+    /// or unparseable.
+    /// </summary>
+    public DateOnly? ExtractMetricDate(Dictionary<string, object?>? metrics, string key)
+    {
+        var raw = ExtractMetricString(metrics, key);
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        return DateOnly.TryParse(raw, out var parsed) ? parsed : null;
+    }
+
+    /// <summary>
     /// Extracts a financial item value from reported financials.
     /// </summary>
     public decimal? ExtractFinancialItem(List<FinancialItem>? items, params string[] concepts)

@@ -42,6 +42,12 @@ public class FundamentalsData
     public decimal? DividendYield { get; set; }
     public decimal? DividendPerShare { get; set; }
 
+    // 52-week price range (Finnhub stock/metric)
+    public decimal? Week52High { get; set; }
+    public decimal? Week52Low { get; set; }
+    public DateOnly? Week52HighDate { get; set; }
+    public DateOnly? Week52LowDate { get; set; }
+
     // Metadata
     public string DataSource { get; set; } = "Finnhub";
     public DateTime LastFetchedAt { get; set; } = DateTime.UtcNow;

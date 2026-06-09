@@ -106,4 +106,40 @@ public class StockTickerRepository : IStockTickerRepository
 
         return await connection.QueryFirstOrDefaultAsync<StockTicker>(sql, new { Symbol = symbol });
     }
+
+    /// <inheritdoc />
+    public async Task<bool> NeedsLogoRefreshAsync(int stockTickerId, int maxAgeDays)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            SELECT (logo_bytes IS NULL
+                    OR logo_fetched_at IS NULL
+                    OR logo_fetched_at < NOW() - (@MaxAgeDays || ' days')::INTERVAL)
+            FROM stock_tickers
+            WHERE id = @StockTickerId";
+
+        // Default to refreshing when the row is missing (null result).
+        var result = await connection.QueryFirstOrDefaultAsync<bool?>(sql,
+            new { StockTickerId = stockTickerId, MaxAgeDays = maxAgeDays });
+        return result ?? true;
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateLogoAsync(int stockTickerId, byte[] logoBytes, string contentType)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            UPDATE stock_tickers
+            SET logo_bytes = @LogoBytes,
+                logo_content_type = @ContentType,
+                logo_fetched_at = NOW(),
+                updated_at = NOW()
+            WHERE id = @StockTickerId";
+
+        await connection.ExecuteAsync(sql,
+            new { StockTickerId = stockTickerId, LogoBytes = logoBytes, ContentType = contentType });
+        _logger.LogDebug("Updated logo ({Bytes} bytes) for ticker {TickerId}", logoBytes.Length, stockTickerId);
+    }
 }

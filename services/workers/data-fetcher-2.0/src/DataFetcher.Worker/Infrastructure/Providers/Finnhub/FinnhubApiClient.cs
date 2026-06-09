@@ -342,4 +342,33 @@ public class FinnhubApiClient : IFinnhubApiClient, IDataProviderContract
             throw;
         }
     }
+
+    /// <inheritdoc />
+    public async Task<byte[]?> GetCompanyLogoBytesAsync(string logoUrl, CancellationToken cancellationToken = default)
+    {
+        // Logo enrichment is best-effort: never throw, never block the run.
+        try
+        {
+            if (string.IsNullOrWhiteSpace(logoUrl) || !Uri.IsWellFormedUriString(logoUrl, UriKind.Absolute))
+            {
+                return null;
+            }
+
+            // Absolute URI overrides the client BaseAddress (finnhub.io), so
+            // this correctly hits the static logo CDN host.
+            using var response = await _httpClient.GetAsync(logoUrl, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Logo download returned {Status} for {Url}", (int)response.StatusCode, logoUrl);
+                return null;
+            }
+
+            return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error downloading company logo from {Url}", logoUrl);
+            return null;
+        }
+    }
 }

@@ -26,4 +26,16 @@ public interface IStockTickerRepository
     /// Gets a stock ticker by symbol.
     /// </summary>
     Task<StockTicker?> GetBySymbolAsync(string symbol);
+
+    /// <summary>
+    /// Returns true when the ticker has no stored logo or the stored logo is
+    /// older than <paramref name="maxAgeDays"/>. Avoids re-downloading the
+    /// logo on every fundamentals run.
+    /// </summary>
+    Task<bool> NeedsLogoRefreshAsync(int stockTickerId, int maxAgeDays);
+
+    /// <summary>
+    /// Stores the company logo bytes and content type for a ticker.
+    /// </summary>
+    Task UpdateLogoAsync(int stockTickerId, byte[] logoBytes, string contentType);
 }

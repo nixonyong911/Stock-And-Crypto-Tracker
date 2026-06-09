@@ -50,6 +50,13 @@ public interface IFinnhubApiClient
     /// Gets analyst recommendation trends for a symbol.
     /// </summary>
     Task<List<RecommendationTrend>?> GetRecommendationTrendsAsync(string symbol, CancellationToken ct = default);
+
+    /// <summary>
+    /// Downloads the raw bytes of a company logo image from an absolute URL
+    /// (as returned by <see cref="CompanyProfile.Logo"/>). Returns null on
+    /// any failure so logo enrichment never blocks the fundamentals run.
+    /// </summary>
+    Task<byte[]?> GetCompanyLogoBytesAsync(string logoUrl, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

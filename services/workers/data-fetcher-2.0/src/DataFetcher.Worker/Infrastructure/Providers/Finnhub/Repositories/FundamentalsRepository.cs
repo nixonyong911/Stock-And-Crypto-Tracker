@@ -32,6 +32,7 @@ public class FundamentalsRepository : IFundamentalsRepository
                 debt_to_equity, interest_coverage, beta,
                 free_cash_flow, fcf_growth_yoy,
                 dividend_yield, dividend_per_share,
+                week_52_high, week_52_low, week_52_high_date, week_52_low_date,
                 data_source, last_fetched_at, updated_at
             ) VALUES (
                 @StockTickerId, @FiscalYear, @FiscalQuarter,
@@ -41,6 +42,7 @@ public class FundamentalsRepository : IFundamentalsRepository
                 @DebtToEquity, @InterestCoverage, @Beta,
                 @FreeCashFlow, @FcfGrowthYoy,
                 @DividendYield, @DividendPerShare,
+                @Week52High, @Week52Low, @Week52HighDate, @Week52LowDate,
                 @DataSource, @LastFetchedAt, NOW()
             )
             ON CONFLICT (stock_ticker_id, fiscal_year, fiscal_quarter)
@@ -64,6 +66,10 @@ public class FundamentalsRepository : IFundamentalsRepository
                 fcf_growth_yoy = EXCLUDED.fcf_growth_yoy,
                 dividend_yield = EXCLUDED.dividend_yield,
                 dividend_per_share = EXCLUDED.dividend_per_share,
+                week_52_high = EXCLUDED.week_52_high,
+                week_52_low = EXCLUDED.week_52_low,
+                week_52_high_date = EXCLUDED.week_52_high_date,
+                week_52_low_date = EXCLUDED.week_52_low_date,
                 data_source = EXCLUDED.data_source,
                 last_fetched_at = EXCLUDED.last_fetched_at,
                 updated_at = NOW()";
