@@ -276,13 +276,21 @@ public class LocalIndicatorCalculatorService : ILocalIndicatorCalculatorService
     {
         using var connection = _dbConnectionFactory.CreateConnection();
 
+        // Take the *most recent* @Days candles (inner DESC + LIMIT), then return
+        // them oldest-first because ComputeIndicators expects chronological order.
+        // A plain "ORDER BY analysis_date ASC LIMIT @Days" would instead pin the
+        // oldest rows and freeze every indicator as new data arrives.
         const string sql = @"
             SELECT daily_close
-            FROM analysis_stock_candlestick_pattern
-            WHERE stock_ticker_id = @StockTickerId
-              AND daily_close IS NOT NULL
-            ORDER BY analysis_date ASC
-            LIMIT @Days";
+            FROM (
+                SELECT daily_close, analysis_date
+                FROM analysis_stock_candlestick_pattern
+                WHERE stock_ticker_id = @StockTickerId
+                  AND daily_close IS NOT NULL
+                ORDER BY analysis_date DESC
+                LIMIT @Days
+            ) recent
+            ORDER BY analysis_date ASC";
 
         var rows = await connection.QueryAsync<decimal>(sql, new { StockTickerId = stockTickerId, Days = days });
         return rows.ToList();
@@ -292,13 +300,19 @@ public class LocalIndicatorCalculatorService : ILocalIndicatorCalculatorService
     {
         using var connection = _dbConnectionFactory.CreateConnection();
 
+        // Same fix as the stock path: most-recent @Days candles, returned
+        // oldest-first for ComputeIndicators.
         const string sql = @"
             SELECT daily_close
-            FROM analysis_crypto_candlestick_pattern
-            WHERE crypto_ticker_id = @CryptoTickerId
-              AND daily_close IS NOT NULL
-            ORDER BY analysis_date ASC
-            LIMIT @Days";
+            FROM (
+                SELECT daily_close, analysis_date
+                FROM analysis_crypto_candlestick_pattern
+                WHERE crypto_ticker_id = @CryptoTickerId
+                  AND daily_close IS NOT NULL
+                ORDER BY analysis_date DESC
+                LIMIT @Days
+            ) recent
+            ORDER BY analysis_date ASC";
 
         var rows = await connection.QueryAsync<decimal>(sql, new { CryptoTickerId = cryptoTickerId, Days = days });
         return rows.ToList();

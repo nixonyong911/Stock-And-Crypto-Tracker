@@ -654,14 +654,22 @@ public class AdvancedIndicatorCalculatorService : IAdvancedIndicatorCalculatorSe
     {
         using var connection = _dbConnectionFactory.CreateConnection();
 
+        // Most-recent @Days bars (inner DESC + LIMIT), returned oldest-first so
+        // downstream indicator math sees chronological order. A plain
+        // "ORDER BY analysis_date ASC LIMIT @Days" pins the oldest bars and
+        // freezes every advanced indicator as new data arrives.
         const string sql = @"
-            SELECT daily_open AS Open, daily_high AS High, daily_low AS Low,
-                   daily_close AS Close, COALESCE(daily_volume, 0) AS Volume, analysis_date AS Date
-            FROM analysis_stock_candlestick_pattern
-            WHERE stock_ticker_id = @TickerId
-              AND daily_close IS NOT NULL
-            ORDER BY analysis_date ASC
-            LIMIT @Days";
+            SELECT Open, High, Low, Close, Volume, Date
+            FROM (
+                SELECT daily_open AS Open, daily_high AS High, daily_low AS Low,
+                       daily_close AS Close, COALESCE(daily_volume, 0) AS Volume, analysis_date AS Date
+                FROM analysis_stock_candlestick_pattern
+                WHERE stock_ticker_id = @TickerId
+                  AND daily_close IS NOT NULL
+                ORDER BY analysis_date DESC
+                LIMIT @Days
+            ) recent
+            ORDER BY Date ASC";
 
         var rows = await connection.QueryAsync<OhlcvBar>(sql, new { TickerId = stockTickerId, Days = days });
         return rows.ToList();
@@ -671,14 +679,19 @@ public class AdvancedIndicatorCalculatorService : IAdvancedIndicatorCalculatorSe
     {
         using var connection = _dbConnectionFactory.CreateConnection();
 
+        // Same fix as the stock path: most-recent @Days bars, returned oldest-first.
         const string sql = @"
-            SELECT daily_open AS Open, daily_high AS High, daily_low AS Low,
-                   daily_close AS Close, COALESCE(daily_volume, 0) AS Volume, analysis_date AS Date
-            FROM analysis_crypto_candlestick_pattern
-            WHERE crypto_ticker_id = @TickerId
-              AND daily_close IS NOT NULL
-            ORDER BY analysis_date ASC
-            LIMIT @Days";
+            SELECT Open, High, Low, Close, Volume, Date
+            FROM (
+                SELECT daily_open AS Open, daily_high AS High, daily_low AS Low,
+                       daily_close AS Close, COALESCE(daily_volume, 0) AS Volume, analysis_date AS Date
+                FROM analysis_crypto_candlestick_pattern
+                WHERE crypto_ticker_id = @TickerId
+                  AND daily_close IS NOT NULL
+                ORDER BY analysis_date DESC
+                LIMIT @Days
+            ) recent
+            ORDER BY Date ASC";
 
         var rows = await connection.QueryAsync<OhlcvBar>(sql, new { TickerId = cryptoTickerId, Days = days });
         return rows.ToList();
