@@ -450,6 +450,96 @@ export async function fetchAnalystMix(
   return out;
 }
 
+/**
+ * Presentation + range extras for the Smart Digest card, keyed by
+ * UPPER(symbol). Stocks only — sourced from `stock_tickers` (name, logo)
+ * and the latest `analysis_stock_fundamentals` row (52-week high/low).
+ *
+ * `logoDataUri` is a self-contained `data:` URI built from the stored
+ * `logo_bytes` so the renderer embeds the image with no network call.
+ */
+export interface StockCardExtras {
+  companyName?: string;
+  logoDataUri?: string;
+  week52High?: number;
+  week52Low?: number;
+}
+
+interface StockCardExtrasRow {
+  ticker_symbol: string;
+  company_name: string | null;
+  logo_bytes: Buffer | null;
+  logo_content_type: string | null;
+  week_52_high: string | null;
+  week_52_low: string | null;
+}
+
+/**
+ * Fetch logo / company name / 52-week range for stocks. Resilient by
+ * design: any DB error (e.g. logo columns not yet migrated) degrades to an
+ * empty map so the card still renders without these extras.
+ */
+export async function fetchStockCardExtras(
+  db: Pool,
+  symbolFilter?: string,
+): Promise<Map<string, StockCardExtras>> {
+  const out = new Map<string, StockCardExtras>();
+  try {
+    const params: unknown[] = [];
+    let symbolClause = "";
+    if (symbolFilter) {
+      symbolClause = " AND UPPER(t.symbol) = UPPER($1)";
+      params.push(symbolFilter);
+    }
+
+    const { rows } = await db.query<StockCardExtrasRow>(
+      `SELECT t.symbol AS ticker_symbol,
+              t.name   AS company_name,
+              t.logo_bytes,
+              t.logo_content_type,
+              f.week_52_high::text AS week_52_high,
+              f.week_52_low::text  AS week_52_low
+       FROM stock_tickers t
+       LEFT JOIN LATERAL (
+         SELECT week_52_high, week_52_low
+         FROM analysis_stock_fundamentals
+         WHERE stock_ticker_id = t.id
+         ORDER BY fiscal_year DESC, fiscal_quarter DESC
+         LIMIT 1
+       ) f ON true
+       WHERE t.is_active = true${symbolClause}`,
+      params,
+    );
+
+    for (const r of rows) {
+      const extras: StockCardExtras = {};
+      if (r.company_name && r.company_name.trim().length > 0) {
+        extras.companyName = r.company_name.trim();
+      }
+      if (r.logo_bytes && r.logo_bytes.length > 0) {
+        const ct = r.logo_content_type || "image/png";
+        extras.logoDataUri = `data:${ct};base64,${r.logo_bytes.toString("base64")}`;
+      }
+      const high = r.week_52_high != null ? parseFloat(r.week_52_high) : NaN;
+      const low = r.week_52_low != null ? parseFloat(r.week_52_low) : NaN;
+      if (Number.isFinite(high) && high > 0) extras.week52High = high;
+      if (Number.isFinite(low) && low > 0) extras.week52Low = low;
+
+      if (
+        extras.companyName ||
+        extras.logoDataUri ||
+        extras.week52High != null ||
+        extras.week52Low != null
+      ) {
+        out.set(r.ticker_symbol.toUpperCase(), extras);
+      }
+    }
+  } catch {
+    /* non-critical: missing logo/52w columns degrade to empty map */
+  }
+  return out;
+}
+
 async function fetchCandlesticks(
   db: Pool,
   assetType: "stock" | "crypto",
@@ -1342,13 +1432,41 @@ export interface DetectSignalsResult {
   analysisDateMap: Map<string, string>;
   /** Per-stock Wall Street analyst Buy/Hold/Sell mix (stocks only). */
   analystMixMap: Map<string, AnalystMix>;
+  /** Per-stock logo / company name / 52-week range (stocks only). */
+  cardExtrasMap: Map<string, StockCardExtras>;
+  /**
+   * Per-symbol technical contexts built from price targets / indicators /
+   * candles. Exposed for preview/inspection tooling that wants to render a
+   * card even when no signal fired (see `buildNeutralPreviewSignal`). Not used
+   * by the production delivery path.
+   */
+  contexts?: TickerCtx[];
+}
+
+/**
+ * Build a neutral, low-priority "levels snapshot" signal from a technical
+ * context. Used only by preview tooling to render a representative card when
+ * no real signal fired — never emitted by the production detectors. The new
+ * card's stance/stars/levels/action-guide derive from the price truth, not the
+ * signal type, so a neutral type yields an accurate at-a-glance view.
+ */
+export function buildNeutralPreviewSignal(ctx: TickerCtx): TickerSignal {
+  return {
+    symbol: ctx.symbol,
+    assetType: ctx.assetType,
+    type: "signal_change",
+    priority: "low",
+    timeframeAlignment: ctx.alignment,
+    headline: `${ctx.symbol} levels snapshot`,
+    rawData: makeRawData(ctx),
+  };
 }
 
 export async function detectSignals(
   db: Pool,
   assetType: "stock" | "crypto",
 ): Promise<DetectSignalsResult> {
-  const [targets, indicators, candles, macroContext, analystMixMap] = await Promise.all([
+  const [targets, indicators, candles, macroContext, analystMixMap, cardExtrasMap] = await Promise.all([
     fetchPriceTargets(db, assetType),
     fetchIndicators(db, assetType),
     fetchCandlesticks(db, assetType),
@@ -1356,6 +1474,9 @@ export async function detectSignals(
     assetType === "stock"
       ? fetchAnalystMix(db)
       : Promise.resolve(new Map<string, AnalystMix>()),
+    assetType === "stock"
+      ? fetchStockCardExtras(db)
+      : Promise.resolve(new Map<string, StockCardExtras>()),
   ]);
 
   let newsRows: NewsSentimentRow[] = [];
@@ -1409,6 +1530,8 @@ export async function detectSignals(
     memoryTextMap,
     analysisDateMap,
     analystMixMap,
+    cardExtrasMap,
+    contexts,
   };
 }
 
@@ -1417,7 +1540,7 @@ export async function detectSignalsForTicker(
   symbol: string,
   assetType: "stock" | "crypto",
 ): Promise<DetectSignalsResult> {
-  const [targets, indicators, candles, macroContext, analystMixMap] = await Promise.all([
+  const [targets, indicators, candles, macroContext, analystMixMap, cardExtrasMap] = await Promise.all([
     fetchPriceTargets(db, assetType, symbol),
     fetchIndicators(db, assetType, symbol),
     fetchCandlesticks(db, assetType, symbol),
@@ -1425,6 +1548,9 @@ export async function detectSignalsForTicker(
     assetType === "stock"
       ? fetchAnalystMix(db, symbol)
       : Promise.resolve(new Map<string, AnalystMix>()),
+    assetType === "stock"
+      ? fetchStockCardExtras(db, symbol)
+      : Promise.resolve(new Map<string, StockCardExtras>()),
   ]);
 
   let newsRows: NewsSentimentRow[] = [];
@@ -1478,5 +1604,7 @@ export async function detectSignalsForTicker(
     memoryTextMap,
     analysisDateMap,
     analystMixMap,
+    cardExtrasMap,
+    contexts,
   };
 }

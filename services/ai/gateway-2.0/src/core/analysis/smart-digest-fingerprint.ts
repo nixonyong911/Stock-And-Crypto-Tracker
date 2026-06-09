@@ -18,7 +18,14 @@ export const CURRENT_DIGEST_BRIEF_SCHEMA_VERSION = 1;
 // `entryLow`, `periodLow`, or `ema20` is closer to spot (when one
 // exists). Cached `v2` artifacts that pre-date the polish are evicted
 // so users see the new behavior immediately.
-export const CURRENT_GENERATOR_VERSION = "3";
+//
+// Bumped to "4" for the at-a-glance card redesign: the brief now carries
+// `stance5` (5-level bull/bear), `stars`, `levelsBar`, `actionGuide`,
+// `companyName`, and `logoDataUri`. The bump evicts pre-redesign `v3`
+// artifacts so reused payloads always include the new card fields.
+// `v5`: levels-bar zones re-anchored to the stable 52-week range (buy =
+// lowest 25%, sell = highest 25%) instead of the daily entry/target band.
+export const CURRENT_GENERATOR_VERSION = "5";
 
 export const CURRENT_PROMPT_VERSION: string | null = null;
 

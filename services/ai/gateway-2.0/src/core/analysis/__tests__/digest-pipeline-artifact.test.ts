@@ -211,6 +211,7 @@ function setupDetectSignals(symbol: string, assetType: "stock" | "crypto") {
     memoryTextMap: new Map(),
     analysisDateMap: new Map(),
     analystMixMap: new Map(),
+    cardExtrasMap: new Map(),
   });
 }
 
@@ -350,6 +351,7 @@ describe("crypto artifact persistence uses correct assetType", () => {
       memoryTextMap: new Map(),
       analysisDateMap: new Map(),
       analystMixMap: new Map(),
+      cardExtrasMap: new Map(),
     });
     const deps = makeBaseDeps();
 
@@ -374,6 +376,7 @@ describe("crypto artifact persistence uses correct assetType", () => {
       memoryTextMap: new Map(),
       analysisDateMap: new Map(),
       analystMixMap: new Map(),
+      cardExtrasMap: new Map(),
     });
     const deps = makeBaseDeps();
 

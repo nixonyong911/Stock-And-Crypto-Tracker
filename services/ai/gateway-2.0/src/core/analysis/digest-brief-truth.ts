@@ -104,6 +104,17 @@ export interface BriefTruth {
   rawConfidence?: number;
 
   /**
+   * 52-week high/low from `analysis_stock_fundamentals` (Finnhub
+   * stock/metric). Stocks only; absent for crypto/ETF/no-coverage. Drives
+   * the support/resistance pillar of the Smart Digest score and the
+   * "Levels to Watch" bar edges.
+   */
+  range52w?: {
+    high?: number;
+    low?: number;
+  };
+
+  /**
    * Facts that describe what the dominant signal means. Drawn directly
    * from `TickerSignal.rawData`, which the engine populated from DB rows.
    * No invented values.
@@ -182,6 +193,12 @@ export interface BriefDerived {
   breakBelowTarget: string;
   watchCategory: WatchCategory;
   changePercent: number;
+  /**
+   * Absolute price move vs the session open (`price - open`) in quote
+   * currency. `0` when `open` is missing — pairs with `changePercent` so
+   * the card can show both "how much" and "by what %".
+   */
+  changeAmount: number;
   hasMaterialContext: boolean;
   /** Resolved context line; `""` when no qualifying source. */
   context: string;
@@ -657,6 +674,8 @@ export interface GatherTruthArgs {
    * not plumbing aliases) get floor-only surfacing semantics.
    */
   aliasContext?: BriefTruth["aliasContext"];
+  /** 52-week high/low (stocks only) from `analysis_stock_fundamentals`. */
+  range52w?: { high?: number; low?: number };
 }
 
 /**
@@ -671,6 +690,9 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
   const { signal, macroContext, memoryText, analysisDate, aliasContext } = args;
   const d = signal.rawData;
   const flags: string[] = [];
+
+  const range52wHigh = args.range52w?.high;
+  const range52wLow = args.range52w?.low;
 
   const truth: BriefTruth = {
     symbol: signal.symbol,
@@ -729,6 +751,12 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
 
   if (typeof d.confidence === "number" && Number.isFinite(d.confidence)) {
     truth.rawConfidence = d.confidence;
+  }
+
+  if (isFinitePositive(range52wHigh) || isFinitePositive(range52wLow)) {
+    truth.range52w = {};
+    if (isFinitePositive(range52wHigh)) truth.range52w.high = range52wHigh;
+    if (isFinitePositive(range52wLow)) truth.range52w.low = range52wLow;
   }
 
   if (typeof d.macdHistogram === "number" && Number.isFinite(d.macdHistogram)) {
@@ -796,6 +824,7 @@ export function deriveSignals(truth: BriefTruth): BriefDerived {
   const { holdAbove, breakBelowTarget } = deriveLevelsFromTruth(truth);
   const watchCategory = deriveWatchCategory(truth);
   const changePercent = deriveChangePercentFromTruth(truth);
+  const changeAmount = deriveChangeAmountFromTruth(truth);
   const { context, contextSource, contextTrimmed } = deriveContextFromTruth(truth);
   const hasMaterialContext = context !== "";
 
@@ -806,6 +835,7 @@ export function deriveSignals(truth: BriefTruth): BriefDerived {
     breakBelowTarget,
     watchCategory,
     changePercent,
+    changeAmount,
     hasMaterialContext,
     context,
     contextSource,
@@ -1315,6 +1345,12 @@ function deriveChangePercentFromTruth(truth: BriefTruth): number {
   if (!isFinitePositive(truth.price)) return 0;
   if (!isFinitePositive(truth.open)) return 0;
   return ((truth.price - truth.open) / truth.open) * 100;
+}
+
+function deriveChangeAmountFromTruth(truth: BriefTruth): number {
+  if (!isFinitePositive(truth.price)) return 0;
+  if (!isFinitePositive(truth.open)) return 0;
+  return truth.price - truth.open;
 }
 
 function deriveContextFromTruth(truth: BriefTruth): {

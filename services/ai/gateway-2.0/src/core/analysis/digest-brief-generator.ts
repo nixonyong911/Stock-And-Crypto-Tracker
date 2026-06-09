@@ -39,6 +39,7 @@ import {
   type MacroContext,
   type TickerMemoryText,
   type AnalystMix,
+  type StockCardExtras,
 } from "./recommendation-engine.js";
 import type { CardData, StatusTone } from "./card-renderer.js";
 import {
@@ -50,6 +51,12 @@ import {
   type BriefDerived,
   type BriefMode,
 } from "./digest-brief-truth.js";
+import {
+  computeSmartDigestScore,
+  stanceFromDirection,
+  type Stance5,
+  type LevelsBar,
+} from "./smart-digest-score.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -63,9 +70,23 @@ export type DigestStanceTone = StatusTone;
 
 export interface DigestBrief {
   ticker: string;
+  /** Full company name (stocks). Absent for crypto / no coverage. */
+  companyName?: string;
+  /** Self-contained `data:` URI for the company logo. */
+  logoDataUri?: string;
   status: { label: DigestStanceLabel; tone: DigestStanceTone };
+  /** 5-level bull/bear stance for the top-right pill. */
+  stance5?: Stance5;
+  /** Conviction stars, integer 0-5. */
+  stars?: number;
+  /** "Levels to Watch" bar data. */
+  levelsBar?: LevelsBar;
+  /** Rule-based action sentence. */
+  actionGuide?: string;
   price: number;
   changePercent: number;
+  /** Absolute price move vs the session open, in quote currency. */
+  changeAmount?: number;
   confidence: "High" | "Medium" | "Low";
   /**
    * Source-derived timestamp (e.g. price target `analysis_date`). `null`
@@ -263,6 +284,8 @@ export interface GenerateDigestBriefArgs {
   analysisDateMap?: Map<string, string>;
   /** Per-stock Wall Street analyst Buy/Hold/Sell mix (stocks only). */
   analystMixMap?: Map<string, AnalystMix>;
+  /** Per-stock logo / company name / 52-week range (stocks only). */
+  cardExtrasMap?: Map<string, StockCardExtras>;
   /** Test/script override for `updatedAt`. */
   now?: Date;
   /** strict (default) | blended. Falls back to `strict` if undefined. */
@@ -321,6 +344,7 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
 
   const analysisDate = args.analysisDateMap?.get(upper);
   const analystMix = args.analystMixMap?.get(upper);
+  const cardExtras = args.cardExtrasMap?.get(upper);
 
   // Step 5: pass alias context so the truth layer's surfacing decision
   // can evaluate whether `news_one_liner` actually names the digest
@@ -341,9 +365,15 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
     memoryText,
     analysisDate,
     aliasContext,
+    range52w:
+      cardExtras &&
+      (cardExtras.week52High != null || cardExtras.week52Low != null)
+        ? { high: cardExtras.week52High, low: cardExtras.week52Low }
+        : undefined,
   });
   const derived: BriefDerived = deriveSignals(truth);
   const composed = composeBrief({ truth, derived, mode, now });
+  const score = computeSmartDigestScore(truth, derived);
 
   // Sparse-data guard: if the price is missing/non-positive, the upstream
   // signal arrived without real numerics. The truth layer already returns
@@ -353,9 +383,16 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
 
   return {
     ticker,
+    companyName: cardExtras?.companyName,
+    logoDataUri: cardExtras?.logoDataUri,
     status: derived.stance,
+    stance5: score.stance,
+    stars: score.stars,
+    levelsBar: score.levelsBar,
+    actionGuide: score.actionGuide,
     price: safePrice,
     changePercent: derived.changePercent,
+    changeAmount: derived.changeAmount,
     confidence: derived.confidence,
     updatedAt: composed.updatedAt,
     whatHappening: composed.whatHappening,
@@ -377,8 +414,13 @@ function neutralFallbackBrief(args: {
   return {
     ticker: args.ticker,
     status: { label: "Neutral", tone: "neutral" },
+    stance5: stanceFromDirection(0),
+    stars: 1,
+    actionGuide:
+      "Not enough level data for a precise plan — monitor price action around recent ranges.",
     price: 0,
     changePercent: 0,
+    changeAmount: 0,
     confidence: "Low",
     // No source-derived timestamp exists in the empty-signal path. We
     // intentionally do NOT substitute wall clock time here — see A5.
