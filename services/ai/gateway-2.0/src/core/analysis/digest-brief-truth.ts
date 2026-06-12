@@ -724,6 +724,17 @@ export interface TechLevelsInput {
 const MAX_ATR_PRICE_FRAC = 0.5;
 
 /**
+ * 52-week-range containment tolerance. The current close must sit inside
+ * the reported yearly range, give or take a fresh breach: more than 30%
+ * below the 52w low or above the 52w high means the range comes from a
+ * different listing/currency than our price feed (observed live: TSM's
+ * Finnhub range is the TWD-listed 1000–2440 while the Alpaca ADR close
+ * is ~425 USD). A genuine breach becomes the new extreme on the next
+ * provider refresh, so it can never drift past this band for long.
+ */
+const RANGE_52W_BREACH_TOLERANCE = 0.3;
+
+/**
  * Map raw engine outputs onto a strictly DB-grounded `BriefTruth`.
  * Pure: no I/O, no time references, no hard-coded fallbacks.
  *
@@ -799,9 +810,19 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
   }
 
   if (isFinitePositive(range52wHigh) || isFinitePositive(range52wLow)) {
-    truth.range52w = {};
-    if (isFinitePositive(range52wHigh)) truth.range52w.high = range52wHigh;
-    if (isFinitePositive(range52wLow)) truth.range52w.low = range52wLow;
+    const priceOutsideRange =
+      truth.price != null &&
+      ((isFinitePositive(range52wLow) &&
+        truth.price < (1 - RANGE_52W_BREACH_TOLERANCE) * range52wLow) ||
+        (isFinitePositive(range52wHigh) &&
+          truth.price > (1 + RANGE_52W_BREACH_TOLERANCE) * range52wHigh));
+    if (priceOutsideRange) {
+      pushFlag(flags, "range52w_price_mismatch");
+    } else {
+      truth.range52w = {};
+      if (isFinitePositive(range52wHigh)) truth.range52w.high = range52wHigh;
+      if (isFinitePositive(range52wLow)) truth.range52w.low = range52wLow;
+    }
   }
 
   // Tech levels (pivots / fibs / ATR) pass the same level/price band as

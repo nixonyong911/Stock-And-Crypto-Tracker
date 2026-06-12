@@ -373,6 +373,63 @@ describe("gatherTruth — sanity guards (A4)", () => {
   });
 });
 
+describe("gatherTruth — 52-week range containment guard", () => {
+  it("drops a 52w range from a different listing/currency (captured TSM row: close 425 vs TWD range 1000–2440)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        symbol: "TSM",
+        rawData: {
+          close: 425,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+        },
+      }),
+      range52w: { high: 2440, low: 1000 },
+    });
+    expect(truth.range52w).toBeUndefined();
+    expect(truth.truthFlags).toContain("range52w_price_mismatch");
+  });
+
+  it("keeps a range the price sits inside", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal(), // close 175
+      range52w: { high: 236, low: 140 },
+    });
+    expect(truth.range52w).toEqual({ high: 236, low: 140 });
+    expect(truth.truthFlags).toBeUndefined();
+  });
+
+  it("tolerates a fresh breach up to 30% beyond the range edges", () => {
+    const aboveHigh = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 240, // 1.7% above the 52w high — a fresh all-time-high print
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+        },
+      }),
+      range52w: { high: 236, low: 140 },
+    });
+    expect(aboveHigh.range52w).toEqual({ high: 236, low: 140 });
+
+    const farAbove = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 310, // 31% above the high — unit mismatch territory
+          daySignal: "bullish",
+          swingSignal: "bullish",
+          longTermSignal: "bullish",
+        },
+      }),
+      range52w: { high: 236, low: 140 },
+    });
+    expect(farAbove.range52w).toBeUndefined();
+    expect(farAbove.truthFlags).toContain("range52w_price_mismatch");
+  });
+});
+
 describe("gatherTruth — tech levels validation", () => {
   it("accepts in-band pivots / fibs / ATR", () => {
     const truth = gatherTruth({
