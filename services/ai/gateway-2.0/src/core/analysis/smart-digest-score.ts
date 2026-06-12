@@ -229,8 +229,15 @@ const MIN_HALF_WIDTH_ATR = 0.5;
 const MIN_HALF_WIDTH_PCT = 0.0075;
 /** A zone may not exceed this fraction of the bar's range. */
 const ZONE_MAX_WIDTH_FRAC = 0.35;
-/** Anchored zones closer than this fraction of range read as noise. */
-const MIN_ZONE_GAP_FRAC = 0.08;
+/**
+ * Neutral standoff around spot, as a fraction of the zone half-width.
+ * Daily pivots routinely bracket the price within ~1 ATR (S1 just below,
+ * R1 just above), so anchored zones naturally converge on the marker; a
+ * volatility-scaled sliver of grey keeps the buy/sell bands visually
+ * distinct without reverting the anchoring. (An earlier frame-scaled
+ * minimum gap reverted to the 25% slices on almost every real ticker.)
+ */
+const NEUTRAL_GAP_HALF_FRAC = 0.25;
 
 interface Zone {
   low: number;
@@ -311,17 +318,18 @@ function buildAnchoredZone(
   const eps = Math.max(CLUSTER_EPS_ATR * (atr ?? 0), CLUSTER_EPS_PCT * price);
   const cluster = candidates.filter((c) => Math.abs(c - anchor) <= eps);
   const halfW = Math.max(MIN_HALF_WIDTH_ATR * (atr ?? 0), MIN_HALF_WIDTH_PCT * price);
+  const standoff = NEUTRAL_GAP_HALF_FRAC * halfW;
 
   let low: number;
   let high: number;
   if (side === "buy") {
     low = Math.max(Math.min(...cluster) - halfW, barMin);
-    high = Math.min(anchor + halfW, price); // never paints "buy" above spot
+    high = Math.min(anchor + halfW, price - standoff); // never paints "buy" at/above spot
     if (high - low > ZONE_MAX_WIDTH_FRAC * range) {
       low = high - ZONE_MAX_WIDTH_FRAC * range;
     }
   } else {
-    low = Math.max(anchor - halfW, price); // never paints "sell" below spot
+    low = Math.max(anchor - halfW, price + standoff); // never paints "sell" at/below spot
     high = Math.min(Math.max(...cluster) + halfW, barMax);
     if (high - low > ZONE_MAX_WIDTH_FRAC * range) {
       high = low + ZONE_MAX_WIDTH_FRAC * range;
@@ -383,11 +391,12 @@ export function buildLevelsBar(truth: BriefTruth): LevelsBar | undefined {
   buyZone ??= heuristicBuy;
   sellZone ??= heuristicSell;
 
-  // Never render nonsense: overlapping / near-touching zones (or a buy zone
-  // painted above the sell zone) mean the anchors disagree with each other —
-  // drop BOTH back to the statistical slices, which are disjoint by
-  // construction. Mixed anchored/heuristic with touching bands reads as noise.
-  if (buyZone.high >= sellZone.low - MIN_ZONE_GAP_FRAC * range) {
+  // Never render nonsense: an inverted pair (buy band reaching above the
+  // sell band) means the inputs disagree — drop BOTH back to the statistical
+  // slices, which are disjoint by construction. The spot standoff above makes
+  // this unreachable for anchored zones; this guards future edits and the
+  // mixed anchored/heuristic combinations.
+  if (buyZone.high >= sellZone.low) {
     buyZone = heuristicBuy;
     sellZone = heuristicSell;
     buySource = "heuristic25";

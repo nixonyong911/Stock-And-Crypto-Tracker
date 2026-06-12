@@ -180,17 +180,20 @@ describe("buildLevelsBar — 52-week-anchored zones", () => {
     expect(bar!.sellZone!.high).toBeCloseTo(112, 3);
   });
 
-  it("buy zone never paints above spot; sell zone never below spot", () => {
+  it("pivots bracketing spot stay anchored with a volatility-scaled neutral sliver", () => {
     const truth = makeTruth({
       price: 100,
       range52w: { high: 150, low: 60 },
-      techLevels: { pivotS1: 99.5, pivotR1: 100.5, atr: 4 },
+      techLevels: { pivotS1: 99.5, pivotR1: 100.5, atr: 4 }, // S1/R1 hug spot
     });
     const bar = buildLevelsBar(truth);
     expect(bar).toBeDefined();
-    // Zones this close would violate the 8%-of-range gap → both revert.
-    expect(bar!.buyZoneSource).toBe("heuristic25");
-    expect(bar!.sellZoneSource).toBe("heuristic25");
+    // halfW = 0.5*ATR = 2, standoff = 0.25*halfW = 0.5 around the marker.
+    expect(bar!.buyZoneSource).toBe("anchored");
+    expect(bar!.sellZoneSource).toBe("anchored");
+    expect(bar!.buyZone!.high).toBeCloseTo(99.5, 3); // min(S1+2, 100-0.5)
+    expect(bar!.sellZone!.low).toBeCloseTo(100.5, 3); // max(R1-2, 100+0.5)
+    expect(bar!.buyZone!.high).toBeLessThan(bar!.sellZone!.low);
   });
 
   it("anchors farther than 25% from spot are ignored", () => {
