@@ -153,6 +153,7 @@ try
     builder.Services.AddScoped<IAnalysisRepository, AnalysisRepository>();
     builder.Services.AddScoped<ICryptoPriceRepository, CryptoPriceRepository>();
     builder.Services.AddScoped<ICryptoAnalysisRepository, CryptoAnalysisRepository>();
+    builder.Services.AddScoped<ICrypto52WeekRangeRepository, Crypto52WeekRangeRepository>();
 
     // Pipeline (legacy backfill steps — kept for backward compatibility)
     builder.Services.AddScoped<IBackfillPipelineExecutor, BackfillPipelineExecutor>();
@@ -166,6 +167,7 @@ try
     builder.Services.AddScoped<IComputeStep, BasicIndicatorsComputeStep>();
     builder.Services.AddScoped<IComputeStep, AdvancedIndicatorsComputeStep>();
     builder.Services.AddScoped<IComputeStep, PriceTargetComputeStep>();
+    builder.Services.AddScoped<IComputeStep, Crypto52WeekRangeComputeStep>();
     builder.Services.AddScoped<IComputeStepRegistry, ComputeStepRegistry>();
 
     // Application - CandlestickAnalysis Provider (Stock + Crypto)
@@ -176,6 +178,7 @@ try
     builder.Services.AddScoped<ICryptoDailyAggregationService, CryptoDailyAggregationService>();
     builder.Services.AddScoped<ICryptoCandlestickAnalysisService, CryptoCandlestickAnalysisService>();
     builder.Services.AddScoped<ICryptoAnalysisBackfillService, CryptoAnalysisBackfillService>();
+    builder.Services.AddScoped<ICrypto52WeekRangeService, Crypto52WeekRangeService>();
 
     // Infrastructure - PriceTargetAnalysis Provider
     builder.Services.AddScoped<IPriceTargetRepository, PriceTargetRepository>();
