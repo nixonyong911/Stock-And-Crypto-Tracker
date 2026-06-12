@@ -112,38 +112,31 @@ describe("computeSmartDigestScore — stars", () => {
   });
 });
 
-// ── Levels bar: 52-week frame, technical-level-anchored zones ─────────
+// ── Levels bar: 52-week frame, edge-anchored zones ────────────────────
 //
 // The bar FRAME is the stable 52-week range (fallback: period high/low),
-// widened only on a breach. The buy/sell ZONES anchor to real technical
-// levels (validated pivots, fib retracements, EMA-50, entry band / target)
-// near spot, sized by ATR; when no usable anchor exists on a side, that
-// side falls back to the statistical bottom/top 25% slice of the frame.
+// widened only on a breach. Zones ALWAYS span from the bar edges — the
+// yearly low end is the deepest buy territory, the yearly high end the
+// deepest sell territory. Only the INNER boundary is technical: when price
+// trades near an edge, the boundary pulls to the nearest validated level
+// (pivot / fib / EMA-50 / entry / target); otherwise it stays the
+// statistical 25% slice.
 
-describe("buildLevelsBar — 52-week-anchored zones", () => {
-  it("entry band and target anchor the zones inside the 52w frame", () => {
+describe("buildLevelsBar — edge-anchored zones", () => {
+  it("zones always reach the bar edges", () => {
     const truth = makeTruth({
       price: 170,
       range52w: { high: 236, low: 140 },
       levels: { entryLow: 150, entryHigh: 160, target: 200 },
+      techLevels: { pivotS1: 165, pivotR1: 175, atr: 4 },
     });
     const bar = buildLevelsBar(truth);
     expect(bar).toBeDefined();
-    expect(bar!.min).toBe(140); // frame unchanged: 52w low
-    expect(bar!.max).toBe(236); // frame unchanged: 52w high
-    // Buy: nearest support below spot = entryHigh 160; no ATR → pct widths
-    // (eps 2.55 keeps 150 out of the cluster, halfW = 0.75% of 170 = 1.275).
-    expect(bar!.buyZoneSource).toBe("anchored");
-    expect(bar!.buyZone!.low).toBeCloseTo(158.725, 3);
-    expect(bar!.buyZone!.high).toBeCloseTo(161.275, 3);
-    // Sell: nearest resistance above spot = target 200.
-    expect(bar!.sellZoneSource).toBe("anchored");
-    expect(bar!.sellZone!.low).toBeCloseTo(198.725, 3);
-    expect(bar!.sellZone!.high).toBeCloseTo(201.275, 3);
-    expect(bar!.current).toBe(170);
+    expect(bar!.buyZone!.low).toBe(bar!.min); // buy starts at the yearly low
+    expect(bar!.sellZone!.high).toBe(bar!.max); // sell ends at the yearly high
   });
 
-  it("zones fall back to the bottom/top 25% slices when no anchors exist", () => {
+  it("zones are the bottom/top 25% slices when no anchors exist", () => {
     const truth = makeTruth({
       price: 170,
       range52w: { high: 236, low: 140 }, // range 96 → 25% = 24
@@ -156,44 +149,52 @@ describe("buildLevelsBar — 52-week-anchored zones", () => {
     expect(bar!.sellZoneSource).toBe("heuristic25");
   });
 
-  it("pivot supports/resistances anchor zones, clustered and sized by ATR", () => {
+  it("near the yearly low, support pulls the buy boundary to the real level", () => {
     const truth = makeTruth({
-      price: 100,
-      range52w: { high: 150, low: 60 },
-      techLevels: {
-        pivotS1: 96,
-        pivotS2: 94.5, // within 0.75*ATR(=3) of S1 → merges into the cluster
-        pivotS3: 80, // outside the cluster
-        pivotR1: 110,
-        atr: 4,
-      },
+      price: 80,
+      range52w: { high: 110, low: 70 }, // range 40; buy cap = 70 + 14 = 84
+      techLevels: { pivotS1: 78, pivotR1: 84, atr: 4 }, // halfW 2, standoff 0.5
     });
     const bar = buildLevelsBar(truth);
     expect(bar).toBeDefined();
-    // Buy: anchor S1=96, cluster {96, 94.5}, halfW = 0.5*ATR = 2.
+    // Buy: from the edge up to min(S1 + 2, price − 0.5) = 79.5, within cap.
     expect(bar!.buyZoneSource).toBe("anchored");
-    expect(bar!.buyZone!.low).toBeCloseTo(92.5, 3); // 94.5 - 2
-    expect(bar!.buyZone!.high).toBeCloseTo(98, 3); // min(96 + 2, price)
-    // Sell: anchor R1=110, halfW 2, clamped low at price.
-    expect(bar!.sellZoneSource).toBe("anchored");
-    expect(bar!.sellZone!.low).toBeCloseTo(108, 3);
-    expect(bar!.sellZone!.high).toBeCloseTo(112, 3);
+    expect(bar!.buyZone).toEqual({ low: 70, high: 79.5 });
+    // Sell: R1 boundary at max(82, 80.5) = 82 is below the 35% cap line
+    // (110 − 14 = 96) → zone too wide → statistical slice stays.
+    expect(bar!.sellZoneSource).toBe("heuristic25");
+    expect(bar!.sellZone).toEqual({ low: 100, high: 110 });
   });
 
-  it("pivots bracketing spot stay anchored with a volatility-scaled neutral sliver", () => {
+  it("near the yearly high, resistance pulls the sell boundary to the real level", () => {
     const truth = makeTruth({
-      price: 100,
-      range52w: { high: 150, low: 60 },
-      techLevels: { pivotS1: 99.5, pivotR1: 100.5, atr: 4 }, // S1/R1 hug spot
+      price: 300,
+      range52w: { high: 310, low: 200 }, // range 110; sell cap line = 310 − 38.5 = 271.5
+      levels: { target: 305 },
+      techLevels: { atr: 8 }, // halfW 4, standoff 1
     });
     const bar = buildLevelsBar(truth);
     expect(bar).toBeDefined();
-    // halfW = 0.5*ATR = 2, standoff = 0.25*halfW = 0.5 around the marker.
-    expect(bar!.buyZoneSource).toBe("anchored");
+    // Sell: from max(305 − 4, 300 + 1) = 301 up to the yearly high.
     expect(bar!.sellZoneSource).toBe("anchored");
-    expect(bar!.buyZone!.high).toBeCloseTo(99.5, 3); // min(S1+2, 100-0.5)
-    expect(bar!.sellZone!.low).toBeCloseTo(100.5, 3); // max(R1-2, 100+0.5)
-    expect(bar!.buyZone!.high).toBeLessThan(bar!.sellZone!.low);
+    expect(bar!.sellZone).toEqual({ low: 301, high: 310 });
+    // Buy boundary would need to span up to ~spot (far past the 35% cap) → slice.
+    expect(bar!.buyZoneSource).toBe("heuristic25");
+    expect(bar!.buyZone).toEqual({ low: 200, high: 227.5 });
+  });
+
+  it("mid-range price keeps both statistical slices (boundary cap)", () => {
+    const truth = makeTruth({
+      price: 100,
+      range52w: { high: 150, low: 60 }, // caps: buy ≤ 74, sell ≥ 136
+      techLevels: { pivotS1: 96, pivotR1: 104, atr: 4 }, // both near spot, mid-range
+    });
+    const bar = buildLevelsBar(truth);
+    expect(bar).toBeDefined();
+    expect(bar!.buyZoneSource).toBe("heuristic25");
+    expect(bar!.sellZoneSource).toBe("heuristic25");
+    expect(bar!.buyZone).toEqual({ low: 60, high: 82.5 });
+    expect(bar!.sellZone).toEqual({ low: 127.5, high: 150 });
   });
 
   it("anchors farther than 25% from spot are ignored", () => {
@@ -208,33 +209,36 @@ describe("buildLevelsBar — 52-week-anchored zones", () => {
     expect(bar!.sellZoneSource).toBe("heuristic25");
   });
 
-  it("one-sided anchoring: anchored buy + heuristic sell coexist when disjoint", () => {
+  it("statistical side yields when it would cross an anchored boundary", () => {
+    // Price in the bottom quarter of the range with an anchored resistance
+    // just overhead: the 25% buy slice would reach past the sell boundary.
     const truth = makeTruth({
-      price: 170,
-      range52w: { high: 236, low: 140 },
-      techLevels: { pivotS1: 165, atr: 2 },
+      price: 72,
+      range52w: { high: 110, low: 70 }, // heuristic buy high = 80
+      techLevels: { pivotR1: 74, atr: 4 }, // sell low = max(72, 73) = 73, within cap? 110-14=96... below
     });
     const bar = buildLevelsBar(truth);
     expect(bar).toBeDefined();
-    expect(bar!.buyZoneSource).toBe("anchored");
-    expect(bar!.buyZone!.high).toBeLessThanOrEqual(170);
-    expect(bar!.sellZoneSource).toBe("heuristic25");
-    expect(bar!.sellZone).toEqual({ low: 212, high: 236 });
+    // Sell boundary 73 is below the cap line (96) → too wide → heuristic
+    // sell [100, 110]; buy heuristic [70, 80]; disjoint — no clamp needed.
+    expect(bar!.buyZone!.high).toBeLessThan(bar!.sellZone!.low);
+    expect(bar!.buyZone!.low).toBe(bar!.min);
+    expect(bar!.sellZone!.high).toBe(bar!.max);
   });
 
-  it("zone width is capped at 35% of the frame range", () => {
+  it("price at an all-time low sits INSIDE the buy zone", () => {
     const truth = makeTruth({
-      price: 100,
-      range52w: { high: 110, low: 90 }, // tight range 20 → cap = 7
-      techLevels: { pivotS1: 98, pivotS2: 95, pivotS3: 93, atr: 8 }, // huge ATR
+      price: 65, // below the 52w low — fresh yearly low print
+      range52w: { high: 110, low: 70 },
     });
     const bar = buildLevelsBar(truth);
     expect(bar).toBeDefined();
-    if (bar!.buyZoneSource === "anchored") {
-      expect(bar!.buyZone!.high - bar!.buyZone!.low).toBeLessThanOrEqual(
-        0.35 * (bar!.max - bar!.min) + 1e-9,
-      );
-    }
+    expect(bar!.min).toBe(65); // bar widened to the breach
+    expect(bar!.buyZone!.low).toBe(65);
+    expect(bar!.buyZone!.high).toBeGreaterThanOrEqual(65);
+    // Marker inside the buy band — the card reads "in the buy zone".
+    expect(bar!.current).toBeGreaterThanOrEqual(bar!.buyZone!.low);
+    expect(bar!.current).toBeLessThanOrEqual(bar!.buyZone!.high);
   });
 
   it("price above 52w high (breach): bar + sell zone extend up to price", () => {

@@ -417,15 +417,7 @@ function levelsTrack(bar: LevelsBar): SatoriNode {
   const stops: Array<[string, number]> = [];
 
   if (bar.buyZone) {
-    // Interior zone (anchored to a technical level above the bar edge):
-    // pad the left side with the neutral grey, otherwise CSS extends the
-    // first stop's deep green all the way to 0%.
-    const buyLow = pos(bar.buyZone.low);
-    if (buyLow > 0.5) {
-      stops.push([COLORS.gradMid, 0]);
-      stops.push([COLORS.gradMid, Math.max(0, buyLow - 2)]);
-    }
-    stops.push([COLORS.buyStrong, buyLow]);
+    stops.push([COLORS.buyStrong, pos(bar.buyZone.low)]);
     stops.push([COLORS.buyWeak, buyHigh]);
   } else {
     stops.push([COLORS.gradMid, 0]);
@@ -442,15 +434,8 @@ function levelsTrack(bar: LevelsBar): SatoriNode {
   }
 
   if (bar.sellZone) {
-    const sellHigh = pos(bar.sellZone.high);
     stops.push([COLORS.sellWeak, sellLow]);
-    stops.push([COLORS.sellStrong, sellHigh]);
-    // Interior zone: pad the right side with grey, otherwise the last
-    // stop's deep red extends to 100%.
-    if (sellHigh < 99.5) {
-      stops.push([COLORS.gradMid, Math.min(100, sellHigh + 2)]);
-      stops.push([COLORS.gradMid, 100]);
-    }
+    stops.push([COLORS.sellStrong, pos(bar.sellZone.high)]);
   } else {
     stops.push([COLORS.gradMid, 100]);
   }

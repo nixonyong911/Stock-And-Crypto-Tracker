@@ -221,28 +221,25 @@ function computeStars(
 const ZONE_FRAC = 0.25;
 /** A zone anchor farther than this fraction from spot is not actionable. */
 const MAX_ANCHOR_DIST = 0.25;
-/** Cluster radius: nearby levels merge into one zone. */
-const CLUSTER_EPS_ATR = 0.75;
-const CLUSTER_EPS_PCT = 0.015;
-/** Minimum half-width painted around an anchor level. */
+/** Half-width painted past an anchor level (volatility-scaled). */
 const MIN_HALF_WIDTH_ATR = 0.5;
 const MIN_HALF_WIDTH_PCT = 0.0075;
-/** A zone may not exceed this fraction of the bar's range. */
+/**
+ * A technically-anchored inner boundary may not push a zone wider than this
+ * fraction of the frame. Beyond it, the level is too far from the bar edge
+ * for "everything from the edge to here" to read as one zone — that side
+ * keeps the statistical slice instead. In effect, anchoring engages exactly
+ * when price trades in the outer thirds of the yearly range, where the
+ * boundary actually matters.
+ */
 const ZONE_MAX_WIDTH_FRAC = 0.35;
 /**
  * Neutral standoff around spot, as a fraction of the zone half-width.
- * Daily pivots routinely bracket the price within ~1 ATR (S1 just below,
- * R1 just above), so anchored zones naturally converge on the marker; a
- * volatility-scaled sliver of grey keeps the buy/sell bands visually
- * distinct without reverting the anchoring. (An earlier frame-scaled
- * minimum gap reverted to the 25% slices on almost every real ticker.)
+ * Daily pivots routinely bracket the price within ~1 ATR, so an anchored
+ * boundary would otherwise sit exactly on the marker; the standoff keeps a
+ * volatility-scaled sliver of grey between the marker and the band edge.
  */
 const NEUTRAL_GAP_HALF_FRAC = 0.25;
-
-interface Zone {
-  low: number;
-  high: number;
-}
 
 /**
  * Candidate support levels at or below spot / resistance levels at or above
@@ -297,47 +294,28 @@ function collectCandidates(
 }
 
 /**
- * Build one anchored zone from candidate levels on one side of spot.
- * `side: "buy"` anchors at the nearest support below price (clustering
- * further supports within eps); `side: "sell"` mirrors above price.
- * Returns undefined when no candidates survive — caller falls back to the
- * statistical slice.
+ * Inner boundary of an edge-anchored zone, derived from the nearest
+ * technical level to spot on that side. The zones themselves ALWAYS span
+ * from the bar edges (yearly low = deepest buy, yearly high = deepest
+ * sell); only where they STOP is technical. Returns undefined when no
+ * candidate survives — caller keeps the statistical slice boundary.
  */
-function buildAnchoredZone(
+function anchoredInnerBoundary(
   side: "buy" | "sell",
   candidates: number[],
   price: number,
   atr: number | undefined,
-  barMin: number,
-  barMax: number,
-  range: number,
-): Zone | undefined {
+): number | undefined {
   if (candidates.length === 0) return undefined;
 
   const anchor = side === "buy" ? Math.max(...candidates) : Math.min(...candidates);
-  const eps = Math.max(CLUSTER_EPS_ATR * (atr ?? 0), CLUSTER_EPS_PCT * price);
-  const cluster = candidates.filter((c) => Math.abs(c - anchor) <= eps);
   const halfW = Math.max(MIN_HALF_WIDTH_ATR * (atr ?? 0), MIN_HALF_WIDTH_PCT * price);
   const standoff = NEUTRAL_GAP_HALF_FRAC * halfW;
 
-  let low: number;
-  let high: number;
-  if (side === "buy") {
-    low = Math.max(Math.min(...cluster) - halfW, barMin);
-    high = Math.min(anchor + halfW, price - standoff); // never paints "buy" at/above spot
-    if (high - low > ZONE_MAX_WIDTH_FRAC * range) {
-      low = high - ZONE_MAX_WIDTH_FRAC * range;
-    }
-  } else {
-    low = Math.max(anchor - halfW, price + standoff); // never paints "sell" at/below spot
-    high = Math.min(Math.max(...cluster) + halfW, barMax);
-    if (high - low > ZONE_MAX_WIDTH_FRAC * range) {
-      high = low + ZONE_MAX_WIDTH_FRAC * range;
-    }
-  }
-
-  if (!(high > low)) return undefined;
-  return { low, high };
+  // The band reaches halfW past the level, but never crosses the marker.
+  return side === "buy"
+    ? Math.min(anchor + halfW, price - standoff)
+    : Math.max(anchor - halfW, price + standoff);
 }
 
 export function buildLevelsBar(truth: BriefTruth): LevelsBar | undefined {
@@ -374,41 +352,71 @@ export function buildLevelsBar(truth: BriefTruth): LevelsBar | undefined {
   const buyLow = Math.min(stableLow, price);
   const sellHigh = Math.max(stableHigh, price);
 
-  // Statistical fallback zones: bottom slice of the yearly range reads as
-  // "cheap" vs the last 52 weeks, top slice as "expensive".
-  const heuristicBuy: Zone = { low: buyLow, high: stableLow + ZONE_FRAC * range };
-  const heuristicSell: Zone = { low: stableHigh - ZONE_FRAC * range, high: sellHigh };
+  // Zones ALWAYS span from the bar edges — the yearly low end is by
+  // definition the deepest buy territory and the yearly high end the
+  // deepest sell territory. Statistical default for the inner boundary:
+  // the 25% slice of the range.
+  const heuristicBuyHigh = stableLow + ZONE_FRAC * range;
+  const heuristicSellLow = stableHigh - ZONE_FRAC * range;
 
-  // Preferred zones: anchored to real technical levels (validated pivots,
-  // fib retracements, EMA-50, entry band / target), sized by ATR so calm
-  // assets get tight zones and volatile ones get wide zones.
+  // Technical upgrade: when price trades near an edge, pull that side's
+  // inner boundary to the nearest validated level (pivot, fib, EMA-50,
+  // entry band / target) instead of the arbitrary slice. A boundary that
+  // would stretch the zone past ZONE_MAX_WIDTH_FRAC of the frame means
+  // price is mid-range — the statistical slice stays.
   const { supports, resistances } = collectCandidates(truth, price, stableLow, stableHigh);
   const atr = truth.techLevels?.atr;
-  let buyZone = buildAnchoredZone("buy", supports, price, atr, buyLow, sellHigh, range);
-  let sellZone = buildAnchoredZone("sell", resistances, price, atr, buyLow, sellHigh, range);
-  let buySource: "anchored" | "heuristic25" = buyZone ? "anchored" : "heuristic25";
-  let sellSource: "anchored" | "heuristic25" = sellZone ? "anchored" : "heuristic25";
-  buyZone ??= heuristicBuy;
-  sellZone ??= heuristicSell;
 
-  // Never render nonsense: an inverted pair (buy band reaching above the
-  // sell band) means the inputs disagree — drop BOTH back to the statistical
-  // slices, which are disjoint by construction. The spot standoff above makes
-  // this unreachable for anchored zones; this guards future edits and the
-  // mixed anchored/heuristic combinations.
-  if (buyZone.high >= sellZone.low) {
-    buyZone = heuristicBuy;
-    sellZone = heuristicSell;
-    buySource = "heuristic25";
-    sellSource = "heuristic25";
+  let buyHigh = heuristicBuyHigh;
+  let buySource: "anchored" | "heuristic25" = "heuristic25";
+  const anchoredBuyHigh = anchoredInnerBoundary("buy", supports, price, atr);
+  if (
+    anchoredBuyHigh !== undefined &&
+    anchoredBuyHigh > buyLow &&
+    anchoredBuyHigh <= buyLow + ZONE_MAX_WIDTH_FRAC * range
+  ) {
+    buyHigh = anchoredBuyHigh;
+    buySource = "anchored";
+  }
+
+  let sellLow = heuristicSellLow;
+  let sellSource: "anchored" | "heuristic25" = "heuristic25";
+  const anchoredSellLow = anchoredInnerBoundary("sell", resistances, price, atr);
+  if (
+    anchoredSellLow !== undefined &&
+    anchoredSellLow < sellHigh &&
+    anchoredSellLow >= sellHigh - ZONE_MAX_WIDTH_FRAC * range
+  ) {
+    sellLow = anchoredSellLow;
+    sellSource = "anchored";
+  }
+
+  // Ordering guard for mixed anchored/heuristic combinations (e.g. price in
+  // the bottom quarter of the range with an anchored resistance just
+  // overhead: the statistical buy slice would reach past it). The anchored
+  // boundary is the real level, so the statistical side yields.
+  if (buyHigh >= sellLow) {
+    if (buySource === "heuristic25" && sellSource === "anchored") {
+      buyHigh = Math.min(buyHigh, Math.max(buyLow, price));
+    } else if (sellSource === "heuristic25" && buySource === "anchored") {
+      sellLow = Math.max(sellLow, Math.min(sellHigh, price));
+    }
+    if (buyHigh >= sellLow) {
+      // Still inverted — inputs disagree; fall back to the always-disjoint
+      // statistical slices on both sides.
+      buyHigh = heuristicBuyHigh;
+      sellLow = heuristicSellLow;
+      buySource = "heuristic25";
+      sellSource = "heuristic25";
+    }
   }
 
   return {
     min: buyLow,
     max: sellHigh,
     current: clamp(price, buyLow, sellHigh),
-    buyZone,
-    sellZone,
+    buyZone: { low: buyLow, high: buyHigh },
+    sellZone: { low: sellLow, high: sellHigh },
     buyZoneSource: buySource,
     sellZoneSource: sellSource,
   };
