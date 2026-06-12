@@ -68,6 +68,14 @@ describe("sanitizeActionGuide — numeric whitelist", () => {
     expect(sanitizeActionGuide(text, spxFacts(), silentLog)).toBeNull();
   });
 
+  it("accepts truncated zone boundaries (observed live: 6,340 for 6340.87)", () => {
+    const facts = spxFacts();
+    facts.buy_zone = { low: 5914.4, high: 6340.87 };
+    const text =
+      "Long-term trend holds; consider waiting for weakness toward the $6,340 area before adding to positions.";
+    expect(sanitizeActionGuide(text, facts, silentLog)).not.toBeNull();
+  });
+
   it("accepts numbers quoted from the news one-liner", () => {
     const text =
       "After the 2.3% pullback, the long-term uptrend is intact — wait for the 7240 area before adding.";

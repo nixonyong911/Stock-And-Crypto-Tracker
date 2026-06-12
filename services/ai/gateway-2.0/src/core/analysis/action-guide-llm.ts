@@ -166,9 +166,11 @@ export function allowedNumbers(facts: ActionGuideFacts): number[] {
 }
 
 /**
- * A numeric token in the output is legitimate when it equals some allowed
- * fact value rounded to the token's own displayed precision (so "7,333.23",
- * "7333.2" and "7333" all trace to the fact 7333.23, but "7100" does not).
+ * A numeric token in the output is legitimate when it lies within one unit
+ * of its own displayed precision of some allowed fact value — accepting
+ * rounding AND truncation (so "7,333.23", "7333.2", "7333", and a
+ * truncated "6,340" for 6340.87 all trace to facts, but "7100" does not;
+ * observed live: the LLM truncates zone boundaries instead of rounding).
  */
 function tokenTracesToFacts(token: string, allowed: number[]): boolean {
   const cleaned = token.replace(/[$,%]/g, "").replace(/,/g, "");
@@ -176,9 +178,7 @@ function tokenTracesToFacts(token: string, allowed: number[]): boolean {
   if (!Number.isFinite(value)) return true; // not a number after all
   const decimals = cleaned.includes(".") ? cleaned.split(".")[1]!.length : 0;
   const scale = 10 ** decimals;
-  return allowed.some(
-    (a) => Math.abs(Math.round(a * scale) / scale - value) < 1 / (2 * scale),
-  );
+  return allowed.some((a) => Math.abs(a - value) < 1 / scale);
 }
 
 /**
