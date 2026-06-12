@@ -1869,3 +1869,42 @@ describe("deriveSignals — single-side distance polish", () => {
     expect(d.breakBelowTarget).toBe("85.00");
   });
 });
+
+// ── gatherTruth — long-trend MA validation ────────────────────────────
+
+describe("gatherTruth — long-trend MA validation", () => {
+  it("maps in-band MAs onto truth.longTrend with asOf", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal(),
+      longTrend: { sma50: 172, sma200: 160, ema50: 168, asOf: "2026-06-12T10:00:00Z" },
+    });
+    expect(truth.longTrend?.sma50).toBe(172);
+    expect(truth.longTrend?.sma200).toBe(160);
+    expect(truth.longTrend?.ema50).toBe(168);
+    expect(truth.longTrend?.asOf).toBe("2026-06-12T10:00:00Z");
+    expect(truth.truthFlags ?? []).toEqual(
+      expect.not.arrayContaining([expect.stringContaining("trend_ma_out_of_band")]),
+    );
+  });
+
+  it("drops and flags an out-of-band MA (mismatched listing/currency)", () => {
+    // Price 175; an SMA-200 of 2400 (TWD-style mismatch) is outside the
+    // level/price band and must never reach the scorer.
+    const truth = gatherTruth({
+      signal: makeStockSignal(),
+      longTrend: { sma50: 172, sma200: 175 * 25 },
+    });
+    expect(truth.longTrend?.sma50).toBe(172);
+    expect(truth.longTrend?.sma200).toBeUndefined();
+    expect(truth.truthFlags).toContain("trend_ma_out_of_band:sma200");
+  });
+
+  it("omits longTrend entirely when nothing survives or nothing is given", () => {
+    expect(gatherTruth({ signal: makeStockSignal() }).longTrend).toBeUndefined();
+    const truth = gatherTruth({
+      signal: makeStockSignal(),
+      longTrend: { sma200: -5 },
+    });
+    expect(truth.longTrend).toBeUndefined();
+  });
+});

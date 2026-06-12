@@ -347,3 +347,88 @@ describe("computeSmartDigestScore — action guide", () => {
     expect(score.actionGuide.toLowerCase()).toContain("not enough level data");
   });
 });
+
+// ── Regime pillar (long-horizon anchor) ───────────────────────────────
+
+describe("computeSmartDigestScore — regime pillar", () => {
+  it("absent without longTrend data (weights renormalize)", () => {
+    const truth = makeTruth({ price: 100, range52w: { high: 200, low: 50 } });
+    const score = computeSmartDigestScore(truth, derived());
+    expect(score.pillars.regime).toBeUndefined();
+  });
+
+  it("positive when price is well above the 200-day MA", () => {
+    const truth = makeTruth({
+      price: 110,
+      longTrend: { sma50: 105, sma200: 100 },
+    });
+    const score = computeSmartDigestScore(truth, derived());
+    expect(score.pillars.regime).toBeGreaterThan(0.5);
+  });
+
+  it("negative when price is well below the 200-day MA", () => {
+    const truth = makeTruth({
+      price: 90,
+      longTrend: { sma50: 95, sma200: 100 },
+    });
+    const score = computeSmartDigestScore(truth, derived());
+    expect(score.pillars.regime).toBeLessThan(-0.5);
+  });
+
+  it("graded cross: a marginal 50/200 spread does not saturate", () => {
+    const truthBarelyAbove = makeTruth({
+      price: 100.5,
+      longTrend: { sma50: 100.1, sma200: 100 },
+    });
+    const r1 = computeSmartDigestScore(truthBarelyAbove, derived()).pillars.regime!;
+    expect(Math.abs(r1)).toBeLessThan(0.3);
+  });
+
+  it("works with sma200 alone (no sma50)", () => {
+    const truth = makeTruth({ price: 110, longTrend: { sma200: 100 } });
+    const score = computeSmartDigestScore(truth, derived());
+    expect(score.pillars.regime).toBeGreaterThan(0.5);
+  });
+
+  it("SPX500 regression: dip in a multi-month uptrend is NOT Bearish/5-stars", () => {
+    // Real shape of the 2026-06-12 card that misread: price 7414.8 near
+    // record highs, all short-term signals bearish after a ~2.3% pullback,
+    // bearish news window — but price sits ~6% above its 200-day MA with a
+    // golden cross intact.
+    const truth = makeTruth({
+      symbol: "SPX500",
+      price: 7414.8,
+      signals: { day: "bearish", swing: "bearish", longTerm: "bullish", alignment: "partial" },
+      longTrend: { sma50: 7280, sma200: 7000 },
+      signalFacts: {
+        type: "signal_change",
+        priority: "high",
+        macdHistogram: -12,
+        newsAvgSentiment: -0.5,
+      },
+    });
+    const score = computeSmartDigestScore(truth, derived("High"));
+    expect(score.stance.label).not.toBe("Bearish");
+    expect(score.stars).toBeLessThanOrEqual(3);
+    expect(score.pillars.regime).toBeGreaterThan(0.5);
+  });
+
+  it("regime joins the stars agreement set (conflict tempers conviction)", () => {
+    const bearishEverything = makeTruth({
+      price: 195,
+      range52w: { high: 200, low: 100 },
+      signals: { day: "bearish", swing: "bearish", longTerm: "bearish", alignment: "full" },
+      signalFacts: { type: "stop_loss_warning", priority: "high", macdHistogram: -0.5, newsAvgSentiment: -0.8 },
+    });
+    const unanimous = computeSmartDigestScore(bearishEverything, derived("High"));
+
+    const withBullishRegime = makeTruth({
+      ...bearishEverything,
+      longTrend: { sma50: 190, sma200: 175 }, // price above 200-day: regime disagrees
+    });
+    const split = computeSmartDigestScore(withBullishRegime, derived("High"));
+
+    expect(split.stars).toBeLessThanOrEqual(unanimous.stars);
+    expect(split.direction).toBeGreaterThan(unanimous.direction);
+  });
+});

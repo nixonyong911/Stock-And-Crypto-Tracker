@@ -4,8 +4,11 @@
  * Deterministic (no LLM) derivation of the at-a-glance card signals from the
  * already-gathered `BriefTruth` + `BriefDerived`:
  *
- *   1. A directional score `D` in [-1, +1] blended from up to three pillars
- *      (Trend, Support/Resistance, News), each itself normalized to [-1, +1].
+ *   1. A directional score `D` in [-1, +1] blended from up to four pillars
+ *      (Trend, Regime, Support/Resistance, News), each itself normalized to
+ *      [-1, +1]. Regime is the long-horizon anchor (price vs SMA-200, 50/200
+ *      cross) that keeps a routine dip inside a multi-month uptrend from
+ *      reading as confidently bearish.
  *   2. A 5-level stance (Bearish .. Bullish) banded from `D`.
  *   3. A 1-5 star conviction from pillar agreement x |D|, tempered by the
  *      price-target confidence bucket.
@@ -14,9 +17,10 @@
  *   5. A rule-based Action Guide sentence.
  *
  * Adapted from the algorithm in `.cursor/plans/temp.txt` to the data we
- * actually persist. Relative-volume confirmation and a true 50-day MA are
- * deliberately omitted (not yet computed upstream); both are noted as future
- * fidelity upgrades and their absence only narrows conviction, never invents.
+ * actually persist. Relative-volume confirmation remains a future fidelity
+ * upgrade; the long MAs (SMA-50/200, true EMA-50) now arrive via
+ * `BriefTruth.longTrend` from the daily trend-metrics compute. Absence of
+ * any pillar only narrows conviction, never invents.
  *
  * Pure / no I/O. All inputs trace to documented DB columns via `BriefTruth`.
  */
@@ -68,6 +72,7 @@ export interface SmartDigestScore {
   /** Per-pillar normalized scores for debug/inspection (undefined = absent). */
   pillars: {
     trend?: number;
+    regime?: number;
     supportResistance?: number;
     news?: number;
   };
@@ -130,6 +135,35 @@ function computeSrPillar(truth: BriefTruth): number | undefined {
 }
 
 /**
+ * Saturation scale for price-vs-SMA-200: ±7% from the average reads as a
+ * fully established regime.
+ */
+const REGIME_PRICE_SCALE = 0.07;
+/** Saturation scale for the 50/200 spread: ±3% is a decisive cross. */
+const REGIME_CROSS_SCALE = 0.03;
+
+/**
+ * Regime pillar: long-horizon trend anchor. Distance of price from the
+ * 200-day MA dominates (graded, saturating at ±7%); the 50/200 cross
+ * refines (graded at ±3% — no stance jump on the day of a golden/death
+ * cross). Undefined when the SMA-200 is missing, so weights renormalize
+ * to (approximately) the historical three-pillar blend.
+ */
+function computeRegimePillar(truth: BriefTruth): number | undefined {
+  const price = truth.price;
+  const sma200 = truth.longTrend?.sma200;
+  if (!isFinitePositive(price) || !isFinitePositive(sma200)) return undefined;
+
+  const priceVs200 = clamp((price / sma200 - 1) / REGIME_PRICE_SCALE, -1, 1);
+
+  const sma50 = truth.longTrend?.sma50;
+  if (!isFinitePositive(sma50)) return priceVs200;
+
+  const cross = clamp((sma50 / sma200 - 1) / REGIME_CROSS_SCALE, -1, 1);
+  return clamp(0.7 * priceVs200 + 0.3 * cross, -1, 1);
+}
+
+/**
  * News pillar from aggregated market-memory sentiment. Prefers the numeric
  * mean; falls back to the bullish/bearish label. Undefined when neither
  * exists.
@@ -147,15 +181,22 @@ function computeNewsPillar(truth: BriefTruth): number | undefined {
 
 // ── Direction + stance ────────────────────────────────────────────────
 
-const WEIGHTS = { trend: 0.4, sr: 0.3, news: 0.3 } as const;
+// Regime absent (no long-MA data) renormalizes to 0.30/0.20/0.25 —
+// effectively the historical 0.4/0.3/0.3 three-pillar blend.
+const WEIGHTS = { trend: 0.3, regime: 0.25, sr: 0.2, news: 0.25 } as const;
 
 function blendDirection(
   trend: number,
+  regime: number | undefined,
   sr: number | undefined,
   news: number | undefined,
 ): number {
   let weighted = WEIGHTS.trend * trend;
   let totalWeight = WEIGHTS.trend;
+  if (regime !== undefined) {
+    weighted += WEIGHTS.regime * regime;
+    totalWeight += WEIGHTS.regime;
+  }
   if (sr !== undefined) {
     weighted += WEIGHTS.sr * sr;
     totalWeight += WEIGHTS.sr;
@@ -264,6 +305,7 @@ function collectCandidates(
     tl?.pivotS3,
     ...(tl?.fibLevels ?? []),
     lvl.ema50,
+    truth.longTrend?.sma200,
     lvl.entryLow,
     lvl.entryHigh,
   ];
@@ -273,6 +315,7 @@ function collectCandidates(
     tl?.pivotR3,
     ...(tl?.fibLevels ?? []),
     lvl.ema50,
+    truth.longTrend?.sma200,
     lvl.target,
   ];
 
@@ -424,9 +467,9 @@ export function buildLevelsBar(truth: BriefTruth): LevelsBar | undefined {
 
 // ── Action guide ──────────────────────────────────────────────────────
 
-type ZonePosition = "below_buy" | "buy" | "between" | "sell" | "unknown";
+export type ZonePosition = "below_buy" | "buy" | "between" | "sell" | "unknown";
 
-function pricePosition(bar: LevelsBar | undefined): ZonePosition {
+export function pricePosition(bar: LevelsBar | undefined): ZonePosition {
   if (!bar) return "unknown";
   const { current, buyZone, sellZone } = bar;
   if (buyZone) {
@@ -483,12 +526,13 @@ export function computeSmartDigestScore(
   derived: BriefDerived,
 ): SmartDigestScore {
   const trend = computeTrendPillar(truth);
+  const regime = computeRegimePillar(truth);
   const sr = computeSrPillar(truth);
   const news = computeNewsPillar(truth);
 
-  const direction = blendDirection(trend, sr, news);
+  const direction = blendDirection(trend, regime, sr, news);
   const stance = stanceFromDirection(direction);
-  const stars = computeStars(direction, [trend, sr, news], derived.confidence);
+  const stars = computeStars(direction, [trend, regime, sr, news], derived.confidence);
   const levelsBar = buildLevelsBar(truth);
   const actionGuide = buildActionGuide(stance, pricePosition(levelsBar));
 
@@ -498,6 +542,6 @@ export function computeSmartDigestScore(
     stars,
     levelsBar,
     actionGuide,
-    pillars: { trend, supportResistance: sr, news },
+    pillars: { trend, regime, supportResistance: sr, news },
   };
 }

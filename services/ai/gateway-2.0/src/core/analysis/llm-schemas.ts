@@ -316,3 +316,25 @@ export function validateThemeUpdates(
   }
   return results;
 }
+
+// ── Smart Digest: LLM action guide response ───────────────────────────
+// Mirrors: action-guide-llm.ts generateLlmActionGuide(). Length bounds
+// here are coarse (schema-level); the numeric whitelist and charset
+// guardrails live in action-guide-llm.ts sanitizeActionGuide().
+
+export const actionGuideResponseSchema = z.object({
+  actionGuide: z.string().min(20).max(280),
+});
+
+export type ValidatedActionGuideResponse = z.infer<typeof actionGuideResponseSchema>;
+
+export function validateActionGuideResponse(
+  raw: unknown,
+): ValidatedActionGuideResponse | null {
+  if (!raw || typeof raw !== "object") return null;
+  try {
+    return actionGuideResponseSchema.parse(raw);
+  } catch {
+    return null;
+  }
+}

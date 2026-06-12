@@ -25,7 +25,13 @@ export const CURRENT_DIGEST_BRIEF_SCHEMA_VERSION = 1;
 // artifacts so reused payloads always include the new card fields.
 // `v5`: levels-bar zones re-anchored to the stable 52-week range (buy =
 // lowest 25%, sell = highest 25%) instead of the daily entry/target band.
-export const CURRENT_GENERATOR_VERSION = "5";
+//
+// Bumped to "6" for the long-horizon regime work: the stance blend gains a
+// regime pillar (price vs SMA-200, 50/200 cross) and the action guide is
+// LLM-composed from deterministic facts (rule-based sentence as fallback).
+// The bump evicts pre-regime `v5` artifacts so every card re-scores with
+// the new pillar and picks up the richer guide.
+export const CURRENT_GENERATOR_VERSION = "6";
 
 export const CURRENT_PROMPT_VERSION: string | null = null;
 
@@ -56,6 +62,13 @@ export interface TruthFingerprintInput {
   analysisDate: string | null;
   newsOneLiner: string | null;
   macroSignature: string | null;
+  /**
+   * Long-trend signature: `<computed_at date>:<sma50>:<sma200>` with MAs
+   * rounded to 5 significant digits — regenerates the artifact when the
+   * regime inputs genuinely move, immune to float jitter. Null when no
+   * fresh trend metrics row exists.
+   */
+  trendSignature: string | null;
 }
 
 export interface ContextFingerprintInput {
@@ -77,6 +90,7 @@ export function computeTruthHash(input: TruthFingerprintInput): string {
     newsOneLiner: input.newsOneLiner?.trim() || null,
     priceTargetId: input.priceTargetId ?? null,
     priceTargetUpdatedAt: input.priceTargetUpdatedAt ?? null,
+    trendSignature: input.trendSignature ?? null,
   };
   return stableHash(projection);
 }
@@ -99,9 +113,22 @@ export function computeContextHash(input: ContextFingerprintInput): string {
 
 // ── DB-backed fingerprint computation ─────────────────────────────────
 
+function buildTrendSignature(
+  row: { computed_at: string; sma_50: string | null; sma_200: string | null } | undefined,
+): string | null {
+  if (!row) return null;
+  const fmt = (v: string | null): string => {
+    const n = v != null ? parseFloat(v) : NaN;
+    return Number.isFinite(n) && n > 0 ? n.toPrecision(5) : "-";
+  };
+  const date = row.computed_at.slice(0, 10);
+  return `${date}:${fmt(row.sma_50)}:${fmt(row.sma_200)}`;
+}
+
 export async function computeTruthFingerprint(
   db: Pool,
   symbol: string,
+  assetType?: "stock" | "crypto",
 ): Promise<{ hash: string; input: TruthFingerprintInput }> {
   const { rows } = await db.query<{
     id: number;
@@ -130,12 +157,42 @@ export async function computeTruthFingerprint(
   );
   const newsOneLiner = memRes.rows[0]?.news_one_liner ?? null;
 
+  // Long-trend signature (regime pillar inputs). Missing table / no fresh
+  // row / unknown asset type all degrade to null — same hash as pre-regime
+  // inputs-absent state.
+  let trendSignature: string | null = null;
+  try {
+    const trendQuery =
+      assetType === "crypto"
+        ? `SELECT r.computed_at::text, r.sma_50::text, r.sma_200::text
+           FROM analysis_crypto_range_52w r
+           JOIN crypto_tickers t ON t.id = r.crypto_ticker_id
+           WHERE UPPER(t.symbol) = UPPER($1)
+             AND r.computed_at >= NOW() - INTERVAL '7 days'
+           LIMIT 1`
+        : `SELECT m.computed_at::text, m.sma_50::text, m.sma_200::text
+           FROM analysis_stock_trend_metrics m
+           JOIN stock_tickers t ON t.id = m.stock_ticker_id
+           WHERE UPPER(t.symbol) = UPPER($1)
+             AND m.computed_at >= NOW() - INTERVAL '7 days'
+           LIMIT 1`;
+    const trendRes = await db.query<{
+      computed_at: string;
+      sma_50: string | null;
+      sma_200: string | null;
+    }>(trendQuery, [symbol]);
+    trendSignature = buildTrendSignature(trendRes.rows[0]);
+  } catch {
+    /* table not migrated yet — degrade to null */
+  }
+
   const input: TruthFingerprintInput = {
     priceTargetId: pt?.id ?? null,
     priceTargetUpdatedAt: pt?.updated_at ?? null,
     analysisDate: pt?.analysis_date ?? null,
     newsOneLiner,
     macroSignature: null,
+    trendSignature,
   };
 
   return { hash: computeTruthHash(input), input };

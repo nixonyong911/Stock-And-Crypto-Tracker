@@ -43,6 +43,7 @@ describe("computeTruthHash", () => {
     analysisDate: "2026-05-13",
     newsOneLiner: "AAPL beats earnings estimates",
     macroSignature: null,
+    trendSignature: "2026-05-13:201.45:189.30",
   };
 
   it("produces a 64-char hex string", () => {
@@ -58,6 +59,7 @@ describe("computeTruthHash", () => {
 
   it("is stable regardless of property order in the input object", () => {
     const reversed: TruthFingerprintInput = {
+      trendSignature: "2026-05-13:201.45:189.30",
       macroSignature: null,
       newsOneLiner: "AAPL beats earnings estimates",
       analysisDate: "2026-05-13",
@@ -65,6 +67,16 @@ describe("computeTruthHash", () => {
       priceTargetId: 42,
     };
     expect(computeTruthHash(baseInput)).toBe(computeTruthHash(reversed));
+  });
+
+  it("changes when trendSignature changes (regime move regenerates)", () => {
+    const moved = { ...baseInput, trendSignature: "2026-05-14:205.00:189.30" };
+    expect(computeTruthHash(baseInput)).not.toBe(computeTruthHash(moved));
+  });
+
+  it("changes between absent and present trendSignature", () => {
+    const absent = { ...baseInput, trendSignature: null };
+    expect(computeTruthHash(baseInput)).not.toBe(computeTruthHash(absent));
   });
 
   it("changes when priceTargetId changes", () => {

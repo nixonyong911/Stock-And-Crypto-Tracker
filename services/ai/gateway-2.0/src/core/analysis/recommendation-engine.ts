@@ -451,9 +451,11 @@ export async function fetchAnalystMix(
 }
 
 /**
- * Presentation + range extras for the Smart Digest card, keyed by
- * UPPER(symbol). Stocks only — sourced from `stock_tickers` (name, logo)
- * and the latest `analysis_stock_fundamentals` row (52-week high/low).
+ * Presentation + range + long-trend extras for the Smart Digest card, keyed
+ * by UPPER(symbol). Stocks: `stock_tickers` (name, logo), the eToro-derived
+ * `analysis_stock_trend_metrics` (52-week range + SMA-50/200 + EMA-50,
+ * preferred — same instrument as the price feed, covers indexes/ETFs) with
+ * `analysis_stock_fundamentals` (Finnhub) as the 52-week fallback.
  *
  * `logoDataUri` is a self-contained `data:` URI built from the stored
  * `logo_bytes` so the renderer embeds the image with no network call.
@@ -463,6 +465,14 @@ export interface StockCardExtras {
   logoDataUri?: string;
   week52High?: number;
   week52Low?: number;
+  /** 50-day simple MA from daily bars (eToro/Alpaca). */
+  sma50?: number;
+  /** 200-day simple MA from daily bars. */
+  sma200?: number;
+  /** True daily EMA-50 from daily bars. */
+  ema50?: number;
+  /** ISO timestamp the trend metrics row was computed at. */
+  trendAsOf?: string;
 }
 
 interface StockCardExtrasRow {
@@ -472,11 +482,28 @@ interface StockCardExtrasRow {
   logo_content_type: string | null;
   week_52_high: string | null;
   week_52_low: string | null;
+  sma_50: string | null;
+  sma_200: string | null;
+  ema_50: string | null;
+  trend_computed_at: string | null;
+}
+
+function applyTrendColumns(
+  extras: StockCardExtras,
+  r: { sma_50: string | null; sma_200: string | null; ema_50: string | null; trend_computed_at: string | null },
+): void {
+  const sma50 = r.sma_50 != null ? parseFloat(r.sma_50) : NaN;
+  const sma200 = r.sma_200 != null ? parseFloat(r.sma_200) : NaN;
+  const ema50 = r.ema_50 != null ? parseFloat(r.ema_50) : NaN;
+  if (Number.isFinite(sma50) && sma50 > 0) extras.sma50 = sma50;
+  if (Number.isFinite(sma200) && sma200 > 0) extras.sma200 = sma200;
+  if (Number.isFinite(ema50) && ema50 > 0) extras.ema50 = ema50;
+  if (r.trend_computed_at) extras.trendAsOf = r.trend_computed_at;
 }
 
 /**
- * Fetch logo / company name / 52-week range for stocks. Resilient by
- * design: any DB error (e.g. logo columns not yet migrated) degrades to an
+ * Fetch logo / company name / 52-week range / long MAs for stocks. Resilient
+ * by design: any DB error (e.g. trend table not yet migrated) degrades to an
  * empty map so the card still renders without these extras.
  */
 export async function fetchStockCardExtras(
@@ -497,8 +524,12 @@ export async function fetchStockCardExtras(
               t.name   AS company_name,
               t.logo_bytes,
               t.logo_content_type,
-              f.week_52_high::text AS week_52_high,
-              f.week_52_low::text  AS week_52_low
+              COALESCE(tm.week_52_high, f.week_52_high)::text AS week_52_high,
+              COALESCE(tm.week_52_low,  f.week_52_low)::text  AS week_52_low,
+              tm.sma_50::text  AS sma_50,
+              tm.sma_200::text AS sma_200,
+              tm.ema_50::text  AS ema_50,
+              tm.computed_at::text AS trend_computed_at
        FROM stock_tickers t
        LEFT JOIN LATERAL (
          SELECT week_52_high, week_52_low
@@ -507,6 +538,9 @@ export async function fetchStockCardExtras(
          ORDER BY fiscal_year DESC, fiscal_quarter DESC
          LIMIT 1
        ) f ON true
+       LEFT JOIN analysis_stock_trend_metrics tm
+         ON tm.stock_ticker_id = t.id
+        AND tm.computed_at >= NOW() - INTERVAL '7 days'
        WHERE t.is_active = true${symbolClause}`,
       params,
     );
@@ -524,18 +558,21 @@ export async function fetchStockCardExtras(
       const low = r.week_52_low != null ? parseFloat(r.week_52_low) : NaN;
       if (Number.isFinite(high) && high > 0) extras.week52High = high;
       if (Number.isFinite(low) && low > 0) extras.week52Low = low;
+      applyTrendColumns(extras, r);
 
       if (
         extras.companyName ||
         extras.logoDataUri ||
         extras.week52High != null ||
-        extras.week52Low != null
+        extras.week52Low != null ||
+        extras.sma200 != null ||
+        extras.sma50 != null
       ) {
         out.set(r.ticker_symbol.toUpperCase(), extras);
       }
     }
   } catch {
-    /* non-critical: missing logo/52w columns degrade to empty map */
+    /* non-critical: missing logo/52w/trend columns degrade to empty map */
   }
   return out;
 }
@@ -545,11 +582,15 @@ interface CryptoCardExtrasRow {
   company_name: string | null;
   week_52_high: string | null;
   week_52_low: string | null;
+  sma_50: string | null;
+  sma_200: string | null;
+  ema_50: string | null;
+  trend_computed_at: string | null;
 }
 
 /**
  * Crypto counterpart of {@link fetchStockCardExtras}: coin name from
- * `crypto_tickers` plus the Alpaca-derived 52-week range from
+ * `crypto_tickers` plus the Alpaca-derived 52-week range and long MAs from
  * `analysis_crypto_range_52w` (no logos — logo columns are stock-only).
  * Ranges older than 7 days are treated as missing so a stalled worker
  * degrades to the period-range fallback instead of a stale frame.
@@ -571,7 +612,11 @@ export async function fetchCryptoCardExtras(
       `SELECT t.symbol AS ticker_symbol,
               t.name   AS company_name,
               r.week_52_high::text AS week_52_high,
-              r.week_52_low::text  AS week_52_low
+              r.week_52_low::text  AS week_52_low,
+              r.sma_50::text  AS sma_50,
+              r.sma_200::text AS sma_200,
+              r.ema_50::text  AS ema_50,
+              r.computed_at::text AS trend_computed_at
        FROM crypto_tickers t
        LEFT JOIN analysis_crypto_range_52w r
          ON r.crypto_ticker_id = t.id
@@ -589,8 +634,15 @@ export async function fetchCryptoCardExtras(
       const low = r.week_52_low != null ? parseFloat(r.week_52_low) : NaN;
       if (Number.isFinite(high) && high > 0) extras.week52High = high;
       if (Number.isFinite(low) && low > 0) extras.week52Low = low;
+      applyTrendColumns(extras, r);
 
-      if (extras.companyName || extras.week52High != null || extras.week52Low != null) {
+      if (
+        extras.companyName ||
+        extras.week52High != null ||
+        extras.week52Low != null ||
+        extras.sma200 != null ||
+        extras.sma50 != null
+      ) {
         out.set(r.ticker_symbol.toUpperCase(), extras);
       }
     }

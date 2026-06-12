@@ -115,6 +115,20 @@ export interface BriefTruth {
   };
 
   /**
+   * Long-horizon daily moving averages from `analysis_stock_trend_metrics`
+   * (eToro OneDay bars) / `analysis_crypto_range_52w` (Alpaca 1Day bars).
+   * Null members upstream mean insufficient bar history. Drives the Smart
+   * Digest regime pillar; `sma200` also joins the zone anchor candidates.
+   */
+  longTrend?: {
+    sma50?: number;
+    sma200?: number;
+    ema50?: number;
+    /** ISO timestamp of the metrics row. */
+    asOf?: string;
+  };
+
+  /**
    * Daily technical levels from `analysis_indicators_{stock,crypto}_pro`
    * (classic pivots, interior Fibonacci retracements, ATR). Validated
    * against the same level/price band as `levels`. Anchors the
@@ -698,6 +712,8 @@ export interface GatherTruthArgs {
   aliasContext?: BriefTruth["aliasContext"];
   /** 52-week high/low from `analysis_stock_fundamentals` / `analysis_crypto_range_52w`. */
   range52w?: { high?: number; low?: number };
+  /** Long daily MAs from `analysis_stock_trend_metrics` / `analysis_crypto_range_52w` (unvalidated). */
+  longTrend?: { sma50?: number; sma200?: number; ema50?: number; asOf?: string };
   /** Daily pivots / fib levels / ATR from `fetchTechLevels` (unvalidated). */
   techLevels?: TechLevelsInput;
 }
@@ -822,6 +838,31 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
       truth.range52w = {};
       if (isFinitePositive(range52wHigh)) truth.range52w.high = range52wHigh;
       if (isFinitePositive(range52wLow)) truth.range52w.low = range52wLow;
+    }
+  }
+
+  // Long-horizon MAs pass the same level/price band guard — an out-of-band
+  // value means the metrics row comes from a mismatched listing/currency.
+  if (args.longTrend) {
+    const lt = args.longTrend;
+    const out: NonNullable<BriefTruth["longTrend"]> = {};
+
+    const acceptMa = (name: string, raw: number | undefined): number | undefined => {
+      if (!isFinitePositive(raw)) return undefined;
+      if (truth.price != null && !levelInPriceBand(raw, truth.price)) {
+        pushFlag(flags, `trend_ma_out_of_band:${name}`);
+        return undefined;
+      }
+      return raw;
+    };
+
+    out.sma50 = acceptMa("sma50", lt.sma50);
+    out.sma200 = acceptMa("sma200", lt.sma200);
+    out.ema50 = acceptMa("ema50", lt.ema50);
+
+    if (out.sma50 != null || out.sma200 != null || out.ema50 != null) {
+      if (lt.asOf) out.asOf = lt.asOf;
+      truth.longTrend = out;
     }
   }
 

@@ -23,6 +23,10 @@ import {
   generateDigestBrief,
   type DigestBrief,
 } from "./digest-brief-generator.js";
+import {
+  buildActionGuideFacts,
+  generateLlmActionGuide,
+} from "./action-guide-llm.js";
 import type {
   TickerSignal,
   MacroContext,
@@ -71,7 +75,7 @@ export async function orchestrateDigestArtifact(
     conflictBackoffMs: 250,
 
     computeHashes: async () => ({
-      truth: (await computeTruthFingerprint(deps.db, symbol)).hash,
+      truth: (await computeTruthFingerprint(deps.db, symbol, assetType)).hash,
       context: (await computeContextFingerprint(deps.db, symbol)).hash,
     }),
 
@@ -125,21 +129,39 @@ export async function orchestrateDigestArtifact(
 
     markGenerating: (id) => markGenerating(deps.db, id),
 
-    generate: () =>
-      Promise.resolve(
-        generateDigestBrief({
-          signals,
-          symbol,
-          macroContext: context.macroContext,
-          newsOneLinerMap: context.newsOneLinerMap,
-          memoryTextMap: context.memoryTextMap,
-          analysisDateMap: context.analysisDateMap,
-          analystMixMap: context.analystMixMap,
-          cardExtrasMap: context.cardExtrasMap,
-          techLevelsMap: context.techLevelsMap,
-          mode: briefMode,
-        }),
-      ),
+    generate: async () => {
+      const brief = generateDigestBrief({
+        signals,
+        symbol,
+        macroContext: context.macroContext,
+        newsOneLinerMap: context.newsOneLinerMap,
+        memoryTextMap: context.memoryTextMap,
+        analysisDateMap: context.analysisDateMap,
+        analystMixMap: context.analystMixMap,
+        cardExtrasMap: context.cardExtrasMap,
+        techLevelsMap: context.techLevelsMap,
+        mode: briefMode,
+      });
+
+      // LLM polish of the action guide. Runs once per (symbol, fact-change)
+      // because the result lands in the cached artifact payload; any
+      // failure keeps the deterministic sentence.
+      brief.actionGuideSource = "deterministic";
+      const upper = symbol.toUpperCase();
+      const facts = buildActionGuideFacts({
+        brief,
+        extras: context.cardExtrasMap?.get(upper),
+        newsOneLiner: context.newsOneLinerMap?.get(upper),
+        macroTheme: context.macroContext.dominantTheme ?? undefined,
+      });
+      const llmGuide = await generateLlmActionGuide(facts, deps.log);
+      if (llmGuide) {
+        brief.actionGuide = llmGuide;
+        brief.actionGuideSource = "llm";
+      }
+
+      return brief;
+    },
 
     markReady: async (id, brief) => {
       await markReady({

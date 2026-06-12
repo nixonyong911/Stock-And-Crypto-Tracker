@@ -82,8 +82,14 @@ export interface DigestBrief {
   stars?: number;
   /** "Levels to Watch" bar data. */
   levelsBar?: LevelsBar;
-  /** Rule-based action sentence. */
+  /** Action guide sentence (LLM-composed when available, else rule-based). */
   actionGuide?: string;
+  /**
+   * Provenance of `actionGuide` for observability: "llm" when the
+   * LLM-composed guide passed validation, "deterministic" for the
+   * rule-based fallback. Absent on pre-v6 payloads.
+   */
+  actionGuideSource?: "llm" | "deterministic";
   price: number;
   changePercent: number;
   /** Absolute price move vs the session open, in quote currency. */
@@ -373,6 +379,16 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
       cardExtras &&
       (cardExtras.week52High != null || cardExtras.week52Low != null)
         ? { high: cardExtras.week52High, low: cardExtras.week52Low }
+        : undefined,
+    longTrend:
+      cardExtras &&
+      (cardExtras.sma200 != null || cardExtras.sma50 != null || cardExtras.ema50 != null)
+        ? {
+            sma50: cardExtras.sma50,
+            sma200: cardExtras.sma200,
+            ema50: cardExtras.ema50,
+            asOf: cardExtras.trendAsOf,
+          }
         : undefined,
     techLevels,
   });

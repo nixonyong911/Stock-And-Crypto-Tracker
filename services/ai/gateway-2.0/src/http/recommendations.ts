@@ -343,7 +343,7 @@ export function registerRecommendationRoutes(
 
         let artifactRef: ArtifactRef | null = null;
         try {
-          const { hash: truthHash } = await computeTruthFingerprint(db, symbol);
+          const { hash: truthHash } = await computeTruthFingerprint(db, symbol, assetType);
           const { hash: contextHash } = await computeContextFingerprint(db, symbol);
           const artifact = await getCurrentArtifact({
             db,

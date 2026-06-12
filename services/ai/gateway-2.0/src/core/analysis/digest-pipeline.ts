@@ -26,7 +26,7 @@ import {
   type StockCardExtras,
   type TechLevels,
 } from "./recommendation-engine.js";
-import { generateDigestBrief } from "./digest-brief-generator.js";
+import { generateDigestBrief, type DigestBrief } from "./digest-brief-generator.js";
 import type { BriefMode } from "./digest-brief-truth.js";
 import { secondsUntilMidnightUTC } from "./wishlist-calculator.js";
 import {
@@ -107,7 +107,7 @@ export async function processRecommendations(
       arr.push(s);
     }
 
-    const artifactRefs = await persistCanonicalArtifacts(deps, runCtx, type, bySymbol, {
+    const artifacts = await persistCanonicalArtifacts(deps, runCtx, type, bySymbol, {
       macroContext,
       newsOneLinerMap,
       memoryTextMap,
@@ -118,6 +118,7 @@ export async function processRecommendations(
     });
 
     for (const [symbol, tickerSignals] of bySymbol) {
+      const artifact = artifacts.get(symbol);
       const sent = await fanOutToWatchers(
         deps,
         symbol,
@@ -127,10 +128,11 @@ export async function processRecommendations(
         newsOneLinerMap,
         memoryTextMap,
         analysisDateMap,
-        artifactRefs?.get(symbol) ?? null,
+        artifact?.ref ?? null,
         analystMixMap,
         cardExtrasMap,
         techLevelsMap,
+        artifact?.brief,
       );
       totalSent += sent;
     }
@@ -193,9 +195,9 @@ async function persistCanonicalArtifacts(
     cardExtrasMap?: Map<string, StockCardExtras>;
     techLevelsMap?: Map<string, TechLevels>;
   },
-): Promise<Map<string, ArtifactRef>> {
+): Promise<Map<string, { ref: ArtifactRef; brief?: DigestBrief }>> {
   const { log } = deps;
-  const refs = new Map<string, ArtifactRef>();
+  const refs = new Map<string, { ref: ArtifactRef; brief?: DigestBrief }>();
 
   for (const [symbol, signals] of bySymbol) {
     try {
@@ -208,7 +210,10 @@ async function persistCanonicalArtifacts(
         context,
       );
       if (result.artifactId != null) {
-        refs.set(symbol, { kind: "smart_digest", id: result.artifactId });
+        refs.set(symbol, {
+          ref: { kind: "smart_digest", id: result.artifactId },
+          brief: result.brief,
+        });
       }
       if (result.source === "reuse") {
         log.info(
@@ -239,6 +244,12 @@ async function persistCanonicalArtifacts(
  *
  * The `artifactRef` threads through so delivery can link the ledger row to
  * the canonical artifact via `(artifact_kind, artifact_id)`.
+ *
+ * When the canonical artifact produced a brief (fresh or reused), that
+ * `precomputedBrief` is rendered as-is — it carries the LLM-composed
+ * action guide, which a local regeneration would not. Regenerating here
+ * is the degraded path for artifact-persistence failures only (the card
+ * then ships the deterministic guide).
  */
 async function fanOutToWatchers(
   deps: ProcessRecommendationsDeps,
@@ -253,24 +264,27 @@ async function fanOutToWatchers(
   analystMixMap?: Map<string, AnalystMix>,
   cardExtrasMap?: Map<string, StockCardExtras>,
   techLevelsMap?: Map<string, TechLevels>,
+  precomputedBrief?: DigestBrief,
 ): Promise<number> {
   const { db, redis, extensions, log } = deps;
 
   const watchers = await listDigestWatchersForSymbol({ db, redis }, symbol);
   if (watchers.length === 0) return 0;
 
-  const brief = generateDigestBrief({
-    signals,
-    symbol,
-    macroContext,
-    newsOneLinerMap,
-    memoryTextMap,
-    analysisDateMap,
-    analystMixMap,
-    cardExtrasMap,
-    techLevelsMap,
-    mode: deps.briefMode ?? "strict",
-  });
+  const brief =
+    precomputedBrief ??
+    generateDigestBrief({
+      signals,
+      symbol,
+      macroContext,
+      newsOneLinerMap,
+      memoryTextMap,
+      analysisDateMap,
+      analystMixMap,
+      cardExtrasMap,
+      techLevelsMap,
+      mode: deps.briefMode ?? "strict",
+    });
 
   const rendered = await renderSmartDigestCard(brief, log);
   const primary = signals[0]!;

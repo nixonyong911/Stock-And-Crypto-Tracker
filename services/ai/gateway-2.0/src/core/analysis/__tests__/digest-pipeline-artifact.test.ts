@@ -3,7 +3,8 @@
  *
  * Covers:
  *   A. Write path — artifact persisted via orchestrator
- *   B. Brief always from generateDigestBrief, artifact ref threaded
+ *   B. Delivery brief comes from the canonical artifact (carries the LLM
+ *      action guide); local generateDigestBrief is the degraded fallback
  *   C. Crypto asset type flows through persistence path (no stock-hardcoding)
  *   D. Delivery — deliverSmartDigest receives ArtifactRef (Step 15)
  *   E. Cap consumed only on successful delivery (Step 15.2)
@@ -193,6 +194,8 @@ beforeEach(() => {
       whatToWatch: { holdAbove: "185", breakBelowTarget: "180" },
       context: "",
       hasMaterialContext: false,
+      actionGuide: "LLM-composed guide from the artifact",
+      actionGuideSource: "llm",
     },
     attempt: 1,
     durationMs: 50,
@@ -244,20 +247,37 @@ describe("canonical artifact write path", () => {
   });
 });
 
-// ── B. Brief always from generateDigestBrief, artifact ref threaded ──
+// ── B. Delivery brief from the canonical artifact ─────────────────────
 
 describe("brief source and artifact ref", () => {
-  it("always uses generateDigestBrief for the delivery brief", async () => {
+  it("delivers the artifact brief (LLM guide intact) without regenerating", async () => {
     setupDetectSignals("AAPL", "stock");
     const deps = makeBaseDeps();
 
     await processRecommendations(deps, "stock");
 
-    expect(generateDigestBrief).toHaveBeenCalled();
+    // The artifact already carries the brief (incl. the LLM action guide);
+    // a local regeneration would silently drop the LLM prose.
+    expect(generateDigestBrief).not.toHaveBeenCalled();
     expect(deliverSmartDigest).toHaveBeenCalledTimes(1);
     const deliverCall = vi.mocked(deliverSmartDigest).mock.calls[0]!;
     const deliveredBrief = deliverCall[2];
     expect(deliveredBrief.whatHappening).toBe("AAPL hit entry zone");
+    expect(deliveredBrief.actionGuide).toBe("LLM-composed guide from the artifact");
+    expect(deliveredBrief.actionGuideSource).toBe("llm");
+  });
+
+  it("falls back to generateDigestBrief when artifact persistence failed", async () => {
+    vi.mocked(orchestrateDigestArtifact).mockRejectedValueOnce(
+      new Error("orchestration exploded"),
+    );
+    setupDetectSignals("AAPL", "stock");
+    const deps = makeBaseDeps();
+
+    await processRecommendations(deps, "stock");
+
+    expect(generateDigestBrief).toHaveBeenCalledTimes(1);
+    expect(deliverSmartDigest).toHaveBeenCalledTimes(1);
   });
 
   it("passes artifact ref to deliverSmartDigest when artifact persisted", async () => {
