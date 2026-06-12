@@ -171,6 +171,37 @@ public class FundamentalsRepository : IFundamentalsRepository
     }
 
     /// <inheritdoc />
+    public async Task UpdateWeek52RangeAsync(int stockTickerId, decimal? week52High, decimal? week52Low,
+        DateOnly? week52HighDate, DateOnly? week52LowDate)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            UPDATE analysis_stock_fundamentals
+            SET week_52_high = @Week52High,
+                week_52_low = @Week52Low,
+                week_52_high_date = @Week52HighDate,
+                week_52_low_date = @Week52LowDate,
+                updated_at = NOW()
+            WHERE id = (
+                SELECT id FROM analysis_stock_fundamentals
+                WHERE stock_ticker_id = @StockTickerId
+                ORDER BY fiscal_year DESC, fiscal_quarter DESC
+                LIMIT 1
+            )";
+
+        await connection.ExecuteAsync(sql, new
+        {
+            StockTickerId = stockTickerId,
+            Week52High = week52High,
+            Week52Low = week52Low,
+            Week52HighDate = week52HighDate,
+            Week52LowDate = week52LowDate
+        });
+        _logger.LogDebug("Updated 52-week range for ticker {TickerId}", stockTickerId);
+    }
+
+    /// <inheritdoc />
     public async Task DeleteOldRecordsAsync(int stockTickerId, int keepQuarters)
     {
         using var connection = _connectionFactory.CreateConnection();

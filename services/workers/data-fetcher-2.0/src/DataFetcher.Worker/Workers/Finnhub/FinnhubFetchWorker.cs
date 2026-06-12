@@ -88,6 +88,12 @@ public class FinnhubFetchWorker : BackgroundService
 
                     message = $"Fetched {fundamentalsCount} fundamentals for tickers with recent earnings";
 
+                    // Daily price-derived refresh for ALL tickers: 52-week range +
+                    // stale logos. Without this they only update on earnings days.
+                    _logger.LogInformation("Starting market snapshot refresh (52-week range/logos)");
+                    var snapshotCount = await fundamentalsService.RefreshMarketSnapshotAsync(stoppingToken);
+                    message += $" | Snapshot: {snapshotCount} tickers";
+
                     var externalService = scope.ServiceProvider.GetRequiredService<IFinnhubExternalIndicatorService>();
                     _logger.LogInformation("Starting Finnhub external indicator fetch for all active tickers");
                     var externalResult = await externalService.FetchAllStockExternalIndicatorsAsync(stoppingToken);

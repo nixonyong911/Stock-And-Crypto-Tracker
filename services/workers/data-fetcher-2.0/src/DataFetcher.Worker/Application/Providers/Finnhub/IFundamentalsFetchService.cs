@@ -22,4 +22,12 @@ public interface IFundamentalsFetchService
     /// Fetches and stores fundamentals for tickers with recent earnings.
     /// </summary>
     Task<int> FetchFundamentalsForRecentEarningsAsync(int withinDays = 2, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Daily refresh of price-derived data for ALL active tickers: 52-week
+    /// range on the latest fundamentals row (full fundamentals fetch when the
+    /// ticker has no row yet) and the stored company logo when stale. The
+    /// earnings-gated fundamentals fetch alone leaves these stale for months.
+    /// </summary>
+    Task<int> RefreshMarketSnapshotAsync(CancellationToken cancellationToken = default);
 }

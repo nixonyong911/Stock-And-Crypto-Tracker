@@ -271,6 +271,64 @@ public class FundamentalsFetchService : IFundamentalsFetchService
     }
 
     /// <inheritdoc />
+    public async Task<int> RefreshMarketSnapshotAsync(CancellationToken cancellationToken = default)
+    {
+        var tickers = await _tickerRepo.GetActiveTickersAsync();
+        var count = 0;
+
+        foreach (var ticker in tickers)
+        {
+            if (cancellationToken.IsCancellationRequested) break;
+
+            try
+            {
+                var latest = await _fundamentalsRepo.GetLatestByTickerIdAsync(ticker.Id);
+                if (latest == null)
+                {
+                    // No fundamentals at all (never had recent earnings since
+                    // onboarding) — run the full fetch once to seed the row.
+                    var result = await FetchAndStoreFundamentalsAsync(ticker, cancellationToken);
+                    if (result != null) count++;
+                    continue;
+                }
+
+                var financials = await _finnhubClient.GetBasicFinancialsAsync(ticker.Symbol, cancellationToken);
+                var metrics = financials?.Metric;
+                var week52High = _calcService.ExtractMetric(metrics, "52WeekHigh");
+                var week52Low = _calcService.ExtractMetric(metrics, "52WeekLow");
+
+                if (week52High.HasValue || week52Low.HasValue)
+                {
+                    await _fundamentalsRepo.UpdateWeek52RangeAsync(
+                        ticker.Id,
+                        week52High,
+                        week52Low,
+                        _calcService.ExtractMetricDate(metrics, "52WeekHighDate"),
+                        _calcService.ExtractMetricDate(metrics, "52WeekLowDate"));
+                    count++;
+                }
+                else
+                {
+                    _logger.LogWarning("No 52-week metrics returned for {Symbol}", ticker.Symbol);
+                }
+
+                if (await _tickerRepo.NeedsLogoRefreshAsync(ticker.Id, LogoRefreshDays))
+                {
+                    var profile = await _finnhubClient.GetCompanyProfileAsync(ticker.Symbol, cancellationToken);
+                    await TryEnrichLogoAsync(ticker, profile?.Logo, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Market snapshot refresh failed for {Symbol}, continuing with next ticker", ticker.Symbol);
+            }
+        }
+
+        _logger.LogInformation("Refreshed market snapshot (52-week range/logo) for {Count} tickers", count);
+        return count;
+    }
+
+    /// <inheritdoc />
     public async Task<int> FetchFundamentalsForRecentEarningsAsync(int withinDays = 2, CancellationToken cancellationToken = default)
     {
         var tickerIds = await _earningsRepo.GetTickersWithRecentEarningsAsync(withinDays);

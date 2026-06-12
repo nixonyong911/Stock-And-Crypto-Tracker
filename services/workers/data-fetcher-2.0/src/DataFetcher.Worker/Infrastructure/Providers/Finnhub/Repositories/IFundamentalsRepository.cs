@@ -31,4 +31,12 @@ public interface IFundamentalsRepository
     /// Deletes records older than the specified number of quarters.
     /// </summary>
     Task DeleteOldRecordsAsync(int stockTickerId, int keepQuarters);
+
+    /// <summary>
+    /// Updates only the 52-week range columns on the ticker's latest
+    /// fundamentals row. Used by the daily market-snapshot refresh, which
+    /// must not touch the quarterly fiscal metrics.
+    /// </summary>
+    Task UpdateWeek52RangeAsync(int stockTickerId, decimal? week52High, decimal? week52Low,
+        DateOnly? week52HighDate, DateOnly? week52LowDate);
 }
