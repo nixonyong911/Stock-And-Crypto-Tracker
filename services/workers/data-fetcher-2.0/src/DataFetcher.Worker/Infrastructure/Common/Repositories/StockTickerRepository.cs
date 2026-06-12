@@ -31,6 +31,7 @@ public class StockTickerRepository : IStockTickerRepository
                 exchange as Exchange,
                 currency as Currency,
                 is_active as IsActive,
+                etoro_instrument_id as EtoroInstrumentId,
                 created_at as CreatedAt,
                 updated_at as UpdatedAt
             FROM stock_tickers

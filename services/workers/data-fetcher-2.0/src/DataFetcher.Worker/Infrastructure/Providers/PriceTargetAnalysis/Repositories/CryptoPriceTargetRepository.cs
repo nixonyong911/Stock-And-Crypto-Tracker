@@ -37,7 +37,10 @@ public class CryptoPriceTargetRepository : ICryptoPriceTargetRepository
         return rows.Select(r => (DateOnly.FromDateTime(r.Date), r.Close, r.Open));
     }
 
-    public async Task<(decimal? Ema20, decimal? Ema50, decimal? Rsi)?> GetLatestIndicatorAsync(int cryptoTickerId, DateOnly asOfDate)
+    // NOTE: the `sma` column is a 20-day simple MA (LocalIndicatorCalculatorService);
+    // it was historically mislabeled "Ema50" in this tuple. True long MAs come from
+    // analysis_crypto_range_52w instead.
+    public async Task<(decimal? Ema20, decimal? Sma20, decimal? Rsi)?> GetLatestIndicatorAsync(int cryptoTickerId, DateOnly asOfDate)
     {
         const string sql = @"
             SELECT ema AS Ema, sma AS Sma, rsi AS Rsi

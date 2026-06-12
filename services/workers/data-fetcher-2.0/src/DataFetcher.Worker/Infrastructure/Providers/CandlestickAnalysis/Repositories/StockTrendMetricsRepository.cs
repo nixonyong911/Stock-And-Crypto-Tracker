@@ -4,32 +4,32 @@ using DataFetcher.Worker.Infrastructure.Common;
 
 namespace DataFetcher.Worker.Infrastructure.Providers.CandlestickAnalysis.Repositories;
 
-public class Crypto52WeekRangeRepository : ICrypto52WeekRangeRepository
+public class StockTrendMetricsRepository : IStockTrendMetricsRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
-    private readonly ILogger<Crypto52WeekRangeRepository> _logger;
+    private readonly ILogger<StockTrendMetricsRepository> _logger;
 
-    public Crypto52WeekRangeRepository(IDbConnectionFactory connectionFactory, ILogger<Crypto52WeekRangeRepository> logger)
+    public StockTrendMetricsRepository(IDbConnectionFactory connectionFactory, ILogger<StockTrendMetricsRepository> logger)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public async Task UpsertAsync(Crypto52WeekRange range)
+    public async Task UpsertAsync(StockTrendMetrics metrics)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
-            INSERT INTO analysis_crypto_range_52w
-                (crypto_ticker_id, week_52_high, week_52_low,
+            INSERT INTO analysis_stock_trend_metrics
+                (stock_ticker_id, week_52_high, week_52_low,
                  week_52_high_date, week_52_low_date,
                  sma_50, sma_200, ema_50, coverage_days, computed_at)
             VALUES
-                (@CryptoTickerId, @Week52High, @Week52Low,
+                (@StockTickerId, @Week52High, @Week52Low,
                  @Week52HighDate, @Week52LowDate,
                  @Sma50, @Sma200, @Ema50, @CoverageDays, NOW())
-            ON CONFLICT (crypto_ticker_id)
+            ON CONFLICT (stock_ticker_id)
             DO UPDATE SET
                 week_52_high = EXCLUDED.week_52_high,
                 week_52_low = EXCLUDED.week_52_low,
@@ -41,8 +41,8 @@ public class Crypto52WeekRangeRepository : ICrypto52WeekRangeRepository
                 coverage_days = EXCLUDED.coverage_days,
                 computed_at = NOW()";
 
-        await connection.ExecuteAsync(sql, range);
-        _logger.LogDebug("Upserted 52-week range for crypto ticker {TickerId}", range.CryptoTickerId);
+        await connection.ExecuteAsync(sql, metrics);
+        _logger.LogDebug("Upserted trend metrics for stock ticker {TickerId}", metrics.StockTickerId);
     }
 
     /// <inheritdoc />
@@ -51,8 +51,8 @@ public class Crypto52WeekRangeRepository : ICrypto52WeekRangeRepository
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
-            SELECT crypto_ticker_id
-            FROM analysis_crypto_range_52w
+            SELECT stock_ticker_id
+            FROM analysis_stock_trend_metrics
             WHERE computed_at >= @SinceUtc";
 
         var ids = await connection.QueryAsync<int>(sql, new { SinceUtc = sinceUtc });
@@ -60,13 +60,13 @@ public class Crypto52WeekRangeRepository : ICrypto52WeekRangeRepository
     }
 
     /// <inheritdoc />
-    public async Task<Crypto52WeekRange?> GetLatestAsync(int cryptoTickerId, int maxAgeDays)
+    public async Task<StockTrendMetrics?> GetLatestAsync(int stockTickerId, int maxAgeDays)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
             SELECT
-                crypto_ticker_id AS CryptoTickerId,
+                stock_ticker_id AS StockTickerId,
                 week_52_high AS Week52High,
                 week_52_low AS Week52Low,
                 week_52_high_date AS Week52HighDate,
@@ -76,11 +76,11 @@ public class Crypto52WeekRangeRepository : ICrypto52WeekRangeRepository
                 ema_50 AS Ema50,
                 coverage_days AS CoverageDays,
                 computed_at AS ComputedAt
-            FROM analysis_crypto_range_52w
-            WHERE crypto_ticker_id = @CryptoTickerId
+            FROM analysis_stock_trend_metrics
+            WHERE stock_ticker_id = @StockTickerId
               AND computed_at >= NOW() - make_interval(days => @MaxAgeDays)";
 
-        return await connection.QueryFirstOrDefaultAsync<Crypto52WeekRange>(
-            sql, new { CryptoTickerId = cryptoTickerId, MaxAgeDays = maxAgeDays });
+        return await connection.QueryFirstOrDefaultAsync<StockTrendMetrics>(
+            sql, new { StockTickerId = stockTickerId, MaxAgeDays = maxAgeDays });
     }
 }

@@ -5,7 +5,17 @@ namespace DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 
 public class PriceTargetCalculatorService : IPriceTargetCalculatorService
 {
-    public record IndicatorSnapshot(decimal? Ema20, decimal? Ema50, decimal? Rsi);
+    /// <summary>
+    /// Short-horizon indicators from analysis_indicators_*_free. Sma20 was
+    /// historically mislabeled "Ema50" — it is the 20-day simple MA.
+    /// </summary>
+    public record IndicatorSnapshot(decimal? Ema20, decimal? Sma20, decimal? Rsi);
+    /// <summary>
+    /// Long-horizon daily MAs from analysis_stock_trend_metrics /
+    /// analysis_crypto_range_52w (eToro/Alpaca 1Day bars). Null members mean
+    /// insufficient bar history.
+    /// </summary>
+    public record LongTrendSnapshot(decimal? Sma50, decimal? Sma200, decimal? Ema50);
     public record DailyClose(DateOnly Date, decimal Close);
     public record CandleSignal(string Signal);
 
@@ -26,7 +36,8 @@ public class PriceTargetCalculatorService : IPriceTargetCalculatorService
         IReadOnlyList<DailyClose> recentCloses,
         IndicatorSnapshot? indicators,
         IReadOnlyList<CandleSignal> recentSignals,
-        PriceTargetParameters parameters)
+        PriceTargetParameters parameters,
+        LongTrendSnapshot? longTrend = null)
     {
         if (recentCloses.Count == 0)
             return new TargetResult(latestClose, null, null, null, null, null, "neutral", null, "{}");
@@ -42,8 +53,8 @@ public class PriceTargetCalculatorService : IPriceTargetCalculatorService
         if (indicators?.Rsi > parameters.OverboughtRsi && entryPrice.HasValue)
             entryPrice = entryPrice.Value * (1m - parameters.OverboughtDiscount);
 
-        decimal? targetPrice = indicators?.Ema50 != null
-            ? (indicators.Ema50.Value * 0.4m) + (high * 0.6m)
+        decimal? targetPrice = indicators?.Sma20 != null
+            ? (indicators.Sma20.Value * 0.4m) + (high * 0.6m)
             : high * 0.99m;
 
         if (indicators?.Rsi < parameters.OversoldRsi && targetPrice.HasValue)
@@ -71,7 +82,7 @@ public class PriceTargetCalculatorService : IPriceTargetCalculatorService
             ? Math.Round(entryPrice.Value * (1m + parameters.EntryRangePct), 6)
             : null;
 
-        var signal = DetermineSignal(recentSignals, indicators, latestClose, parameters);
+        var signal = DetermineSignal(recentSignals, indicators, latestClose, parameters, longTrend);
         var confidence = CalculateConfidence(closes.Count, indicators, parameters.LookbackDays);
 
         var metadata = new
@@ -80,7 +91,10 @@ public class PriceTargetCalculatorService : IPriceTargetCalculatorService
             low_period = low,
             high_period = high,
             ema_20 = indicators?.Ema20,
-            ema_50 = indicators?.Ema50,
+            sma_20 = indicators?.Sma20,
+            ema_50 = longTrend?.Ema50,
+            sma_50 = longTrend?.Sma50,
+            sma_200 = longTrend?.Sma200,
             rsi = indicators?.Rsi,
             trader_type = parameters.TraderType,
             asset_type = parameters.AssetType,
@@ -105,9 +119,12 @@ public class PriceTargetCalculatorService : IPriceTargetCalculatorService
         IReadOnlyList<CandleSignal> signals,
         IndicatorSnapshot? indicators,
         decimal latestClose,
-        PriceTargetParameters parameters)
+        PriceTargetParameters parameters,
+        LongTrendSnapshot? longTrend)
     {
-        var trendScore = ScoreTrend(indicators, latestClose);
+        var trendScore = parameters.TraderType == "long_term"
+            ? ScoreLongTermTrend(longTrend, indicators, latestClose)
+            : ScoreTrend(indicators, latestClose);
         var momentumScore = ScoreMomentum(indicators?.Rsi, parameters);
         var patternScore = ScorePatterns(signals);
 
@@ -122,17 +139,40 @@ public class PriceTargetCalculatorService : IPriceTargetCalculatorService
 
     private static decimal ScoreTrend(IndicatorSnapshot? indicators, decimal latestClose)
     {
-        if (indicators?.Ema20 == null || indicators.Ema50 == null)
+        if (indicators?.Ema20 == null || indicators.Sma20 == null)
             return 0m;
 
         var ema20 = indicators.Ema20.Value;
-        var ema50 = indicators.Ema50.Value;
-        var score = ema20 > ema50 ? 1.0m : -1.0m;
+        var sma20 = indicators.Sma20.Value;
+        var score = ema20 > sma20 ? 1.0m : -1.0m;
 
-        if (latestClose > ema20 && latestClose > ema50)
+        if (latestClose > ema20 && latestClose > sma20)
             score += 0.5m;
-        else if (latestClose < ema20 && latestClose < ema50)
+        else if (latestClose < ema20 && latestClose < sma20)
             score -= 0.5m;
+
+        return Math.Clamp(score, -1.5m, 1.5m);
+    }
+
+    /// <summary>
+    /// Long-horizon regime score for the long_term trader profile: position
+    /// vs the 200-day MA dominates, the 50/200 cross refines. Falls back to
+    /// the short-horizon score when the long MAs are unavailable so the
+    /// profile degrades to its historical behavior rather than to neutral.
+    /// </summary>
+    private static decimal ScoreLongTermTrend(
+        LongTrendSnapshot? longTrend,
+        IndicatorSnapshot? indicators,
+        decimal latestClose)
+    {
+        if (longTrend?.Sma200 == null)
+            return ScoreTrend(indicators, latestClose);
+
+        var sma200 = longTrend.Sma200.Value;
+        var score = latestClose > sma200 ? 1.0m : -1.0m;
+
+        if (longTrend.Sma50 != null)
+            score += longTrend.Sma50.Value > sma200 ? 0.5m : -0.5m;
 
         return Math.Clamp(score, -1.5m, 1.5m);
     }
@@ -170,7 +210,7 @@ public class PriceTargetCalculatorService : IPriceTargetCalculatorService
         if (indicators != null)
         {
             if (indicators.Ema20.HasValue) score += 0.2m;
-            if (indicators.Ema50.HasValue) score += 0.2m;
+            if (indicators.Sma20.HasValue) score += 0.2m;
             if (indicators.Rsi.HasValue) score += 0.2m;
         }
 

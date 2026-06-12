@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using DataFetcher.Worker.Domain.Providers.PriceTargetAnalysis.Entities;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
+using DataFetcher.Worker.Infrastructure.Providers.CandlestickAnalysis.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.PriceTargetAnalysis.Repositories;
 using StockTracker.Common.Metrics;
 
@@ -8,10 +9,14 @@ namespace DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 
 public class PriceTargetService : IPriceTargetService
 {
+    /// <summary>Trend metrics older than this are treated as missing.</summary>
+    private const int TrendMaxAgeDays = 7;
+
     private readonly IStockTickerRepository _tickerRepository;
     private readonly IPriceTargetRepository _priceTargetRepository;
     private readonly IPriceTargetParametersRepository _parametersRepository;
     private readonly IPriceTargetCalculatorService _calculator;
+    private readonly IStockTrendMetricsRepository _trendMetricsRepository;
     private readonly IMetricsClient _metrics;
     private readonly ILogger<PriceTargetService> _logger;
 
@@ -20,6 +25,7 @@ public class PriceTargetService : IPriceTargetService
         IPriceTargetRepository priceTargetRepository,
         IPriceTargetParametersRepository parametersRepository,
         IPriceTargetCalculatorService calculator,
+        IStockTrendMetricsRepository trendMetricsRepository,
         IMetricsClient metrics,
         ILogger<PriceTargetService> logger)
     {
@@ -27,6 +33,7 @@ public class PriceTargetService : IPriceTargetService
         _priceTargetRepository = priceTargetRepository;
         _parametersRepository = parametersRepository;
         _calculator = calculator;
+        _trendMetricsRepository = trendMetricsRepository;
         _metrics = metrics;
         _logger = logger;
     }
@@ -59,17 +66,22 @@ public class PriceTargetService : IPriceTargetService
             var signals = await _priceTargetRepository.GetRecentCandleSignalsAsync(stockTickerId, date, 5);
 
             var indicatorSnapshot = indicators != null
-                ? new PriceTargetCalculatorService.IndicatorSnapshot(indicators.Value.Ema20, indicators.Value.Ema50, indicators.Value.Rsi)
+                ? new PriceTargetCalculatorService.IndicatorSnapshot(indicators.Value.Ema20, indicators.Value.Sma20, indicators.Value.Rsi)
                 : null;
             var dailyCloses = closesList.Select(c => new PriceTargetCalculatorService.DailyClose(c.Date, c.Close)).ToList();
             var candleSignals = signals.Select(s => new PriceTargetCalculatorService.CandleSignal(s)).ToList();
+
+            var trendMetrics = await _trendMetricsRepository.GetLatestAsync(stockTickerId, TrendMaxAgeDays);
+            var longTrend = trendMetrics != null
+                ? new PriceTargetCalculatorService.LongTrendSnapshot(trendMetrics.Sma50, trendMetrics.Sma200, trendMetrics.Ema50)
+                : null;
 
             var traderProfiles = await _parametersRepository.GetAllActiveParametersAsync("stock");
             PriceTarget? lastTarget = null;
 
             foreach (var parameters in traderProfiles)
             {
-                var result = _calculator.Calculate(latestClosePrice, dailyCloses, indicatorSnapshot, candleSignals, parameters);
+                var result = _calculator.Calculate(latestClosePrice, dailyCloses, indicatorSnapshot, candleSignals, parameters, longTrend);
 
                 var target = new PriceTarget
                 {

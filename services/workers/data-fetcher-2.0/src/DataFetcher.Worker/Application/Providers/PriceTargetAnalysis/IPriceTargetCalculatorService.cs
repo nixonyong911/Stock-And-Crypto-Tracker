@@ -10,5 +10,6 @@ public interface IPriceTargetCalculatorService
         IReadOnlyList<DailyClose> recentCloses,
         IndicatorSnapshot? indicators,
         IReadOnlyList<CandleSignal> recentSignals,
-        PriceTargetParameters parameters);
+        PriceTargetParameters parameters,
+        LongTrendSnapshot? longTrend = null);
 }

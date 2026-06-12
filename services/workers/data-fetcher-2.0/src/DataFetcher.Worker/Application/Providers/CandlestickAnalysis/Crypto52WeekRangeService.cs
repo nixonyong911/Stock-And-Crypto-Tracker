@@ -115,24 +115,30 @@ public class Crypto52WeekRangeService : ICrypto52WeekRangeService
     }
 
     /// <summary>
-    /// Pure extraction of the 52-week extremes from a set of daily bars.
+    /// Pure extraction of the 52-week extremes and long moving averages
+    /// (SMA-50 / SMA-200 / EMA-50) from a set of daily bars.
     /// Returns null when no bars carry a positive price.
     /// </summary>
     public static Crypto52WeekRange? ComputeRange(int cryptoTickerId, IReadOnlyList<AlpacaBar> bars)
     {
+        var ordered = bars
+            .Where(b => b.High > 0 && b.Low > 0 && b.Close > 0)
+            .OrderBy(b => b.Timestamp)
+            .ToList();
+        if (ordered.Count == 0) return null;
+
         AlpacaBar? highBar = null;
         AlpacaBar? lowBar = null;
-        var coverage = 0;
 
-        foreach (var bar in bars)
+        foreach (var bar in ordered)
         {
-            if (bar.High <= 0 || bar.Low <= 0) continue;
-            coverage++;
             if (highBar == null || bar.High > highBar.High) highBar = bar;
             if (lowBar == null || bar.Low < lowBar.Low) lowBar = bar;
         }
 
         if (highBar == null || lowBar == null) return null;
+
+        var closes = ordered.Select(b => (decimal)b.Close).ToList();
 
         return new Crypto52WeekRange
         {
@@ -141,7 +147,10 @@ public class Crypto52WeekRangeService : ICrypto52WeekRangeService
             Week52Low = (decimal)lowBar.Low,
             Week52HighDate = DateOnly.FromDateTime(highBar.Timestamp),
             Week52LowDate = DateOnly.FromDateTime(lowBar.Timestamp),
-            CoverageDays = coverage
+            Sma50 = TrendMath.Sma(closes, 50),
+            Sma200 = TrendMath.Sma(closes, 200),
+            Ema50 = TrendMath.Ema(closes, 50, TrendMath.Ema50MinBars),
+            CoverageDays = ordered.Count
         };
     }
 }

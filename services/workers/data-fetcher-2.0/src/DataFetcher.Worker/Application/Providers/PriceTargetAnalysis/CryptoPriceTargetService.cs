@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using DataFetcher.Worker.Domain.Providers.PriceTargetAnalysis.Entities;
 using DataFetcher.Worker.Infrastructure.Common.Repositories;
+using DataFetcher.Worker.Infrastructure.Providers.CandlestickAnalysis.Repositories;
 using DataFetcher.Worker.Infrastructure.Providers.PriceTargetAnalysis.Repositories;
 using StockTracker.Common.Metrics;
 
@@ -8,11 +9,15 @@ namespace DataFetcher.Worker.Application.Providers.PriceTargetAnalysis;
 
 public class CryptoPriceTargetService : ICryptoPriceTargetService
 {
+    /// <summary>Trend metrics older than this are treated as missing.</summary>
+    private const int TrendMaxAgeDays = 7;
+
     private readonly ICryptoTickerRepository _tickerRepository;
     private readonly ICryptoPriceTargetRepository _cryptoRepository;
     private readonly IPriceTargetRepository _priceTargetRepository;
     private readonly IPriceTargetParametersRepository _parametersRepository;
     private readonly IPriceTargetCalculatorService _calculator;
+    private readonly ICrypto52WeekRangeRepository _rangeRepository;
     private readonly IMetricsClient _metrics;
     private readonly ILogger<CryptoPriceTargetService> _logger;
 
@@ -22,6 +27,7 @@ public class CryptoPriceTargetService : ICryptoPriceTargetService
         IPriceTargetRepository priceTargetRepository,
         IPriceTargetParametersRepository parametersRepository,
         IPriceTargetCalculatorService calculator,
+        ICrypto52WeekRangeRepository rangeRepository,
         IMetricsClient metrics,
         ILogger<CryptoPriceTargetService> logger)
     {
@@ -30,6 +36,7 @@ public class CryptoPriceTargetService : ICryptoPriceTargetService
         _priceTargetRepository = priceTargetRepository;
         _parametersRepository = parametersRepository;
         _calculator = calculator;
+        _rangeRepository = rangeRepository;
         _metrics = metrics;
         _logger = logger;
     }
@@ -62,17 +69,22 @@ public class CryptoPriceTargetService : ICryptoPriceTargetService
             var signals = await _cryptoRepository.GetRecentCandleSignalsAsync(cryptoTickerId, date, 5);
 
             var indicatorSnapshot = indicators != null
-                ? new PriceTargetCalculatorService.IndicatorSnapshot(indicators.Value.Ema20, indicators.Value.Ema50, indicators.Value.Rsi)
+                ? new PriceTargetCalculatorService.IndicatorSnapshot(indicators.Value.Ema20, indicators.Value.Sma20, indicators.Value.Rsi)
                 : null;
             var dailyCloses = closesList.Select(c => new PriceTargetCalculatorService.DailyClose(c.Date, c.Close)).ToList();
             var candleSignals = signals.Select(s => new PriceTargetCalculatorService.CandleSignal(s)).ToList();
+
+            var trendRange = await _rangeRepository.GetLatestAsync(cryptoTickerId, TrendMaxAgeDays);
+            var longTrend = trendRange != null
+                ? new PriceTargetCalculatorService.LongTrendSnapshot(trendRange.Sma50, trendRange.Sma200, trendRange.Ema50)
+                : null;
 
             var traderProfiles = await _parametersRepository.GetAllActiveParametersAsync("crypto");
             PriceTarget? lastTarget = null;
 
             foreach (var parameters in traderProfiles)
             {
-                var result = _calculator.Calculate(latestClosePrice, dailyCloses, indicatorSnapshot, candleSignals, parameters);
+                var result = _calculator.Calculate(latestClosePrice, dailyCloses, indicatorSnapshot, candleSignals, parameters, longTrend);
 
                 var target = new PriceTarget
                 {
