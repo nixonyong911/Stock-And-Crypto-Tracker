@@ -40,6 +40,7 @@ import {
   type TickerMemoryText,
   type AnalystMix,
   type StockCardExtras,
+  type TechLevels,
 } from "./recommendation-engine.js";
 import type { CardData, StatusTone } from "./card-renderer.js";
 import {
@@ -284,8 +285,10 @@ export interface GenerateDigestBriefArgs {
   analysisDateMap?: Map<string, string>;
   /** Per-stock Wall Street analyst Buy/Hold/Sell mix (stocks only). */
   analystMixMap?: Map<string, AnalystMix>;
-  /** Per-stock logo / company name / 52-week range (stocks only). */
+  /** Per-symbol logo / company name / 52-week range. */
   cardExtrasMap?: Map<string, StockCardExtras>;
+  /** Per-symbol daily pivots / fib levels / ATR for the levels-bar zones. */
+  techLevelsMap?: Map<string, TechLevels>;
   /** Test/script override for `updatedAt`. */
   now?: Date;
   /** strict (default) | blended. Falls back to `strict` if undefined. */
@@ -345,6 +348,7 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
   const analysisDate = args.analysisDateMap?.get(upper);
   const analystMix = args.analystMixMap?.get(upper);
   const cardExtras = args.cardExtrasMap?.get(upper);
+  const techLevels = args.techLevelsMap?.get(upper);
 
   // Step 5: pass alias context so the truth layer's surfacing decision
   // can evaluate whether `news_one_liner` actually names the digest
@@ -370,6 +374,7 @@ export function generateDigestBrief(args: GenerateDigestBriefArgs): DigestBrief 
       (cardExtras.week52High != null || cardExtras.week52Low != null)
         ? { high: cardExtras.week52High, low: cardExtras.week52Low }
         : undefined,
+    techLevels,
   });
   const derived: BriefDerived = deriveSignals(truth);
   const composed = composeBrief({ truth, derived, mode, now });

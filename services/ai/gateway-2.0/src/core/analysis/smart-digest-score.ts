@@ -48,6 +48,13 @@ export interface LevelsBar {
   buyZone?: { low: number; high: number };
   /** Red distribution band, when a target/resistance exists. */
   sellZone?: { low: number; high: number };
+  /**
+   * Zone provenance for debug/inspection: `anchored` = derived from real
+   * technical levels (pivots/fibs/EMA/entry/target), `heuristic25` = the
+   * statistical bottom/top-25%-of-range fallback.
+   */
+  buyZoneSource?: "anchored" | "heuristic25";
+  sellZoneSource?: "anchored" | "heuristic25";
 }
 
 export interface SmartDigestScore {
@@ -210,6 +217,121 @@ function computeStars(
 
 // ── Levels to Watch bar ───────────────────────────────────────────────
 
+/** Fallback slice width per side: 0.25 ⇒ 25% buy / 50% neutral / 25% sell. */
+const ZONE_FRAC = 0.25;
+/** A zone anchor farther than this fraction from spot is not actionable. */
+const MAX_ANCHOR_DIST = 0.25;
+/** Cluster radius: nearby levels merge into one zone. */
+const CLUSTER_EPS_ATR = 0.75;
+const CLUSTER_EPS_PCT = 0.015;
+/** Minimum half-width painted around an anchor level. */
+const MIN_HALF_WIDTH_ATR = 0.5;
+const MIN_HALF_WIDTH_PCT = 0.0075;
+/** A zone may not exceed this fraction of the bar's range. */
+const ZONE_MAX_WIDTH_FRAC = 0.35;
+/** Anchored zones closer than this fraction of range read as noise. */
+const MIN_ZONE_GAP_FRAC = 0.08;
+
+interface Zone {
+  low: number;
+  high: number;
+}
+
+/**
+ * Candidate support levels at or below spot / resistance levels at or above
+ * spot, restricted to the stable frame and to within `MAX_ANCHOR_DIST` of
+ * spot. `stopLoss` is deliberately excluded (an exit level, not an
+ * accumulation anchor); periodLow/High are excluded because they define the
+ * crypto frame fallback — using them as anchors would degenerate to the edge
+ * zones we are replacing.
+ */
+function collectCandidates(
+  truth: BriefTruth,
+  price: number,
+  stableLow: number,
+  stableHigh: number,
+): { supports: number[]; resistances: number[] } {
+  const tl = truth.techLevels;
+  const lvl = truth.levels;
+
+  const supportRaw = [
+    tl?.pivotS1,
+    tl?.pivotS2,
+    tl?.pivotS3,
+    ...(tl?.fibLevels ?? []),
+    lvl.ema50,
+    lvl.entryLow,
+    lvl.entryHigh,
+  ];
+  const resistanceRaw = [
+    tl?.pivotR1,
+    tl?.pivotR2,
+    tl?.pivotR3,
+    ...(tl?.fibLevels ?? []),
+    lvl.ema50,
+    lvl.target,
+  ];
+
+  const supports = supportRaw.filter(
+    (c): c is number =>
+      isFinitePositive(c) &&
+      c <= price &&
+      c >= stableLow &&
+      (price - c) / price <= MAX_ANCHOR_DIST,
+  );
+  const resistances = resistanceRaw.filter(
+    (c): c is number =>
+      isFinitePositive(c) &&
+      c >= price &&
+      c <= stableHigh &&
+      (c - price) / price <= MAX_ANCHOR_DIST,
+  );
+  return { supports, resistances };
+}
+
+/**
+ * Build one anchored zone from candidate levels on one side of spot.
+ * `side: "buy"` anchors at the nearest support below price (clustering
+ * further supports within eps); `side: "sell"` mirrors above price.
+ * Returns undefined when no candidates survive — caller falls back to the
+ * statistical slice.
+ */
+function buildAnchoredZone(
+  side: "buy" | "sell",
+  candidates: number[],
+  price: number,
+  atr: number | undefined,
+  barMin: number,
+  barMax: number,
+  range: number,
+): Zone | undefined {
+  if (candidates.length === 0) return undefined;
+
+  const anchor = side === "buy" ? Math.max(...candidates) : Math.min(...candidates);
+  const eps = Math.max(CLUSTER_EPS_ATR * (atr ?? 0), CLUSTER_EPS_PCT * price);
+  const cluster = candidates.filter((c) => Math.abs(c - anchor) <= eps);
+  const halfW = Math.max(MIN_HALF_WIDTH_ATR * (atr ?? 0), MIN_HALF_WIDTH_PCT * price);
+
+  let low: number;
+  let high: number;
+  if (side === "buy") {
+    low = Math.max(Math.min(...cluster) - halfW, barMin);
+    high = Math.min(anchor + halfW, price); // never paints "buy" above spot
+    if (high - low > ZONE_MAX_WIDTH_FRAC * range) {
+      low = high - ZONE_MAX_WIDTH_FRAC * range;
+    }
+  } else {
+    low = Math.max(anchor - halfW, price); // never paints "sell" below spot
+    high = Math.min(Math.max(...cluster) + halfW, barMax);
+    if (high - low > ZONE_MAX_WIDTH_FRAC * range) {
+      high = low + ZONE_MAX_WIDTH_FRAC * range;
+    }
+  }
+
+  if (!(high > low)) return undefined;
+  return { low, high };
+}
+
 export function buildLevelsBar(truth: BriefTruth): LevelsBar | undefined {
   const price = truth.price;
   if (!isFinitePositive(price)) return undefined;
@@ -238,20 +360,39 @@ export function buildLevelsBar(truth: BriefTruth): LevelsBar | undefined {
 
   const range = stableHigh - stableLow;
 
-  // Buy = bottom slice of the yearly range (statistically "cheap" vs the last
-  // 52 weeks), Sell = top slice ("expensive"), with a neutral middle in
-  // between. ZONE_FRAC is the slice width on each side: 0.25 ⇒ 25% buy / 50%
-  // neutral / 25% sell. Tunable in one place.
-  const ZONE_FRAC = 0.25;
-
   // Bar edges follow the stable range, widened only on a genuine 52-week breach
   // (a fresh all-time / period high or low print) so the marker still lands at
   // a sensible spot and the breached zone reaches the edge.
   const buyLow = Math.min(stableLow, price);
   const sellHigh = Math.max(stableHigh, price);
 
-  const buyZone = { low: buyLow, high: stableLow + ZONE_FRAC * range };
-  const sellZone = { low: stableHigh - ZONE_FRAC * range, high: sellHigh };
+  // Statistical fallback zones: bottom slice of the yearly range reads as
+  // "cheap" vs the last 52 weeks, top slice as "expensive".
+  const heuristicBuy: Zone = { low: buyLow, high: stableLow + ZONE_FRAC * range };
+  const heuristicSell: Zone = { low: stableHigh - ZONE_FRAC * range, high: sellHigh };
+
+  // Preferred zones: anchored to real technical levels (validated pivots,
+  // fib retracements, EMA-50, entry band / target), sized by ATR so calm
+  // assets get tight zones and volatile ones get wide zones.
+  const { supports, resistances } = collectCandidates(truth, price, stableLow, stableHigh);
+  const atr = truth.techLevels?.atr;
+  let buyZone = buildAnchoredZone("buy", supports, price, atr, buyLow, sellHigh, range);
+  let sellZone = buildAnchoredZone("sell", resistances, price, atr, buyLow, sellHigh, range);
+  let buySource: "anchored" | "heuristic25" = buyZone ? "anchored" : "heuristic25";
+  let sellSource: "anchored" | "heuristic25" = sellZone ? "anchored" : "heuristic25";
+  buyZone ??= heuristicBuy;
+  sellZone ??= heuristicSell;
+
+  // Never render nonsense: overlapping / near-touching zones (or a buy zone
+  // painted above the sell zone) mean the anchors disagree with each other —
+  // drop BOTH back to the statistical slices, which are disjoint by
+  // construction. Mixed anchored/heuristic with touching bands reads as noise.
+  if (buyZone.high >= sellZone.low - MIN_ZONE_GAP_FRAC * range) {
+    buyZone = heuristicBuy;
+    sellZone = heuristicSell;
+    buySource = "heuristic25";
+    sellSource = "heuristic25";
+  }
 
   return {
     min: buyLow,
@@ -259,6 +400,8 @@ export function buildLevelsBar(truth: BriefTruth): LevelsBar | undefined {
     current: clamp(price, buyLow, sellHigh),
     buyZone,
     sellZone,
+    buyZoneSource: buySource,
+    sellZoneSource: sellSource,
   };
 }
 

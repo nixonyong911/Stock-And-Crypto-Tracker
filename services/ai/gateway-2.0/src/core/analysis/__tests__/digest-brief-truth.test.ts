@@ -373,6 +373,67 @@ describe("gatherTruth — sanity guards (A4)", () => {
   });
 });
 
+describe("gatherTruth — tech levels validation", () => {
+  it("accepts in-band pivots / fibs / ATR", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal(), // close 175
+      techLevels: {
+        pivot: { s1: 172, s2: 169, r1: 180, r2: 184 },
+        fibLevels: [168.4, 171.9, 176.2],
+        atr: 3.4,
+        asOf: "2026-06-12T08:00:00.000Z",
+      },
+    });
+    expect(truth.techLevels).toBeDefined();
+    expect(truth.techLevels!.pivotS1).toBe(172);
+    expect(truth.techLevels!.pivotR2).toBe(184);
+    expect(truth.techLevels!.fibLevels).toEqual([168.4, 171.9, 176.2]);
+    expect(truth.techLevels!.atr).toBe(3.4);
+    expect(truth.techLevels!.asOf).toBe("2026-06-12T08:00:00.000Z");
+    expect(truth.truthFlags).toBeUndefined();
+  });
+
+  it("drops out-of-band pivots and flags them (cross-unit smear)", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal({
+        rawData: {
+          close: 46,
+          daySignal: "neutral",
+          swingSignal: "neutral",
+          longTermSignal: "neutral",
+        },
+      }),
+      techLevels: { pivot: { s1: 4600, r1: 47.2 } }, // s1 is 100x off
+    });
+    expect(truth.techLevels!.pivotS1).toBeUndefined();
+    expect(truth.techLevels!.pivotR1).toBe(47.2);
+    expect(truth.truthFlags).toContain("tech_level_out_of_band:pivotS1");
+  });
+
+  it("rejects an ATR that is half the price or more", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal(), // close 175
+      techLevels: { pivot: { s1: 172 }, atr: 90 },
+    });
+    expect(truth.techLevels!.atr).toBeUndefined();
+    expect(truth.techLevels!.pivotS1).toBe(172);
+    expect(truth.truthFlags).toContain("tech_level_out_of_band:atr");
+  });
+
+  it("omits techLevels entirely when nothing survives validation", () => {
+    const truth = gatherTruth({
+      signal: makeStockSignal(), // close 175
+      techLevels: { pivot: { s1: 9999 }, atr: 200 },
+    });
+    expect(truth.techLevels).toBeUndefined();
+  });
+
+  it("omits techLevels when none are supplied (no behavior change)", () => {
+    const truth = gatherTruth({ signal: makeStockSignal() });
+    expect(truth.techLevels).toBeUndefined();
+  });
+});
+
 describe("gatherTruth — asset coverage", () => {
   it("works for stock fixtures with full DB truth", () => {
     const truth = gatherTruth({ signal: makeStockSignal() });

@@ -540,6 +540,187 @@ export async function fetchStockCardExtras(
   return out;
 }
 
+interface CryptoCardExtrasRow {
+  ticker_symbol: string;
+  company_name: string | null;
+  week_52_high: string | null;
+  week_52_low: string | null;
+}
+
+/**
+ * Crypto counterpart of {@link fetchStockCardExtras}: coin name from
+ * `crypto_tickers` plus the Alpaca-derived 52-week range from
+ * `analysis_crypto_range_52w` (no logos — logo columns are stock-only).
+ * Ranges older than 7 days are treated as missing so a stalled worker
+ * degrades to the period-range fallback instead of a stale frame.
+ */
+export async function fetchCryptoCardExtras(
+  db: Pool,
+  symbolFilter?: string,
+): Promise<Map<string, StockCardExtras>> {
+  const out = new Map<string, StockCardExtras>();
+  try {
+    const params: unknown[] = [];
+    let symbolClause = "";
+    if (symbolFilter) {
+      symbolClause = " AND UPPER(t.symbol) = UPPER($1)";
+      params.push(symbolFilter);
+    }
+
+    const { rows } = await db.query<CryptoCardExtrasRow>(
+      `SELECT t.symbol AS ticker_symbol,
+              t.name   AS company_name,
+              r.week_52_high::text AS week_52_high,
+              r.week_52_low::text  AS week_52_low
+       FROM crypto_tickers t
+       LEFT JOIN analysis_crypto_range_52w r
+         ON r.crypto_ticker_id = t.id
+        AND r.computed_at >= NOW() - INTERVAL '7 days'
+       WHERE t.is_active = true${symbolClause}`,
+      params,
+    );
+
+    for (const r of rows) {
+      const extras: StockCardExtras = {};
+      if (r.company_name && r.company_name.trim().length > 0) {
+        extras.companyName = r.company_name.trim();
+      }
+      const high = r.week_52_high != null ? parseFloat(r.week_52_high) : NaN;
+      const low = r.week_52_low != null ? parseFloat(r.week_52_low) : NaN;
+      if (Number.isFinite(high) && high > 0) extras.week52High = high;
+      if (Number.isFinite(low) && low > 0) extras.week52Low = low;
+
+      if (extras.companyName || extras.week52High != null || extras.week52Low != null) {
+        out.set(r.ticker_symbol.toUpperCase(), extras);
+      }
+    }
+  } catch {
+    /* non-critical: missing range table degrades to empty map */
+  }
+  return out;
+}
+
+/**
+ * Daily technical levels for the Smart Digest "Levels to Watch" zones, keyed
+ * by UPPER(symbol). Sourced from the latest indicator row (≤ 7 days old) of
+ * `analysis_indicators_{stock,crypto}_pro`: classic daily pivots, Fibonacci
+ * retracements of the 50-day swing, and ATR for zone widths.
+ */
+export interface TechLevels {
+  pivot?: {
+    s1?: number;
+    s2?: number;
+    s3?: number;
+    r1?: number;
+    r2?: number;
+    r3?: number;
+  };
+  /** Interior fib retracement prices (0.236 … 0.786), unvalidated. */
+  fibLevels?: number[];
+  /** Average true range in absolute price units. */
+  atr?: number;
+  /** ISO timestamp of the indicator row the levels came from. */
+  asOf?: string;
+}
+
+interface TechLevelsRow {
+  ticker_symbol: string;
+  pivot_levels: Record<string, unknown> | null;
+  fibonacci_levels: { levels?: Record<string, unknown> } | null;
+  atr: string | null;
+  indicator_time: Date | string;
+}
+
+/** Fib retracements rendered as zone anchors; 0.0/1.0 duplicate the swing. */
+const FIB_INTERIOR_KEYS = ["0.236", "0.382", "0.5", "0.618", "0.786"] as const;
+
+function jsonNum(v: unknown): number | undefined {
+  const n = typeof v === "string" ? parseFloat(v) : typeof v === "number" ? v : NaN;
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * Fetch pivots / fib levels / ATR per symbol. Resilient by design: any DB
+ * error degrades to an empty map and the card falls back to the statistical
+ * 25% zones. Rows carrying only analyst data (stock pro table mixes both)
+ * are excluded via the `pivot_levels IS NOT NULL …` predicate.
+ */
+export async function fetchTechLevels(
+  db: Pool,
+  assetType: "stock" | "crypto",
+  symbolFilter?: string,
+): Promise<Map<string, TechLevels>> {
+  const out = new Map<string, TechLevels>();
+  try {
+    const isStock = assetType === "stock";
+    const table = isStock
+      ? "analysis_indicators_stock_pro"
+      : "analysis_indicators_crypto_pro";
+    const tickerTable = isStock ? "stock_tickers" : "crypto_tickers";
+    const fk = isStock ? "stock_ticker_id" : "crypto_ticker_id";
+
+    const params: unknown[] = [];
+    let symbolClause = "";
+    if (symbolFilter) {
+      symbolClause = " AND UPPER(t.symbol) = UPPER($1)";
+      params.push(symbolFilter);
+    }
+
+    const { rows } = await db.query<TechLevelsRow>(
+      `SELECT DISTINCT ON (t.symbol)
+              t.symbol AS ticker_symbol,
+              p.pivot_levels,
+              p.fibonacci_levels,
+              p.atr::text AS atr,
+              p.indicator_time
+       FROM ${table} p
+       JOIN ${tickerTable} t ON t.id = p.${fk}
+       WHERE (p.pivot_levels IS NOT NULL
+              OR p.fibonacci_levels IS NOT NULL
+              OR p.atr IS NOT NULL)
+         AND p.indicator_time >= NOW() - INTERVAL '7 days'${symbolClause}
+       ORDER BY t.symbol, p.indicator_time DESC`,
+      params,
+    );
+
+    for (const r of rows) {
+      const levels: TechLevels = {};
+
+      if (r.pivot_levels && typeof r.pivot_levels === "object") {
+        const p = r.pivot_levels;
+        const pivot: NonNullable<TechLevels["pivot"]> = {};
+        for (const key of ["s1", "s2", "s3", "r1", "r2", "r3"] as const) {
+          const n = jsonNum(p[key]);
+          if (n !== undefined) pivot[key] = n;
+        }
+        if (Object.keys(pivot).length > 0) levels.pivot = pivot;
+      }
+
+      const fibMap = r.fibonacci_levels?.levels;
+      if (fibMap && typeof fibMap === "object") {
+        const fibs = FIB_INTERIOR_KEYS.map((k) => jsonNum(fibMap[k])).filter(
+          (n): n is number => n !== undefined,
+        );
+        if (fibs.length > 0) levels.fibLevels = fibs;
+      }
+
+      const atr = r.atr != null ? parseFloat(r.atr) : NaN;
+      if (Number.isFinite(atr) && atr > 0) levels.atr = atr;
+
+      if (levels.pivot || levels.fibLevels || levels.atr !== undefined) {
+        levels.asOf =
+          r.indicator_time instanceof Date
+            ? r.indicator_time.toISOString()
+            : String(r.indicator_time);
+        out.set(r.ticker_symbol.toUpperCase(), levels);
+      }
+    }
+  } catch {
+    /* non-critical: missing pro table degrades to the 25% zone fallback */
+  }
+  return out;
+}
+
 async function fetchCandlesticks(
   db: Pool,
   assetType: "stock" | "crypto",
@@ -1432,8 +1613,10 @@ export interface DetectSignalsResult {
   analysisDateMap: Map<string, string>;
   /** Per-stock Wall Street analyst Buy/Hold/Sell mix (stocks only). */
   analystMixMap: Map<string, AnalystMix>;
-  /** Per-stock logo / company name / 52-week range (stocks only). */
+  /** Per-symbol logo / company name / 52-week range. */
   cardExtrasMap: Map<string, StockCardExtras>;
+  /** Per-symbol daily pivots / fib levels / ATR for the levels-bar zones. */
+  techLevelsMap: Map<string, TechLevels>;
   /**
    * Per-symbol technical contexts built from price targets / indicators /
    * candles. Exposed for preview/inspection tooling that wants to render a
@@ -1466,7 +1649,7 @@ export async function detectSignals(
   db: Pool,
   assetType: "stock" | "crypto",
 ): Promise<DetectSignalsResult> {
-  const [targets, indicators, candles, macroContext, analystMixMap, cardExtrasMap] = await Promise.all([
+  const [targets, indicators, candles, macroContext, analystMixMap, cardExtrasMap, techLevelsMap] = await Promise.all([
     fetchPriceTargets(db, assetType),
     fetchIndicators(db, assetType),
     fetchCandlesticks(db, assetType),
@@ -1476,7 +1659,8 @@ export async function detectSignals(
       : Promise.resolve(new Map<string, AnalystMix>()),
     assetType === "stock"
       ? fetchStockCardExtras(db)
-      : Promise.resolve(new Map<string, StockCardExtras>()),
+      : fetchCryptoCardExtras(db),
+    fetchTechLevels(db, assetType),
   ]);
 
   let newsRows: NewsSentimentRow[] = [];
@@ -1531,6 +1715,7 @@ export async function detectSignals(
     analysisDateMap,
     analystMixMap,
     cardExtrasMap,
+    techLevelsMap,
     contexts,
   };
 }
@@ -1540,7 +1725,7 @@ export async function detectSignalsForTicker(
   symbol: string,
   assetType: "stock" | "crypto",
 ): Promise<DetectSignalsResult> {
-  const [targets, indicators, candles, macroContext, analystMixMap, cardExtrasMap] = await Promise.all([
+  const [targets, indicators, candles, macroContext, analystMixMap, cardExtrasMap, techLevelsMap] = await Promise.all([
     fetchPriceTargets(db, assetType, symbol),
     fetchIndicators(db, assetType, symbol),
     fetchCandlesticks(db, assetType, symbol),
@@ -1550,7 +1735,8 @@ export async function detectSignalsForTicker(
       : Promise.resolve(new Map<string, AnalystMix>()),
     assetType === "stock"
       ? fetchStockCardExtras(db, symbol)
-      : Promise.resolve(new Map<string, StockCardExtras>()),
+      : fetchCryptoCardExtras(db, symbol),
+    fetchTechLevels(db, assetType, symbol),
   ]);
 
   let newsRows: NewsSentimentRow[] = [];
@@ -1605,6 +1791,7 @@ export async function detectSignalsForTicker(
     analysisDateMap,
     analystMixMap,
     cardExtrasMap,
+    techLevelsMap,
     contexts,
   };
 }

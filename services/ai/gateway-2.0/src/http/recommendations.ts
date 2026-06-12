@@ -286,6 +286,7 @@ export function registerRecommendationRoutes(
           analysisDateMap,
           analystMixMap,
           cardExtrasMap,
+          techLevelsMap,
         } = await detectSignalsForTicker(db, symbol, assetType);
 
         if (signals.length === 0) {
@@ -307,6 +308,7 @@ export function registerRecommendationRoutes(
           analysisDateMap,
           analystMixMap,
           cardExtrasMap,
+          techLevelsMap,
           mode: briefMode,
         });
         const primary = signals[0]!;

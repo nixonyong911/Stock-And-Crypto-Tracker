@@ -868,6 +868,7 @@ describe("buildDigestDebugReport — composed envelope", () => {
         analysisDateMap: new Map(),
         analystMixMap: new Map(),
         cardExtrasMap: new Map(),
+        techLevelsMap: new Map(),
         ...overrides,
       });
     return detectSpy;
@@ -1107,6 +1108,7 @@ describe("digest-debug — affinity surface", () => {
       analysisDateMap: new Map(),
       analystMixMap: new Map(),
       cardExtrasMap: new Map(),
+        techLevelsMap: new Map(),
     });
   }
   function makeDebugDeps(rows: unknown[]) {

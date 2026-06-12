@@ -24,6 +24,7 @@ import {
   type TickerMemoryText,
   type AnalystMix,
   type StockCardExtras,
+  type TechLevels,
 } from "./recommendation-engine.js";
 import { generateDigestBrief } from "./digest-brief-generator.js";
 import type { BriefMode } from "./digest-brief-truth.js";
@@ -82,6 +83,7 @@ export async function processRecommendations(
       analysisDateMap,
       analystMixMap,
       cardExtrasMap,
+      techLevelsMap,
     } = await detectSignals(db, type);
     if (signals.length === 0) continue;
 
@@ -112,6 +114,7 @@ export async function processRecommendations(
       analysisDateMap,
       analystMixMap,
       cardExtrasMap,
+      techLevelsMap,
     });
 
     for (const [symbol, tickerSignals] of bySymbol) {
@@ -127,6 +130,7 @@ export async function processRecommendations(
         artifactRefs?.get(symbol) ?? null,
         analystMixMap,
         cardExtrasMap,
+        techLevelsMap,
       );
       totalSent += sent;
     }
@@ -187,6 +191,7 @@ async function persistCanonicalArtifacts(
     analysisDateMap?: Map<string, string>;
     analystMixMap?: Map<string, AnalystMix>;
     cardExtrasMap?: Map<string, StockCardExtras>;
+    techLevelsMap?: Map<string, TechLevels>;
   },
 ): Promise<Map<string, ArtifactRef>> {
   const { log } = deps;
@@ -247,6 +252,7 @@ async function fanOutToWatchers(
   artifactRef: ArtifactRef | null = null,
   analystMixMap?: Map<string, AnalystMix>,
   cardExtrasMap?: Map<string, StockCardExtras>,
+  techLevelsMap?: Map<string, TechLevels>,
 ): Promise<number> {
   const { db, redis, extensions, log } = deps;
 
@@ -262,6 +268,7 @@ async function fanOutToWatchers(
     analysisDateMap,
     analystMixMap,
     cardExtrasMap,
+    techLevelsMap,
     mode: deps.briefMode ?? "strict",
   });
 

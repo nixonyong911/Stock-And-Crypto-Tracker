@@ -29,6 +29,7 @@ import type {
   TickerMemoryText,
   AnalystMix,
   StockCardExtras,
+  TechLevels,
 } from "./recommendation-engine.js";
 import type { BriefMode } from "./digest-brief-truth.js";
 
@@ -45,6 +46,7 @@ export interface DigestOrchestrationContext {
   analysisDateMap?: Map<string, string>;
   analystMixMap?: Map<string, AnalystMix>;
   cardExtrasMap?: Map<string, StockCardExtras>;
+  techLevelsMap?: Map<string, TechLevels>;
 }
 
 export async function orchestrateDigestArtifact(
@@ -134,6 +136,7 @@ export async function orchestrateDigestArtifact(
           analysisDateMap: context.analysisDateMap,
           analystMixMap: context.analystMixMap,
           cardExtrasMap: context.cardExtrasMap,
+          techLevelsMap: context.techLevelsMap,
           mode: briefMode,
         }),
       ),

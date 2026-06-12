@@ -1116,6 +1116,8 @@ export async function buildDigestDebugReport(
     memoryTextMap,
     analysisDateMap,
     analystMixMap,
+    cardExtrasMap,
+    techLevelsMap,
   } = signalsResult;
 
   const ranking = rankCandidates(signals);
@@ -1162,6 +1164,8 @@ export async function buildDigestDebugReport(
     memoryTextMap,
     analysisDateMap,
     analystMixMap,
+    cardExtrasMap,
+    techLevelsMap,
     mode,
   });
 
@@ -1186,12 +1190,19 @@ export async function buildDigestDebugReport(
       aliasesForTruth.length > 0
         ? { symbolUpper, aliases: aliasesForTruth }
         : undefined;
+    const extrasForTruth = cardExtrasMap.get(symbolUpper);
     truth = gatherTruth({
       signal: primary,
       macroContext,
       memoryText: memoryForTruth,
       analysisDate,
       aliasContext: aliasContextForTruth,
+      range52w:
+        extrasForTruth &&
+        (extrasForTruth.week52High != null || extrasForTruth.week52Low != null)
+          ? { high: extrasForTruth.week52High, low: extrasForTruth.week52Low }
+          : undefined,
+      techLevels: techLevelsMap.get(symbolUpper),
     });
     derived = deriveSignals(truth);
   }

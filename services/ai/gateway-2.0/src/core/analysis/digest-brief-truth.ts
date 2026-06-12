@@ -115,6 +115,28 @@ export interface BriefTruth {
   };
 
   /**
+   * Daily technical levels from `analysis_indicators_{stock,crypto}_pro`
+   * (classic pivots, interior Fibonacci retracements, ATR). Validated
+   * against the same level/price band as `levels`. Anchors the
+   * "Levels to Watch" buy/sell zones; absence degrades to the
+   * statistical 25%-slice zones.
+   */
+  techLevels?: {
+    pivotS1?: number;
+    pivotS2?: number;
+    pivotS3?: number;
+    pivotR1?: number;
+    pivotR2?: number;
+    pivotR3?: number;
+    /** Interior fib retracement prices (0.236 … 0.786), band-validated. */
+    fibLevels?: number[];
+    /** ATR in absolute price units; rejected when ≥ 50% of price. */
+    atr?: number;
+    /** ISO timestamp of the indicator row the levels came from. */
+    asOf?: string;
+  };
+
+  /**
    * Facts that describe what the dominant signal means. Drawn directly
    * from `TickerSignal.rawData`, which the engine populated from DB rows.
    * No invented values.
@@ -674,9 +696,32 @@ export interface GatherTruthArgs {
    * not plumbing aliases) get floor-only surfacing semantics.
    */
   aliasContext?: BriefTruth["aliasContext"];
-  /** 52-week high/low (stocks only) from `analysis_stock_fundamentals`. */
+  /** 52-week high/low from `analysis_stock_fundamentals` / `analysis_crypto_range_52w`. */
   range52w?: { high?: number; low?: number };
+  /** Daily pivots / fib levels / ATR from `fetchTechLevels` (unvalidated). */
+  techLevels?: TechLevelsInput;
 }
+
+/**
+ * Shape of the raw tech-levels input (mirrors `TechLevels` from the
+ * engine without importing it — the truth layer stays dependency-light).
+ */
+export interface TechLevelsInput {
+  pivot?: {
+    s1?: number;
+    s2?: number;
+    s3?: number;
+    r1?: number;
+    r2?: number;
+    r3?: number;
+  };
+  fibLevels?: number[];
+  atr?: number;
+  asOf?: string;
+}
+
+/** ATR sanity ceiling as a fraction of price — anything ≥ 50% is garbage. */
+const MAX_ATR_PRICE_FRAC = 0.5;
 
 /**
  * Map raw engine outputs onto a strictly DB-grounded `BriefTruth`.
@@ -757,6 +802,58 @@ export function gatherTruth(args: GatherTruthArgs): BriefTruth {
     truth.range52w = {};
     if (isFinitePositive(range52wHigh)) truth.range52w.high = range52wHigh;
     if (isFinitePositive(range52wLow)) truth.range52w.low = range52wLow;
+  }
+
+  // Tech levels (pivots / fibs / ATR) pass the same level/price band as
+  // `levels`; out-of-band values are dropped and flagged, never rendered.
+  if (args.techLevels) {
+    const tl = args.techLevels;
+    const out: NonNullable<BriefTruth["techLevels"]> = {};
+
+    const acceptLevel = (name: string, raw: number | undefined): number | undefined => {
+      if (!isFinitePositive(raw)) return undefined;
+      if (truth.price != null && !levelInPriceBand(raw, truth.price)) {
+        pushFlag(flags, `tech_level_out_of_band:${name}`);
+        return undefined;
+      }
+      return raw;
+    };
+
+    out.pivotS1 = acceptLevel("pivotS1", tl.pivot?.s1);
+    out.pivotS2 = acceptLevel("pivotS2", tl.pivot?.s2);
+    out.pivotS3 = acceptLevel("pivotS3", tl.pivot?.s3);
+    out.pivotR1 = acceptLevel("pivotR1", tl.pivot?.r1);
+    out.pivotR2 = acceptLevel("pivotR2", tl.pivot?.r2);
+    out.pivotR3 = acceptLevel("pivotR3", tl.pivot?.r3);
+
+    if (tl.fibLevels && tl.fibLevels.length > 0) {
+      const fibs = tl.fibLevels
+        .map((f) => acceptLevel("fib", f))
+        .filter((f): f is number => f !== undefined);
+      if (fibs.length > 0) out.fibLevels = fibs;
+    }
+
+    if (isFinitePositive(tl.atr)) {
+      if (truth.price != null && tl.atr >= MAX_ATR_PRICE_FRAC * truth.price) {
+        pushFlag(flags, "tech_level_out_of_band:atr");
+      } else {
+        out.atr = tl.atr;
+      }
+    }
+
+    const hasAny =
+      out.pivotS1 != null ||
+      out.pivotS2 != null ||
+      out.pivotS3 != null ||
+      out.pivotR1 != null ||
+      out.pivotR2 != null ||
+      out.pivotR3 != null ||
+      out.fibLevels != null ||
+      out.atr != null;
+    if (hasAny) {
+      if (tl.asOf) out.asOf = tl.asOf;
+      truth.techLevels = out;
+    }
   }
 
   if (typeof d.macdHistogram === "number" && Number.isFinite(d.macdHistogram)) {
