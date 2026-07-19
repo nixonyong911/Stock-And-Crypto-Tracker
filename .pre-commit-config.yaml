@@ -1,0 +1,8 @@
+# Pre-commit hooks. Install once with:
+#   pip install pre-commit && pre-commit install
+# Secrets are managed in Infisical; this blocks accidental commits of secrets.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks

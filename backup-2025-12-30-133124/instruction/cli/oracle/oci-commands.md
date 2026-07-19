@@ -24,12 +24,12 @@ $sshKey = Get-Content "$env:USERPROFILE\.ssh\id_rsa.pub"
 
 # Launch instance
 oci compute instance launch `
-  --availability-domain "ZtqO:AP-SINGAPORE-1-AD-1" `
-  --compartment-id "ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq" `
+  --availability-domain "$env:OCI_AVAILABILITY_DOMAIN" `
+  --compartment-id "$env:OCI_COMPARTMENT_OCID" `
   --shape "VM.Standard.A1.Flex" `
   --shape-config file://$env:TEMP/shape-config.json `
-  --image-id "ocid1.image.oc1.ap-singapore-1.aaaaaaaamhhpqoyiobauojy3m2huj6tusesizrggbpek2wo4tksiwwv43ihq" `
-  --subnet-id "ocid1.subnet.oc1.ap-singapore-1.aaaaaaaaxu4zjelejutodjy2h56zkjt3xkoq46amnz4josoevlr53te2mw6a" `
+  --image-id "$env:OCI_IMAGE_OCID_ARM" `
+  --subnet-id "$env:OCI_SUBNET_OCID" `
   --assign-public-ip true `
   --display-name "stocktracker-worker" `
   --metadata file://$env:TEMP/metadata.json
@@ -39,11 +39,11 @@ oci compute instance launch `
 
 ```powershell
 oci compute instance launch `
-  --availability-domain "ZtqO:AP-SINGAPORE-1-AD-1" `
-  --compartment-id "ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq" `
+  --availability-domain "$env:OCI_AVAILABILITY_DOMAIN" `
+  --compartment-id "$env:OCI_COMPARTMENT_OCID" `
   --shape "VM.Standard.E2.1.Micro" `
-  --image-id "ocid1.image.oc1.ap-singapore-1.aaaaaaaaaor2ppotfqkory4rhl25opnzpgqjhgzeovebmegnkedm6fhbl7ka" `
-  --subnet-id "ocid1.subnet.oc1.ap-singapore-1.aaaaaaaaxu4zjelejutodjy2h56zkjt3xkoq46amnz4josoevlr53te2mw6a" `
+  --image-id "$env:OCI_IMAGE_OCID_AMD" `
+  --subnet-id "$env:OCI_SUBNET_OCID" `
   --assign-public-ip true `
   --display-name "stocktracker-worker" `
   --metadata file://$env:TEMP/metadata.json
@@ -76,14 +76,16 @@ oci iam availability-domain list --output table
 
 ## Oracle Resource IDs (Singapore Region)
 
-| Resource | OCID |
-|----------|------|
-| Tenancy | `ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq` |
-| User | `ocid1.user.oc1..aaaaaaaapjlo6oepcu4ssgo2tbctgmlzwpn6r2rdtoisjp7zbrie5fffxa2q` |
-| VCN | `ocid1.vcn.oc1.ap-singapore-1.amaaaaaaon7blmaaqcfngttgglgutct7upw3dhnao644nvtfabl2t6qmqjkq` |
-| Subnet | `ocid1.subnet.oc1.ap-singapore-1.aaaaaaaaxu4zjelejutodjy2h56zkjt3xkoq46amnz4josoevlr53te2mw6a` |
-| Ubuntu ARM Image | `ocid1.image.oc1.ap-singapore-1.aaaaaaaamhhpqoyiobauojy3m2huj6tusesizrggbpek2wo4tksiwwv43ihq` |
-| Ubuntu AMD Image | `ocid1.image.oc1.ap-singapore-1.aaaaaaaaaor2ppotfqkory4rhl25opnzpgqjhgzeovebmegnkedm6fhbl7ka` |
+Values stored in Infisical (`infisical secrets --env=prod --plain | grep OCI_`).
+
+| Resource | Infisical Key |
+|----------|---------------|
+| Tenancy | `OCI_TENANCY_OCID` |
+| User | `OCI_USER_OCID` (not in repo; store in Infisical) |
+| VCN | `OCI_VCN_OCID` |
+| Subnet | `OCI_SUBNET_OCID` |
+| Ubuntu ARM Image | `OCI_IMAGE_OCID_ARM` |
+| Ubuntu AMD Image | `OCI_IMAGE_OCID_AMD` |
 
 
 

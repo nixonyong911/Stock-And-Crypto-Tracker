@@ -174,8 +174,8 @@ back-office:
 - Supabase queries returning nothing
 
 **Root Cause:**
-- Key in Infisical was truncated: `sb_publishable_eMatxu1A36`
-- Full key needed: `sb_publishable_eMatxu1A36-SalPZdlKWuw_dUQyk6sA`
+- Key in Infisical was truncated (partial key stored)
+- Full key needed: `sb_publishable_***REDACTED***` (see Infisical `DATABASE_ANON_KEY`)
 
 **Resolution:**
 - Updated Infisical with full publishable key

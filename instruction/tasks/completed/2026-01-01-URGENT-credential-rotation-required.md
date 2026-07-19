@@ -16,14 +16,18 @@ Real production credentials were found committed in `.env.example` file. This fi
 
 The following credentials were found in `.env.example` and have been replaced with placeholders:
 
+> NOTE: The actual values below have been REDACTED from this file. They remain
+> in Infisical (`SUPABASE_PROJECT_REF`, `SUPABASE_MIRROR_URL`) and, until history
+> is purged, in git history. Treat them as compromised and rotate.
+
 ### 1. Supabase Credentials
-- **Supabase Project URL**: `https://dseyuaoarfrkihzujutz.supabase.co`
-- **Publishable Key**: `sb_publishable_eMatxu1A36-SalPZdlKWuw_dUQyk6sA`
-- **Secret Key**: `sb_secret_px4Q7JkbbsUD401134GjHw_Bwbxwc8z`
+- **Supabase Project URL**: `https://<SUPABASE_PROJECT_REF>.supabase.co`
+- **Publishable Key**: `sb_publishable_***REDACTED***`
+- **Secret Key**: `sb_secret_***REDACTED***`
 
 ### 2. Database Password
-- **Password**: `GXy8wRx-*3QBvdp`
-- **Host**: `db.dseyuaoarfrkihzujutz.supabase.co`
+- **Password**: `***REDACTED***`
+- **Host**: `db.<SUPABASE_PROJECT_REF>.supabase.co`
 - **Pooler**: `aws-1-us-east-2.pooler.supabase.com`
 
 ---
@@ -32,7 +36,7 @@ The following credentials were found in `.env.example` and have been replaced wi
 
 ### Step 1: Rotate Supabase Credentials
 
-1. **Go to Supabase Dashboard**: https://app.supabase.com/project/dseyuaoarfrkihzujutz/settings/api
+1. **Go to Supabase Dashboard**: https://app.supabase.com/project/<SUPABASE_PROJECT_REF>/settings/api
 
 2. **Regenerate Service Role Key**:
    - Navigate to: Settings → API → Service role
@@ -52,8 +56,8 @@ The following credentials were found in `.env.example` and have been replaced wi
 2. **Update the following secrets** in the `prod` environment:
    ```
    SUPABASE_SECRET_DEFAULT_KEY=<new-service-role-key>
-   DATABASE_URL=postgresql://postgres:<new-password>@db.dseyuaoarfrkihzujutz.supabase.co:5432/postgres
-   DATABASE_CONNECTION_STRING=User Id=postgres.dseyuaoarfrkihzujutz;Password=<new-password>;Server=aws-1-us-east-2.pooler.supabase.com;Port=6543;Database=postgres
+   DATABASE_URL=postgresql://postgres:<new-password>@db.<project-ref>.supabase.co:5432/postgres
+   DATABASE_CONNECTION_STRING=User Id=postgres.<project-ref>;Password=<new-password>;Server=aws-1-us-east-2.pooler.supabase.com;Port=6543;Database=postgres
    ```
 
 ### Step 3: Update GitHub Secrets
@@ -131,11 +135,11 @@ Test that all services are working with new credentials:
 Check if `.env.example` with real secrets was pushed to remote:
 
 ```bash
-# Search git history for the exposed password
-git log -p --all -S 'GXy8wRx-*3QBvdp'
+# Search git history for the exposed password (value redacted; use your own copy)
+git log -p --all -S '<exposed-db-password>'
 
 # Search for Supabase secret key
-git log -p --all -S 'sb_secret_px4Q7JkbbsUD401134GjHw'
+git log -p --all -S 'sb_secret_<redacted>'
 ```
 
 **If found in git history**:

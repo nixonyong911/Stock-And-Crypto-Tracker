@@ -59,6 +59,8 @@ yarn-error.log*
 # ===========================================
 .idea/
 .vscode/
+# Cursor MCP config holds local tokens - never commit
+.cursor/mcp.json
 *.swp
 *.swo
 *~
@@ -92,3 +94,22 @@ logs/
 testing-folder/
 
 .env*.local
+
+# ===========================================
+# Python virtualenvs (never commit)
+# ===========================================
+.venv/
+venv/
+**/.venv/
+
+# ===========================================
+# Accidental artifacts
+# ===========================================
+# Windows absolute-path entries mistakenly added on WSL (e.g. "C:\Users\...")
+C:*
+[A-Z]:\\*
+# External Claude plugin marketplace (nested git repo, must not be committed)
+claude-plugins-official/
+**/claude-plugins-official/
+# Scratch/screenshot dirs
+tmp/

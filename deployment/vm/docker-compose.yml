@@ -398,7 +398,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     ports:
-      - "8085:8085"
+      # Loopback-only: n8n reaches this via the docker network (mcp-analysis:8085).
+      - "127.0.0.1:8085:8085"
     networks:
       - stocktracker
     depends_on:
@@ -432,7 +433,9 @@ services:
     mem_limit: 768m
     logging: *default-logging
     ports:
-      - "8083:8080"
+      # Loopback-only: public traffic is proxied through Caddy to gateway-2.0:8080
+      # over the docker network; host 8083 is for VM-local debugging only.
+      - "127.0.0.1:8083:8080"
     environment:
       - PORT=8080
       - AI_HUB_API_KEY=${AI_HUB_API_KEY}

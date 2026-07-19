@@ -1,0 +1,32 @@
+# Gitleaks configuration for Stock-And-Crypto-Tracker
+# Extends the built-in ruleset; secrets live in Infisical, never in the repo.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Templates, lock files, documented placeholders, and known-public values"
+paths = [
+  '''\.env\.example$''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)go\.sum$''',
+  '''(^|/)yarn\.lock$''',
+  # IndexNow key is public by design (served as a static file for verification).
+  '''(^|/)d41864d7353d4b0781f94fc09d9ba8c0\.txt$''',
+  '''(^|/)\.github/workflows/indexnow\.yml$''',
+  # False positive: rule matches a C# class name, not a token.
+  '''ExternalFinnhubIndicatorsDefinition\.cs$''',
+]
+regexTarget = "match"
+regexes = [
+  # Redaction markers and format placeholders left intentionally in docs.
+  '''\*\*\*REDACTED\*\*\*''',
+  '''sb_(publishable|secret)_(xxx|\*\*\*|<)''',
+  '''your-(password|api-key|service-role-jwt|anon-jwt)''',
+  # Documented placeholder Grafana tokens in credentials docs.
+  '''gl[sc]_abcd1234efgh5678ijkl9012mnop3456''',
+  # IndexNow key (public verification key, not a secret).
+  '''d41864d7353d4b0781f94fc09d9ba8c0''',
+  # Shell/env variable references are placeholders, not literal secrets.
+  '''\$\{?[A-Z][A-Z0-9_]*\}?''',
+]

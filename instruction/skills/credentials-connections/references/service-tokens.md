@@ -78,26 +78,28 @@ grafanactl resources list
 
 ### Resource IDs (Singapore Region)
 
-| Resource                | OCID                                                                                           |
-| ----------------------- | ---------------------------------------------------------------------------------------------- |
-| **Tenancy**             | `ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq`              |
-| **VCN**                 | `ocid1.vcn.oc1.ap-singapore-1.amaaaaaaon7blmaaqcfngttgglgutct7upw3dhnao644nvtfabl2t6qmqjkq`    |
-| **Subnet**              | `ocid1.subnet.oc1.ap-singapore-1.aaaaaaaaxu4zjelejutodjy2h56zkjt3xkoq46amnz4josoevlr53te2mw6a` |
-| **Compartment**         | `ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq`              |
-| **Availability Domain** | `ZtqO:AP-SINGAPORE-1-AD-1`                                                                     |
-| **Region**              | `ap-singapore-1`                                                                               |
+Values are stored in Infisical. Fetch with `infisical secrets --env=prod --plain | grep OCI_`.
+
+| Resource                | Infisical Key             |
+| ----------------------- | ------------------------- |
+| **Tenancy**             | `OCI_TENANCY_OCID`        |
+| **VCN**                 | `OCI_VCN_OCID`            |
+| **Subnet**              | `OCI_SUBNET_OCID`         |
+| **Compartment**         | `OCI_COMPARTMENT_OCID`    |
+| **Availability Domain** | `OCI_AVAILABILITY_DOMAIN` |
+| **Region**              | `OCI_REGION`              |
 
 ### Instance Templates
 
 **ARM Instance (Free Tier - 4 OCPU, 24GB)**:
 
 - Shape: `VM.Standard.A1.Flex`
-- Image ID: `ocid1.image.oc1.ap-singapore-1.aaaaaaaamhhpqoyiobauojy3m2huj6tusesizrggbpek2wo4tksiwwv43ihq`
+- Image ID: Infisical `OCI_IMAGE_OCID_ARM`
 
 **AMD Instance (Always Available - 1/8 OCPU, 1GB)**:
 
 - Shape: `VM.Standard.E2.1.Micro`
-- Image ID: `ocid1.image.oc1.ap-singapore-1.aaaaaaaaaor2ppotfqkory4rhl25opnzpgqjhgzeovebmegnkedm6fhbl7ka`
+- Image ID: Infisical `OCI_IMAGE_OCID_AMD`
 
 ### Setup OCI CLI (Windows)
 
@@ -117,7 +119,7 @@ oci iam region list --output table
 [DEFAULT]
 user=ocid1.user.oc1..your-user-ocid
 fingerprint=your-key-fingerprint
-tenancy=ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq
+tenancy=<OCI_TENANCY_OCID from Infisical>
 region=ap-singapore-1
 key_file=~/.oci/oci_api_key.pem
 ```

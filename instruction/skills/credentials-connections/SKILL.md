@@ -172,9 +172,9 @@ grafanactl config view
 - Location: `~/.oci/config` (all platforms)
 - API key: `~/.oci/oci_api_key.pem`
 
-**Resource IDs** (see [service-tokens.md](references/service-tokens.md) for complete list):
-- Tenancy: `ocid1.tenancy.oc1..aaaaaaaabmhnjpjmirrqwoecj64wsimmlksoramzhp36i3iyr2sysob4ueeq`
-- Region: `ap-singapore-1`
+**Resource IDs** (stored in Infisical, see [service-tokens.md](references/service-tokens.md)):
+- Tenancy: Infisical `OCI_TENANCY_OCID`
+- Region: Infisical `OCI_REGION` (`ap-singapore-1`)
 
 ---
 
